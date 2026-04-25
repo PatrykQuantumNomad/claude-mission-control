@@ -12,9 +12,11 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **FOUND-01**: Server starts on localhost:8765 with FastAPI app factory/builder pattern
 - [ ] **FOUND-02**: SQLite database initializes with WAL mode, write-serialized architecture, and all 15 tables via idempotent CREATE TABLE IF NOT EXISTS
 - [ ] **FOUND-03**: Idempotent migration helper (_migrate_add_column) supports schema evolution without data loss
-- [ ] **FOUND-04**: Pydantic v2 settings class validates all configuration from environment variables and .env file
+- [x] **FOUND-04
+**: Pydantic v2 settings class validates all configuration from environment variables and .env file
 - [ ] **FOUND-05**: Lifespan context manager initializes database, starts background tasks, and shuts down gracefully
-- [ ] **FOUND-06**: Pre-built React frontend served as static files from FastAPI with SPA catch-all routing
+- [x] **FOUND-06
+**: Pre-built React frontend served as static files from FastAPI with SPA catch-all routing
 
 ### Ingest
 
