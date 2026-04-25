@@ -189,3 +189,204 @@ def test_jsonl_parser_corrupted_line_skipped(golden_jsonl_session, tmp_path):
     assert len(parsed) == 2
     assert parsed[0] == {"a": 1}
     assert parsed[1] == {"b": 2}
+
+
+# ---- Plan 02-03: OTLP /v1/logs + /v1/metrics (INGST-07, INGST-08, INGST-09) ----
+
+import pytest
+from sqlalchemy import select
+
+
+@pytest.mark.asyncio
+async def test_otlp_logs_persists_records_and_returns_200(test_settings_with_static, otlp_log_payload):
+    """INGST-07 happy path: 2 log records => 200 + 2 rows in otel_events."""
+    from httpx import ASGITransport, AsyncClient
+    from cmc.app import create_app
+    from cmc.db.models.otel_events import OtelEvent
+
+    app = create_app(settings=test_settings_with_static)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        async with app.router.lifespan_context(app):
+            resp = await client.post("/v1/logs", json=otlp_log_payload)
+            assert resp.status_code == 200
+            assert resp.json() == {}
+            async with app.state.sessions() as s:
+                rows = (await s.execute(select(OtelEvent))).scalars().all()
+                assert len(rows) == 2
+                assert all(r.event_name == "claude_code.tool_result" for r in rows)
+                # ts parsed from timeUnixNano (not None)
+                assert all(r.ts is not None for r in rows)
+
+
+@pytest.mark.asyncio
+async def test_otlp_logs_returns_200_for_malformed_body(test_settings_with_static):
+    """INGST-07 + Pitfall 4: malformed JSON body returns 200 (NEVER 4xx)."""
+    from httpx import ASGITransport, AsyncClient
+    from cmc.app import create_app
+    from cmc.db.models.otel_events import OtelEvent
+
+    app = create_app(settings=test_settings_with_static)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        async with app.router.lifespan_context(app):
+            resp = await client.post(
+                "/v1/logs", content=b"not json",
+                headers={"Content-Type": "application/json"},
+            )
+            assert resp.status_code == 200
+            assert resp.json() == {}
+            async with app.state.sessions() as s:
+                rows = (await s.execute(select(OtelEvent))).scalars().all()
+                assert rows == []
+
+
+@pytest.mark.asyncio
+async def test_otlp_logs_per_record_skip_still_returns_200(test_settings_with_static):
+    """INGST-07: a record with garbage shape is skipped; sibling record commits; resp=200."""
+    from httpx import ASGITransport, AsyncClient
+    from cmc.app import create_app
+    from cmc.db.models.otel_events import OtelEvent
+
+    # One bad record (not a dict) + one good record. Bad one must be skipped, good one persisted.
+    payload = {
+        "resourceLogs": [{
+            "resource": {"attributes": []},
+            "scopeLogs": [{
+                "scope": {"name": "com.anthropic.claude_code.events"},
+                "logRecords": [
+                    "this-is-not-a-dict",   # must be skipped silently
+                    {
+                        "timeUnixNano": "1745601281385000000",
+                        "attributes": [
+                            {"key": "event.name", "value": {"stringValue": "claude_code.api_request"}},
+                            {"key": "session_id", "value": {"stringValue": "sess-skip"}},
+                        ],
+                    },
+                ],
+            }],
+        }],
+    }
+
+    app = create_app(settings=test_settings_with_static)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        async with app.router.lifespan_context(app):
+            resp = await client.post("/v1/logs", json=payload)
+            assert resp.status_code == 200
+            assert resp.json() == {}
+            async with app.state.sessions() as s:
+                rows = (await s.execute(select(OtelEvent))).scalars().all()
+                # The bad string record is skipped; the good one persists.
+                assert len(rows) == 1
+                assert rows[0].event_name == "claude_code.api_request"
+
+
+@pytest.mark.asyncio
+async def test_otlp_logs_extracts_mcp_attrs_via_tool_parameters(test_settings_with_static, otlp_log_payload):
+    """INGST-08 — tool_parameters JSON path (preferred over name-split)."""
+    from httpx import ASGITransport, AsyncClient
+    from cmc.app import create_app
+    from cmc.db.models.otel_events import OtelEvent
+
+    app = create_app(settings=test_settings_with_static)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        async with app.router.lifespan_context(app):
+            await client.post("/v1/logs", json=otlp_log_payload)
+            async with app.state.sessions() as s:
+                rows = (
+                    await s.execute(
+                        select(OtelEvent).where(OtelEvent.attrs_mcp_server.is_not(None))
+                    )
+                ).scalars().all()
+                assert len(rows) == 1
+                assert rows[0].attrs_mcp_server == "myserver"
+                assert rows[0].attrs_mcp_tool == "do_thing"
+
+
+@pytest.mark.asyncio
+async def test_otlp_logs_mcp_fallback_split_on_tool_name(test_settings_with_static):
+    """INGST-08 fallback — when tool_parameters is absent, split tool_name."""
+    from httpx import ASGITransport, AsyncClient
+    from cmc.app import create_app
+    from cmc.db.models.otel_events import OtelEvent
+
+    payload = {
+        "resourceLogs": [{
+            "resource": {"attributes": []},
+            "scopeLogs": [{
+                "scope": {"name": "com.anthropic.claude_code.events"},
+                "logRecords": [{
+                    "timeUnixNano": "1745601281385000000",
+                    "attributes": [
+                        {"key": "event.name", "value": {"stringValue": "claude_code.tool_result"}},
+                        {"key": "session_id", "value": {"stringValue": "sess-fallback"}},
+                        # tool_name is mcp__ but no tool_parameters
+                        {"key": "tool_name", "value": {"stringValue": "mcp__svc__do_thing"}},
+                    ],
+                }],
+            }],
+        }],
+    }
+
+    app = create_app(settings=test_settings_with_static)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        async with app.router.lifespan_context(app):
+            resp = await client.post("/v1/logs", json=payload)
+            assert resp.status_code == 200
+            async with app.state.sessions() as s:
+                rows = (await s.execute(select(OtelEvent))).scalars().all()
+                assert len(rows) == 1
+                assert rows[0].attrs_mcp_server == "svc"
+                assert rows[0].attrs_mcp_tool == "do_thing"
+
+
+@pytest.mark.asyncio
+async def test_otlp_metrics_persists_three_kinds(test_settings_with_static, otlp_metric_payload):
+    """INGST-09 — sum + gauge + histogram persist with correct kind/value."""
+    from httpx import ASGITransport, AsyncClient
+    from cmc.app import create_app
+    from cmc.db.models.otel_metrics import OtelMetric
+
+    app = create_app(settings=test_settings_with_static)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        async with app.router.lifespan_context(app):
+            resp = await client.post("/v1/metrics", json=otlp_metric_payload)
+            assert resp.status_code == 200
+            assert resp.json() == {}
+            async with app.state.sessions() as s:
+                rows = (await s.execute(select(OtelMetric))).scalars().all()
+                assert len(rows) == 3
+                by_name = {r.metric_name: r for r in rows}
+                # sum -> kind=counter, value from asInt parsed via int->float
+                assert by_name["claude_code.token.usage"].kind == "counter"
+                assert by_name["claude_code.token.usage"].value == 47855.0
+                assert by_name["claude_code.token.usage"].unit == "tokens"
+                # gauge -> kind=gauge, asInt parsed
+                assert by_name["claude_code.session.count"].kind == "gauge"
+                assert by_name["claude_code.session.count"].value == 3.0
+                # histogram -> kind=histogram, value is the sum
+                assert by_name["tool.duration"].kind == "histogram"
+                assert by_name["tool.duration"].value == 8542.3
+                assert by_name["tool.duration"].unit == "ms"
+
+
+@pytest.mark.asyncio
+async def test_otlp_logs_body_cap_returns_413(test_settings_with_static):
+    """INGST-07 body-cap: oversize Content-Length header returns 413 (the ONLY non-200)."""
+    from httpx import ASGITransport, AsyncClient
+    from cmc.app import create_app
+
+    app = create_app(settings=test_settings_with_static)
+    transport = ASGITransport(app=app)
+    oversize = test_settings_with_static.otlp_max_body_bytes + 1
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        async with app.router.lifespan_context(app):
+            resp = await client.post(
+                "/v1/logs", content=b"x",
+                headers={"Content-Length": str(oversize), "Content-Type": "application/json"},
+            )
+            assert resp.status_code == 413
