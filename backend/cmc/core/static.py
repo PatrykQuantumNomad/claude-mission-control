@@ -7,11 +7,21 @@ Direct navigation to `/activity` or refreshing on `/skills` returns 404. This su
 catches 404s on non-API paths and returns `index.html` so the SPA router can take over.
 
 Mount AFTER all `/api/*` routers — FastAPI matches in registration order.
+
+Notes (Pitfall 5 implementation details):
+1. starlette.staticfiles raises `starlette.exceptions.HTTPException` (NOT
+   `fastapi.HTTPException`). The latter is a subclass of the former, so we must
+   catch the parent class to actually intercept 404s from StaticFiles.
+2. `StaticFiles.directory` is stored as a `str`, not a `Path`. We wrap it with
+   `Path(...)` before joining to avoid `TypeError: unsupported operand type(s)
+   for /: 'str' and 'str'`.
 """
 from __future__ import annotations
 
-from fastapi import HTTPException
+from pathlib import Path
+
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException
 from starlette.responses import FileResponse
 
 
@@ -21,5 +31,5 @@ class SPAStaticFiles(StaticFiles):
             return await super().get_response(path, scope)
         except HTTPException as ex:
             if ex.status_code == 404:
-                return FileResponse(self.directory / "index.html")
+                return FileResponse(Path(self.directory) / "index.html")
             raise
