@@ -258,13 +258,159 @@ Requirements for initial release. Each maps to roadmap phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (populated during roadmap creation) | | |
+| FOUND-01 | Phase 1 | Pending |
+| FOUND-02 | Phase 1 | Pending |
+| FOUND-03 | Phase 1 | Pending |
+| FOUND-04 | Phase 1 | Pending |
+| FOUND-05 | Phase 1 | Pending |
+| FOUND-06 | Phase 1 | Pending |
+| INGST-01 | Phase 2 | Pending |
+| INGST-02 | Phase 2 | Pending |
+| INGST-03 | Phase 2 | Pending |
+| INGST-04 | Phase 2 | Pending |
+| INGST-05 | Phase 2 | Pending |
+| INGST-06 | Phase 2 | Pending |
+| INGST-07 | Phase 2 | Pending |
+| INGST-08 | Phase 2 | Pending |
+| INGST-09 | Phase 2 | Pending |
+| INGST-10 | Phase 2 | Pending |
+| SAPI-01 | Phase 3 | Pending |
+| SAPI-02 | Phase 3 | Pending |
+| SAPI-03 | Phase 3 | Pending |
+| SAPI-04 | Phase 3 | Pending |
+| SAPI-05 | Phase 3 | Pending |
+| SESS-01 | Phase 3 | Pending |
+| SESS-02 | Phase 3 | Pending |
+| SESS-03 | Phase 3 | Pending |
+| SESS-04 | Phase 3 | Pending |
+| SESS-05 | Phase 3 | Pending |
+| SESS-06 | Phase 3 | Pending |
+| SESS-07 | Phase 3 | Pending |
+| OBSV-01 | Phase 3 | Pending |
+| OBSV-02 | Phase 3 | Pending |
+| OBSV-03 | Phase 3 | Pending |
+| OBSV-04 | Phase 3 | Pending |
+| OBSV-05 | Phase 3 | Pending |
+| OBSV-06 | Phase 3 | Pending |
+| OBSV-07 | Phase 3 | Pending |
+| OBSV-08 | Phase 3 | Pending |
+| OBSV-09 | Phase 3 | Pending |
+| OBSV-10 | Phase 3 | Pending |
+| MCP-01 | Phase 3 | Pending |
+| MCP-02 | Phase 3 | Pending |
+| MCP-03 | Phase 3 | Pending |
+| MCP-04 | Phase 3 | Pending |
+| SKIL-01 | Phase 3 | Pending |
+| SKIL-02 | Phase 3 | Pending |
+| SKIL-03 | Phase 3 | Pending |
+| HITL-01 | Phase 4 | Pending |
+| HITL-02 | Phase 4 | Pending |
+| HITL-03 | Phase 4 | Pending |
+| HITL-04 | Phase 4 | Pending |
+| HITL-05 | Phase 4 | Pending |
+| HITL-06 | Phase 4 | Pending |
+| HITL-07 | Phase 4 | Pending |
+| TASK-01 | Phase 4 | Pending |
+| TASK-02 | Phase 4 | Pending |
+| TASK-03 | Phase 4 | Pending |
+| TASK-04 | Phase 4 | Pending |
+| TASK-05 | Phase 4 | Pending |
+| TASK-06 | Phase 4 | Pending |
+| TASK-07 | Phase 4 | Pending |
+| SCHD-01 | Phase 4 | Pending |
+| SCHD-02 | Phase 4 | Pending |
+| SCHD-03 | Phase 4 | Pending |
+| SCHD-04 | Phase 4 | Pending |
+| SCHD-05 | Phase 4 | Pending |
+| SCHD-06 | Phase 4 | Pending |
+| ESTOP-01 | Phase 4 | Pending |
+| ESTOP-02 | Phase 4 | Pending |
+| ESTOP-03 | Phase 4 | Pending |
+| ESTOP-04 | Phase 4 | Pending |
+| FESH-01 | Phase 5 | Pending |
+| FESH-02 | Phase 5 | Pending |
+| FESH-03 | Phase 5 | Pending |
+| FESH-04 | Phase 5 | Pending |
+| FESH-05 | Phase 5 | Pending |
+| FESH-06 | Phase 5 | Pending |
+| FESH-07 | Phase 5 | Pending |
+| FESH-08 | Phase 5 | Pending |
+| FESH-09 | Phase 5 | Pending |
+| FESH-10 | Phase 5 | Pending |
+| DESG-01 | Phase 5 | Pending |
+| DESG-02 | Phase 5 | Pending |
+| DESG-03 | Phase 5 | Pending |
+| DESG-04 | Phase 5 | Pending |
+| DESG-05 | Phase 5 | Pending |
+| DESG-06 | Phase 5 | Pending |
+| OPNL-01 | Phase 6 | Pending |
+| OPNL-02 | Phase 6 | Pending |
+| OPNL-03 | Phase 6 | Pending |
+| OPNL-04 | Phase 6 | Pending |
+| OPNL-05 | Phase 6 | Pending |
+| OPNL-06 | Phase 6 | Pending |
+| OPNL-07 | Phase 6 | Pending |
+| OPNL-08 | Phase 6 | Pending |
+| OPNL-09 | Phase 6 | Pending |
+| OPNL-10 | Phase 6 | Pending |
+| OPNL-11 | Phase 6 | Pending |
+| OPNL-12 | Phase 6 | Pending |
+| OPNL-13 | Phase 6 | Pending |
+| OPNL-14 | Phase 6 | Pending |
+| OPNL-15 | Phase 6 | Pending |
+| ACTV-01 | Phase 6 | Pending |
+| ACTV-02 | Phase 6 | Pending |
+| ACTV-03 | Phase 6 | Pending |
+| ACTV-04 | Phase 6 | Pending |
+| ACTV-05 | Phase 6 | Pending |
+| ACTV-06 | Phase 6 | Pending |
+| HPNL-01 | Phase 7 | Pending |
+| HPNL-02 | Phase 7 | Pending |
+| TPNL-01 | Phase 7 | Pending |
+| TPNL-02 | Phase 7 | Pending |
+| TPNL-03 | Phase 7 | Pending |
+| TPNL-04 | Phase 7 | Pending |
+| TPNL-05 | Phase 7 | Pending |
+| SKLP-01 | Phase 7 | Pending |
+| SKLP-02 | Phase 7 | Pending |
+| SKLP-03 | Phase 7 | Pending |
+| SKLP-04 | Phase 7 | Pending |
+| DISP-01 | Phase 8 | Pending |
+| DISP-02 | Phase 8 | Pending |
+| DISP-03 | Phase 8 | Pending |
+| DISP-04 | Phase 8 | Pending |
+| DISP-05 | Phase 8 | Pending |
+| DISP-06 | Phase 8 | Pending |
+| DISP-07 | Phase 8 | Pending |
+| DISP-08 | Phase 8 | Pending |
+| DISP-09 | Phase 8 | Pending |
+| DISP-10 | Phase 8 | Pending |
+| DISP-11 | Phase 8 | Pending |
+| DISP-12 | Phase 8 | Pending |
+| TELE-01 | Phase 9 | Pending |
+| TELE-02 | Phase 9 | Pending |
+| TELE-03 | Phase 9 | Pending |
+| TELE-04 | Phase 9 | Pending |
+| TELE-05 | Phase 9 | Pending |
+| TELE-06 | Phase 9 | Pending |
+| TELE-07 | Phase 9 | Pending |
+| SETUP-01 | Phase 9 | Pending |
+| SETUP-02 | Phase 9 | Pending |
+| SETUP-03 | Phase 9 | Pending |
+| SETUP-04 | Phase 9 | Pending |
+| SETUP-05 | Phase 9 | Pending |
+| SETUP-06 | Phase 9 | Pending |
+| SETUP-07 | Phase 9 | Pending |
+| TEST-01 | Phase 9 | Pending |
+| TEST-02 | Phase 9 | Pending |
+| TEST-03 | Phase 9 | Pending |
+| TEST-04 | Phase 9 | Pending |
 
 **Coverage:**
-- v1 requirements: 117 total
-- Mapped to phases: 0
-- Unmapped: 117
+- v1 requirements: 147 total
+- Mapped to phases: 147
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-25*
-*Last updated: 2026-04-25 after initial definition*
+*Last updated: 2026-04-25 after roadmap creation*
