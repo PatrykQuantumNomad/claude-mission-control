@@ -390,3 +390,50 @@ async def test_otlp_logs_body_cap_returns_413(test_settings_with_static):
                 headers={"Content-Length": str(oversize), "Content-Type": "application/json"},
             )
             assert resp.status_code == 413
+
+
+# ---- Plan 02-03 raw_routers wiring ----
+
+
+def test_raw_routers_function_exposed():
+    """Plan 02-03: cmc.api.routes.raw_routers() returns ≥1 router (the ingest router)."""
+    from cmc.api.routes import raw_routers
+    routers = raw_routers()
+    assert len(routers) >= 1
+
+
+def test_raw_routers_registers_otlp_paths_at_root(test_settings):
+    """Plan 02-03: /v1/logs and /v1/metrics are registered at root (no /api prefix)."""
+    from cmc.app import create_app
+    app = create_app(settings=test_settings)
+    paths = {getattr(r, "path", None) for r in app.routes}
+    assert "/v1/logs" in paths
+    assert "/v1/metrics" in paths
+    # MUST NOT be under /api/
+    assert "/api/v1/logs" not in paths
+    assert "/api/v1/metrics" not in paths
+
+
+@pytest.mark.asyncio
+async def test_otlp_get_returns_405_proves_router_mounted(test_settings, tmp_path):
+    """Plan 02-03: GET /v1/logs returns 405 (POST-only) — proves the router is
+    actually mounted (NOT 404, which would mean unregistered).
+
+    Disables the SPA mount via a non-existent static_dir, because when the SPA
+    mount IS active a GET to /v1/logs falls through the POST-only handler and
+    is served by the SPA's index.html fallback (200) — expected behavior in
+    production, but it masks the 405 we want to assert here.
+    """
+    from httpx import ASGITransport, AsyncClient
+    from cmc.app import create_app
+
+    settings = test_settings.model_copy(update={"static_dir": tmp_path / "no-spa"})
+    app = create_app(settings=settings)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        async with app.router.lifespan_context(app):
+            resp = await client.get("/v1/logs")
+            assert resp.status_code == 405, (
+                f"Expected 405 (Method Not Allowed) proving /v1/logs is mounted; "
+                f"got {resp.status_code} — would be 404 if router isn't registered."
+            )

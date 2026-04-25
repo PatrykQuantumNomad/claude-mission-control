@@ -412,23 +412,49 @@ def test_create_app_skips_mount_if_static_dir_missing(test_settings, tmp_path):
 
 def test_static_mount_after_routers(test_settings_with_static):
     """BLOCKER 2 + Pitfall 8 regression: SPA mount at "/" exists AND comes AFTER
-    `/api/health` in the route table. Replaces Plan 06's
-    `test_routers_registered_before_static_mount_slot`.
+    BOTH `/api/health` AND the OTLP routes (/v1/logs, /v1/metrics) in the route
+    table. Replaces Plan 06's `test_routers_registered_before_static_mount_slot`.
+
+    Plan 02-03 extension: after raw_routers() landed, OTLP routes mount at the
+    ROOT path (no /api prefix). They MUST still register before the SPA mount
+    or the static handler at "/" shadows them.
     """
     from cmc.app import create_app
     app = create_app(settings=test_settings_with_static)
     # Find positions in app.routes
     health_idx = None
+    otlp_logs_idx = None
+    otlp_metrics_idx = None
     spa_mount_idx = None
     for i, r in enumerate(app.routes):
-        if getattr(r, "path", None) == "/api/health":
+        path = getattr(r, "path", None)
+        if path == "/api/health":
             health_idx = i
+        elif path == "/v1/logs":
+            otlp_logs_idx = i
+        elif path == "/v1/metrics":
+            otlp_metrics_idx = i
         if _is_spa_mount(r):
             spa_mount_idx = i
     assert health_idx is not None, "Expected /api/health route to be registered"
+    assert otlp_logs_idx is not None, (
+        "Expected /v1/logs to be registered (Plan 02-03 raw_routers)"
+    )
+    assert otlp_metrics_idx is not None, (
+        "Expected /v1/metrics to be registered (Plan 02-03 raw_routers)"
+    )
     assert spa_mount_idx is not None, "Expected SPA Mount (name='spa') to be registered"
     assert health_idx < spa_mount_idx, (
         f"Pitfall 8 regression: /api/health (idx={health_idx}) must come BEFORE "
         f"the SPA mount (idx={spa_mount_idx}) — otherwise the static mount "
         "shadows /api/*."
+    )
+    assert otlp_logs_idx < spa_mount_idx, (
+        f"Pitfall 8 regression: /v1/logs (idx={otlp_logs_idx}) must come BEFORE "
+        f"the SPA mount (idx={spa_mount_idx}) — otherwise the static mount "
+        "shadows the OTLP receiver."
+    )
+    assert otlp_metrics_idx < spa_mount_idx, (
+        f"Pitfall 8 regression: /v1/metrics (idx={otlp_metrics_idx}) must come "
+        f"BEFORE the SPA mount (idx={spa_mount_idx})."
     )
