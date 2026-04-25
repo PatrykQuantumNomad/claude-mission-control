@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Completed 02-01-PLAN.md (Phase 2 foundation)
-last_updated: "2026-04-25T18:32:39.599Z"
+status: executing
+stopped_at: Completed 02-02-PLAN.md (JSONL parser library)
+last_updated: "2026-04-25T18:39:25.024Z"
 last_activity: 2026-04-25
 progress:
   total_phases: 9
   completed_phases: 1
   total_plans: 13
-  completed_plans: 8
-  percent: 62
+  completed_plans: 9
+  percent: 69
 ---
 
 # Project State
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 ## Current Position
 
 Phase: 2 of 9 IN PROGRESS (Data Ingestion) — Plan 02-01 (foundation) complete
-Plan: 1 of 6 complete in Phase 2 (02-01 ✅; next 02-02 JSONL parser)
-Status: Plan 02-01 complete; ready for Plan 02-02
+Plan: 2 of 6 complete in Phase 2 (02-01 ✅; next 02-02 JSONL parser)
+Status: Ready to execute
 Last activity: 2026-04-25
 
 Progress (Phase 2): [██░░░░░░░░] 17%
@@ -60,6 +60,7 @@ Progress (Phase 2): [██░░░░░░░░] 17%
 | Phase 01-foundation-database P06 | 4 min | 2 tasks | 7 files |
 | Phase 01-foundation-database P07 | ~50 min (incl. checkpoint wait) | 3 tasks | 5 files + dist rebuild |
 | Phase 02-data-ingestion P01 | 12 min | 2 tasks | 5 files |
+| Phase 02-data-ingestion P02 | 3 min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -92,6 +93,9 @@ Recent decisions affecting current work:
 - Plan 02-01: Phase 2 single-test-file convention — backend/tests/test_phase2_ingest.py (downstream plans 02-02..02-05 APPEND INGST-* sections)
 - Plan 02-01: 4 reusable conftest fixtures land for Phase 2 — fake_jsonl_dir, golden_jsonl_session, otlp_log_payload, otlp_metric_payload
 - Plan 02-01 auto-fix (Rule 3): alembic Config script_location was still cwd-relative after ini path absolutization; tests now mirror lifespan.py's `set_main_option("script_location", str(ini_path.parent / "migrations"))` pattern. Result: pytest 26/26 from BOTH backend/ and repo-root cwds.
+- Plan 02-02: cmc.ingest.jsonl_parser is the pure-sync entry contract for Plan 02-04 — scheduler MUST wrap in asyncio.to_thread(parse_session_file, path); _last_message_ts is the field the scheduler reads to decide ended_at
+- Plan 02-02: split_mcp(name) is the canonical mcp__server__tool splitter (maxsplit=2 preserves trailing __ in tool component); Plan 02-03 OTLP parser will import it for the INGST-08 fallback path
+- Plan 02-02: cmc/ingest/__init__.py kept empty (package marker only) so parallel plans 02-03..05 can land submodules without re-export churn
 
 ### Pending Todos
 
@@ -104,8 +108,8 @@ None — Phase 1 plans complete; verifier readiness confirmed via 25 passing tes
 
 ## Session Continuity
 
-Last session: 2026-04-25T18:32:39.591Z
-Stopped at: Completed 02-01-PLAN.md (Phase 2 foundation)
+Last session: 2026-04-25T18:39:25.017Z
+Stopped at: Completed 02-02-PLAN.md (JSONL parser library)
 Resume file: None
 
 Phase 1 final commit chain:
