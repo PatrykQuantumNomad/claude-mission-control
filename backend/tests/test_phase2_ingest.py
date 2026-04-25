@@ -951,3 +951,94 @@ async def test_periodic_sync_loop_survives_transient_errors(monkeypatch):
     assert call_count["n"] >= 3, (
         f"loop killed by single transient error — got {call_count['n']} cycles"
     )
+
+
+# ---- Plan 02-05: lifespan boot sync + periodic task (INGST-01) ----
+
+
+@pytest.mark.asyncio
+async def test_lifespan_runs_initial_sync_and_schedules_loop(
+    test_settings, fake_jsonl_dir, golden_jsonl_session,
+):
+    """INGST-01: lifespan boot runs sync_once AND creates a recurring task.
+
+    Asserts both halves of INGST-01:
+      1. Boot-time sync_once populated the sessions table from fake_jsonl_dir.
+      2. app.state.sync_task exists and is a non-cancelled asyncio.Task.
+
+    After exiting the lifespan context, the periodic task is cancelled cleanly.
+    """
+    from fastapi import FastAPI
+    from cmc.app.lifespan import lifespan
+    from cmc.db.models.sessions import Session as SessionModel
+
+    settings = test_settings.model_copy(update={"jsonl_root": fake_jsonl_dir})
+    app = FastAPI()
+    app.state.settings = settings
+    async with lifespan(app):
+        # Boot sync ran: 1 session row from golden_jsonl_session.
+        async with app.state.sessions() as db:
+            rows = (await db.execute(select(SessionModel))).scalars().all()
+            assert len(rows) == 1
+
+        # Periodic task is alive.
+        assert isinstance(app.state.sync_task, asyncio.Task)
+        assert not app.state.sync_task.done()
+
+    # After exit: task is cancelled cleanly (cancelled() OR done() — both indicate
+    # the task is no longer active and was awaited inside the lifespan finally block).
+    assert app.state.sync_task.done()
+    # No "Task was destroyed but it is pending" warnings would appear here because
+    # the lifespan awaited the cancelled task before yielding back.
+
+
+@pytest.mark.asyncio
+async def test_lifespan_boots_when_boot_sync_fails(
+    test_settings, fake_jsonl_dir, monkeypatch,
+):
+    """INGST-01 resilience: if boot-time sync_once raises, lifespan still yields
+    and starts the periodic loop. A transient FS error at boot must NOT prevent
+    the server from coming up — the loop will retry every 120s anyway.
+    """
+    from fastapi import FastAPI
+
+    async def _boom(*a, **kw):
+        raise RuntimeError("transient FS error")
+
+    # Patch BEFORE importing lifespan so the patched symbol is what lifespan sees.
+    monkeypatch.setattr("cmc.app.lifespan.sync_once", _boom)
+
+    from cmc.app.lifespan import lifespan
+    settings = test_settings.model_copy(update={"jsonl_root": fake_jsonl_dir})
+    app = FastAPI()
+    app.state.settings = settings
+    async with lifespan(app):
+        # Lifespan still yielded successfully despite boot sync raising.
+        assert isinstance(app.state.sync_task, asyncio.Task)
+        assert not app.state.sync_task.done()
+
+
+@pytest.mark.asyncio
+async def test_lifespan_boots_when_jsonl_root_missing(
+    test_settings, tmp_path,
+):
+    """Lifespan boots cleanly when jsonl_root points at a non-existent directory.
+
+    Already covered indirectly by Plan 02-04's "missing dir → log warning" path
+    in sync_once; this is a thin integration check that the lifespan doesn't
+    propagate the warning into a boot failure.
+    """
+    from fastapi import FastAPI
+    from cmc.app.lifespan import lifespan
+    from cmc.db.models.sessions import Session as SessionModel
+
+    nonexistent = tmp_path / "does-not-exist"
+    settings = test_settings.model_copy(update={"jsonl_root": nonexistent})
+    app = FastAPI()
+    app.state.settings = settings
+    async with lifespan(app):
+        # No sessions ingested (no jsonl_root) but server still booted.
+        async with app.state.sessions() as db:
+            rows = (await db.execute(select(SessionModel))).scalars().all()
+            assert rows == []
+        assert isinstance(app.state.sync_task, asyncio.Task)
