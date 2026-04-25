@@ -12,7 +12,7 @@ This roadmap builds a production-grade local dashboard and command centre for Cl
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation & Database** - FastAPI server, SQLite schema, settings, static file serving
+- [x] **Phase 1: Foundation & Database** - FastAPI server, SQLite schema, settings, static file serving
 - [ ] **Phase 2: Data Ingestion** - JSONL scraper, OTEL log/metric endpoints, manual sync
 - [ ] **Phase 3: Read-Only APIs** - System health, sessions, observability metrics, MCP, and skills endpoints
 - [ ] **Phase 4: Stateful APIs** - HITL decisions/inbox, tasks, schedules, emergency stop CRUD
@@ -150,7 +150,7 @@ Note: Phases 3, 4, and 5 can execute in parallel after Phase 2 (or Phase 1 for 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Database | 7/7 | In progress | - |
+| 1. Foundation & Database | 7/7 | Complete | 2026-04-25 |
 | 2. Data Ingestion | 0/TBD | Not started | - |
 | 3. Read-Only APIs | 0/TBD | Not started | - |
 | 4. Stateful APIs | 0/TBD | Not started | - |

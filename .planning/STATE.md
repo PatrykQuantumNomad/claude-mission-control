@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: phase-1-plans-complete-awaiting-verification
-stopped_at: Phase 1 (7/7 plans) complete; awaiting gsd-verifier to close phase
+status: phase-1-complete
+stopped_at: Phase 1 verified (status: passed); ready to plan Phase 2 (Data Ingestion)
 last_updated: "2026-04-25T13:35:00.000Z"
 last_activity: 2026-04-25
 progress:
   total_phases: 9
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 7
   completed_plans: 7
   percent: 100
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 
 ## Current Position
 
-Phase: 1 of 9 (Foundation & Database)
-Plan: 7 of 7 complete; Phase 1 ALL PLANS COMPLETE — awaiting gsd-verifier
-Status: Phase 1 plans complete; awaiting phase verification
-Last activity: 2026-04-25
+Phase: 1 of 9 COMPLETE (Foundation & Database) — verifier passed 4/4 must-haves
+Plan: 7 of 7 complete; Phase 1 closed
+Status: Ready to plan Phase 2 (Data Ingestion)
+Last activity: 2026-04-25 — gsd-verifier returned status: passed
 
 Progress (Phase 1): [██████████] 100%
 
@@ -89,8 +89,8 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- Phase 1: invoke gsd-verifier to formally close the phase before starting Phase 2 planning (orchestrator step).
 - Phase 2 onward: 10 `[NEEDS USER CONFIRMATION]` flags in `01-01-SCHEMA.md` should be resolved as relevant plans approach (or via future Alembic migrations once production-dashboard reality clarifies them).
+- Test cwd: 3 tests in test_phase1_boot.py reference relative paths (alembic.ini lines 150/178, 0001_initial.py line 194); they pass from backend/ but fail from repo root. Verifier flagged as a non-blocker test-helper bug — production code uses settings.alembic_ini_path which is always absolute. Worth cleaning up in an early Phase 2 plan or as a quick fix.
 
 ### Blockers/Concerns
 
@@ -98,9 +98,9 @@ None — Phase 1 plans complete; verifier readiness confirmed via 25 passing tes
 
 ## Session Continuity
 
-Last session: 2026-04-25T13:35:00.000Z
-Stopped at: Plan 01-07 closed; Phase 1 (7/7 plans) complete; awaiting gsd-verifier
-Resume file: (none — orchestrator should run phase verifier next)
+Last session: 2026-04-25
+Stopped at: Phase 1 verified (4/4 must-haves passed); ready to plan Phase 2 (Data Ingestion)
+Resume file: (none — next step is /gsd:plan-phase 2 in a fresh context)
 
 Phase 1 final commit chain:
 - 01-02: 17 files (FastAPI skeleton)
