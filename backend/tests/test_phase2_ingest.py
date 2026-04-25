@@ -448,9 +448,25 @@ async def _bootstrap_app(test_settings):
     """Helper: build a FastAPI app with lifespan-initialized engine + sessionmaker.
 
     Returns (app, lifespan_cm) — caller wraps `async with lifespan_cm:` to start.
+
+    Plan 02-05: the lifespan now runs a boot-time sync_once over `jsonl_root`.
+    To keep callers hermetic (they don't want their tests reading the real
+    `~/.claude/projects/`), this helper ALWAYS overrides jsonl_root to a
+    nonexistent path — sync_once will hit its "missing dir" early-return path
+    and the test starts with an empty DB. Tests that need real ingestion
+    should override jsonl_root explicitly via the dedicated fixtures
+    (e.g. settings_with_jsonl_root).
     """
     from fastapi import FastAPI
     from cmc.app.lifespan import lifespan
+
+    # Only override if the caller hasn't already pointed jsonl_root at a
+    # test-scoped path. Detect the default (`~/.claude/projects`) and replace
+    # it with a tmp-path-scoped nonexistent dir so sync_once early-returns.
+    if str(test_settings.jsonl_root).endswith(".claude/projects"):
+        test_settings = test_settings.model_copy(update={
+            "jsonl_root": test_settings.db_path.parent / "no-jsonl-here",
+        })
 
     app = FastAPI()
     app.state.settings = test_settings
@@ -843,23 +859,28 @@ async def test_sync_once_local_day_bucket_uses_system_tz(
     monkeypatch.setenv("TZ", "America/Los_Angeles")
     _time.tzset()
     try:
-        # Build a one-message session whose only assistant timestamp is
-        # 2026-04-25T04:00:00Z = 2026-04-24 21:00 PDT.
-        proj = fake_jsonl_dir / "tz-test"
-        proj.mkdir()
-        f = proj / "session-tz.jsonl"
-        f.write_text(json.dumps({
-            "type": "assistant", "uuid": "a1", "sessionId": "sess-tz",
-            "timestamp": "2026-04-25T04:00:00Z", "cwd": "/x",
-            "message": {
-                "role": "assistant", "model": "claude-opus-4-7",
-                "usage": {"input_tokens": 7, "output_tokens": 11},
-                "content": [{"type": "text", "text": "ok"}],
-            },
-        }) + "\n")
-
+        # Plan 02-05: lifespan now runs boot-time sync_once. Build the test
+        # file INSIDE the lifespan context (after boot sync ran on the empty
+        # dir) so the explicit sync_once below is the FIRST sync that sees it.
+        # Otherwise, boot sync would ingest it first and the explicit call
+        # would re-process it under Option B with different primary_day/model
+        # (depending on synced_at), causing bucket double-write.
         app, cm = await _bootstrap_app(settings_with_jsonl_root)
         async with cm:
+            # Build a one-message session whose only assistant timestamp is
+            # 2026-04-25T04:00:00Z = 2026-04-24 21:00 PDT.
+            proj = fake_jsonl_dir / "tz-test"
+            proj.mkdir()
+            f = proj / "session-tz.jsonl"
+            f.write_text(json.dumps({
+                "type": "assistant", "uuid": "a1", "sessionId": "sess-tz",
+                "timestamp": "2026-04-25T04:00:00Z", "cwd": "/x",
+                "message": {
+                    "role": "assistant", "model": "claude-opus-4-7",
+                    "usage": {"input_tokens": 7, "output_tokens": 11},
+                    "content": [{"type": "text", "text": "ok"}],
+                },
+            }) + "\n")
             await sync_once(app.state.sessions, app.state.settings)
             async with app.state.sessions() as db:
                 rows = (await db.execute(select(TokenUsage))).scalars().all()
