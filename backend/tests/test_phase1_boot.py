@@ -9,8 +9,10 @@ Plan 07 (smoke): FOUND-06 (SPA root + deep link + /api/health not shadowed)
 from __future__ import annotations
 
 import pytest
+from sqlalchemy import text
 
 from cmc.config import Settings, load_settings
+from cmc.db import create_engine_for_settings, make_sessionmaker
 
 
 # ---- FOUND-04: pydantic-settings ----
@@ -82,7 +84,58 @@ def test_settings_absolute_db_path_preserved(clean_env, monkeypatch, tmp_path):
     assert s.db_path == abs_db
 
 
-# Plan 04 will append tests for engine + pragmas here
+# ---- FOUND-02 (Plan 04): engine + pragmas ----
+
+
+@pytest.mark.asyncio
+async def test_engine_creation_and_disposal(test_settings):
+    """FOUND-02: Engine creates without error and disposes cleanly."""
+    engine = create_engine_for_settings(test_settings)
+    try:
+        assert engine is not None
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_wal_mode_active(test_settings):
+    """FOUND-02: PRAGMA journal_mode returns 'wal' after first connect."""
+    engine = create_engine_for_settings(test_settings)
+    try:
+        async with engine.connect() as conn:
+            result = await conn.execute(text("PRAGMA journal_mode"))
+            row = result.fetchone()
+            assert row[0].lower() == "wal"
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_foreign_keys_enabled(test_settings):
+    """FOUND-02: PRAGMA foreign_keys returns 1 (per Pitfall 1 — autocommit toggle works)."""
+    engine = create_engine_for_settings(test_settings)
+    try:
+        async with engine.connect() as conn:
+            result = await conn.execute(text("PRAGMA foreign_keys"))
+            row = result.fetchone()
+            assert row[0] == 1
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_sessionmaker_yields_working_session(test_settings):
+    """FOUND-02: sessionmaker produces sessions that can execute queries."""
+    engine = create_engine_for_settings(test_settings)
+    sm = make_sessionmaker(engine)
+    try:
+        async with sm() as session:
+            result = await session.execute(text("SELECT 1"))
+            assert result.scalar() == 1
+    finally:
+        await engine.dispose()
+
+
 # Plan 05 will append tests for the 15 tables + column-exists helper
 # Plan 06 will append tests for app factory + lifespan
 # Plan 07 will append tests for SPA root + deep link + /api/health
