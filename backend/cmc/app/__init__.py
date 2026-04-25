@@ -1,5 +1,4 @@
-"""cmc.app package.
+"""cmc.app package — FastAPI app factory + lifespan."""
+from cmc.app.factory import create_app
 
-Plan 06 Task 1: lifespan module.
-Plan 06 Task 2: factory.create_app re-exported here.
-"""
+__all__ = ["create_app"]
