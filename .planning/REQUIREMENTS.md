@@ -239,6 +239,8 @@ Requirements for initial release. Each maps to roadmap phases.
 - **AUTO-02**: Auto-retry failed tasks with exponential backoff
 - **AUTO-03**: Task dependencies (task B waits for task A to complete)
 
+*Note: Phase 1 (Foundation & Database) discussion locked SQLAlchemy 2.0 async + SQLModel + Alembic as the data-access stack (see .planning/phases/01-foundation-database/01-CONTEXT.md). The "CREATE TABLE IF NOT EXISTS" / "_migrate_add_column" wording in FOUND-02 and FOUND-03 is INTENT (idempotent, data-safe schema evolution); the implementation is Alembic.*
+
 ## Out of Scope
 
 | Feature | Reason |
@@ -251,7 +253,6 @@ Requirements for initial release. Each maps to roadmap phases.
 | Mobile app | Browser-only dashboard |
 | Voice interfaces / agent avatars | Dense data UI, not conversational |
 | Real-time WebSocket session streaming | SSE and polling sufficient |
-| ORM (SQLAlchemy models) | Raw SQL specified — simpler for read-heavy dashboard with known schema |
 | Multi-user support | Single-user tool by design |
 
 ## Traceability
