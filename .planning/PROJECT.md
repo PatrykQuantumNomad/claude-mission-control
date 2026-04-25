@@ -76,13 +76,13 @@ The user already runs a version of this dashboard daily. This is a from-scratch 
 - OTEL telemetry via `CLAUDE_CODE_ENABLE_TELEMETRY=1` pointed at the dashboard's `/v1/logs` and `/v1/metrics` endpoints
 
 **FastAPI chassis foundation:**
-The backend follows patterns from the user's `fastapi-chassis` repo: app factory with builder pattern, Pydantic v2 `BaseSettings` for configuration, lifespan context manager for resource lifecycle, readiness registry for health checks, structured logging with request context, and middleware stack ordering. Adapted for this project's needs (raw SQL instead of SQLAlchemy ORM, SQLite-only, no auth layer).
+The backend follows patterns from the user's `fastapi-chassis` repo: app factory with builder pattern, Pydantic v2 `BaseSettings` for configuration, lifespan context manager for resource lifecycle, readiness registry for health checks, structured logging with request context, and middleware stack ordering. Adapted for this project's needs (SQLAlchemy 2.0 async + SQLModel instead of the chassis's plain stack, SQLite-only, no auth layer).
 
 **Frontend is pre-built:**
 Vite builds to `ui/dist/` which FastAPI serves as static files. No SSR. React Query polls at 30s intervals (5s for decisions, 10s for inbox). TanStack Router provides file-based routing with three pages: Command (`/`), Activity (`/activity`), Skills (`/skills`).
 
-**Database uses raw SQL:**
-No ORM. All queries are raw SQL via Python's `sqlite3` or `aiosqlite`. Schema uses `CREATE TABLE IF NOT EXISTS` with an idempotent `_migrate_add_column` helper. 15 tables covering sessions, tokens, tools, OTEL events/metrics, tasks, schedules, decisions, inbox, activities, live state, MCP stats, skills, system state, and notification log.
+**Database uses SQLAlchemy 2.0 async + SQLModel:**
+SQLModel classes (one per resource) define all 15 tables. The async engine uses `sqlite+aiosqlite://` with WAL mode, foreign_keys=ON, and busy_timeout pragmas applied at connect time. Schema management is Alembic (initial revision creates all 15 tables; future migrations evolve them via `op.batch_alter_table` for SQLite compatibility). FOUND-02 wording in REQUIREMENTS.md ("CREATE TABLE IF NOT EXISTS") and FOUND-03 ("_migrate_add_column helper") describe INTENT — the implementation is Alembic, which is idempotent (`alembic upgrade head` is a no-op on an already-migrated DB) and provides the same data-safe column-add pattern via `Inspector.get_columns()`.
 
 **Dispatcher is a separate process:**
 Mission Control runs via launchd (120s heartbeat). It claims pending tasks atomically, materializes scheduled tasks, and runs `claude -p` or `claude` (stream mode) as subprocesses. PID files in `.tmp/mission-control-queue/pids/` track spawned children for emergency stop targeting.
@@ -93,7 +93,7 @@ Mission Control runs via launchd (120s heartbeat). It claims pending tasks atomi
 - **Python**: 3.13+ (using chassis patterns, `from __future__ import annotations` not needed)
 - **Runtime**: Single-machine, single-user, localhost:8765
 - **Database**: SQLite with WAL mode, single `.db` file in `data/`
-- **No ORM**: Raw SQL everywhere, `aiosqlite` for async access
+- **ORM**: SQLAlchemy 2.0 async + SQLModel; raw SQL only when stepping outside the ORM is unavoidable (e.g., complex analytics queries in later phases). `aiosqlite` is the async driver under the hood.
 - **No external services**: No cloud, no accounts, no outbound network (except optional Telegram)
 - **Frontend build**: Pre-built `ui/dist/` served as static, no SSR
 - **Quality bar**: Linear / Raycast / Vercel level — dense signal, dark theme, dialed-in typography, tasteful motion, production-grade polish
@@ -103,7 +103,7 @@ Mission Control runs via launchd (120s heartbeat). It claims pending tasks atomi
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | FastAPI chassis patterns (app factory, builder, settings, lifespan) | User's established production patterns — consistency and quality | -- Pending |
-| Raw SQL instead of SQLAlchemy ORM | Prompt specifies raw SQL; simpler for read-heavy dashboard with known schema | -- Pending |
+| SQLAlchemy 2.0 async + SQLModel + Alembic | Locked in Phase 1 discussion — supersedes earlier "raw SQL" direction. Models give type-safe queries, Alembic gives versioned migrations, aiosqlite stays as the async driver. | 2026-04-25 |
 | Python 3.13 | User preference for latest Python; chassis targets 3.13+ | -- Pending |
 | SQLite single-file with WAL | Local-only, no multi-server, excellent read concurrency for dashboard workload | -- Pending |
 | PID files for emergency stop targeting | macOS 12+ restricts env disclosure to root; PID files are the only reliable way to identify dispatched children | -- Pending |
