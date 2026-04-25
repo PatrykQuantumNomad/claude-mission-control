@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-03 (Vite/TanStack frontend skeleton); ready for next plan in Wave 1+
-last_updated: "2026-04-25T16:23:51.484Z"
+stopped_at: Completed 01-04 (db engine + session + alembic scaffold); Wave 3 (Plans 05/06/07) ready
+last_updated: "2026-04-25T16:34:49.234Z"
 last_activity: 2026-04-25
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 7
-  completed_plans: 3
-  percent: 43
+  completed_plans: 4
+  percent: 57
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 ## Current Position
 
 Phase: 1 of 9 (Foundation & Database)
-Plan: 3 of 7 complete; Wave 1 (01-02 + 01-03) ready to start
+Plan: 4 of 7 complete; Wave 1 (01-02 + 01-03) ready to start
 Status: Ready to execute
 Last activity: 2026-04-25
 
-Progress: [████░░░░░░] 43%
+Progress: [██████░░░░] 57%
 
 ## Performance Metrics
 
@@ -54,6 +54,7 @@ Progress: [████░░░░░░] 43%
 *Updated after each plan completion*
 | Phase 01-foundation-database P02 | 4 min | 3 tasks | 17 files |
 | Phase 01-foundation-database P03 | 10min | 3 tasks | 13 files |
+| Phase 01-foundation-database P04 | 5min | 2 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,9 @@ Recent decisions affecting current work:
 - 2026-04-25: Pretty config error renderer reads err['loc'] + err['msg'] only — never err['input'] — to avoid leaking .env values to terminal output (Security Domain V7)
 - 2026-04-25: test_phase1_boot.py is the single Phase 1 test file; each subsequent plan (04-07) appends its FOUND-* tests there — convention declared in module docstring
 - Plan 01-03: tanstackRouter() locked as plugins[0] in vite.config.ts; routeTree.gen.ts committed (not gitignored) so downstream phases can build without first running dev
+- Pitfall 1 mitigation translated for aiosqlite adapter: use isolation_level=None instead of .autocommit=True (the AsyncAdapt_aiosqlite_connection wrapper does not expose .autocommit). Semantics identical on the underlying sqlite3 driver. Verified: PRAGMA foreign_keys returns 1 after toggle.
+- greenlet>=3.0 added as explicit backend dependency (Plan 02 omitted it but SQLAlchemy 2.0 async IO requires it at runtime — engine.connect() raises ValueError without it).
+- Plan 05 entry contract: cmc/db/models/__init__.py MUST contain explicit imports of every table class with noqa F401 markers, or env.py target_metadata stays empty and autogenerate produces an empty initial migration (Pitfall 2).
 
 ### Pending Todos
 
@@ -82,6 +86,6 @@ None — schema is locked; Wave 1 unblocked.
 
 ## Session Continuity
 
-Last session: 2026-04-25T16:23:51.477Z
-Stopped at: Completed 01-03 (Vite/TanStack frontend skeleton); ready for next plan in Wave 1+
+Last session: 2026-04-25T16:34:49.227Z
+Stopped at: Completed 01-04 (db engine + session + alembic scaffold); Wave 3 (Plans 05/06/07) ready
 Resume file: None

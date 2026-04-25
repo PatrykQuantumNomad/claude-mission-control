@@ -37,7 +37,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] 01-01-PLAN.md — Doc-fix gate (REQUIREMENTS.md + PROJECT.md ORM reconcile) and 15-table schema confirmation checkpoint
 - [x] 01-02-PLAN.md — Backend skeleton: pyproject.toml, cmc.config (pydantic-settings + pretty error), cmc.core (logging, errors, SPAStaticFiles), pytest scaffold
 - [x] 01-03-PLAN.md — Frontend skeleton: Vite + React + TanStack Router (plugin order verified), build produces frontend/dist
-- [ ] 01-04-PLAN.md — DB foundation: cmc.db engine (with pragma listener + autocommit toggle), session factory, Alembic env (async + shared-connection)
+- [x] 01-04-PLAN.md — DB foundation: cmc.db engine (with pragma listener + autocommit toggle), session factory, Alembic env (async + shared-connection)
 - [ ] 01-05-PLAN.md — 15 SQLModel tables (per approved schema) + Alembic 0001_initial.py + _column_exists helper (FOUND-03)
 - [ ] 01-06-PLAN.md — App factory + lifespan (engine + alembic upgrade + dispose) + /api/health route
 - [ ] 01-07-PLAN.md — SPA static mount (after routers per Pitfall 8) + e2e smoke + manual browser checkpoint
