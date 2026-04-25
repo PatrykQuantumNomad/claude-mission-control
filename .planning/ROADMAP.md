@@ -39,8 +39,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] 01-03-PLAN.md — Frontend skeleton: Vite + React + TanStack Router (plugin order verified), build produces frontend/dist
 - [x] 01-04-PLAN.md — DB foundation: cmc.db engine (with pragma listener + autocommit toggle), session factory, Alembic env (async + shared-connection)
 - [x] 01-05-PLAN.md — 15 SQLModel tables (per approved schema) + Alembic 0001_initial.py + _column_exists helper (FOUND-03)
-- [ ] 01-06-PLAN.md — App factory + lifespan (engine + alembic upgrade + dispose) + /api/health route
-- [ ] 01-07-PLAN.md — SPA static mount (after routers per Pitfall 8) + e2e smoke + manual browser checkpoint
+- [x] 01-06-PLAN.md — App factory + lifespan (engine + alembic upgrade + dispose) + /api/health route
+- [x] 01-07-PLAN.md — SPA static mount (after routers per Pitfall 8) + e2e smoke + manual browser checkpoint
 
 ### Phase 2: Data Ingestion
 **Goal**: Real session data and OTEL telemetry flow into the database automatically
@@ -150,7 +150,7 @@ Note: Phases 3, 4, and 5 can execute in parallel after Phase 2 (or Phase 1 for 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Database | 3/7 | In progress | - |
+| 1. Foundation & Database | 7/7 | In progress | - |
 | 2. Data Ingestion | 0/TBD | Not started | - |
 | 3. Read-Only APIs | 0/TBD | Not started | - |
 | 4. Stateful APIs | 0/TBD | Not started | - |

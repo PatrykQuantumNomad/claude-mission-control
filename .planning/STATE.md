@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: paused-at-checkpoint
-stopped_at: 01-07 Tasks 1+2 complete (SPA mount + 25 passing tests); awaiting manual browser smoke checkpoint
-last_updated: "2026-04-25T13:05:00.000Z"
+status: phase-1-plans-complete-awaiting-verification
+stopped_at: Phase 1 (7/7 plans) complete; awaiting gsd-verifier to close phase
+last_updated: "2026-04-25T13:35:00.000Z"
 last_activity: 2026-04-25
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 7
-  completed_plans: 6
-  percent: 86
+  completed_plans: 7
+  percent: 100
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 ## Current Position
 
 Phase: 1 of 9 (Foundation & Database)
-Plan: 6 of 7 complete; Wave 1 (01-02 + 01-03) ready to start
-Status: Ready to execute
+Plan: 7 of 7 complete; Phase 1 ALL PLANS COMPLETE — awaiting gsd-verifier
+Status: Phase 1 plans complete; awaiting phase verification
 Last activity: 2026-04-25
 
-Progress: [█████████░] 86%
+Progress (Phase 1): [██████████] 100%
 
 ## Performance Metrics
 
@@ -42,21 +42,22 @@ Progress: [█████████░] 86%
 
 **By Phase:**
 
-| Phase                       | Plans | Total   | Avg/Plan |
-|-----------------------------|-------|---------|----------|
-| Phase 1 (Foundation & DB)   | 1 / 7 | ~30 min | ~30 min  |
+| Phase                       | Plans | Total    | Avg/Plan |
+|-----------------------------|-------|----------|----------|
+| Phase 1 (Foundation & DB)   | 7 / 7 | ~110 min | ~16 min  |
 
 **Recent Trend:**
 
-- Last 5 plans: 01-01 (~30 min, 4 tasks, doc reconcile + schema lock)
-- Trend: -
+- Last 5 plans: 01-03, 01-04, 01-05, 01-06, 01-07 (foundation built end-to-end; 25 tests passing; SPA verified in browser)
+- Trend: Stable; integration plans (06/07) closed without architectural deviations
 
 *Updated after each plan completion*
 | Phase 01-foundation-database P02 | 4 min | 3 tasks | 17 files |
-| Phase 01-foundation-database P03 | 10min | 3 tasks | 13 files |
-| Phase 01-foundation-database P04 | 5min | 2 tasks | 12 files |
-| Phase 01-foundation-database P05 | ~7min | 2 tasks | 18 files |
-| Phase 01-foundation-database PP06 | 4 min | 2 tasks tasks | 7 files files |
+| Phase 01-foundation-database P03 | 10 min | 3 tasks | 13 files |
+| Phase 01-foundation-database P04 | 5 min | 2 tasks | 12 files |
+| Phase 01-foundation-database P05 | ~7 min | 2 tasks | 18 files |
+| Phase 01-foundation-database P06 | 4 min | 2 tasks | 7 files |
+| Phase 01-foundation-database P07 | ~50 min (incl. checkpoint wait) | 3 tasks | 5 files + dist rebuild |
 
 ## Accumulated Context
 
@@ -82,25 +83,29 @@ Recent decisions affecting current work:
 - Plan 06 complete: FastAPI app factory + lifespan + /api/health wired; uvicorn boots cleanly via canonical command, alembic upgrade is idempotent
 - Plan 06 BLOCKER 1 follow-through: lifespan absolutizes alembic script_location against ini_path.parent — without this, settings.alembic_ini_path being absolute is insufficient because alembic.ini's script_location = migrations is cwd-relative
 - Plan 06 entry contract for Plan 07: insertion point is # NOTE comment in factory.py; Plan 07 mounts SPAStaticFiles at / AFTER routers and REPLACES test_routers_registered_before_static_mount_slot with test_static_mount_after_routers
+- 2026-04-25: Phase 1 final integration verified — uvicorn boots from repo root, React SPA loads at localhost:8765 with header + body content, /api/health returns JSON, deep-link fallback (/some-deep-link) returns the SPA shell, /api/docs renders Swagger, DB lands at repo-root data/ with WAL siblings, clean Ctrl+C shutdown
+- Plan 07 auto-fixes (Rule 1, 3 bugs): SPAStaticFiles caught fastapi.HTTPException instead of starlette.exceptions.HTTPException (deep-link fallback dead); StaticFiles parent stores directory as str so override needed Path(...) wrap; root Mount has empty path attribute so tests must locate it via name="spa" not by path
+- Plan 07 final test count: 25 (Plan 06 had 21; +5 new SPA tests, -1 removed Plan 06 contract-guard = +4 net)
 
 ### Pending Todos
 
-- Wave 1: kick off Plan 01-02 (FastAPI project skeleton) and Plan 01-03 (database engine) in parallel.
-- Downstream: 10 `[NEEDS USER CONFIRMATION]` flags in `01-01-SCHEMA.md` should be resolved as the relevant plans approach (or via future Alembic migrations once production-dashboard reality clarifies them).
+- Phase 1: invoke gsd-verifier to formally close the phase before starting Phase 2 planning (orchestrator step).
+- Phase 2 onward: 10 `[NEEDS USER CONFIRMATION]` flags in `01-01-SCHEMA.md` should be resolved as relevant plans approach (or via future Alembic migrations once production-dashboard reality clarifies them).
 
 ### Blockers/Concerns
 
-None — schema is locked; Wave 1 unblocked.
+None — Phase 1 plans complete; verifier readiness confirmed via 25 passing tests + human browser smoke.
 
 ## Session Continuity
 
-Last session: 2026-04-25T13:05:00.000Z
-Stopped at: 01-07 Tasks 1+2 complete; awaiting manual browser smoke checkpoint (Task 3)
-Resume file: .planning/phases/01-foundation-database/01-07-PLAN.md (Task 3: checkpoint:human-verify)
+Last session: 2026-04-25T13:35:00.000Z
+Stopped at: Plan 01-07 closed; Phase 1 (7/7 plans) complete; awaiting gsd-verifier
+Resume file: (none — orchestrator should run phase verifier next)
 
-In-progress notes for Plan 07:
-- Task 1 commit: 7c6437f (feat: mount SPAStaticFiles at / after routers)
-- Task 2 commit: a8adda0 (test: SPA mount tests + remove Plan 06 contract-guard, 25 passing)
-- Auto-fix deviation (Rule 1) commit: 7a3e478 (fix: SPA deep-link fallback now actually triggers — caught wrong exception class + wrapped str directory in Path)
-- Auto-fix deviation (Rule 1) inline in Task 2: test_static_mount_after_routers and test_create_app_skips_mount_if_static_dir_missing now identify the SPA Mount via name="spa" because Starlette stores the root Mount with empty path attribute (the as-drafted `path == "/"` check would never match).
-- Awaiting user "approved" on browser smoke (six checks: /, deep link, /api/health, /api/docs, no console errors, DB at repo-root data/).
+Phase 1 final commit chain:
+- 01-02: 17 files (FastAPI skeleton)
+- 01-03: 13 files (Vite + React + TanStack Router)
+- 01-04: c4613f8 + d3c9e90 (DB engine + Alembic env)
+- 01-05: 4711ade + 308c123 + d1c5d7e (15 SQLModel tables + initial migration)
+- 01-06: 87162fe + 87bc57e + 807c3a5 + d7abdde + 33aa4ec (factory + lifespan + /api/health)
+- 01-07: 7a3e478 + 7c6437f + a8adda0 + 7e4af2a + (closing commit) (SPA mount + 25 tests + browser-verified)
