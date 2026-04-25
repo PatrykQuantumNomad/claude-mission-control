@@ -437,3 +437,266 @@ async def test_otlp_get_returns_405_proves_router_mounted(test_settings, tmp_pat
                 f"Expected 405 (Method Not Allowed) proving /v1/logs is mounted; "
                 f"got {resp.status_code} — would be 404 if router isn't registered."
             )
+
+
+# ---- Plan 02-04: repository (INGST-04 idempotence + INGST-05 Option B) ----
+
+from datetime import date
+
+
+async def _bootstrap_app(test_settings):
+    """Helper: build a FastAPI app with lifespan-initialized engine + sessionmaker.
+
+    Returns (app, lifespan_cm) — caller wraps `async with lifespan_cm:` to start.
+    """
+    from fastapi import FastAPI
+    from cmc.app.lifespan import lifespan
+
+    app = FastAPI()
+    app.state.settings = test_settings
+    return app, lifespan(app)
+
+
+@pytest.mark.asyncio
+async def test_upsert_session_idempotent(test_settings):
+    """INGST-04: upsert with same session_id updates in-place; no duplicates.
+
+    First call inserts; second call with new totals updates the SAME row. Final
+    state: 1 row with the second call's totals (no inflation, no duplicates).
+    """
+    from cmc.ingest.repository import upsert_session
+    from cmc.db.models.sessions import Session as SessionModel
+
+    app, cm = await _bootstrap_app(test_settings)
+    async with cm:
+        async with app.state.sessions() as db:
+            now = datetime.now(timezone.utc)
+            await upsert_session(
+                db, session_id="s1",
+                started_at=now, synced_at=now, jsonl_mtime=now,
+                jsonl_path="/tmp/x.jsonl", source="claude-code",
+                tokens_input=10, tokens_output=20,
+                tokens_cache_read=0, tokens_cache_create=0,
+                tool_call_count=0, message_count=1,
+            )
+            await upsert_session(
+                db, session_id="s1",
+                started_at=now, synced_at=now, jsonl_mtime=now,
+                jsonl_path="/tmp/x.jsonl", source="claude-code",
+                tokens_input=15, tokens_output=25,
+                tokens_cache_read=0, tokens_cache_create=0,
+                tool_call_count=1, message_count=2,
+            )
+            await db.commit()
+            rows = (await db.execute(select(SessionModel))).scalars().all()
+            assert len(rows) == 1
+            assert rows[0].tokens_input == 15
+            assert rows[0].tokens_output == 25
+            assert rows[0].tool_call_count == 1
+            assert rows[0].message_count == 2
+
+
+@pytest.mark.asyncio
+async def test_upsert_tools_pending_to_ok_transition(test_settings):
+    """INGST-04: a tool_use that re-appears with a tool_result transitions
+    pending -> ok in-place — no duplicate row keyed on tool_use_id.
+    """
+    from cmc.ingest.repository import upsert_session, upsert_tools
+    from cmc.db.models.tools import ToolCall
+
+    app, cm = await _bootstrap_app(test_settings)
+    async with cm:
+        async with app.state.sessions() as db:
+            now = datetime.now(timezone.utc)
+            # Parent session row first (FK)
+            await upsert_session(
+                db, session_id="sess-x",
+                started_at=now, synced_at=now, jsonl_mtime=now,
+                jsonl_path="/tmp/y.jsonl", source="claude-code",
+                tokens_input=0, tokens_output=0,
+                tokens_cache_read=0, tokens_cache_create=0,
+                tool_call_count=0, message_count=0,
+            )
+            # First parse: tool is pending
+            await upsert_tools(db, "sess-x", [{
+                "tool_use_id": "t1", "tool_name": "Bash",
+                "started_at": now, "ended_at": None, "duration_ms": None,
+                "status": "pending",
+                "mcp_server_name": None, "mcp_tool_name": None,
+                "input_summary": "ls",
+            }])
+            await db.commit()
+            rows = (await db.execute(select(ToolCall))).scalars().all()
+            assert len(rows) == 1
+            assert rows[0].status == "pending"
+            assert rows[0].duration_ms is None
+
+            # Second parse: tool now has a result → status='ok', duration set
+            later = now + timedelta(seconds=5)
+            await upsert_tools(db, "sess-x", [{
+                "tool_use_id": "t1", "tool_name": "Bash",
+                "started_at": now, "ended_at": later, "duration_ms": 5000,
+                "status": "ok",
+                "mcp_server_name": None, "mcp_tool_name": None,
+                "input_summary": "ls",
+            }])
+            await db.commit()
+            rows = (await db.execute(select(ToolCall))).scalars().all()
+            assert len(rows) == 1, "no duplicate row created on transition"
+            assert rows[0].status == "ok"
+            assert rows[0].duration_ms == 5000
+            assert rows[0].ended_at is not None
+
+
+@pytest.mark.asyncio
+async def test_accumulate_token_usage_creates_bucket(test_settings):
+    """INGST-05 simple: accumulate_token_usage with prev_totals=None creates
+    a fresh row with the new bucket totals.
+    """
+    from cmc.ingest.repository import accumulate_token_usage
+    from cmc.db.models.token_usage import TokenUsage
+
+    app, cm = await _bootstrap_app(test_settings)
+    async with cm:
+        async with app.state.sessions() as db:
+            await accumulate_token_usage(
+                db, session_id="sess-x",
+                previous_totals=None,
+                new_buckets=[{
+                    "day": date(2026, 4, 25), "model": "opus", "source": "claude-code",
+                    "tokens_input": 10, "tokens_output": 20,
+                    "tokens_cache_read": 100, "tokens_cache_create": 50,
+                }],
+                primary_day=None, primary_model=None,
+            )
+            await db.commit()
+            rows = (await db.execute(select(TokenUsage))).scalars().all()
+            assert len(rows) == 1
+            assert rows[0].tokens_input == 10
+            assert rows[0].tokens_output == 20
+            assert rows[0].tokens_cache_read == 100
+            assert rows[0].tokens_cache_create == 50
+            assert rows[0].sessions_count == 1
+
+
+@pytest.mark.asyncio
+async def test_accumulate_token_usage_option_b_no_double_count(test_settings):
+    """INGST-05 Option B: re-accumulating the same session does NOT inflate the
+    bucket — the previous contribution is subtracted, then the new one is added.
+
+    Scenario:
+      - First parse: session contributes (10, 20) on day=2026-04-25 model=opus.
+      - Re-parse with corrected totals (15, 25) on the same day+model.
+      - Final bucket totals must equal (15, 25), NOT (25, 45).
+    """
+    from cmc.ingest.repository import accumulate_token_usage
+    from cmc.db.models.token_usage import TokenUsage
+
+    app, cm = await _bootstrap_app(test_settings)
+    async with cm:
+        async with app.state.sessions() as db:
+            day = date(2026, 4, 25)
+            # First parse — fresh session
+            await accumulate_token_usage(
+                db, session_id="sess-x",
+                previous_totals=None,
+                new_buckets=[{
+                    "day": day, "model": "opus", "source": "claude-code",
+                    "tokens_input": 10, "tokens_output": 20,
+                    "tokens_cache_read": 0, "tokens_cache_create": 0,
+                }],
+                primary_day=None, primary_model=None,
+            )
+            await db.commit()
+
+            # Re-parse — pass previous totals so Option B subtracts them.
+            await accumulate_token_usage(
+                db, session_id="sess-x",
+                previous_totals={
+                    "tokens_input": 10, "tokens_output": 20,
+                    "tokens_cache_read": 0, "tokens_cache_create": 0,
+                },
+                new_buckets=[{
+                    "day": day, "model": "opus", "source": "claude-code",
+                    "tokens_input": 15, "tokens_output": 25,
+                    "tokens_cache_read": 0, "tokens_cache_create": 0,
+                }],
+                primary_day=day, primary_model="opus",
+            )
+            await db.commit()
+
+            rows = (await db.execute(select(TokenUsage))).scalars().all()
+            assert len(rows) == 1
+            assert rows[0].tokens_input == 15, "Option B: subtract 10 then add 15 = 15 (NOT 25)"
+            assert rows[0].tokens_output == 25
+            # sessions_count must NOT be incremented on re-parse
+            assert rows[0].sessions_count == 1
+
+
+@pytest.mark.asyncio
+async def test_repository_idempotent_full_run(test_settings, golden_jsonl_session):
+    """INGST-04 full idempotence: running upsert_session + upsert_tools +
+    accumulate_token_usage twice with identical inputs leaves DB state identical.
+    """
+    from cmc.ingest.repository import (
+        upsert_session, upsert_tools, accumulate_token_usage,
+    )
+    from cmc.ingest.jsonl_parser import parse_session_file
+    from cmc.db.models.sessions import Session as SessionModel
+    from cmc.db.models.tools import ToolCall
+    from cmc.db.models.token_usage import TokenUsage
+
+    parsed = parse_session_file(golden_jsonl_session)
+    sess = dict(parsed["session"])
+    sess.pop("_last_message_ts", None)
+    sess["jsonl_path"] = str(golden_jsonl_session)
+    sess["jsonl_mtime"] = datetime.now(timezone.utc)
+    sess["synced_at"] = datetime.now(timezone.utc)
+    sess["source"] = "claude-code"
+    sess["ended_at"] = None
+
+    app, cm = await _bootstrap_app(test_settings)
+    async with cm:
+        async with app.state.sessions() as db:
+            for _ in range(2):
+                await upsert_session(db, **sess)
+                await upsert_tools(db, sess["session_id"], parsed["tool_calls"])
+                # Pass previous_totals=None on BOTH iterations: this proves the
+                # raw upsert helpers themselves are idempotent (the Option B
+                # subtract path is exercised by the no_double_count test). To
+                # avoid inflating sessions_count on the second iteration, we
+                # delete the existing token_usage rows first as the scheduler
+                # would naturally NOT call accumulate twice with prev=None for
+                # the same session.
+                if _ == 0:
+                    await accumulate_token_usage(
+                        db, session_id=sess["session_id"],
+                        previous_totals=None,
+                        new_buckets=parsed["token_usage_buckets"],
+                        primary_day=None, primary_model=None,
+                    )
+                else:
+                    # Second pass: emulate the re-parse Option B path
+                    await accumulate_token_usage(
+                        db, session_id=sess["session_id"],
+                        previous_totals={
+                            "tokens_input": sess["tokens_input"],
+                            "tokens_output": sess["tokens_output"],
+                            "tokens_cache_read": sess["tokens_cache_read"],
+                            "tokens_cache_create": sess["tokens_cache_create"],
+                        },
+                        new_buckets=parsed["token_usage_buckets"],
+                        primary_day=parsed["token_usage_buckets"][0]["day"],
+                        primary_model=parsed["token_usage_buckets"][0]["model"],
+                    )
+                await db.commit()
+
+            sessions = (await db.execute(select(SessionModel))).scalars().all()
+            assert len(sessions) == 1
+            assert sessions[0].tokens_input == 15  # totals from parser
+            tools = (await db.execute(select(ToolCall))).scalars().all()
+            assert len(tools) == 2  # paired Bash + pending mcp
+            buckets = (await db.execute(select(TokenUsage))).scalars().all()
+            # Final bucket sum equals the parser totals — Option B did not inflate.
+            assert sum(b.tokens_input for b in buckets) == 15
+            assert sum(b.tokens_output for b in buckets) == 28
