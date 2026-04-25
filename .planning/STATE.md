@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-04-PLAN.md (repository upserts + scheduler sync_once/periodic_loop)
-last_updated: "2026-04-25T19:02:23Z"
+stopped_at: Completed 02-05-PLAN.md (lifespan boot sync + POST /api/sync; Phase 2 last autonomous plan)
+last_updated: "2026-04-25T19:23:17.990Z"
 last_activity: 2026-04-25
 progress:
   total_phases: 9
   completed_phases: 1
   total_plans: 13
-  completed_plans: 11
-  percent: 85
+  completed_plans: 12
+  percent: 92
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 ## Current Position
 
 Phase: 2 of 9 IN PROGRESS (Data Ingestion)
-Plan: 4 of 6 complete in Phase 2 (02-01..02-04 ✅; next 02-05 lifespan + manual sync)
+Plan: 5 of 6 complete in Phase 2 (02-01..02-05 ✅; next 02-06 manual smoke checkpoint)
 Status: Ready to execute
 Last activity: 2026-04-25
 
-Progress (Phase 2): [██████░░░░] 67%
+Progress (Phase 2): [████████░░] 83%
 
 ## Performance Metrics
 
@@ -45,12 +45,12 @@ Progress (Phase 2): [██████░░░░] 67%
 | Phase                       | Plans | Total    | Avg/Plan |
 |-----------------------------|-------|----------|----------|
 | Phase 1 (Foundation & DB)   | 7 / 7 | ~110 min | ~16 min  |
-| Phase 2 (Data Ingestion)    | 1 / 6 | ~12 min  | ~12 min  |
+| Phase 2 (Data Ingestion)    | 5 / 6 | ~46 min  | ~9 min   |
 
 **Recent Trend:**
 
-- Last 5 plans: 01-03, 01-04, 01-05, 01-06, 01-07 (foundation built end-to-end; 25 tests passing; SPA verified in browser)
-- Trend: Stable; integration plans (06/07) closed without architectural deviations
+- Last 5 plans: 02-01, 02-02, 02-03, 02-04, 02-05 (Phase 2 ingestion complete in code; 61 tests passing; real ~/.claude/projects ingested at boot via lifespan; POST /api/sync wired)
+- Trend: Stable; ingestion stack landed without architectural deviations (only Rule 3 test-scaffolding fixes when lifespan extension blocked pre-existing tests)
 
 *Updated after each plan completion*
 | Phase 01-foundation-database P02 | 4 min | 3 tasks | 17 files |
@@ -63,6 +63,7 @@ Progress (Phase 2): [██████░░░░] 67%
 | Phase 02-data-ingestion P02 | 3 min | 2 tasks | 3 files |
 | Phase 02-data-ingestion PP03 | 11 min | 2 tasks tasks | 6 files files |
 | Phase 02-data-ingestion P04 | 6 min | 2 tasks (TDD; 4 commits) | 3 files |
+| Phase 02-data-ingestion PP05 | 14 min | 2 tasks (TDD; 4 commits) tasks | 4 files files |
 
 ## Accumulated Context
 
@@ -107,6 +108,10 @@ Recent decisions affecting current work:
 - Plan 02-04: _adjust_bucket pattern = UPDATE-then-INSERT-fallback (not ON CONFLICT with arithmetic on excluded.* + existing column) — chosen for portability + readability; ON CONFLICT safety net included on the INSERT for theoretical concurrent-insert races (single-writer Phase 2 design).
 - Plan 02-04: Plan 02-05 entry contract is `from cmc.ingest.scheduler import sync_once, periodic_sync_loop`. sync_once returns JSON-serializable summary dict suitable as POST /api/sync response. periodic_sync_loop is sleep-first (boot-time sync_once in lifespan won't be immediately duplicated) and Pitfall-7-compliant (catches Exception, re-raises CancelledError).
 - Plan 02-04 auto-fix (Rule 1): pending→ok upsert test originally used a single AsyncSession across both phases and saw stale ORM instance from `expire_on_commit=False` identity-map cache (raw SQL had 'ok'; ORM returned 'pending'). Fixed by opening fresh session per assertion phase — mirrors how scheduler consumes sessionmaker (one session per file).
+- Plan 02-05: Single ingestion code path locked — boot sync, periodic loop, and POST /api/sync ALL delegate to scheduler.sync_once. Future ingestion features add behavior to sync_once, never to a trigger-specific copy
+- Plan 02-05: lifespan task lifecycle pattern — asyncio.create_task during startup, store on app.state.sync_task, cancel + await + swallow CancelledError in finally BEFORE engine.dispose(). Phases 3+ adding background workers should follow this shape
+- Plan 02-05: boot-time sync_once is wrapped in try/except — a one-time FS error never prevents server startup; the 120s periodic loop will retry
+- Plan 02-05 auto-fix (Rule 3): _bootstrap_app helper in test_phase2_ingest.py auto-redirects default jsonl_root (~/.claude/projects/) to a tmp-path nonexistent dir so boot sync stays hermetic for tests that don't override jsonl_root explicitly
 
 ### Pending Todos
 
@@ -119,8 +124,8 @@ None — Phase 1 plans complete; verifier readiness confirmed via 25 passing tes
 
 ## Session Continuity
 
-Last session: 2026-04-25T19:02:23Z
-Stopped at: Completed 02-04-PLAN.md (repository upserts + scheduler sync_once/periodic_loop)
+Last session: 2026-04-25T19:23:17.983Z
+Stopped at: Completed 02-05-PLAN.md (lifespan boot sync + POST /api/sync; Phase 2 last autonomous plan)
 Resume file: None
 
 Phase 1 final commit chain:

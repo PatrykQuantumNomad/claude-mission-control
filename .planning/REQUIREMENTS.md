@@ -40,7 +40,8 @@ Requirements for initial release. Each maps to roadmap phases.
 **: OTEL /v1/logs extracts mcp_server_name and mcp_tool_name from tool_parameters JSON for mcp_tool events
 - [x] **INGST-09
 **: OTEL /v1/metrics endpoint receives OTLP/HTTP JSON, inserts into otel_metrics, always returns 200
-- [ ] **INGST-10**: POST /api/sync triggers manual sync cycle
+- [x] **INGST-10
+**: POST /api/sync triggers manual sync cycle
 
 ### System API
 
