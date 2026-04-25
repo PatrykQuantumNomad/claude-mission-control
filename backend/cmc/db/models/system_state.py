@@ -1,0 +1,24 @@
+"""system_state table — generic key-value store for system-level flags.
+
+Per 01-01-SCHEMA.md (table 14). Drives SAPI-02,03 / ESTOP-03,04 / DISP-02.
+
+NOTE: SCHEMA flags `value` + `value_json` two-column shape as
+[NEEDS USER CONFIRMATION] — accepted as-is per APPROVED 2026-04-25
+(both columns retained for flexibility).
+"""
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any, Optional
+
+from sqlalchemy import JSON, Column
+from sqlmodel import Field, SQLModel
+
+
+class SystemState(SQLModel, table=True):
+    __tablename__ = "system_state"
+
+    key: str = Field(primary_key=True)
+    value: Optional[str] = None
+    value_json: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON, nullable=True))
+    updated_at: datetime = Field(default_factory=datetime.utcnow)

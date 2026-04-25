@@ -1,6 +1,23 @@
-"""Database models package. Plan 05 populates this with 15 SQLModel table classes.
+"""Database models. Importing this module populates SQLModel.metadata.
 
-Importing this module must populate SQLModel.metadata. Per RESEARCH.md Pitfall 2,
-each model module must be imported here so autogenerate finds it.
+Per RESEARCH.md Pitfall 2: every model module MUST be imported here with
+`# noqa: F401` or `alembic revision --autogenerate` produces an empty migration
+because target_metadata in env.py would be empty.
+
+The 15 imports below cover every table from 01-01-SCHEMA.md (APPROVED 2026-04-25).
 """
-# Plan 05 will replace this file with imports of all 15 model modules.
+from cmc.db.models.activities import Activity  # noqa: F401
+from cmc.db.models.decisions import Decision  # noqa: F401
+from cmc.db.models.inbox import InboxMessage  # noqa: F401
+from cmc.db.models.live_state import LiveState  # noqa: F401
+from cmc.db.models.mcp_stats import MCPStat  # noqa: F401
+from cmc.db.models.notification_log import NotificationLog  # noqa: F401
+from cmc.db.models.otel_events import OtelEvent  # noqa: F401
+from cmc.db.models.otel_metrics import OtelMetric  # noqa: F401
+from cmc.db.models.schedules import Schedule  # noqa: F401
+from cmc.db.models.sessions import Session  # noqa: F401
+from cmc.db.models.skills import Skill  # noqa: F401
+from cmc.db.models.system_state import SystemState  # noqa: F401
+from cmc.db.models.tasks import Task  # noqa: F401
+from cmc.db.models.token_usage import TokenUsage  # noqa: F401
+from cmc.db.models.tools import ToolCall  # noqa: F401
