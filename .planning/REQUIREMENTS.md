@@ -12,7 +12,8 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **FOUND-01**: Server starts on localhost:8765 with FastAPI app factory/builder pattern
 - [x] **FOUND-02
 **: SQLite database initializes with WAL mode, write-serialized architecture, and all 15 tables via idempotent CREATE TABLE IF NOT EXISTS
-- [ ] **FOUND-03**: Idempotent migration helper (_migrate_add_column) supports schema evolution without data loss
+- [x] **FOUND-03
+**: Idempotent migration helper (_migrate_add_column) supports schema evolution without data loss
 - [x] **FOUND-04
 **: Pydantic v2 settings class validates all configuration from environment variables and .env file
 - [x] **FOUND-05
