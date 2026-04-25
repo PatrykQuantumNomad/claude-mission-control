@@ -1,6 +1,9 @@
 # Phase 1 — Canonical 15-Table Schema
 
-**Status:** DRAFT — pending user confirmation (Task 4 checkpoint)
+**Status:** APPROVED 2026-04-25 — canonical schema for Phase 1 (Plan 05 will autogenerate Alembic revision against this).
+
+**Approval note:** User approved 2026-04-25 with the 10 `[NEEDS USER CONFIRMATION]` flags accepted as-is; resolve in downstream plans or via future Alembic migrations as the production-dashboard reality clarifies each one. The flags are left in place below as visible TODOs — they are NOT blockers for Plan 05.
+
 **Source:** Derived from REQUIREMENTS.md by reading every -* category that touches the database. Tagged `[NEEDS USER CONFIRMATION]` where the requirement text leaves a column or type genuinely ambiguous.
 **Stack:** SQLAlchemy 2.0 async + SQLModel + Alembic (locked in Phase 1 — see CONTEXT.md). Types below use SQLModel/Python typing notation; Alembic autogenerate will translate to `sqlalchemy` types.
 **Conventions:**
@@ -341,4 +344,4 @@ All 15 tables are referenced by at least one downstream phase. No table is orpha
 
 ---
 
-*Draft prepared 2026-04-25 for Plan 01-01 Task 4 checkpoint. Pending user approval before Plan 05 generates the Alembic initial revision.*
+*Draft prepared 2026-04-25 for Plan 01-01 Task 4 checkpoint. Approved by user 2026-04-25 (option: approve-as-is). Plan 05 may now autogenerate the Alembic initial revision against this schema.*
