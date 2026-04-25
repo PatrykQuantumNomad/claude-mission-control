@@ -317,21 +317,108 @@ async def test_health_route_returns_ok(test_settings):
             assert resp.json() == {"status": "ok"}
 
 
-def test_routers_registered_before_static_mount_slot(test_settings):
-    """Plan 06 contract for Plan 07: at this point /api/health exists, and the
-    `# NOTE: Plan 07 will mount SPAStaticFiles at "/" here.` comment marks the
-    insertion point (Pitfall 8). Plan 07 will replace this test with one that
-    asserts the actual ordering of include_router vs app.mount AFTER its mount
-    is added.
-    """
+# ---- FOUND-06 (Plan 07): SPA mount ----
+
+
+@pytest.mark.asyncio
+async def test_spa_root_returns_index_html(test_settings_with_static):
+    """FOUND-06: GET / returns index.html with status 200."""
+    from httpx import ASGITransport, AsyncClient
     from cmc.app import create_app
-    app = create_app(settings=test_settings)
-    # /api/health must be present
+
+    app = create_app(settings=test_settings_with_static)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        async with app.router.lifespan_context(app):
+            resp = await client.get("/")
+            assert resp.status_code == 200
+            assert "test-spa-marker" in resp.text
+
+
+@pytest.mark.asyncio
+async def test_spa_deep_link_fallback(test_settings_with_static):
+    """FOUND-06: GET /any-deep-link returns index.html (SPA fallback)."""
+    from httpx import ASGITransport, AsyncClient
+    from cmc.app import create_app
+
+    app = create_app(settings=test_settings_with_static)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        async with app.router.lifespan_context(app):
+            for path in ("/activity", "/skills", "/some/nested/route"):
+                resp = await client.get(path)
+                assert resp.status_code == 200, f"{path} -> {resp.status_code}"
+                assert "test-spa-marker" in resp.text, (
+                    f"{path} did not fall back to index.html"
+                )
+
+
+@pytest.mark.asyncio
+async def test_api_not_shadowed_by_spa_mount(test_settings_with_static):
+    """Pitfall 8 regression: /api/health and /api/docs still work after SPA mount."""
+    from httpx import ASGITransport, AsyncClient
+    from cmc.app import create_app
+
+    app = create_app(settings=test_settings_with_static)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        async with app.router.lifespan_context(app):
+            # /api/health must return JSON, not HTML
+            resp = await client.get("/api/health")
+            assert resp.status_code == 200
+            assert resp.headers["content-type"].startswith("application/json")
+            assert resp.json() == {"status": "ok"}
+
+            # /api/docs (Swagger) must serve the docs HTML, not the SPA
+            resp = await client.get("/api/docs")
+            assert resp.status_code == 200
+            assert "swagger" in resp.text.lower() or "openapi" in resp.text.lower()
+
+
+def _is_spa_mount(route) -> bool:
+    """Identify the SPA mount in app.routes.
+
+    Starlette stores the root Mount with an empty `path` attribute (the prefix
+    is stripped before matching), so detecting "the / mount" by `path == "/"`
+    fails. Match by class name + the explicit name="spa" we set in the factory.
+    """
+    return route.__class__.__name__ == "Mount" and getattr(route, "name", None) == "spa"
+
+
+def test_create_app_skips_mount_if_static_dir_missing(test_settings, tmp_path):
+    """When static_dir doesn't exist, create_app does not raise; mount is skipped."""
+    from cmc.app import create_app
+    # Use model_copy to avoid re-triggering env loading (BLOCKER 4 pattern).
+    settings = test_settings.model_copy(
+        update={"static_dir": tmp_path / "does-not-exist"}
+    )
+    app = create_app(settings=settings)
+    # API still works even without static
     paths = [getattr(r, "path", None) for r in app.routes]
     assert "/api/health" in paths
-    # No mount yet (Plan 07 adds it; Plan 07 will rewrite this assertion).
-    mounts = [r for r in app.routes if r.__class__.__name__ == "Mount" and getattr(r, "path", None) == "/"]
-    assert mounts == [], "Plan 06 must NOT mount static; Plan 07 does that. (Plan 07 replaces this test.)"
+    # No SPA mount
+    assert [r for r in app.routes if _is_spa_mount(r)] == []
 
 
-# Plan 07 will append tests for SPA root + deep link + /api/health
+def test_static_mount_after_routers(test_settings_with_static):
+    """BLOCKER 2 + Pitfall 8 regression: SPA mount at "/" exists AND comes AFTER
+    `/api/health` in the route table. Replaces Plan 06's
+    `test_routers_registered_before_static_mount_slot`.
+    """
+    from cmc.app import create_app
+    app = create_app(settings=test_settings_with_static)
+    # Find positions in app.routes
+    health_idx = None
+    spa_mount_idx = None
+    for i, r in enumerate(app.routes):
+        if getattr(r, "path", None) == "/api/health":
+            health_idx = i
+        if _is_spa_mount(r):
+            spa_mount_idx = i
+    assert health_idx is not None, "Expected /api/health route to be registered"
+    assert spa_mount_idx is not None, "Expected SPA Mount (name='spa') to be registered"
+    assert health_idx < spa_mount_idx, (
+        f"Pitfall 8 regression: /api/health (idx={health_idx}) must come BEFORE "
+        f"the SPA mount (idx={spa_mount_idx}) — otherwise the static mount "
+        "shadows /api/*."
+    )
