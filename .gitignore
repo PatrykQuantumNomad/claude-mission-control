@@ -1,0 +1,14 @@
+# Data
+data/*.db
+data/*.db-wal
+data/*.db-shm
+
+# Env
+.env
+
+# Frontend build & deps
+frontend/dist/
+frontend/node_modules/
+
+# OS / editor
+.DS_Store
