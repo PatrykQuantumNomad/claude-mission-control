@@ -12,6 +12,7 @@ import pytest
 from sqlalchemy import text
 
 from cmc.config import Settings, load_settings
+from cmc.core.paths import repo_root
 from cmc.db import create_engine_for_settings, make_sessionmaker
 
 
@@ -147,7 +148,12 @@ async def test_alembic_upgrade_creates_all_tables(test_settings):
     from alembic import command
 
     engine = create_engine_for_settings(test_settings)
-    cfg = Config("alembic.ini")
+    ini_path = repo_root() / "backend/alembic.ini"
+    cfg = Config(str(ini_path))
+    # Mirror lifespan's BLOCKER 1 fix: alembic.ini's `script_location = migrations`
+    # is cwd-relative. Absolutize against the ini file's parent directory so this
+    # test passes from BOTH backend/ and repo-root cwds.
+    cfg.set_main_option("script_location", str(ini_path.parent / "migrations"))
     try:
         async with engine.begin() as conn:
             def _upgrade(sync_conn):
@@ -175,7 +181,11 @@ async def test_alembic_upgrade_is_idempotent(test_settings):
     from alembic import command
 
     engine = create_engine_for_settings(test_settings)
-    cfg = Config("alembic.ini")
+    ini_path = repo_root() / "backend/alembic.ini"
+    cfg = Config(str(ini_path))
+    # Mirror lifespan's BLOCKER 1 fix: absolutize script_location against ini parent
+    # so this test passes from BOTH backend/ and repo-root cwds.
+    cfg.set_main_option("script_location", str(ini_path.parent / "migrations"))
     try:
         for _ in range(2):
             async with engine.begin() as conn:
@@ -191,7 +201,7 @@ def test_column_exists_helper_signature():
     """FOUND-03: _column_exists is importable from the migration module."""
     import importlib.util
     spec = importlib.util.spec_from_file_location(
-        "_initial", "migrations/versions/0001_initial.py"
+        "_initial", str(repo_root() / "backend/migrations/versions/0001_initial.py")
     )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

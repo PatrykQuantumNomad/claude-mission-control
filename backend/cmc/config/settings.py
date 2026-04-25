@@ -17,7 +17,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from pydantic import ValidationError, model_validator
+from pydantic import Field, ValidationError, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from cmc.core.paths import resolve_under_repo_root
@@ -41,6 +41,15 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     static_dir: Path = Path("frontend/dist")
     alembic_ini_path: Path = Path("backend/alembic.ini")
+
+    # Phase 2 — JSONL ingestion
+    # NOTE: jsonl_root is a USER-HOME-anchored path, not a repo-root-anchored path.
+    # It is intentionally OMITTED from `_resolve_repo_root_paths` below so that
+    # `~/...` env overrides resolve via Path.expanduser() at scraper access time
+    # (per Phase 2 plan 02-01 interfaces block).
+    jsonl_root: Path = Field(default_factory=lambda: Path.home() / ".claude/projects")
+    session_idle_minutes: int = 5
+    otlp_max_body_bytes: int = 10_000_000  # 10MB cap on /v1/logs and /v1/metrics
 
     @model_validator(mode="after")
     def _resolve_repo_root_paths(self) -> "Settings":
