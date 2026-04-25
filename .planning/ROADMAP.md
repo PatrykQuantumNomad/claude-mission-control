@@ -52,7 +52,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Posting OTLP/HTTP JSON to /v1/metrics stores metrics in otel_metrics
   4. Corrupted JSONL lines are skipped without crashing the sync cycle
   5. POST /api/sync triggers an immediate re-scrape and returns success
-**Plans**: TBD
+**Plans**: 6 plans
+- [x] 02-01-PLAN.md — Phase 2 foundation: 3 new Settings fields (jsonl_root, session_idle_minutes, otlp_max_body_bytes), pytest-freezer dev dep, conftest fixtures, test_phase2_ingest.py seed + Phase 1 cwd-test bug fix ✅ 2026-04-25
+- [ ] 02-02-PLAN.md — JSONL parser library (TDD): pure-function iter_jsonl + parse_session_file + split_mcp covering INGST-02, INGST-03, INGST-06
+- [ ] 02-03-PLAN.md — OTLP /v1/logs + /v1/metrics router with always-200 contract + body cap + raw_routers() factory wiring (INGST-07, INGST-08, INGST-09)
+- [ ] 02-04-PLAN.md — Repository upserts (Option B token rollups) + scheduler sync_once + periodic_sync_loop (INGST-04, INGST-05)
+- [ ] 02-05-PLAN.md — Lifespan extension (boot sync + create_task) + POST /api/sync route (INGST-01, INGST-10)
+- [ ] 02-06-PLAN.md — Manual smoke checkpoint: real ~/.claude/projects/ ingestion + curl OTLP samples + clean shutdown verification
 
 ### Phase 3: Read-Only APIs
 **Goal**: All observability and analytics data is accessible via well-structured JSON API endpoints
@@ -151,7 +157,7 @@ Note: Phases 3, 4, and 5 can execute in parallel after Phase 2 (or Phase 1 for 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Database | 7/7 | Complete | 2026-04-25 |
-| 2. Data Ingestion | 0/TBD | Not started | - |
+| 2. Data Ingestion | 1/6 | In progress | - |
 | 3. Read-Only APIs | 0/TBD | Not started | - |
 | 4. Stateful APIs | 0/TBD | Not started | - |
 | 5. Frontend Shell & Design System | 0/TBD | Not started | - |

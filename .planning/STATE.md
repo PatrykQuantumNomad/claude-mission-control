@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: phase-1-complete
-stopped_at: Phase 1 verified (status: passed); ready to plan Phase 2 (Data Ingestion)
-last_updated: "2026-04-25T13:35:00.000Z"
+status: verifying
+stopped_at: Completed 02-01-PLAN.md (Phase 2 foundation)
+last_updated: "2026-04-25T18:32:39.599Z"
 last_activity: 2026-04-25
 progress:
   total_phases: 9
   completed_phases: 1
-  total_plans: 7
-  completed_plans: 7
-  percent: 100
+  total_plans: 13
+  completed_plans: 8
+  percent: 62
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-25)
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, queue and approve tasks, and kill runaway sessions — all from one browser tab.
-**Current focus:** Phase 1: Foundation & Database
+**Current focus:** Phase 2: Data Ingestion (foundation laid; parser/router/scheduler next)
 
 ## Current Position
 
-Phase: 1 of 9 COMPLETE (Foundation & Database) — verifier passed 4/4 must-haves
-Plan: 7 of 7 complete; Phase 1 closed
-Status: Ready to plan Phase 2 (Data Ingestion)
-Last activity: 2026-04-25 — gsd-verifier returned status: passed
+Phase: 2 of 9 IN PROGRESS (Data Ingestion) — Plan 02-01 (foundation) complete
+Plan: 1 of 6 complete in Phase 2 (02-01 ✅; next 02-02 JSONL parser)
+Status: Plan 02-01 complete; ready for Plan 02-02
+Last activity: 2026-04-25
 
-Progress (Phase 1): [██████████] 100%
+Progress (Phase 2): [██░░░░░░░░] 17%
 
 ## Performance Metrics
 
@@ -45,6 +45,7 @@ Progress (Phase 1): [██████████] 100%
 | Phase                       | Plans | Total    | Avg/Plan |
 |-----------------------------|-------|----------|----------|
 | Phase 1 (Foundation & DB)   | 7 / 7 | ~110 min | ~16 min  |
+| Phase 2 (Data Ingestion)    | 1 / 6 | ~12 min  | ~12 min  |
 
 **Recent Trend:**
 
@@ -58,6 +59,7 @@ Progress (Phase 1): [██████████] 100%
 | Phase 01-foundation-database P05 | ~7 min | 2 tasks | 18 files |
 | Phase 01-foundation-database P06 | 4 min | 2 tasks | 7 files |
 | Phase 01-foundation-database P07 | ~50 min (incl. checkpoint wait) | 3 tasks | 5 files + dist rebuild |
+| Phase 02-data-ingestion P01 | 12 min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -86,11 +88,15 @@ Recent decisions affecting current work:
 - 2026-04-25: Phase 1 final integration verified — uvicorn boots from repo root, React SPA loads at localhost:8765 with header + body content, /api/health returns JSON, deep-link fallback (/some-deep-link) returns the SPA shell, /api/docs renders Swagger, DB lands at repo-root data/ with WAL siblings, clean Ctrl+C shutdown
 - Plan 07 auto-fixes (Rule 1, 3 bugs): SPAStaticFiles caught fastapi.HTTPException instead of starlette.exceptions.HTTPException (deep-link fallback dead); StaticFiles parent stores directory as str so override needed Path(...) wrap; root Mount has empty path attribute so tests must locate it via name="spa" not by path
 - Plan 07 final test count: 25 (Plan 06 had 21; +5 new SPA tests, -1 removed Plan 06 contract-guard = +4 net)
+- Plan 02-01: Phase 2 Settings locked — jsonl_root=~/.claude/projects (NOT in repo-root resolver), session_idle_minutes=5, otlp_max_body_bytes=10_000_000; pytest-freezer 0.4.9 added to dev extras
+- Plan 02-01: Phase 2 single-test-file convention — backend/tests/test_phase2_ingest.py (downstream plans 02-02..02-05 APPEND INGST-* sections)
+- Plan 02-01: 4 reusable conftest fixtures land for Phase 2 — fake_jsonl_dir, golden_jsonl_session, otlp_log_payload, otlp_metric_payload
+- Plan 02-01 auto-fix (Rule 3): alembic Config script_location was still cwd-relative after ini path absolutization; tests now mirror lifespan.py's `set_main_option("script_location", str(ini_path.parent / "migrations"))` pattern. Result: pytest 26/26 from BOTH backend/ and repo-root cwds.
 
 ### Pending Todos
 
 - Phase 2 onward: 10 `[NEEDS USER CONFIRMATION]` flags in `01-01-SCHEMA.md` should be resolved as relevant plans approach (or via future Alembic migrations once production-dashboard reality clarifies them).
-- Test cwd: 3 tests in test_phase1_boot.py reference relative paths (alembic.ini lines 150/178, 0001_initial.py line 194); they pass from backend/ but fail from repo root. Verifier flagged as a non-blocker test-helper bug — production code uses settings.alembic_ini_path which is always absolute. Worth cleaning up in an early Phase 2 plan or as a quick fix.
+- ~~Test cwd: 3 tests in test_phase1_boot.py reference relative paths~~ — **CLOSED in Plan 02-01** (commit 621af80; replaced with `repo_root() / "backend/..."` absolute paths and absolutized alembic Config script_location to mirror lifespan.py).
 
 ### Blockers/Concerns
 
@@ -98,11 +104,12 @@ None — Phase 1 plans complete; verifier readiness confirmed via 25 passing tes
 
 ## Session Continuity
 
-Last session: 2026-04-25
-Stopped at: Phase 1 verified (4/4 must-haves passed); ready to plan Phase 2 (Data Ingestion)
-Resume file: (none — next step is /gsd:plan-phase 2 in a fresh context)
+Last session: 2026-04-25T18:32:39.591Z
+Stopped at: Completed 02-01-PLAN.md (Phase 2 foundation)
+Resume file: None
 
 Phase 1 final commit chain:
+
 - 01-02: 17 files (FastAPI skeleton)
 - 01-03: 13 files (Vite + React + TanStack Router)
 - 01-04: c4613f8 + d3c9e90 (DB engine + Alembic env)

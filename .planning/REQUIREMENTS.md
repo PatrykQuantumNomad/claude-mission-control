@@ -24,14 +24,16 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Ingest
 
-- [ ] **INGST-01**: JSONL scraper scans ~/.claude/projects/*/*.jsonl on boot and every 120s
+- [x] **INGST-01
+**: JSONL scraper scans ~/.claude/projects/*/*.jsonl on boot and every 120s
 - [ ] **INGST-02**: JSONL parser extracts user/assistant messages with token usage (input, output, cache_read, cache_create)
 - [ ] **INGST-03**: JSONL parser pairs tool_use and tool_result by tool_use_id, computing duration (capped at 10 min)
 - [ ] **INGST-04**: JSONL parser upserts sessions row with totals on session end; re-parses if ended_at IS NULL or mtime > synced_at
 - [ ] **INGST-05**: JSONL parser writes daily token_usage rollups with local-time day bucketing
 - [ ] **INGST-06**: JSONL parser handles corrupted lines gracefully (skip + log, never crash sync cycle)
 - [ ] **INGST-07**: OTEL /v1/logs endpoint receives OTLP/HTTP JSON, always returns 200, per-row try/except
-- [ ] **INGST-08**: OTEL /v1/logs extracts mcp_server_name and mcp_tool_name from tool_parameters JSON for mcp_tool events
+- [x] **INGST-08
+**: OTEL /v1/logs extracts mcp_server_name and mcp_tool_name from tool_parameters JSON for mcp_tool events
 - [ ] **INGST-09**: OTEL /v1/metrics endpoint receives OTLP/HTTP JSON, inserts into otel_metrics, always returns 200
 - [ ] **INGST-10**: POST /api/sync triggers manual sync cycle
 
