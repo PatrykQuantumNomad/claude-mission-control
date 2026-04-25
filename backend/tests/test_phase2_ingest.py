@@ -500,15 +500,20 @@ async def test_upsert_session_idempotent(test_settings):
 async def test_upsert_tools_pending_to_ok_transition(test_settings):
     """INGST-04: a tool_use that re-appears with a tool_result transitions
     pending -> ok in-place — no duplicate row keyed on tool_use_id.
+
+    Uses a fresh AsyncSession per assertion phase so the identity-map cache
+    (expire_on_commit=False) doesn't return a stale ORM instance after upsert.
+    The scheduler in Plan 02-04 mirrors this pattern: each file gets its own
+    sessionmaker() context, so cache freshness is naturally bounded per cycle.
     """
     from cmc.ingest.repository import upsert_session, upsert_tools
     from cmc.db.models.tools import ToolCall
 
     app, cm = await _bootstrap_app(test_settings)
     async with cm:
+        now = datetime.now(timezone.utc)
+        # Phase 1: insert parent + pending tool
         async with app.state.sessions() as db:
-            now = datetime.now(timezone.utc)
-            # Parent session row first (FK)
             await upsert_session(
                 db, session_id="sess-x",
                 started_at=now, synced_at=now, jsonl_mtime=now,
@@ -517,7 +522,6 @@ async def test_upsert_tools_pending_to_ok_transition(test_settings):
                 tokens_cache_read=0, tokens_cache_create=0,
                 tool_call_count=0, message_count=0,
             )
-            # First parse: tool is pending
             await upsert_tools(db, "sess-x", [{
                 "tool_use_id": "t1", "tool_name": "Bash",
                 "started_at": now, "ended_at": None, "duration_ms": None,
@@ -526,13 +530,17 @@ async def test_upsert_tools_pending_to_ok_transition(test_settings):
                 "input_summary": "ls",
             }])
             await db.commit()
+
+        # Verify pending state in a FRESH session (no identity-map cache).
+        async with app.state.sessions() as db:
             rows = (await db.execute(select(ToolCall))).scalars().all()
             assert len(rows) == 1
             assert rows[0].status == "pending"
             assert rows[0].duration_ms is None
 
-            # Second parse: tool now has a result → status='ok', duration set
-            later = now + timedelta(seconds=5)
+        # Phase 2: re-parse with tool_result → status='ok'.
+        later = now + timedelta(seconds=5)
+        async with app.state.sessions() as db:
             await upsert_tools(db, "sess-x", [{
                 "tool_use_id": "t1", "tool_name": "Bash",
                 "started_at": now, "ended_at": later, "duration_ms": 5000,
@@ -541,6 +549,9 @@ async def test_upsert_tools_pending_to_ok_transition(test_settings):
                 "input_summary": "ls",
             }])
             await db.commit()
+
+        # Verify transition in a FRESH session.
+        async with app.state.sessions() as db:
             rows = (await db.execute(select(ToolCall))).scalars().all()
             assert len(rows) == 1, "no duplicate row created on transition"
             assert rows[0].status == "ok"
