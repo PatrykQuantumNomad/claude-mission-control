@@ -34,10 +34,12 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **INGST-05**: JSONL parser writes daily token_usage rollups with local-time day bucketing
 - [x] **INGST-06
 **: JSONL parser handles corrupted lines gracefully (skip + log, never crash sync cycle)
-- [ ] **INGST-07**: OTEL /v1/logs endpoint receives OTLP/HTTP JSON, always returns 200, per-row try/except
+- [x] **INGST-07
+**: OTEL /v1/logs endpoint receives OTLP/HTTP JSON, always returns 200, per-row try/except
 - [x] **INGST-08
 **: OTEL /v1/logs extracts mcp_server_name and mcp_tool_name from tool_parameters JSON for mcp_tool events
-- [ ] **INGST-09**: OTEL /v1/metrics endpoint receives OTLP/HTTP JSON, inserts into otel_metrics, always returns 200
+- [x] **INGST-09
+**: OTEL /v1/metrics endpoint receives OTLP/HTTP JSON, inserts into otel_metrics, always returns 200
 - [ ] **INGST-10**: POST /api/sync triggers manual sync cycle
 
 ### System API

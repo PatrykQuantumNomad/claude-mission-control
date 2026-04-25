@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-02-PLAN.md (JSONL parser library)
-last_updated: "2026-04-25T18:39:25.024Z"
+stopped_at: Completed 02-03-PLAN.md (OTLP /v1/logs + /v1/metrics receiver)
+last_updated: "2026-04-25T18:53:53.881Z"
 last_activity: 2026-04-25
 progress:
   total_phases: 9
   completed_phases: 1
   total_plans: 13
-  completed_plans: 9
-  percent: 69
+  completed_plans: 10
+  percent: 77
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 ## Current Position
 
 Phase: 2 of 9 IN PROGRESS (Data Ingestion) — Plan 02-01 (foundation) complete
-Plan: 2 of 6 complete in Phase 2 (02-01 ✅; next 02-02 JSONL parser)
+Plan: 3 of 6 complete in Phase 2 (02-01 ✅; next 02-02 JSONL parser)
 Status: Ready to execute
 Last activity: 2026-04-25
 
@@ -61,6 +61,7 @@ Progress (Phase 2): [██░░░░░░░░] 17%
 | Phase 01-foundation-database P07 | ~50 min (incl. checkpoint wait) | 3 tasks | 5 files + dist rebuild |
 | Phase 02-data-ingestion P01 | 12 min | 2 tasks | 5 files |
 | Phase 02-data-ingestion P02 | 3 min | 2 tasks | 3 files |
+| Phase 02-data-ingestion PP03 | 11 min | 2 tasks tasks | 6 files files |
 
 ## Accumulated Context
 
@@ -96,6 +97,10 @@ Recent decisions affecting current work:
 - Plan 02-02: cmc.ingest.jsonl_parser is the pure-sync entry contract for Plan 02-04 — scheduler MUST wrap in asyncio.to_thread(parse_session_file, path); _last_message_ts is the field the scheduler reads to decide ended_at
 - Plan 02-02: split_mcp(name) is the canonical mcp__server__tool splitter (maxsplit=2 preserves trailing __ in tool component); Plan 02-03 OTLP parser will import it for the INGST-08 fallback path
 - Plan 02-02: cmc/ingest/__init__.py kept empty (package marker only) so parallel plans 02-03..05 can land submodules without re-export churn
+- Plan 02-03: per-record savepoint + IntegrityError retry pattern for /v1/logs — db.add() defers FK validation to commit, so a single bad session_id would abort the whole batch; savepoint-per-record + retry-as-NULL preserves the soft-FK contract on otel_events.session_id
+- Plan 02-03: raw_routers() established as canonical aggregator for any router whose URL is fixed externally (OTLP, future webhooks/OAuth callbacks); lives alongside all_routers() in cmc.api.routes and is registered between /api routers and the SPA mount in factory.py
+- Plan 02-03: GET /v1/logs returns 405 only when SPA mount is disabled — with SPA mount active, GET falls through to index.html (200) which is the correct production behavior since /v1/logs is POST-only and the SPA catches all unknown GETs for client-side routing
+- Plan 02-03: Plan 01-07's test_static_mount_after_routers extended to also assert /v1/logs and /v1/metrics positions precede the SPA mount — the Pitfall 8 regression guard now scales to any future raw_routers additions
 
 ### Pending Todos
 
@@ -108,8 +113,8 @@ None — Phase 1 plans complete; verifier readiness confirmed via 25 passing tes
 
 ## Session Continuity
 
-Last session: 2026-04-25T18:39:25.017Z
-Stopped at: Completed 02-02-PLAN.md (JSONL parser library)
+Last session: 2026-04-25T18:53:40.891Z
+Stopped at: Completed 02-03-PLAN.md (OTLP /v1/logs + /v1/metrics receiver)
 Resume file: None
 
 Phase 1 final commit chain:
