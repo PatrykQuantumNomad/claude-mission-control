@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 01-06 (FastAPI app factory + lifespan + /api/health); Plan 07 ready (SPA static mount)
-last_updated: "2026-04-25T16:54:18.615Z"
+status: paused-at-checkpoint
+stopped_at: 01-07 Tasks 1+2 complete (SPA mount + 25 passing tests); awaiting manual browser smoke checkpoint
+last_updated: "2026-04-25T13:05:00.000Z"
 last_activity: 2026-04-25
 progress:
   total_phases: 9
@@ -94,6 +94,13 @@ None — schema is locked; Wave 1 unblocked.
 
 ## Session Continuity
 
-Last session: 2026-04-25T16:54:18.608Z
-Stopped at: Completed 01-06 (FastAPI app factory + lifespan + /api/health); Plan 07 ready (SPA static mount)
-Resume file: None
+Last session: 2026-04-25T13:05:00.000Z
+Stopped at: 01-07 Tasks 1+2 complete; awaiting manual browser smoke checkpoint (Task 3)
+Resume file: .planning/phases/01-foundation-database/01-07-PLAN.md (Task 3: checkpoint:human-verify)
+
+In-progress notes for Plan 07:
+- Task 1 commit: 7c6437f (feat: mount SPAStaticFiles at / after routers)
+- Task 2 commit: a8adda0 (test: SPA mount tests + remove Plan 06 contract-guard, 25 passing)
+- Auto-fix deviation (Rule 1) commit: 7a3e478 (fix: SPA deep-link fallback now actually triggers — caught wrong exception class + wrapped str directory in Path)
+- Auto-fix deviation (Rule 1) inline in Task 2: test_static_mount_after_routers and test_create_app_skips_mount_if_static_dir_missing now identify the SPA Mount via name="spa" because Starlette stores the root Mount with empty path attribute (the as-drafted `path == "/"` check would never match).
+- Awaiting user "approved" on browser smoke (six checks: /, deep link, /api/health, /api/docs, no console errors, DB at repo-root data/).
