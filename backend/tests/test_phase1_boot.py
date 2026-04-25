@@ -279,4 +279,59 @@ async def test_lifespan_uses_repo_root_anchored_alembic_ini(test_settings, monke
         assert app.state.engine is not None
 
 
+# ---- FOUND-01 (Plan 06): app factory + health route ----
+
+
+def test_create_app_returns_fastapi(test_settings):
+    """FOUND-01: create_app() returns a FastAPI instance with settings on state."""
+    from fastapi import FastAPI
+    from cmc.app import create_app
+
+    app = create_app(settings=test_settings)
+    assert isinstance(app, FastAPI)
+    assert app.state.settings is test_settings
+
+
+def test_health_route_registered(test_settings):
+    """FOUND-01: /api/health is in the route table."""
+    from cmc.app import create_app
+    app = create_app(settings=test_settings)
+    paths = [r.path for r in app.routes]
+    assert "/api/health" in paths
+
+
+@pytest.mark.asyncio
+async def test_health_route_returns_ok(test_settings):
+    """FOUND-01: GET /api/health returns 200 with {'status': 'ok'}."""
+    from httpx import ASGITransport, AsyncClient
+    from cmc.app import create_app
+
+    app = create_app(settings=test_settings)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Lifespan runs automatically with httpx ASGI? No — must trigger via app context.
+        # Use lifespan context manually.
+        async with app.router.lifespan_context(app):
+            resp = await client.get("/api/health")
+            assert resp.status_code == 200
+            assert resp.json() == {"status": "ok"}
+
+
+def test_routers_registered_before_static_mount_slot(test_settings):
+    """Plan 06 contract for Plan 07: at this point /api/health exists, and the
+    `# NOTE: Plan 07 will mount SPAStaticFiles at "/" here.` comment marks the
+    insertion point (Pitfall 8). Plan 07 will replace this test with one that
+    asserts the actual ordering of include_router vs app.mount AFTER its mount
+    is added.
+    """
+    from cmc.app import create_app
+    app = create_app(settings=test_settings)
+    # /api/health must be present
+    paths = [getattr(r, "path", None) for r in app.routes]
+    assert "/api/health" in paths
+    # No mount yet (Plan 07 adds it; Plan 07 will rewrite this assertion).
+    mounts = [r for r in app.routes if r.__class__.__name__ == "Mount" and getattr(r, "path", None) == "/"]
+    assert mounts == [], "Plan 06 must NOT mount static; Plan 07 does that. (Plan 07 replaces this test.)"
+
+
 # Plan 07 will append tests for SPA root + deep link + /api/health
