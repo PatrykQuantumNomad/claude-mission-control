@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 ## Current Position
 
 Phase: 1 of 9 (Foundation & Database)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-04-25 — Roadmap created
+Plan: 01 of 7 in current phase (in progress)
+Status: Awaiting checkpoint resolution (Task 4 — schema approval)
+Last activity: 2026-04-25 — Plan 01-01 Tasks 1-3 complete; checkpoint reached
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -47,14 +47,14 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-None yet.
+- Plan 01-01 Task 4 — user must resolve `checkpoint:decision` (approve / approve-with-edits / provide-existing-schema) for `.planning/phases/01-foundation-database/01-01-SCHEMA.md` before Plan 05 can autogenerate the Alembic initial revision.
 
 ### Blockers/Concerns
 
-None yet.
+- Schema lock is blocking: Plan 05 (initial Alembic revision) cannot proceed until the 15-table draft is approved or replaced with the production DDL.
 
 ## Session Continuity
 
 Last session: 2026-04-25
-Stopped at: Roadmap created, ready to plan Phase 1
-Resume file: None
+Stopped at: Plan 01-01 Tasks 1-3 committed; awaiting Task 4 (schema approval) checkpoint
+Resume file: .planning/phases/01-foundation-database/01-01-PLAN.md (Task 4)
