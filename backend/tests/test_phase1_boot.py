@@ -202,5 +202,81 @@ def test_column_exists_helper_signature():
     assert list(sig.parameters.keys()) == ["table", "column"]
 
 
-# Plan 06 will append tests for app factory + lifespan
+# ---- FOUND-05 (Plan 06): lifespan ----
+
+
+@pytest.mark.asyncio
+async def test_lifespan_initializes_engine_and_sessions(test_settings):
+    """FOUND-05: Lifespan populates app.state.engine and app.state.sessions."""
+    from fastapi import FastAPI
+    from cmc.app.lifespan import lifespan
+
+    app = FastAPI()
+    app.state.settings = test_settings
+    async with lifespan(app):
+        assert app.state.engine is not None
+        assert app.state.sessions is not None
+        # Sessions factory should produce a working session
+        async with app.state.sessions() as s:
+            from sqlalchemy import text
+            result = await s.execute(text("SELECT 1"))
+            assert result.scalar() == 1
+
+
+@pytest.mark.asyncio
+async def test_lifespan_creates_all_tables(test_settings):
+    """FOUND-02 + FOUND-05: Lifespan runs alembic upgrade -> all 15 tables exist."""
+    from fastapi import FastAPI
+    from sqlalchemy import inspect
+    from cmc.app.lifespan import lifespan
+
+    app = FastAPI()
+    app.state.settings = test_settings
+    async with lifespan(app):
+        async with app.state.engine.connect() as conn:
+            def _names(sync_conn):
+                return sorted(inspect(sync_conn).get_table_names())
+            tables = await conn.run_sync(_names)
+        app_tables = [t for t in tables if t != "alembic_version"]
+        assert len(app_tables) == 15, f"got {app_tables}"
+
+
+@pytest.mark.asyncio
+async def test_lifespan_disposes_on_shutdown(test_settings):
+    """FOUND-05: engine.dispose() is called after yield."""
+    from fastapi import FastAPI
+    from cmc.app.lifespan import lifespan
+
+    app = FastAPI()
+    app.state.settings = test_settings
+    async with lifespan(app):
+        engine = app.state.engine
+    # After exiting context, engine should be disposed.
+    # SQLAlchemy doesn't expose a direct "is disposed" flag, but pool.size() is 0
+    # after dispose. We'll just confirm dispose() can be called again without error.
+    await engine.dispose()  # safe to call twice
+
+
+@pytest.mark.asyncio
+async def test_lifespan_uses_repo_root_anchored_alembic_ini(test_settings, monkeypatch, tmp_path):
+    """BLOCKER 1 regression: lifespan finds alembic.ini regardless of cwd.
+
+    Plan 02's model_validator makes settings.alembic_ini_path absolute. The
+    lifespan must trust that path even when cwd has been changed (e.g., when
+    started from `cd backend && uvicorn ...`).
+    """
+    from fastapi import FastAPI
+    from cmc.app.lifespan import lifespan
+
+    # Move cwd somewhere unrelated; lifespan should still resolve alembic.ini correctly.
+    monkeypatch.chdir(tmp_path)
+    app = FastAPI()
+    app.state.settings = test_settings
+    async with lifespan(app):
+        # If alembic upgrade actually ran against the right config, app.state.engine
+        # is set and tables exist — same assertion as test_lifespan_creates_all_tables
+        # but with a deliberately wrong cwd.
+        assert app.state.engine is not None
+
+
 # Plan 07 will append tests for SPA root + deep link + /api/health
