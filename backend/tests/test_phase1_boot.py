@@ -136,6 +136,71 @@ async def test_sessionmaker_yields_working_session(test_settings):
         await engine.dispose()
 
 
-# Plan 05 will append tests for the 15 tables + column-exists helper
+# ---- FOUND-02 + FOUND-03 (Plan 05): all 15 tables created via Alembic ----
+
+
+@pytest.mark.asyncio
+async def test_alembic_upgrade_creates_all_tables(test_settings):
+    """FOUND-02: alembic upgrade head creates all 15 application tables."""
+    from sqlalchemy import inspect
+    from alembic.config import Config
+    from alembic import command
+
+    engine = create_engine_for_settings(test_settings)
+    cfg = Config("alembic.ini")
+    try:
+        async with engine.begin() as conn:
+            def _upgrade(sync_conn):
+                cfg.attributes["connection"] = sync_conn
+                command.upgrade(cfg, "head")
+            await conn.run_sync(_upgrade)
+
+        async with engine.connect() as conn:
+            def _inspect(sync_conn):
+                return sorted(inspect(sync_conn).get_table_names())
+            tables = await conn.run_sync(_inspect)
+        # 15 app tables + alembic_version
+        app_tables = [t for t in tables if t != "alembic_version"]
+        assert len(app_tables) == 15, (
+            f"Expected 15 app tables, got {len(app_tables)}: {app_tables}"
+        )
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_alembic_upgrade_is_idempotent(test_settings):
+    """FOUND-02: running alembic upgrade twice does not error (idempotent)."""
+    from alembic.config import Config
+    from alembic import command
+
+    engine = create_engine_for_settings(test_settings)
+    cfg = Config("alembic.ini")
+    try:
+        for _ in range(2):
+            async with engine.begin() as conn:
+                def _upgrade(sync_conn):
+                    cfg.attributes["connection"] = sync_conn
+                    command.upgrade(cfg, "head")
+                await conn.run_sync(_upgrade)
+    finally:
+        await engine.dispose()
+
+
+def test_column_exists_helper_signature():
+    """FOUND-03: _column_exists is importable from the migration module."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "_initial", "migrations/versions/0001_initial.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert callable(module._column_exists)
+    # Signature check: takes (table: str, column: str) -> bool
+    import inspect as ins
+    sig = ins.signature(module._column_exists)
+    assert list(sig.parameters.keys()) == ["table", "column"]
+
+
 # Plan 06 will append tests for app factory + lifespan
 # Plan 07 will append tests for SPA root + deep link + /api/health
