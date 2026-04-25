@@ -1063,3 +1063,93 @@ async def test_lifespan_boots_when_jsonl_root_missing(
             rows = (await db.execute(select(SessionModel))).scalars().all()
             assert rows == []
         assert isinstance(app.state.sync_task, asyncio.Task)
+
+
+# ---- Plan 02-05: POST /api/sync (INGST-10) ----
+
+
+@pytest.mark.asyncio
+async def test_manual_sync_returns_summary_and_persists_data(
+    test_settings, fake_jsonl_dir, golden_jsonl_session,
+):
+    """INGST-10 happy path: POST /api/sync runs a sync cycle and returns
+    a summary dict with the documented shape; sessions row count matches
+    what sync_once would produce.
+    """
+    from httpx import ASGITransport, AsyncClient
+    from cmc.app import create_app
+    from cmc.db.models.sessions import Session as SessionModel
+
+    settings = test_settings.model_copy(update={"jsonl_root": fake_jsonl_dir})
+    app = create_app(settings=settings)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        async with app.router.lifespan_context(app):
+            resp = await client.post("/api/sync")
+            assert resp.status_code == 200
+            body = resp.json()
+            assert body["status"] == "ok"
+            # Documented shape: status + 4 summary fields.
+            assert isinstance(body.get("files_seen"), int)
+            assert isinstance(body.get("files_updated"), int)
+            assert isinstance(body.get("errors"), int)
+            assert isinstance(body.get("duration_ms"), int)
+            # Boot sync already ingested the golden fixture, so the
+            # second sync (this POST) sees no new updates — files_updated == 0
+            # but files_seen == 1 (the file is still walked).
+            assert body["files_seen"] == 1
+            async with app.state.sessions() as db:
+                rows = (await db.execute(select(SessionModel))).scalars().all()
+                assert len(rows) == 1
+
+
+@pytest.mark.asyncio
+async def test_manual_sync_idempotent_under_repeat(
+    test_settings, fake_jsonl_dir, golden_jsonl_session,
+):
+    """INGST-04 + INGST-05 + INGST-10: POSTing /api/sync twice doesn't
+    inflate session counts OR token_usage rollups. The repeat should be a
+    no-op because the file mtime hasn't moved and existing.ended_at is set
+    (or the session is fresh and the on-disk row is current).
+    """
+    from httpx import ASGITransport, AsyncClient
+    from sqlalchemy import func
+    from cmc.app import create_app
+    from cmc.db.models.sessions import Session as SessionModel
+    from cmc.db.models.token_usage import TokenUsage
+
+    settings = test_settings.model_copy(update={"jsonl_root": fake_jsonl_dir})
+    app = create_app(settings=settings)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        async with app.router.lifespan_context(app):
+            # Boot sync already ran inside lifespan_context — both POSTs are
+            # repeats from the DB's perspective.
+            await client.post("/api/sync")
+            await client.post("/api/sync")
+            async with app.state.sessions() as db:
+                sess_count = (
+                    await db.execute(select(func.count(SessionModel.session_id)))
+                ).scalar_one()
+                assert sess_count == 1
+                bucket_total = (
+                    await db.execute(select(func.sum(TokenUsage.tokens_input)))
+                ).scalar_one()
+                # Parser totals = 15. Multiple POSTs must not inflate this
+                # rollup (Option B subtract-then-add keeps it at 15).
+                assert bucket_total == 15
+
+
+def test_sync_route_registered(test_settings):
+    """Plan 02-05: /api/sync exists and lives under the /api prefix.
+
+    Confirms all_routers() picked up the new sync_router AND the factory
+    registered it before the SPA mount (Pitfall 8 still satisfied because
+    all_routers() iteration runs before the static mount in factory.py).
+    """
+    from cmc.app import create_app
+    app = create_app(settings=test_settings)
+    paths = {getattr(r, "path", None) for r in app.routes}
+    assert "/api/sync" in paths
+    # Must NOT be at root (would mean it landed in raw_routers by mistake).
+    assert "/sync" not in paths
