@@ -1,0 +1,10 @@
+:root {
+  --cmc-bg: #0a0a0f;
+  --cmc-fg: #e6e6f0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+html, body, #root { height: 100%; margin: 0; }
+body { background: var(--cmc-bg); color: var(--cmc-fg); }
+.cmc-shell { display: flex; flex-direction: column; min-height: 100%; }
+.cmc-header { padding: 16px 24px; border-bottom: 1px solid #1a1a24; font-weight: 600; }
+.cmc-main { padding: 24px; }
