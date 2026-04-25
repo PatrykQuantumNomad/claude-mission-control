@@ -14,7 +14,7 @@ import logging
 
 from fastapi import FastAPI
 
-from cmc.api.routes import all_routers
+from cmc.api.routes import all_routers, raw_routers
 from cmc.app.lifespan import lifespan
 from cmc.config import Settings, load_settings
 from cmc.core import SPAStaticFiles, configure_logging, register_error_handlers
@@ -45,6 +45,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Routers FIRST (per Pitfall 8: static mount at "/" would shadow them otherwise).
     for router in all_routers():
         app.include_router(router, prefix="/api")
+    # OTLP/raw routers next: mounted at ROOT (no /api prefix) because the OTLP/HTTP
+    # spec fixes /v1/logs and /v1/metrics. STILL registered BEFORE the SPA mount.
+    for router in raw_routers():
+        app.include_router(router)
 
     # SPA static mount LAST. settings.static_dir is absolute (Plan 02 model_validator).
     # If frontend/dist/index.html doesn't exist, log a warning and skip the mount
