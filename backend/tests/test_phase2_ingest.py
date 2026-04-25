@@ -711,3 +711,243 @@ async def test_repository_idempotent_full_run(test_settings, golden_jsonl_sessio
             # Final bucket sum equals the parser totals — Option B did not inflate.
             assert sum(b.tokens_input for b in buckets) == 15
             assert sum(b.tokens_output for b in buckets) == 28
+
+
+# ---- Plan 02-04: scheduler (INGST-04 + INGST-05 + INGST-06 e2e + loop hygiene) ----
+
+import asyncio
+import os
+import time as _time
+
+
+@pytest.fixture
+def settings_with_jsonl_root(test_settings, fake_jsonl_dir):
+    """Settings variant with jsonl_root pointed at the hermetic fake_jsonl_dir."""
+    return test_settings.model_copy(update={"jsonl_root": fake_jsonl_dir})
+
+
+@pytest.mark.asyncio
+async def test_sync_once_ingests_golden_session(
+    settings_with_jsonl_root, golden_jsonl_session,
+):
+    """INGST-04 + INGST-05 e2e: sync_once parses + upserts the golden fixture
+    into all 3 tables (sessions, tools, token_usage)."""
+    from cmc.ingest.scheduler import sync_once
+    from cmc.db.models.sessions import Session as SessionModel
+    from cmc.db.models.tools import ToolCall
+    from cmc.db.models.token_usage import TokenUsage
+
+    app, cm = await _bootstrap_app(settings_with_jsonl_root)
+    async with cm:
+        summary = await sync_once(app.state.sessions, app.state.settings)
+        assert summary["files_seen"] == 1
+        assert summary["files_updated"] == 1
+        assert summary["errors"] == 0
+        async with app.state.sessions() as db:
+            sessions = (await db.execute(select(SessionModel))).scalars().all()
+            assert len(sessions) == 1
+            assert sessions[0].tokens_input == 15
+            tools = (await db.execute(select(ToolCall))).scalars().all()
+            assert len(tools) == 2
+            statuses = {t.status for t in tools}
+            assert statuses == {"ok", "pending"}
+            buckets = (await db.execute(select(TokenUsage))).scalars().all()
+            assert sum(b.tokens_input for b in buckets) == 15
+
+
+@pytest.mark.asyncio
+async def test_sync_once_excludes_subagents(settings_with_jsonl_root, golden_jsonl_session):
+    """Glob is `*/*.jsonl` (one level) — must NOT scoop up subagent JSONL files
+    nested deeper. (Pitfall 5 in research §1.)
+    """
+    from cmc.ingest.scheduler import sync_once
+    from cmc.db.models.sessions import Session as SessionModel
+
+    # Place a subagent JSONL two levels deeper than the parent session.
+    proj = golden_jsonl_session.parent  # fake_jsonl_dir/-Users-test-project/
+    sub = proj / "subagents"
+    sub.mkdir()
+    decoy = sub / "agent-1.jsonl"
+    decoy.write_text(
+        '{"type": "user", "uuid": "u1", "sessionId": "DECOY-DO-NOT-INGEST",'
+        ' "timestamp": "2026-04-25T17:00:00Z",'
+        ' "message": {"role": "user", "content": "decoy"}}\n'
+    )
+
+    app, cm = await _bootstrap_app(settings_with_jsonl_root)
+    async with cm:
+        summary = await sync_once(app.state.sessions, app.state.settings)
+        # Only the parent session got ingested (one level).
+        assert summary["files_seen"] == 1
+        async with app.state.sessions() as db:
+            rows = (await db.execute(select(SessionModel))).scalars().all()
+            assert len(rows) == 1
+            assert rows[0].session_id != "DECOY-DO-NOT-INGEST"
+
+
+@pytest.mark.asyncio
+async def test_sync_once_ended_at_heuristic_stale_file(
+    settings_with_jsonl_root, golden_jsonl_session,
+):
+    """ended_at decision: file with mtime older than session_idle_minutes →
+    ended_at set from parser._last_message_ts. Fresh file → ended_at None.
+    """
+    from cmc.ingest.scheduler import sync_once
+    from cmc.db.models.sessions import Session as SessionModel
+
+    # Make the file STALE: mtime far in the past (well beyond 5 min idle).
+    stale_epoch = (datetime.now() - timedelta(hours=2)).timestamp()
+    os.utime(golden_jsonl_session, (stale_epoch, stale_epoch))
+
+    app, cm = await _bootstrap_app(settings_with_jsonl_root)
+    async with cm:
+        await sync_once(app.state.sessions, app.state.settings)
+        async with app.state.sessions() as db:
+            rows = (await db.execute(select(SessionModel))).scalars().all()
+            assert len(rows) == 1
+            assert rows[0].ended_at is not None, "stale file → ended_at should be set"
+
+
+@pytest.mark.asyncio
+async def test_sync_once_ended_at_heuristic_fresh_file(
+    settings_with_jsonl_root, golden_jsonl_session,
+):
+    """Fresh-mtime file → ended_at left None ('still live' session)."""
+    from cmc.ingest.scheduler import sync_once
+    from cmc.db.models.sessions import Session as SessionModel
+
+    # Make the file FRESH: mtime = now.
+    now_epoch = datetime.now().timestamp()
+    os.utime(golden_jsonl_session, (now_epoch, now_epoch))
+
+    app, cm = await _bootstrap_app(settings_with_jsonl_root)
+    async with cm:
+        await sync_once(app.state.sessions, app.state.settings)
+        async with app.state.sessions() as db:
+            rows = (await db.execute(select(SessionModel))).scalars().all()
+            assert len(rows) == 1
+            assert rows[0].ended_at is None, "fresh file → ended_at None"
+
+
+@pytest.mark.skipif(not hasattr(_time, "tzset"), reason="tzset not available")
+@pytest.mark.asyncio
+async def test_sync_once_local_day_bucket_uses_system_tz(
+    monkeypatch, settings_with_jsonl_root, fake_jsonl_dir,
+):
+    """INGST-05 + research §6: 04:00 UTC = previous day in Pacific → bucket
+    `day` must be the LOCAL date (2026-04-24), not the UTC date (2026-04-25).
+    """
+    from cmc.ingest.scheduler import sync_once
+    from cmc.db.models.token_usage import TokenUsage
+
+    monkeypatch.setenv("TZ", "America/Los_Angeles")
+    _time.tzset()
+    try:
+        # Build a one-message session whose only assistant timestamp is
+        # 2026-04-25T04:00:00Z = 2026-04-24 21:00 PDT.
+        proj = fake_jsonl_dir / "tz-test"
+        proj.mkdir()
+        f = proj / "session-tz.jsonl"
+        f.write_text(json.dumps({
+            "type": "assistant", "uuid": "a1", "sessionId": "sess-tz",
+            "timestamp": "2026-04-25T04:00:00Z", "cwd": "/x",
+            "message": {
+                "role": "assistant", "model": "claude-opus-4-7",
+                "usage": {"input_tokens": 7, "output_tokens": 11},
+                "content": [{"type": "text", "text": "ok"}],
+            },
+        }) + "\n")
+
+        app, cm = await _bootstrap_app(settings_with_jsonl_root)
+        async with cm:
+            await sync_once(app.state.sessions, app.state.settings)
+            async with app.state.sessions() as db:
+                rows = (await db.execute(select(TokenUsage))).scalars().all()
+                assert len(rows) == 1
+                # In Pacific, 04:00 UTC the next day is 21:00 the previous day.
+                assert rows[0].day == date(2026, 4, 24), (
+                    f"local-day bucketing failed: got {rows[0].day} (UTC date "
+                    f"would be 2026-04-25; expected 2026-04-24 PDT)"
+                )
+                assert rows[0].tokens_input == 7
+    finally:
+        # Restore TZ for subsequent tests.
+        monkeypatch.delenv("TZ", raising=False)
+        _time.tzset()
+
+
+@pytest.mark.asyncio
+async def test_sync_once_corrupted_line_does_not_crash(
+    settings_with_jsonl_root, golden_jsonl_session,
+):
+    """INGST-06 e2e: golden_jsonl_session contains a corrupted mid-file line.
+    sync_once MUST not raise; valid messages MUST still be ingested.
+    """
+    from cmc.ingest.scheduler import sync_once
+    from cmc.db.models.sessions import Session as SessionModel
+
+    app, cm = await _bootstrap_app(settings_with_jsonl_root)
+    async with cm:
+        # No exception: corruption is logged at WARNING in iter_jsonl.
+        summary = await sync_once(app.state.sessions, app.state.settings)
+        assert summary["errors"] == 0
+        async with app.state.sessions() as db:
+            rows = (await db.execute(select(SessionModel))).scalars().all()
+            assert len(rows) == 1
+            # Valid messages either side of the corruption were parsed.
+            assert rows[0].tokens_output >= 28
+
+
+@pytest.mark.asyncio
+async def test_periodic_sync_loop_runs_multiple_cycles(monkeypatch):
+    """Loop scheduling: with interval_s=0.05, expect ≥3 sync_once calls in 0.18s.
+    Cancellation must propagate cleanly (no zombie warnings)."""
+    from cmc.ingest import scheduler
+
+    call_count = {"n": 0}
+
+    async def fake_sync_once(sm, settings):
+        call_count["n"] += 1
+        return {"files_seen": 0, "files_updated": 0, "errors": 0, "duration_ms": 0}
+
+    monkeypatch.setattr(scheduler, "sync_once", fake_sync_once)
+
+    task = asyncio.create_task(scheduler.periodic_sync_loop(None, None, interval_s=0.05))
+    await asyncio.sleep(0.18)
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass  # expected — loop re-raises CancelledError
+
+    assert call_count["n"] >= 3, f"expected ≥3 cycles, got {call_count['n']}"
+
+
+@pytest.mark.asyncio
+async def test_periodic_sync_loop_survives_transient_errors(monkeypatch):
+    """Pitfall 7: sync_once raising once must NOT kill the loop. The next cycle
+    still runs."""
+    from cmc.ingest import scheduler
+
+    call_count = {"n": 0}
+
+    async def flaky_sync_once(sm, settings):
+        call_count["n"] += 1
+        if call_count["n"] == 2:
+            raise RuntimeError("transient DB lock")
+        return {"files_seen": 0, "files_updated": 0, "errors": 0, "duration_ms": 0}
+
+    monkeypatch.setattr(scheduler, "sync_once", flaky_sync_once)
+
+    task = asyncio.create_task(scheduler.periodic_sync_loop(None, None, interval_s=0.03))
+    await asyncio.sleep(0.15)
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+    # We expect at least 3 calls: cycle 1 ok, cycle 2 raises, cycle 3+ continues.
+    assert call_count["n"] >= 3, (
+        f"loop killed by single transient error — got {call_count['n']} cycles"
+    )
