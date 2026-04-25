@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-03-PLAN.md (OTLP /v1/logs + /v1/metrics receiver)
-last_updated: "2026-04-25T18:53:53.881Z"
+stopped_at: Completed 02-04-PLAN.md (repository upserts + scheduler sync_once/periodic_loop)
+last_updated: "2026-04-25T19:02:23Z"
 last_activity: 2026-04-25
 progress:
   total_phases: 9
   completed_phases: 1
   total_plans: 13
-  completed_plans: 10
-  percent: 77
+  completed_plans: 11
+  percent: 85
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 
 ## Current Position
 
-Phase: 2 of 9 IN PROGRESS (Data Ingestion) — Plan 02-01 (foundation) complete
-Plan: 3 of 6 complete in Phase 2 (02-01 ✅; next 02-02 JSONL parser)
+Phase: 2 of 9 IN PROGRESS (Data Ingestion)
+Plan: 4 of 6 complete in Phase 2 (02-01..02-04 ✅; next 02-05 lifespan + manual sync)
 Status: Ready to execute
 Last activity: 2026-04-25
 
-Progress (Phase 2): [██░░░░░░░░] 17%
+Progress (Phase 2): [██████░░░░] 67%
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Progress (Phase 2): [██░░░░░░░░] 17%
 | Phase 02-data-ingestion P01 | 12 min | 2 tasks | 5 files |
 | Phase 02-data-ingestion P02 | 3 min | 2 tasks | 3 files |
 | Phase 02-data-ingestion PP03 | 11 min | 2 tasks tasks | 6 files files |
+| Phase 02-data-ingestion P04 | 6 min | 2 tasks (TDD; 4 commits) | 3 files |
 
 ## Accumulated Context
 
@@ -101,6 +102,11 @@ Recent decisions affecting current work:
 - Plan 02-03: raw_routers() established as canonical aggregator for any router whose URL is fixed externally (OTLP, future webhooks/OAuth callbacks); lives alongside all_routers() in cmc.api.routes and is registered between /api routers and the SPA mount in factory.py
 - Plan 02-03: GET /v1/logs returns 405 only when SPA mount is disabled — with SPA mount active, GET falls through to index.html (200) which is the correct production behavior since /v1/logs is POST-only and the SPA catches all unknown GETs for client-side routing
 - Plan 02-03: Plan 01-07's test_static_mount_after_routers extended to also assert /v1/logs and /v1/metrics positions precede the SPA mount — the Pitfall 8 regression guard now scales to any future raw_routers additions
+- Plan 02-04: Option B token rollup math locked as "subtract previous, add new"; Phase 2 v1 simplification attributes a session's previous-totals to a single primary (day, model) bucket = `existing.synced_at.date()` in system tz. Multi-day sessions get small smear; documented as Phase 3+ revisit candidate.
+- Plan 02-04: cmc.ingest.repository._SESSION_MUTABLE_COLS is the explicit allowlist of columns copied from `excluded.*` on conflict; `started_at` intentionally OMITTED so first-insert started_at survives re-parses (immutable lower bound on session lifetime).
+- Plan 02-04: _adjust_bucket pattern = UPDATE-then-INSERT-fallback (not ON CONFLICT with arithmetic on excluded.* + existing column) — chosen for portability + readability; ON CONFLICT safety net included on the INSERT for theoretical concurrent-insert races (single-writer Phase 2 design).
+- Plan 02-04: Plan 02-05 entry contract is `from cmc.ingest.scheduler import sync_once, periodic_sync_loop`. sync_once returns JSON-serializable summary dict suitable as POST /api/sync response. periodic_sync_loop is sleep-first (boot-time sync_once in lifespan won't be immediately duplicated) and Pitfall-7-compliant (catches Exception, re-raises CancelledError).
+- Plan 02-04 auto-fix (Rule 1): pending→ok upsert test originally used a single AsyncSession across both phases and saw stale ORM instance from `expire_on_commit=False` identity-map cache (raw SQL had 'ok'; ORM returned 'pending'). Fixed by opening fresh session per assertion phase — mirrors how scheduler consumes sessionmaker (one session per file).
 
 ### Pending Todos
 
@@ -113,8 +119,8 @@ None — Phase 1 plans complete; verifier readiness confirmed via 25 passing tes
 
 ## Session Continuity
 
-Last session: 2026-04-25T18:53:40.891Z
-Stopped at: Completed 02-03-PLAN.md (OTLP /v1/logs + /v1/metrics receiver)
+Last session: 2026-04-25T19:02:23Z
+Stopped at: Completed 02-04-PLAN.md (repository upserts + scheduler sync_once/periodic_loop)
 Resume file: None
 
 Phase 1 final commit chain:
