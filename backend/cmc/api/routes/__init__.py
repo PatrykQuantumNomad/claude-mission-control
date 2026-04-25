@@ -7,8 +7,8 @@ Two router groups, each with a different mount strategy:
 
 Phase 1: only health (under /api).
 Phase 2 added: ingest router (Plan 02-03) at root because the OTLP/HTTP spec
-fixes the paths at /v1/logs and /v1/metrics, and Phase 2 will also add a
-sync route under /api (Plan 02-05).
+fixes the paths at /v1/logs and /v1/metrics, and sync router (Plan 02-05)
+under /api for the manual ingestion trigger (INGST-10).
 Phase 3 will add: sessions, observability, mcp, skills routers (under /api).
 Phase 4 will add: hitl (decisions, inbox), tasks, schedules, system routers
 (under /api).
@@ -17,11 +17,12 @@ from fastapi import APIRouter
 
 from cmc.api.routes.health import router as health_router
 from cmc.api.routes.ingest import router as ingest_router
+from cmc.api.routes.sync import router as sync_router
 
 
 def all_routers() -> list[APIRouter]:
     """Routers mounted under the /api prefix."""
-    return [health_router]
+    return [health_router, sync_router]
 
 
 def raw_routers() -> list[APIRouter]:
