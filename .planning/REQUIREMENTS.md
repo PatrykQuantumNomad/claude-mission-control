@@ -59,13 +59,20 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Sessions API
 
-- [ ] **SESS-01**: GET /api/sessions returns paginated session list with range/source/model filters
-- [ ] **SESS-02**: GET /api/sessions/{id}/details returns tool-call timeline and token breakdown
-- [ ] **SESS-03**: GET /api/sessions/live returns sessions active in last 5 minutes
-- [ ] **SESS-04**: GET /api/sessions/live/{sid}/state returns current live state row
-- [ ] **SESS-05**: GET /api/sessions/live/{sid}/stream returns SSE line-by-line feed
-- [ ] **SESS-06**: POST /api/sessions/live/{sid}/message queues follow-up message (UUID validation, stream-mode only)
-- [ ] **SESS-07**: GET /api/summary returns today's KPIs (sessions, tokens, tools, errors)
+- [x] **SESS-01
+**: GET /api/sessions returns paginated session list with range/source/model filters
+- [x] **SESS-02
+**: GET /api/sessions/{id}/details returns tool-call timeline and token breakdown
+- [x] **SESS-03
+**: GET /api/sessions/live returns sessions active in last 5 minutes
+- [x] **SESS-04
+**: GET /api/sessions/live/{sid}/state returns current live state row
+- [x] **SESS-05
+**: GET /api/sessions/live/{sid}/stream returns SSE line-by-line feed
+- [x] **SESS-06
+**: POST /api/sessions/live/{sid}/message queues follow-up message (UUID validation, stream-mode only)
+- [x] **SESS-07
+**: GET /api/summary returns today's KPIs (sessions, tokens, tools, errors)
 
 ### Observability API
 

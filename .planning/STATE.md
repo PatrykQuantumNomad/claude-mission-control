@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 03-05-PLAN.md (MCP + Skills routers; 7 endpoints; 15/15 plan-scope tests + 130 full-suite tests green)
-last_updated: "2026-04-26T13:54:10.622Z"
+stopped_at: Completed 03-03-PLAN.md (Sessions Router; SESS-01..07; 20/20 sessions tests + 61/61 phase 1+2 tests green)
+last_updated: "2026-04-26T13:56:58.345Z"
 last_activity: 2026-04-26
 progress:
   total_phases: 9
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 18
-  completed_plans: 17
-  percent: 94
+  completed_plans: 18
+  percent: 100
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 ## Current Position
 
 Phase: 3 of 9 IN PROGRESS (Read-Only APIs) — Wave 0 complete; Wave 1 plans 03-02..03-05 ready
-Plan: 4 of 5 complete in Phase 3 (03-01 ✅ Wave 0 foundation; 70/70 tests green)
+Plan: 5 of 5 complete in Phase 3 (03-01 ✅ Wave 0 foundation; 70/70 tests green)
 Status: Ready to execute
 Last activity: 2026-04-26
 
@@ -69,6 +69,7 @@ Progress (Phase 3): [██░░░░░░░░] 20%
 | Phase 03-read-only-apis P04 | 14 min | 2 tasks tasks | 3 files files |
 | Phase 03-read-only-apis P02 | 30 min | 2 tasks (TDD; 4 commits) tasks | 3 files files |
 | Phase Phase 03-read-only-apis PP05 | 25 min | 2 tasks (TDD; 4 commits) tasks | 5 created + 3 modified files |
+| Phase 03-read-only-apis P03 | 75 min | 2 (TDD; 4 commits) tasks | 4 files files |
 
 ## Accumulated Context
 
@@ -133,6 +134,11 @@ Recent decisions affecting current work:
 - Plan 03-05 SQL pattern: window-function percentiles (ROW_NUMBER + COUNT OVER PARTITION BY) replace plan-prescribed correlated-subquery LIMIT/OFFSET (which SQLite rejects with 'misuse of aggregate function COUNT()'); pattern reusable for any future per-partition percentile needs
 - Plan 03-05 path-traversal defense: regex (^[a-zA-Z0-9._-]+$ for MCP server, ^[a-zA-Z0-9_-]+$ for skill name) + explicit '..' substring check. Regex alone permits 'bad..name' since '.' is allowed; the dotdot check rejects literal traversal sequences (V11/V12 mitigation)
 - Plan 03-05 single-flight pattern locked for ALL future sync endpoints: app.state.<feature>_sync_running boolean set in entry, cleared in finally; concurrent calls receive 409 with detail '<feature> sync already running' (mitigation T-03-05-05)
+- Plan 03-03 complete: Sessions router (SESS-01..07) — 7 endpoints landed; SESS-03/04/05 implement Pitfall 8 fallback (live_state row preferred when present, sessions-table-derived when absent)
+- Plan 03-03: SSE pattern locked — StreamingResponse + manual _format_sse() helper. fastapi.sse.EventSourceResponse exists but its FastAPI-native usage requires response_class= + ServerSentEvent yields, awkward for conditional heartbeat-then-close fallback. sse-starlette NOT installed. Manual SSE framing is simpler + version-agnostic
+- Plan 03-03: SESS-06 queue path entry contract for Phase 8 dispatcher: <repo_root>/.tmp/mission-control-queue/messages/<sid>.jsonl, append-only JSONL, one record per follow-up. .tmp/ entry added to .gitignore so queue files never enter git history
+- Plan 03-03 SSE-test pattern: when ASGITransport buffers a long-lived SSE generator (the with-data branch), call the route function directly with a stub Request whose is_disconnected() returns True after 1 iteration. Reserve httpx.stream() for self-terminating branches (e.g., heartbeat fallback)
+- Plan 03-03: Pre-existing app HTTPException handler emits {error: detail} (cmc.core.errors), NOT FastAPI default {detail: ...}. Future plans testing 4xx bodies must check r.json()['error']
 
 ### Pending Todos
 
@@ -145,8 +151,8 @@ None — Phase 1 + Phase 2 implementations complete; verifier readiness confirme
 
 ## Session Continuity
 
-Last session: 2026-04-26T13:53:57.142Z
-Stopped at: Completed 03-05-PLAN.md (MCP + Skills routers; 7 endpoints; 15/15 plan-scope tests + 130 full-suite tests green)
+Last session: 2026-04-26T13:56:58.338Z
+Stopped at: Completed 03-03-PLAN.md (Sessions Router; SESS-01..07; 20/20 sessions tests + 61/61 phase 1+2 tests green)
 Resume file: None
 
 Phase 1 final commit chain:
