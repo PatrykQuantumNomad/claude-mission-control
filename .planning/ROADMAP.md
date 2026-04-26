@@ -89,7 +89,14 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. POST /api/system/emergency-stop SIGTERMs only validated claude -p processes and sets the emergency flag
   5. POST /api/inbox creates a message; POST /api/inbox/{id}/reply writes the reply to the queue file
 **Plans**: 5 plans
-- [ ] 04-01-PLAN.md — Wave 0 foundation: croniter + anthropic deps, 4 schema modules, cmc.core.queue + cmc.core.process, cmc.tasks (transitions + spawn), cmc.schedules (cron + nlcron), dispatcher.oneshot stub, Settings.dispatcher_oneshot_cmd, conftest factories + 4 Phase-4 test scaffolds
+
+Wave structure (depends_on chain serializes router-registration writers on `cmc/api/routes/__init__.py`; 04-05 parallels in Wave 1 because it does NOT touch __init__.py):
+- Wave 0: 04-01
+- Wave 1: 04-02 (depends_on 04-01), 04-05 (depends_on 04-01) — parallel
+- Wave 2: 04-03 (depends_on 04-01, 04-02)
+- Wave 3: 04-04 (depends_on 04-01, 04-03)
+
+- [x] 04-01-PLAN.md — Wave 0 foundation: croniter + anthropic deps, 4 schema modules, cmc.core.queue + cmc.core.process, cmc.tasks (transitions + spawn), cmc.schedules (cron + nlcron), dispatcher.oneshot stub, Settings.dispatcher_oneshot_cmd, conftest factories + 4 Phase-4 test scaffolds ✅ 2026-04-26
 - [ ] 04-02-PLAN.md — HITL router (HITL-01..07): decisions list/create-with-INSERT-OR-IGNORE/answer + inbox list/create/read/reply; file-then-DB ordering for queue writes
 - [ ] 04-03-PLAN.md — Tasks router (TASK-01..07): list/create/patch-with-transition-validation/delete/approve/rerun + dispatcher trigger via subprocess.Popen
 - [ ] 04-04-PLAN.md — Schedules router (SCHD-01..06): list/create/patch-with-cron-recompute/delete/runs + NL→cron via Anthropic Haiku 4.5 (503-graceful)
@@ -170,7 +177,7 @@ Note: Phases 3, 4, and 5 can execute in parallel after Phase 2 (or Phase 1 for 4
 | 1. Foundation & Database | 7/7 | Complete | 2026-04-25 |
 | 2. Data Ingestion | 6/6 | Complete (verifier: 5/5 must-haves) | 2026-04-26 |
 | 3. Read-Only APIs | 5/5 | Complete (verifier: 5/5 must-haves) | 2026-04-26 |
-| 4. Stateful APIs | 0/5 | Not started | - |
+| 4. Stateful APIs | 1/5 | In progress | - |
 | 5. Frontend Shell & Design System | 0/TBD | Not started | - |
 | 6. Observability & Activity Panels | 0/TBD | Not started | - |
 | 7. Command Centre Panels | 0/TBD | Not started | - |

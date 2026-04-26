@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: phase-3-complete
-stopped_at: Phase 3 verified (status: passed; 5/5 must-haves); ready to plan Phase 4 (Stateful APIs)
-last_updated: "2026-04-26T14:30:00Z"
+status: phase-4-in-progress
+stopped_at: Completed 04-01-PLAN.md (Phase 4 Wave 0 foundation; 134/134 tests green)
+last_updated: "2026-04-26T16:19:26Z"
 last_activity: 2026-04-26
 progress:
   total_phases: 9
   completed_phases: 3
-  total_plans: 18
-  completed_plans: 18
+  total_plans: 23
+  completed_plans: 19
   percent: 100
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-25)
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, queue and approve tasks, and kill runaway sessions — all from one browser tab.
-**Current focus:** Phase 3: Read-Only APIs COMPLETE (verifier: 5/5 must-haves)
+**Current focus:** Phase 4: Stateful APIs — Wave 0 foundation landed (Plan 04-01); Wave 1 (04-02 + 04-05) ready to dispatch
 
 ## Current Position
 
-Phase: 3 of 9 COMPLETE (Read-Only APIs) — verifier passed 5/5 must-haves
-Plan: 5 of 5 complete in Phase 3 (03-01..03-05 ✅; 130/130 tests green)
-Status: Ready to plan Phase 4 (Stateful APIs)
-Last activity: 2026-04-26 — gsd-verifier returned status: passed
+Phase: 4 of 9 IN PROGRESS (Stateful APIs)
+Plan: 1 of 5 complete in Phase 4 (04-01 ✅; 134/134 tests green — 130 prior + 4 Phase-4 smokes)
+Status: Wave 0 complete; Wave 1 plans 04-02 (HITL) + 04-05 (ESTOP) parallel-ready
+Last activity: 2026-04-26 — Plan 04-01 executed (4 task commits + SUMMARY)
 
-Progress (Phase 3): [██████████] 100%
+Progress (Phase 4): [██░░░░░░░░] 20%
 
 ## Performance Metrics
 
@@ -70,6 +70,7 @@ Progress (Phase 3): [██████████] 100%
 | Phase 03-read-only-apis P02 | 30 min | 2 tasks (TDD; 4 commits) tasks | 3 files files |
 | Phase Phase 03-read-only-apis PP05 | 25 min | 2 tasks (TDD; 4 commits) tasks | 5 created + 3 modified files |
 | Phase 03-read-only-apis P03 | 75 min | 2 (TDD; 4 commits) tasks | 4 files files |
+| Phase 04-stateful-apis P01 | ~25 min | 4 tasks (1A/1B/3/4) | 22 files (17 created + 5 modified) |
 
 ## Accumulated Context
 
@@ -139,6 +140,14 @@ Recent decisions affecting current work:
 - Plan 03-03: SESS-06 queue path entry contract for Phase 8 dispatcher: <repo_root>/.tmp/mission-control-queue/messages/<sid>.jsonl, append-only JSONL, one record per follow-up. .tmp/ entry added to .gitignore so queue files never enter git history
 - Plan 03-03 SSE-test pattern: when ASGITransport buffers a long-lived SSE generator (the with-data branch), call the route function directly with a stub Request whose is_disconnected() returns True after 1 iteration. Reserve httpx.stream() for self-terminating branches (e.g., heartbeat fallback)
 - Plan 03-03: Pre-existing app HTTPException handler emits {error: detail} (cmc.core.errors), NOT FastAPI default {detail: ...}. Future plans testing 4xx bodies must check r.json()['error']
+- Plan 04-01: Phase 4 Wave 0 foundation landed — croniter==6.2.2 + anthropic==0.97.0 deps, 4 schema modules (hitl/tasks/schedules) + system.py ESTOP extension, cmc.core.queue (decision/inbox JSONL writers), cmc.core.process (PID-scan + emergency_stop_all with ps validation), cmc.tasks (transitions matrix + spawn_dispatcher_oneshot), cmc.schedules (croniter wrappers + Anthropic Haiku NL->cron), cmc.dispatcher.oneshot stub, Settings.dispatcher_oneshot_cmd argv field, 4 conftest factories + tmp_pid_dir + mock_anthropic_client fixtures, 4 Phase-4 test scaffolds (134/134 tests green)
+- Plan 04-01: Open Q1 (queue path) RESOLVED — `.tmp/mission-control-queue/{decisions,inbox}/{id}.jsonl` mirrors SESS-06 messages/ sibling pattern; cmc.core.queue.queue_path is the single source of truth so future relayout edits one file
+- Plan 04-01: Open Q2 (status transition matrix) LOCKED v1 — pending↔running/awaiting_approval/failed/done; awaiting_approval->{pending,failed}; running->{done,failed}; done terminal; failed->pending (rerun resets)
+- Plan 04-01: Open Q5 (TASK-07 dispatcher cmd source) RESOLVED via Settings.dispatcher_oneshot_cmd: list[str] = [sys.executable, '-m', 'cmc.dispatcher.oneshot'] — Phase 8 swaps stub by editing default, NOT router code
+- Plan 04-01: Open Q6 (Anthropic env var) LOCKED — `ANTHROPIC_API_KEY` (SDK convention); missing key -> nl_to_cron returns None -> router emits 503
+- Plan 04-01: Open Q7 (answered_by typing) LOCKED — `Literal["dashboard", "telegram", "cli"]` for cleaner UI types vs free-text
+- Plan 04-01: TaskTriggerRequest INTENTIONALLY OMITTED from cmc.api.schemas.tasks — trigger endpoint takes no body in v1; FastAPI handler should omit body parameter rather than declare empty Pydantic model (which forces `{}` payloads + 422 on missing)
+- Plan 04-01 process note: initial `uv sync` (without --all-extras) pruned dev deps; immediately re-ran `uv sync --all-extras` to restore pytest+ruff+freezegun. Both uv.lock mutations land cleanly in the Task 1A commit
 
 ### Pending Todos
 
@@ -151,8 +160,8 @@ None — Phase 1 + Phase 2 implementations complete; verifier readiness confirme
 
 ## Session Continuity
 
-Last session: 2026-04-26T13:56:58.338Z
-Stopped at: Completed 03-03-PLAN.md (Sessions Router; SESS-01..07; 20/20 sessions tests + 61/61 phase 1+2 tests green)
+Last session: 2026-04-26T16:19:26Z
+Stopped at: Completed 04-01-PLAN.md (Phase 4 Wave 0 foundation; 4 task commits 447627c/237f204/fcdaa2e/c865e7b; 134/134 tests green)
 Resume file: None
 
 Phase 1 final commit chain:
