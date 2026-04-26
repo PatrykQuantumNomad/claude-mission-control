@@ -1004,57 +1004,67 @@ async def rebuild_mcp_stats(db: AsyncSession) -> dict:
 | A11 | Daily local-time bucketing uses SQLite `STRFTIME(..., 'localtime')` modifier — server timezone matches Python's `astimezone()` reference | Pattern 3 | If server runs in UTC but user is in Pacific time, daily buckets shift. Phase 2 INGST-05 uses `astimezone()` (Python local), so SQLite `'localtime'` matches IF the OS tz is consistent. macOS-only project ⇒ user's local zone always available. |
 | A12 | The single edit to `cmc/api/routes/__init__.py` (adding 5 routers to `all_routers()`) is the only Phase 1/2 file Phase 3 modifies | "Plan splitting" section | If Phase 3 inadvertently touches Phase 1/2 files, regression risk. Lifespan adds `app.state.boot_time` which IS a Phase 2 file edit — minor (one-line addition). |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Live state writer — derive from sessions or wait for Phase 8?**
    - What we know: Phase 2 writes `sessions.ended_at`; doesn't touch `live_state`. Phase 8 dispatcher will write `live_state` for streaming sessions.
    - What's unclear: should SESS-03/04/05 work today against the dashboard, or wait for Phase 8?
    - Recommendation: derive SESS-03 from `sessions` (`ended_at IS NULL AND started_at > now-5min`); return empty/404 from SESS-04/05 until Phase 8. Document explicitly in plan and in OPNL-04 (LiveSessionsCard) panel implementation later. **Confirm with user during plan-check.**
+   - **RESOLVED in 03-03:** Live state derived from `sessions` table for v1 (Pitfall 8 fallback). SESS-04 returns 404 when no `live_state` row; SESS-05 emits heartbeat + retry hint for 3 polls then closes. Phase 8 dispatcher will own the `live_state` writer and SESS-04/05 will upgrade automatically without code change.
 
 2. **MCP three-source priority — does the order match the dashboard's intent?**
    - What we know: MCP-02 says "three sources in priority order" but doesn't enumerate.
    - What's unclear: which three sources, in what order?
    - Recommendation: `tool_decision events > tools table > otel_events` (most fidelity → least). **Confirm with user; this is critical research question 5.**
+   - **RESOLVED in 03-05:** Priority order locked at `tool_decision events > tools table > otel_events` and recorded in `cmc.mcp.aggregator` with explicit `source_priority` column on each `mcp_stats` row.
 
 3. **SAPI-03 system_state read — whitelist or all keys?**
    - What we know: schema lets any process write any key.
    - What's unclear: should SAPI-03 expose all keys or a known-safe subset?
    - Recommendation: filter to a known whitelist (`tzname`, `last_jsonl_sync_at`, `dispatcher_last_tick_at`, `emergency_stop`, `tzname_alt`). 404 unknown keys. Defer specific whitelist to plan author / user.
+   - **RESOLVED in 03-02:** Whitelist locked at `{tzname, last_jsonl_sync_at, jsonl_sync_last_tick_at, dispatcher_last_tick_at, telegram_last_tick_at, emergency_stop}` in `cmc.api.routes.system._SYSTEM_STATE_WHITELIST`. Per-key 404 enforced for non-whitelisted lookups.
 
 4. **psutil install — main deps or dev deps?**
    - What we know: SAPI-02 uses psutil at runtime.
    - What's unclear: is psutil a "test helper" or "production dep"?
    - Recommendation: production dep (`[project].dependencies`), pinned to `psutil==7.2.2`.
+   - **RESOLVED in 03-01 (Task 1a):** Installed as `psutil==7.2.2` in `[project].dependencies`.
 
 5. **PyYAML dep — already transitive or new install?**
    - What we know: pydantic-settings doesn't require yaml; SQLAlchemy doesn't either. Likely missing.
    - What's unclear: does some installed dep transitively pull yaml?
    - Recommendation: Wave 0 task — `python -c "import yaml"` to check. If missing, add `pyyaml>=6.0` to deps. Alternative: 15-line stdlib regex-only frontmatter parser (no yaml).
+   - **RESOLVED in 03-01 (Task 1a):** Verified PyYAML 6.0.3 is already installed transitively. No new dep added; `cmc.skills.scanner` (Plan 03-05) imports `yaml` directly.
 
 6. **Test file convention — one per router or one for the phase?**
    - What we know: Phase 1/2 used one file per phase.
    - What's unclear: does the verifier or convention enforcement require one file?
    - Recommendation: **one file per router** (5 files). 1156-line monolith from Phase 2 is unsustainable for 29 endpoints.
+   - **RESOLVED in 03-01 (Task 1b):** Per-router test files locked: `test_phase3_system.py`, `test_phase3_sessions.py`, `test_phase3_observability.py`, `test_phase3_mcp.py`, `test_phase3_skills.py`. Module docstring in each declares the convention.
 
 7. **OBSV-03 outcome computation — read-time or back-fill at parse time?**
    - What we know: parser doesn't write outcome; OBSV-03 needs it.
    - What's unclear: should Phase 3 add a parser-side outcome computation, or do it on read?
    - Recommendation: read-time with a CASE expression joining `otel_events` (Pitfall 9). Defer parser change.
+   - **RESOLVED in 03-04:** Outcome computed at READ time in `_OUTCOMES_SQL` via CASE expression with EXISTS sub-queries on `otel_events` (priority: errored > rate_limited > truncated > unfinished > ok). No parser-side change in Phase 3.
 
 8. **SESS-06 follow-up message queue — file format?**
    - What we know: SESS-06 says "queues follow-up message" with stream-mode-only constraint.
    - What's unclear: what file path? what format?
    - Recommendation: write JSON to `.tmp/mission-control-queue/messages/{session_id}.jsonl` (one message per line). The dispatcher (Phase 8) tails this file. Plan can lock the path.
+   - **RESOLVED in 03-03:** Path locked at `repo_root() / .tmp/mission-control-queue/messages/{session_id}.jsonl` with `.tmp/` added to `.gitignore`. JSON-per-line records `{ts, session_id, message}`. Phase 8 dispatcher reads from this directory (entry contract recorded in 03-03 `must_haves.artifacts`).
 
 9. **Reuse `cmc.api.routes.health.py` for SAPI-01 vs new router?**
    - What we know: health.py exists and returns `{"status": "ok"}`.
    - What's unclear: Phase 3 SAPI-01 is "GET /api/health returns quick liveness check" — already done.
    - Recommendation: leave health.py unchanged. Add `system.py` with SAPI-02..05 only.
+   - **RESOLVED in 03-02:** `health.py` untouched. SAPI-01 verified by Test 0 in 03-02 Task 1 (asserts `GET /api/health → 200 {"status": "ok"}` after Wave 1 router-registration edits). SAPI-01 listed in 03-02 `requirements:` to mark contract preservation.
 
 10. **Should Phase 3 wire `app.state.boot_time` in lifespan, or compute on first SAPI-02 call?**
     - What we know: `app.state.boot_time = datetime.now(tz=UTC)` set in lifespan startup is the cleanest pattern.
     - What's unclear: any reason to defer?
     - Recommendation: set in lifespan startup. Trivial 1-line addition (Wave 0).
+    - **RESOLVED in 03-01 (Task 1a):** Set in `lifespan(app)` startup as `app.state.boot_time = datetime.now(timezone.utc)` BEFORE alembic upgrade.
 
 ## Plan Splitting Recommendation
 
