@@ -100,7 +100,7 @@ Wave structure (depends_on chain serializes router-registration writers on `cmc/
 - [x] 04-02-PLAN.md — HITL router (HITL-01..07): decisions list/create-with-INSERT-OR-IGNORE/answer + inbox list/create/read/reply; file-then-DB ordering for queue writes ✅ 2026-04-26
 - [ ] 04-03-PLAN.md — Tasks router (TASK-01..07): list/create/patch-with-transition-validation/delete/approve/rerun + dispatcher trigger via subprocess.Popen
 - [ ] 04-04-PLAN.md — Schedules router (SCHD-01..06): list/create/patch-with-cron-recompute/delete/runs + NL→cron via Anthropic Haiku 4.5 (503-graceful)
-- [ ] 04-05-PLAN.md — ESTOP-01..04 extends existing system router: flag flip + ps-validated PID SIGTERM + running-task fail + resume
+- [x] 04-05-PLAN.md — ESTOP-01..04 extends existing system router: flag flip + ps-validated PID SIGTERM + running-task fail + resume ✅ 2026-04-26
 
 ### Phase 5: Frontend Shell & Design System
 **Goal**: The React app has complete navigation, reusable component library, dark theme, and the visual quality bar of Linear/Raycast/Vercel

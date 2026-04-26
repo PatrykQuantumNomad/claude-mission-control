@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-02-PLAN.md (HITL router; 17 new tests; 151/151 green)
-last_updated: "2026-04-26T16:38:38.554Z"
+stopped_at: Completed 04-05-PLAN.md (ESTOP — 10 new tests; 160/160 green)
+last_updated: "2026-04-26T18:00:00Z"
 last_activity: 2026-04-26
 progress:
   total_phases: 9
   completed_phases: 3
   total_plans: 23
-  completed_plans: 20
-  percent: 87
+  completed_plans: 21
+  percent: 91
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 ## Current Position
 
 Phase: 4 of 9 IN PROGRESS (Stateful APIs)
-Plan: 2 of 5 complete in Phase 4 (04-01 ✅; 134/134 tests green — 130 prior + 4 Phase-4 smokes)
-Status: Ready to execute
+Plan: 3 of 5 complete in Phase 4 (04-01 + 04-02 + 04-05 ✅; 160/160 tests green)
+Status: Wave 1 plans 04-02 + 04-05 complete; 04-03 (Tasks) + 04-04 (Schedules) pending
 Last activity: 2026-04-26
 
-Progress (Phase 4): [██░░░░░░░░] 20%
+Progress (Phase 4): [██████░░░░] 60%
 
 ## Performance Metrics
 
@@ -72,6 +72,7 @@ Progress (Phase 4): [██░░░░░░░░] 20%
 | Phase 03-read-only-apis P03 | 75 min | 2 (TDD; 4 commits) tasks | 4 files files |
 | Phase 04-stateful-apis P01 | ~25 min | 4 tasks (1A/1B/3/4) | 22 files (17 created + 5 modified) |
 | Phase 04-stateful-apis P02 | 12 | 2 tasks | 4 files |
+| Phase 04-stateful-apis P05 | ~12 min | 2 tasks (TDD; RED+GREEN) | 2 files |
 
 ## Accumulated Context
 
@@ -152,6 +153,10 @@ Recent decisions affecting current work:
 - Plan 04-02: HITL router (HITL-01..07) — file-then-DB ordering invariant locked in code (Pitfall 1); INSERT OR IGNORE on partial-unique dedup_key returns 200 on conflict (vs 201 on insert) so the dashboard can distinguish 'created new' from 'returned existing pending'
 - Plan 04-02: HITL-02 conflict-refetch SELECT MUST scope to status='pending' (Pitfall 6) — without it, an answered row with the same dedup_key could shadow the live pending one. Implemented in cmc.api.routes.hitl.create_decision fallback branch
 - Plan 04-02: HITL-06 idempotency check uses DB-side row.read_at comparison (NOT JSON-side string equality) because SQLite strips tzinfo on round-trip — first response includes 'Z'/'+00:00', second response from re-fetched naive datetime does not, even though instants match (Pitfall 4 cousin)
+- Plan 04-05: ESTOP order-of-operations LOCKED (Pitfall 8) — flag flip BEFORE PID-scan SIGTERM BEFORE bulk UPDATE of running tasks; commit between step 1 and step 2 so dispatcher's DISP-02 early-return engages on the flag before our UPDATE runs. Phase 8 dispatcher code MUST honor `system_state.emergency_stop='1'` as an early-return guard, not key on row presence (resume leaves the row in place at value='0')
+- Plan 04-05: ESTOP-04 clear semantics LOCKED — UPDATE system_state SET value='0' (NOT DELETE). SAPI-03 distinguishes 'flag explicitly cleared' from 'never set'; Phase 8 dispatcher reads `value` not row presence
+- Plan 04-05: PID validation rule LOCKED — `ps -p PID -o command=` must contain BOTH 'claude' substring AND ' -p' (literal flag with leading space). Avoids '--prefix=foo' / '--processes=N' false positives. Race window between validate + os.kill ACCEPTED for v1; partly mitigated via ProcessLookupError -> 'missing' bucket
+- Plan 04-05: Test mock site LOCKED — patch at `cmc.api.routes.system.emergency_stop_all` (the import binding) NOT `cmc.core.process.emergency_stop_all` (the definition); Python re-binds at import time so the latter is a no-op. Pattern reusable for any router that does `from x import y` and wants y mocked in tests
 
 ### Pending Todos
 
@@ -164,8 +169,8 @@ None — Phase 1 + Phase 2 implementations complete; verifier readiness confirme
 
 ## Session Continuity
 
-Last session: 2026-04-26T16:38:38.546Z
-Stopped at: Completed 04-02-PLAN.md (HITL router; 17 new tests; 151/151 green)
+Last session: 2026-04-26T18:00:00Z
+Stopped at: Completed 04-05-PLAN.md (Emergency Stop — ESTOP-01..04 on system router; 2 task commits 4e7252d/ca2e667; 10 new tests; 160/160 green)
 Resume file: None
 
 Phase 1 final commit chain:

@@ -155,10 +155,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Emergency Stop
 
-- [ ] **ESTOP-01**: POST /api/system/emergency-stop SIGTERMs dispatcher-launched children via PID file scan with process validation
-- [ ] **ESTOP-02**: Emergency stop verifies PID is a claude -p process via ps command before SIGTERM
-- [ ] **ESTOP-03**: Emergency stop sets system_state.emergency_stop = '1' and fails running tasks
-- [ ] **ESTOP-04**: POST /api/system/emergency-resume clears emergency flag
+- [x] **ESTOP-01**: POST /api/system/emergency-stop SIGTERMs dispatcher-launched children via PID file scan with process validation
+- [x] **ESTOP-02**: Emergency stop verifies PID is a claude -p process via ps command before SIGTERM
+- [x] **ESTOP-03**: Emergency stop sets system_state.emergency_stop = '1' and fails running tasks
+- [x] **ESTOP-04**: POST /api/system/emergency-resume clears emergency flag
 
 ### Mission Control
 
@@ -375,10 +375,10 @@ Requirements for initial release. Each maps to roadmap phases.
 | SCHD-04 | Phase 4 | Pending |
 | SCHD-05 | Phase 4 | Pending |
 | SCHD-06 | Phase 4 | Pending |
-| ESTOP-01 | Phase 4 | Pending |
-| ESTOP-02 | Phase 4 | Pending |
-| ESTOP-03 | Phase 4 | Pending |
-| ESTOP-04 | Phase 4 | Pending |
+| ESTOP-01 | Phase 4 | Complete (04-05) |
+| ESTOP-02 | Phase 4 | Complete (04-05) |
+| ESTOP-03 | Phase 4 | Complete (04-05) |
+| ESTOP-04 | Phase 4 | Complete (04-05) |
 | FESH-01 | Phase 5 | Pending |
 | FESH-02 | Phase 5 | Pending |
 | FESH-03 | Phase 5 | Pending |
