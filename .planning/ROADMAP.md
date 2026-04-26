@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Foundation & Database** - FastAPI server, SQLite schema, settings, static file serving
 - [x] **Phase 2: Data Ingestion** - JSONL scraper, OTEL log/metric endpoints, manual sync
 - [x] **Phase 3: Read-Only APIs** - System health, sessions, observability metrics, MCP, and skills endpoints
-- [ ] **Phase 4: Stateful APIs** - HITL decisions/inbox, tasks, schedules, emergency stop CRUD
+- [x] **Phase 4: Stateful APIs** - HITL decisions/inbox, tasks, schedules, emergency stop CRUD
 - [ ] **Phase 5: Frontend Shell & Design System** - TanStack Router, app shell, components, dark theme, visual polish
 - [ ] **Phase 6: Observability & Activity Panels** - All 15 observability panels plus the 6 activity page panels
 - [ ] **Phase 7: Command Centre Panels** - HITL decision/inbox panels, task board, schedule composer, skills page, emergency stop
@@ -99,7 +99,7 @@ Wave structure (depends_on chain serializes router-registration writers on `cmc/
 - [x] 04-01-PLAN.md — Wave 0 foundation: croniter + anthropic deps, 4 schema modules, cmc.core.queue + cmc.core.process, cmc.tasks (transitions + spawn), cmc.schedules (cron + nlcron), dispatcher.oneshot stub, Settings.dispatcher_oneshot_cmd, conftest factories + 4 Phase-4 test scaffolds ✅ 2026-04-26
 - [x] 04-02-PLAN.md — HITL router (HITL-01..07): decisions list/create-with-INSERT-OR-IGNORE/answer + inbox list/create/read/reply; file-then-DB ordering for queue writes ✅ 2026-04-26
 - [x] 04-03-PLAN.md — Tasks router (TASK-01..07): list/create/patch-with-transition-validation/delete/approve/rerun + dispatcher trigger via subprocess.Popen ✅ 2026-04-26
-- [ ] 04-04-PLAN.md — Schedules router (SCHD-01..06): list/create/patch-with-cron-recompute/delete/runs + NL→cron via Anthropic Haiku 4.5 (503-graceful)
+- [x] 04-04-PLAN.md — Schedules router (SCHD-01..06): list/create/patch-with-cron-recompute/delete/runs + NL→cron via Anthropic Haiku 4.5 (503-graceful) ✅ 2026-04-26
 - [x] 04-05-PLAN.md — ESTOP-01..04 extends existing system router: flag flip + ps-validated PID SIGTERM + running-task fail + resume ✅ 2026-04-26
 
 ### Phase 5: Frontend Shell & Design System
@@ -177,7 +177,7 @@ Note: Phases 3, 4, and 5 can execute in parallel after Phase 2 (or Phase 1 for 4
 | 1. Foundation & Database | 7/7 | Complete | 2026-04-25 |
 | 2. Data Ingestion | 6/6 | Complete (verifier: 5/5 must-haves) | 2026-04-26 |
 | 3. Read-Only APIs | 5/5 | Complete (verifier: 5/5 must-haves) | 2026-04-26 |
-| 4. Stateful APIs | 4/5 | In progress | - |
+| 4. Stateful APIs | 5/5 | Complete (verifier: 5/5 must-haves) | 2026-04-26 |
 | 5. Frontend Shell & Design System | 0/TBD | Not started | - |
 | 6. Observability & Activity Panels | 0/TBD | Not started | - |
 | 7. Command Centre Panels | 0/TBD | Not started | - |
