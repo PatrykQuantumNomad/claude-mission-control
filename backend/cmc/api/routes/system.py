@@ -31,21 +31,26 @@ from typing import AsyncIterator, Optional
 import psutil
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.sse import EventSourceResponse, ServerSentEvent
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from cmc.api.schemas.system import (
     AttentionItem,
     AttentionResponse,
     DaemonAge,
+    EmergencyResumeResponse,
+    EmergencyStopResponse,
     SystemHealthResponse,
     SystemStateResponse,
 )
 from cmc.api.sse import tail_otel_events
+from cmc.core.process import emergency_stop_all
 from cmc.db import get_session
 from cmc.db.models.otel_events import OtelEvent
 from cmc.db.models.sessions import Session as SessionModel
 from cmc.db.models.system_state import SystemState
+from cmc.db.models.tasks import Task
 
 router = APIRouter(tags=["system"])
 
@@ -361,3 +366,91 @@ async def firehose(
             id=chunk.get("id"),
             raw_data=chunk.get("data"),
         )
+
+
+# ---- Phase 4 ESTOP-01..04 (Plan 04-05) ----
+
+
+@router.post(
+    "/system/emergency-stop",
+    response_model=EmergencyStopResponse,
+)
+async def emergency_stop(
+    db: AsyncSession = Depends(get_session),
+) -> EmergencyStopResponse:
+    """ESTOP-01..03: flip flag, SIGTERM dispatcher children, fail running tasks.
+
+    Order is critical (Pitfall 8):
+      1. Set system_state.emergency_stop='1' so the dispatcher honors DISP-02
+         on its NEXT iteration.
+      2. Scan .tmp/mission-control-queue/pids/ + SIGTERM only PIDs whose ps
+         command line contains 'claude' AND ' -p' (ESTOP-02 mitigation).
+      3. UPDATE tasks SET status='failed' WHERE status='running'.
+
+    Steps 2+3 are intentionally serial after step 1 so the dispatcher cannot
+    re-flip 'failed' back to 'running' between them (the dispatcher's own
+    early-return on the flag prevents this in practice; serial ordering keeps
+    the invariant even if the dispatcher's polling cadence drifts).
+    """
+    now = datetime.now(timezone.utc)
+
+    # 1. Flip the flag (KV upsert).
+    await db.execute(
+        sqlite_insert(SystemState)
+        .values(key="emergency_stop", value="1", updated_at=now)
+        .on_conflict_do_update(
+            index_elements=["key"],
+            set_={"value": "1", "updated_at": now},
+        )
+    )
+    await db.commit()
+
+    # 2. Scan + SIGTERM. Synchronous (subprocess.run); cheap; no need to
+    #    push to a thread.
+    summary = emergency_stop_all()
+
+    # 3. Mark running tasks as failed.
+    result = await db.execute(
+        update(Task)
+        .where(Task.status == "running")
+        .values(
+            status="failed",
+            ended_at=now,
+            error_message="emergency stop",
+        )
+    )
+    failed_count = result.rowcount or 0
+    await db.commit()
+
+    return EmergencyStopResponse(
+        emergency_stop=True,
+        terminated_pids=summary["terminated"],
+        skipped_pids=summary["skipped"],
+        missing_pids=summary["missing"],
+        failed_running_tasks=failed_count,
+    )
+
+
+@router.post(
+    "/system/emergency-resume",
+    response_model=EmergencyResumeResponse,
+)
+async def emergency_resume(
+    db: AsyncSession = Depends(get_session),
+) -> EmergencyResumeResponse:
+    """ESTOP-04: clear the emergency_stop flag (set value='0').
+
+    Per RESEARCH A3 / Open Q3: do NOT delete the row. Update to '0' so SAPI-03
+    consumers see an explicit value rather than 'absent' which is ambiguous.
+    """
+    now = datetime.now(timezone.utc)
+    await db.execute(
+        sqlite_insert(SystemState)
+        .values(key="emergency_stop", value="0", updated_at=now)
+        .on_conflict_do_update(
+            index_elements=["key"],
+            set_={"value": "0", "updated_at": now},
+        )
+    )
+    await db.commit()
+    return EmergencyResumeResponse(emergency_stop=False)
