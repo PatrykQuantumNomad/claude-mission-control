@@ -217,12 +217,18 @@ async def test_mcp_server_tools_priority_routing(seeded_app) -> None:
             assert resp_unknown.status_code == 200
             assert resp_unknown.json()["items"] == []
 
-            # Path-traversal attempt -> 400.
-            resp_bad = await ac.get("/api/mcp/..%2Fetc%2Fpasswd/tools")
-            # FastAPI may decode the percent-encoded slashes differently across
-            # versions; either 400 (regex reject) or 404 (route mismatch) is
-            # acceptable as a path-traversal block.
-            assert resp_bad.status_code in (400, 404)
+            # Path-traversal attempt: the literal `..` sequence in a server
+            # segment is rejected by the explicit ".." guard (defense in
+            # depth on top of the regex). Percent-encoded slashes typically
+            # get split by the ASGI router into a different path entirely,
+            # so we test the real attack surface: a single segment that
+            # contains the dotdot traversal.
+            resp_bad = await ac.get("/api/mcp/bad..name/tools")
+            assert resp_bad.status_code == 400
+            assert "invalid server name" in resp_bad.json().get("error", "")
+            # And a non-alphanum char that the regex catches:
+            resp_bad2 = await ac.get("/api/mcp/has@symbol/tools")
+            assert resp_bad2.status_code == 400
 
 
 # ---- MCP-03: single-flight guard ----------------------------------------
@@ -244,7 +250,9 @@ async def test_mcp_sync_returns_409_when_already_running(seeded_app) -> None:
                 resp = await ac.post("/api/mcp/sync")
 
             assert resp.status_code == 409
-            assert "already running" in resp.json()["detail"]
+            # cmc.core.errors.register_error_handlers rewrites HTTPException
+            # to {"error": detail} (factory-level handler) — assert on `error`.
+            assert "already running" in resp.json()["error"]
         finally:
             app.state.mcp_sync_running = False
 
