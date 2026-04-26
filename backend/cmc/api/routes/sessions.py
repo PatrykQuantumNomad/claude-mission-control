@@ -15,22 +15,29 @@ Decisions locked here (no CONTEXT.md exists for Phase 3):
 """
 from __future__ import annotations
 
+import asyncio
+import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from cmc.api.schemas.sessions import (
+    FollowUpMessageRequest,
+    FollowUpMessageResponse,
     LiveSessionItem,
+    LiveSessionState,
     SessionDetailsResponse,
     SessionListItem,
     SessionListResponse,
     TodaySummaryResponse,
     ToolTimelineEntry,
 )
+from cmc.core.paths import repo_root
 from cmc.db import get_session
 from cmc.db.models.live_state import LiveState
 from cmc.db.models.sessions import Session as SessionModel
@@ -207,4 +214,189 @@ async def today_summary(db: AsyncSession = Depends(get_session)):
         tokens_cache_create_total=row.get("tokens_cache_create_total", 0) or 0,
         tool_call_count=row.get("tool_call_count", 0) or 0,
         error_count=err_count,
+    )
+
+
+# ---------- SESS-04: live state read ----------
+
+
+@router.get("/sessions/live/{session_id}/state", response_model=LiveSessionState)
+async def live_session_state(
+    session_id: str,
+    db: AsyncSession = Depends(get_session),
+):
+    """SESS-04: snapshot of a session's live_state row.
+
+    Returns 400 for malformed session_id, 404 when no live_state row exists
+    (graceful degradation while Phase 8 dispatcher is unimplemented).
+    """
+    if not _UUID_RE.match(session_id):
+        raise HTTPException(status_code=400, detail="invalid session_id format")
+    row = (
+        await db.execute(
+            select(LiveState).where(LiveState.session_id == session_id)
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail="no live state for session")
+    return LiveSessionState.model_validate(row)
+
+
+# ---------- SESS-05: live SSE stream ----------
+
+
+def _format_sse(event: str, data: dict, *, retry: Optional[int] = None) -> bytes:
+    """Format an SSE wire-frame.
+
+    Per the SSE spec each frame ends with a blank line (\\n\\n). FastAPI's
+    EventSourceResponse helper has its own format helper but is awkward to
+    use without `response_class=`; we emit StreamingResponse with manual SSE
+    formatting for full control over disconnect-detection and the
+    no-row-fallback (Pitfall 8).
+    """
+    lines: list[str] = []
+    if retry is not None:
+        lines.append(f"retry: {retry}")
+    lines.append(f"event: {event}")
+    lines.append("data: " + json.dumps(data, separators=(",", ":")))
+    lines.append("")
+    lines.append("")
+    return "\n".join(lines).encode("utf-8")
+
+
+@router.get("/sessions/live/{session_id}/stream")
+async def live_session_stream(
+    session_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_session),
+):
+    """SESS-05: long-lived SSE feed for a session's live_state.
+
+    Behavior:
+      - When a live_state row exists: emit `event: live_state` whenever
+        updated_at advances; poll every 1s.
+      - When NO live_state row (Pitfall 8 / Open Q1 fallback): emit
+        `event: heartbeat` with a 5000ms retry hint; close after 3 missed
+        polls so the client reconnects rather than holding the connection.
+      - Always honors `request.is_disconnected()` per Pitfall 1.
+      - Caps generator lifetime at 60min (Pitfall 1) — clients reconnect.
+
+    Validates UUID format before opening the stream (V11).
+    """
+    if not _UUID_RE.match(session_id):
+        raise HTTPException(status_code=400, detail="invalid session_id format")
+
+    POLL_S = 1.0
+    MAX_S = 60 * 60  # 1 hour cap (Pitfall 1)
+    MISS_LIMIT = 3   # close after this many consecutive missing-row polls
+
+    async def gen():
+        start = datetime.now(timezone.utc)
+        last_updated_at: Optional[datetime] = None
+        consecutive_misses = 0
+        while True:
+            if await request.is_disconnected():
+                return
+            if (datetime.now(timezone.utc) - start).total_seconds() > MAX_S:
+                return
+            row = (
+                await db.execute(
+                    select(LiveState).where(LiveState.session_id == session_id)
+                )
+            ).scalar_one_or_none()
+            if row is None:
+                # No writer yet (Pitfall 8): heartbeat + retry hint, then
+                # close after MISS_LIMIT polls so the client reconnects.
+                consecutive_misses += 1
+                yield _format_sse(
+                    "heartbeat",
+                    {"session_id": session_id, "live_state": None},
+                    retry=5000,
+                )
+                if consecutive_misses >= MISS_LIMIT:
+                    return
+            else:
+                consecutive_misses = 0
+                if last_updated_at != row.updated_at:
+                    last_updated_at = row.updated_at
+                    yield _format_sse(
+                        "live_state",
+                        {
+                            "session_id": row.session_id,
+                            "state": row.state,
+                            "current_message": row.current_message,
+                            "current_tool": row.current_tool,
+                            "last_activity_at": (
+                                row.last_activity_at.isoformat()
+                                if row.last_activity_at else None
+                            ),
+                            "updated_at": (
+                                row.updated_at.isoformat() if row.updated_at else None
+                            ),
+                        },
+                    )
+            await asyncio.sleep(POLL_S)
+
+    return StreamingResponse(gen(), media_type="text/event-stream")
+
+
+# ---------- SESS-06: follow-up message queue ----------
+
+
+@router.post(
+    "/sessions/live/{session_id}/message",
+    response_model=FollowUpMessageResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def queue_follow_up(
+    session_id: str,
+    payload: FollowUpMessageRequest,
+    db: AsyncSession = Depends(get_session),
+):
+    """SESS-06: append a follow-up message to the dispatcher queue.
+
+    Validates UUID format (400), checks the session exists (404) and is
+    still live — i.e. ended_at IS NULL (409). Writes one JSON line per
+    message to:
+
+        repo_root() / .tmp/mission-control-queue/messages/{session_id}.jsonl
+
+    The path is repo-root-anchored so it is independent of the process cwd
+    (Pitfall: relative path drift). Phase 8 dispatcher tails this directory.
+    The queue dir is gitignored at the repo root (`.tmp/`).
+    """
+    if not _UUID_RE.match(session_id):
+        raise HTTPException(status_code=400, detail="invalid session_id format")
+    sess = (
+        await db.execute(
+            select(SessionModel).where(SessionModel.session_id == session_id)
+        )
+    ).scalar_one_or_none()
+    if sess is None:
+        raise HTTPException(status_code=404, detail="session not found")
+    if sess.ended_at is not None:
+        raise HTTPException(status_code=409, detail="session has ended")
+
+    queue_dir = repo_root() / ".tmp" / "mission-control-queue" / "messages"
+    queue_dir.mkdir(parents=True, exist_ok=True)
+    queue_file = queue_dir / f"{session_id}.jsonl"
+
+    line = (
+        json.dumps(
+            {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "session_id": session_id,
+                "message": payload.message,
+            },
+            separators=(",", ":"),
+        )
+        + "\n"
+    )
+    # Append; never truncate — multiple follow-ups stack in arrival order.
+    with queue_file.open("a", encoding="utf-8") as f:
+        f.write(line)
+    return FollowUpMessageResponse(
+        queued=True,
+        session_id=session_id,
+        queue_path=str(queue_file),
     )

@@ -350,7 +350,8 @@ async def test_sess04_live_state_without_row_returns_404(client) -> None:
     ])
     r = await client.get(f"/api/sessions/live/{sid}/state")
     assert r.status_code == 404
-    assert "no live state" in r.json()["detail"].lower()
+    # The app's HTTPException handler emits {"error": detail} (cmc.core.errors).
+    assert "no live state" in r.json()["error"].lower()
 
 
 @pytest.mark.asyncio
@@ -361,7 +362,17 @@ async def test_sess04_invalid_uuid_returns_400(client) -> None:
 
 @pytest.mark.asyncio
 async def test_sess05_stream_with_row(client) -> None:
-    """SESS-05: SSE stream with Content-Type text/event-stream + live_state event."""
+    """SESS-05: when a live_state row exists, the route emits a `live_state` event.
+
+    We call the route handler's underlying generator directly with a stub
+    Request whose `is_disconnected()` returns True after the first iteration.
+    This exercises production code without depending on httpx ASGITransport's
+    streaming-flush behavior (which can buffer a long-running generator).
+    The end-to-end Content-Type assertion is covered by the heartbeat-fallback
+    test below.
+    """
+    from cmc.api.routes.sessions import live_session_stream
+
     now = datetime.now(timezone.utc)
     sid = _new_uuid()
     rows: list[tuple[type, dict]] = [
@@ -378,23 +389,32 @@ async def test_sess05_stream_with_row(client) -> None:
     ]
     await _seed(client, rows)
 
-    # Use streaming so we can read the first chunk and disconnect.
-    chunks: list[str] = []
-    async with client.stream("GET", f"/api/sessions/live/{sid}/stream",
-                             timeout=5.0) as resp:
-        assert resp.status_code == 200
-        assert resp.headers["content-type"].startswith("text/event-stream")
-        # Read for up to ~2s — first poll should yield a live_state event.
-        async for raw in resp.aiter_text():
-            chunks.append(raw)
-            if any("event: live_state" in c for c in chunks):
-                break
+    # Stub Request: is_disconnected() returns False once (so we get one yield),
+    # then True (so the generator returns cleanly).
+    class _StubRequest:
+        def __init__(self):
+            self._calls = 0
 
-    joined = "".join(chunks)
-    assert "event: live_state" in joined
-    # data field is JSON-encoded (FastAPI's SSE wraps as data: <json>); the
-    # current_message string should appear inside.
+        async def is_disconnected(self) -> bool:
+            self._calls += 1
+            return self._calls > 1
+
+    sessionmaker = client._transport.app.state.sessions
+    async with sessionmaker() as db:
+        # live_session_stream returns a StreamingResponse; we read its body iterator.
+        resp = await live_session_stream(sid, _StubRequest(), db=db)
+        assert resp.media_type == "text/event-stream"
+        chunks: list[bytes] = []
+        async for chunk in resp.body_iterator:
+            chunks.append(chunk if isinstance(chunk, bytes) else chunk.encode())
+
+    joined = b"".join(chunks).decode("utf-8")
+    assert "event: live_state" in joined, f"no live_state event in: {joined!r}"
+    # JSON-encoded payload must include current_message text.
     assert "hi" in joined
+    # State + tool from the row are present.
+    assert "streaming" in joined
+    assert "Bash" in joined
 
 
 @pytest.mark.asyncio
