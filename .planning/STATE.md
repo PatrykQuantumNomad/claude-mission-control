@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-05-PLAN.md (ESTOP — 10 new tests; 160/160 green)
-last_updated: "2026-04-26T18:00:00Z"
+stopped_at: Completed 04-03-PLAN.md (Tasks router — 17 new tests; 177/177 green)
+last_updated: "2026-04-26T16:55:03.406Z"
 last_activity: 2026-04-26
 progress:
   total_phases: 9
   completed_phases: 3
   total_plans: 23
-  completed_plans: 21
-  percent: 91
+  completed_plans: 22
+  percent: 96
 ---
 
 # Project State
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 ## Current Position
 
 Phase: 4 of 9 IN PROGRESS (Stateful APIs)
-Plan: 3 of 5 complete in Phase 4 (04-01 + 04-02 + 04-05 ✅; 160/160 tests green)
-Status: Wave 1 plans 04-02 + 04-05 complete; 04-03 (Tasks) + 04-04 (Schedules) pending
+Plan: 4 of 5 complete in Phase 4 (04-01 + 04-02 + 04-05 ✅; 160/160 tests green)
+Status: Ready to execute
 Last activity: 2026-04-26
 
 Progress (Phase 4): [██████░░░░] 60%
@@ -73,6 +73,7 @@ Progress (Phase 4): [██████░░░░] 60%
 | Phase 04-stateful-apis P01 | ~25 min | 4 tasks (1A/1B/3/4) | 22 files (17 created + 5 modified) |
 | Phase 04-stateful-apis P02 | 12 | 2 tasks | 4 files |
 | Phase 04-stateful-apis P05 | ~12 min | 2 tasks (TDD; RED+GREEN) | 2 files |
+| Phase 04-stateful-apis PP03 | 8 min | 2 tasks (TDD; RED+GREEN) tasks | 3 files files |
 
 ## Accumulated Context
 
@@ -157,6 +158,9 @@ Recent decisions affecting current work:
 - Plan 04-05: ESTOP-04 clear semantics LOCKED — UPDATE system_state SET value='0' (NOT DELETE). SAPI-03 distinguishes 'flag explicitly cleared' from 'never set'; Phase 8 dispatcher reads `value` not row presence
 - Plan 04-05: PID validation rule LOCKED — `ps -p PID -o command=` must contain BOTH 'claude' substring AND ' -p' (literal flag with leading space). Avoids '--prefix=foo' / '--processes=N' false positives. Race window between validate + os.kill ACCEPTED for v1; partly mitigated via ProcessLookupError -> 'missing' bucket
 - Plan 04-05: Test mock site LOCKED — patch at `cmc.api.routes.system.emergency_stop_all` (the import binding) NOT `cmc.core.process.emergency_stop_all` (the definition); Python re-binds at import time so the latter is a no-op. Pattern reusable for any router that does `from x import y` and wants y mocked in tests
+- Plan 04-03 complete: Tasks router (TASK-01..07) — 7 endpoints landed; TASK-03 PATCH delegates legal-target validation to cmc.tasks.transitions.validate_transition (Wave 0 matrix); TASK-05/06 bypass matrix because targets are fixed and validate source state inline; TASK-07 spawns detached subprocess.Popen via cmc.tasks.spawn.spawn_dispatcher_oneshot, returns 202 + PID, no body in v1; 17 new tests pass; full suite 177/177 green
+- Plan 04-03: TASK-04 returns 204 No Content (REST idiom — body adds nothing); TASK-06 rerun preserves pid + stdout_path on the row (clears only started_at/ended_at/error_message) so operators can still inspect the previous failed run's logs after pressing rerun; TASK-07 returns 202 Accepted because the dispatcher is async-of-response (subprocess already detached by the time JSON returns)
+- Plan 04-03 test pattern: monkeypatch BOTH cmc.tasks.spawn.repo_root (-> tmp_path) AND cmc.tasks.spawn.subprocess.Popen so TASK-07 tests exercise the router end-to-end without spawning real processes or writing to .tmp/. Reusable for any future test of subprocess-spawning code paths
 
 ### Pending Todos
 
@@ -169,8 +173,8 @@ None — Phase 1 + Phase 2 implementations complete; verifier readiness confirme
 
 ## Session Continuity
 
-Last session: 2026-04-26T18:00:00Z
-Stopped at: Completed 04-05-PLAN.md (Emergency Stop — ESTOP-01..04 on system router; 2 task commits 4e7252d/ca2e667; 10 new tests; 160/160 green)
+Last session: 2026-04-26T16:55:03.399Z
+Stopped at: Completed 04-03-PLAN.md (Tasks router — 17 new tests; 177/177 green)
 Resume file: None
 
 Phase 1 final commit chain:

@@ -136,13 +136,20 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Tasks API
 
-- [ ] **TASK-01**: GET /api/tasks returns filtered task list (status, quadrant)
-- [ ] **TASK-02**: POST /api/tasks creates task with all fields (title, description, priority, quadrant, approval, risk, dry_run, model, execution_mode, skill, scheduled_for)
-- [ ] **TASK-03**: PATCH /api/tasks/{id} updates task with status transition validation
-- [ ] **TASK-04**: DELETE /api/tasks/{id} deletes task
-- [ ] **TASK-05**: POST /api/tasks/{id}/approve flips awaiting_approval to pending, stamps approved_at
-- [ ] **TASK-06**: POST /api/tasks/{id}/rerun resets failed task to pending (400 if not failed)
-- [ ] **TASK-07**: POST /api/dispatcher/trigger spawns one-shot dispatcher run via subprocess.Popen
+- [x] **TASK-01
+**: GET /api/tasks returns filtered task list (status, quadrant)
+- [x] **TASK-02
+**: POST /api/tasks creates task with all fields (title, description, priority, quadrant, approval, risk, dry_run, model, execution_mode, skill, scheduled_for)
+- [x] **TASK-03
+**: PATCH /api/tasks/{id} updates task with status transition validation
+- [x] **TASK-04
+**: DELETE /api/tasks/{id} deletes task
+- [x] **TASK-05
+**: POST /api/tasks/{id}/approve flips awaiting_approval to pending, stamps approved_at
+- [x] **TASK-06
+**: POST /api/tasks/{id}/rerun resets failed task to pending (400 if not failed)
+- [x] **TASK-07
+**: POST /api/dispatcher/trigger spawns one-shot dispatcher run via subprocess.Popen
 
 ### Schedules API
 
