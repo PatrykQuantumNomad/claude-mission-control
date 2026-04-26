@@ -20,6 +20,8 @@ from pathlib import Path
 from pydantic import Field, ValidationError, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
+
 from cmc.core.paths import resolve_under_repo_root
 
 
@@ -50,6 +52,15 @@ class Settings(BaseSettings):
     jsonl_root: Path = Field(default_factory=lambda: Path.home() / ".claude/projects")
     session_idle_minutes: int = 5
     otlp_max_body_bytes: int = 10_000_000  # 10MB cap on /v1/logs and /v1/metrics
+
+    # Phase 4 — TASK-07 dispatcher trigger
+    # Per RESEARCH Open Q5: Phase 8 replaces the stub by editing this default,
+    # not router code. list[str] argv with default_factory because list defaults
+    # must be callable.
+    dispatcher_oneshot_cmd: list[str] = Field(
+        default_factory=lambda: [sys.executable, "-m", "cmc.dispatcher.oneshot"],
+        description="argv list spawned by TASK-07; Phase 4 default invokes the stub",
+    )
 
     @model_validator(mode="after")
     def _resolve_repo_root_paths(self) -> "Settings":
