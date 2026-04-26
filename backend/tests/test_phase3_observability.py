@@ -431,3 +431,219 @@ async def test_obsv_05_hook_cross_session_no_pairing(client) -> None:
     assert body["total_fires"] == 2
     for it in body["items"]:
         assert it["paired_duration_ms_p50"] is None
+
+
+# ---- Plan 03-04: OBSV-06..10 (Task 2) ----
+
+
+async def test_obsv_06_sessions_by_project_rollup(client) -> None:
+    """OBSV-06: cwd rollup with pct_of_total summing to 1.0; display_path uses ~/."""
+    app = client._transport.app  # type: ignore[attr-defined]
+    base = datetime.now(timezone.utc) - timedelta(hours=1)
+    sessions = [
+        make_session_row(
+            session_id="s-1", started_at=base, cwd="/Users/foo/proj-a",
+            tokens_input=100, tokens_output=200, tokens_cache_create=50, tool_call_count=2,
+        ),
+        make_session_row(
+            session_id="s-2", started_at=base, cwd="/Users/foo/proj-a",
+            tokens_input=200, tokens_output=400, tool_call_count=3,
+        ),
+        make_session_row(
+            session_id="s-3", started_at=base, cwd="/Users/foo/proj-b",
+            tokens_input=10, tokens_output=20, tool_call_count=1,
+        ),
+        make_session_row(
+            session_id="s-4", started_at=base, cwd="/Users/foo/proj-b",
+            tokens_input=30, tokens_output=40, tool_call_count=2,
+        ),
+    ]
+    await _seed_rows(app, "sessions", sessions)
+
+    r = await client.get("/api/sessions/by-project", params={"range": "30d"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    items = body["items"]
+    assert len(items) == 2
+    pcts = sum(it["pct_of_total"] for it in items)
+    assert abs(pcts - 1.0) < 0.001
+    # Each row should have the ~/ display_path conversion.
+    for it in items:
+        assert it["display_path"].startswith("~/")
+    # Sorted by sessions DESC; both have 2 sessions so order is stable but
+    # we just check each cwd is represented.
+    cwds = {it["cwd"] for it in items}
+    assert cwds == {"/Users/foo/proj-a", "/Users/foo/proj-b"}
+
+
+async def test_obsv_07_agent_fanout_lists_agent_callers(client) -> None:
+    """OBSV-07: sessions that called the Agent tool, with agent_calls count."""
+    app = client._transport.app  # type: ignore[attr-defined]
+    base = datetime.now(timezone.utc) - timedelta(hours=1)
+    await _seed_rows(
+        app, "sessions",
+        [make_session_row(session_id="s-agent", started_at=base, cwd="/Users/foo/agent-proj")],
+    )
+    rows = [
+        make_tool_call(
+            tool_use_id=f"agent-tu-{i}", session_id="s-agent",
+            tool_name="Agent", started_at=base + timedelta(seconds=i),
+            ended_at=base + timedelta(seconds=i, milliseconds=100),
+            duration_ms=100, status="ok",
+        )
+        for i in range(3)
+    ]
+    rows.append(
+        make_tool_call(
+            tool_use_id="bash-tu", session_id="s-agent",
+            tool_name="Bash", started_at=base, ended_at=base, duration_ms=10, status="ok",
+        )
+    )
+    await _seed_rows(app, "tools", rows)
+
+    r = await client.get("/api/tools/agent-fanout", params={"range": "30d"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    items = body["items"]
+    assert len(items) == 1
+    item = items[0]
+    assert item["session_id"] == "s-agent"
+    assert item["agent_calls"] == 3
+    assert item["title"] == "agent-proj"
+
+
+async def test_obsv_08_edit_decisions_via_tools_decision(client) -> None:
+    """OBSV-08: read decisions from tools.decision column.
+
+    5 Edit tool rows: decisions = [accept, accept, accept, reject, NULL]
+    -> Edit row: accepted=3, rejected=1, accept_rate=0.75, low_sample=true.
+    """
+    app = client._transport.app  # type: ignore[attr-defined]
+    base = datetime.now(timezone.utc) - timedelta(hours=1)
+    decisions = ["accept", "accept", "accept", "reject", None]
+    await _seed_rows(
+        app, "sessions",
+        [make_session_row(session_id="s-edit", started_at=base)],
+    )
+    rows = [
+        make_tool_call(
+            tool_use_id=f"edit-tu-{i}", session_id="s-edit",
+            tool_name="Edit", started_at=base + timedelta(seconds=i),
+            ended_at=base + timedelta(seconds=i, milliseconds=10),
+            duration_ms=10, status="ok", decision=d,
+        )
+        for i, d in enumerate(decisions)
+    ]
+    await _seed_rows(app, "tools", rows)
+
+    r = await client.get("/api/tools/edit-decisions", params={"range": "30d"})
+    assert r.status_code == 200, r.text
+    items = r.json()["items"]
+    edit_row = next(it for it in items if it["tool_name"] == "Edit")
+    assert edit_row["accepted"] == 3
+    assert edit_row["rejected"] == 1
+    assert abs(edit_row["accept_rate"] - 0.75) < 0.001
+    assert edit_row["low_sample"] is True
+
+
+async def test_obsv_08_edit_decisions_via_otel_events(client) -> None:
+    """OBSV-08: read decisions from otel_events claude_code.tool_decision events.
+
+    4 events with body.tool_name='Write': decisions = [accept, accept, reject, accept]
+    -> Write row: accepted=3, rejected=1.
+    """
+    app = client._transport.app  # type: ignore[attr-defined]
+    base = datetime.now(timezone.utc) - timedelta(hours=1)
+    decisions = ["accept", "accept", "reject", "accept"]
+    events = [
+        make_otel_event(
+            ts=base + timedelta(seconds=i),
+            event_name="claude_code.tool_decision",
+            session_id="s-otel-edit",
+            body={"tool_name": "Write", "decision": d},
+        )
+        for i, d in enumerate(decisions)
+    ]
+    await _seed_rows(app, "otel_events", events)
+
+    r = await client.get("/api/tools/edit-decisions", params={"range": "30d"})
+    assert r.status_code == 200, r.text
+    items = r.json()["items"]
+    write_row = next(it for it in items if it["tool_name"] == "Write")
+    assert write_row["accepted"] == 3
+    assert write_row["rejected"] == 1
+
+
+async def test_obsv_09_productivity_rollup(client) -> None:
+    """OBSV-09: SUM of otel_metrics counters for commits/PRs/lines."""
+    app = client._transport.app  # type: ignore[attr-defined]
+    base = datetime.now(timezone.utc) - timedelta(hours=1)
+    metrics = [
+        {
+            "ts": base, "metric_name": "claude_code.commit.count",
+            "value": 2.0, "kind": "counter", "unit": None, "attrs": {},
+            "received_at": base,
+        },
+        {
+            "ts": base, "metric_name": "claude_code.pull_request.count",
+            "value": 1.0, "kind": "counter", "unit": None, "attrs": {},
+            "received_at": base,
+        },
+        {
+            "ts": base, "metric_name": "claude_code.lines_of_code.count",
+            "value": 120.0, "kind": "counter", "unit": "lines",
+            "attrs": {"type": "added"}, "received_at": base,
+        },
+        {
+            "ts": base, "metric_name": "claude_code.lines_of_code.count",
+            "value": 30.0, "kind": "counter", "unit": "lines",
+            "attrs": {"type": "removed"}, "received_at": base,
+        },
+    ]
+    await _seed_rows(app, "otel_metrics", metrics)
+
+    r = await client.get("/api/activity/productivity", params={"range": "30d"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["commits"] == 2
+    assert body["pull_requests"] == 1
+    assert body["lines_added"] == 120
+    assert body["lines_removed"] == 30
+
+
+async def test_obsv_10_pressure_counts_and_recent_errors(client) -> None:
+    """OBSV-10: api_retries_exhausted + compaction counts; last 10 api_error events."""
+    app = client._transport.app  # type: ignore[attr-defined]
+    base = datetime.now(timezone.utc) - timedelta(hours=1)
+    events = (
+        [
+            make_otel_event(ts=base, event_name="claude_code.api_retries_exhausted",
+                            session_id="s-press")
+            for _ in range(2)
+        ]
+        + [
+            make_otel_event(ts=base, event_name="claude_code.compaction",
+                            session_id="s-press")
+        ]
+        + [
+            make_otel_event(
+                ts=base + timedelta(seconds=i),
+                event_name="claude_code.api_error",
+                session_id="s-press",
+                body={"message": f"err-{i}"},
+            )
+            for i in range(12)
+        ]
+    )
+    await _seed_rows(app, "otel_events", events)
+
+    r = await client.get("/api/system/pressure")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["api_retries_exhausted"] == 2
+    assert body["compaction_count"] == 1
+    assert len(body["recent_api_errors"]) == 10
+    # Sorted by ts DESC: most recent err-11 first.
+    msgs = [e["message"] for e in body["recent_api_errors"]]
+    assert msgs[0] == "err-11"
+    assert msgs[-1] == "err-2"  # err-0, err-1 dropped (LIMIT 10)
