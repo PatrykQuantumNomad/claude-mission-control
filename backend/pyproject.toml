@@ -14,6 +14,7 @@ dependencies = [
   "alembic==1.18.4",
   "structlog==25.5.0",
   "greenlet>=3.0",
+  "psutil==7.2.2",
 ]
 
 [project.optional-dependencies]

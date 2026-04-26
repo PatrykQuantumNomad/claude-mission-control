@@ -28,6 +28,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from alembic import command
 from alembic.config import Config as AlembicConfig
@@ -42,6 +43,10 @@ log = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = app.state.settings
+
+    # Phase 3 SAPI-02 reads this for uptime calc; set BEFORE alembic upgrade so
+    # it's the moment the process started serving.
+    app.state.boot_time = datetime.now(timezone.utc)
 
     # Create the engine (pragma listener attached inside helper, per Plan 04).
     # settings.db_path is absolute (Plan 02 model_validator), so cwd doesn't matter.
