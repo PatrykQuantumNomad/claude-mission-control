@@ -14,8 +14,9 @@
     "isolatedModules": true,
     "resolveJsonModule": true,
     "allowImportingTsExtensions": true,
-    "noEmit": true
+    "noEmit": true,
+    "types": ["vitest/globals"]
   },
-  "include": ["src", "src/routeTree.gen.ts"],
+  "include": ["src", "src/routeTree.gen.ts", "vitest.config.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
