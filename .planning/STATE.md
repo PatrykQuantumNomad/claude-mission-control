@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: phase-2-complete
-stopped_at: Phase 2 verified (status: passed; 5/5 must-haves); ready to plan Phase 3 (Read-Only APIs)
-last_updated: "2026-04-26T12:00:00Z"
+status: verifying
+stopped_at: Completed 03-01-PLAN.md (Phase 3 Wave 0 foundation; 70/70 tests green; ready for Wave 1 plans 03-02..03-05)
+last_updated: "2026-04-26T12:39:10.799Z"
 last_activity: 2026-04-26
 progress:
   total_phases: 9
   completed_phases: 2
-  total_plans: 13
-  completed_plans: 13
-  percent: 100
+  total_plans: 18
+  completed_plans: 14
+  percent: 78
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-25)
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, queue and approve tasks, and kill runaway sessions — all from one browser tab.
-**Current focus:** Phase 2: Data Ingestion (foundation laid; parser/router/scheduler next)
+**Current focus:** Phase 3: Read-Only APIs (Wave 0 foundation landed; Wave 1 router plans 03-02..03-05 next)
 
 ## Current Position
 
-Phase: 2 of 9 COMPLETE (Data Ingestion) — verifier passed 5/5 must-haves
-Plan: 6 of 6 complete in Phase 2 (02-01..02-06 ✅; user approved smoke 2026-04-26; verifier passed 2026-04-26)
-Status: Ready to plan Phase 3 (Read-Only APIs)
-Last activity: 2026-04-26 — gsd-verifier returned status: passed
+Phase: 3 of 9 IN PROGRESS (Read-Only APIs) — Wave 0 complete; Wave 1 plans 03-02..03-05 ready
+Plan: 1 of 5 complete in Phase 3 (03-01 ✅ Wave 0 foundation; 70/70 tests green)
+Status: Plan 03-01 complete — ready to execute Wave 1 (plans 03-02..03-05 in parallel)
+Last activity: 2026-04-26
 
-Progress (Phase 2): [██████████] 100%
+Progress (Phase 3): [██░░░░░░░░] 20%
 
 ## Performance Metrics
 
@@ -65,6 +65,7 @@ Progress (Phase 2): [██████████] 100%
 | Phase 02-data-ingestion P04 | 6 min | 2 tasks (TDD; 4 commits) | 3 files |
 | Phase 02-data-ingestion PP05 | 14 min | 2 tasks (TDD; 4 commits) tasks | 4 files files |
 | Phase 02-data-ingestion P06 | ~5 min agent + overnight human-verify wait | 2 tasks (1 auto + 1 checkpoint) | 1 file |
+| Phase 03-read-only-apis P01 | 14 min | 3 tasks tasks | 16 files files |
 
 ## Accumulated Context
 
@@ -115,6 +116,9 @@ Recent decisions affecting current work:
 - Plan 02-05 auto-fix (Rule 3): _bootstrap_app helper in test_phase2_ingest.py auto-redirects default jsonl_root (~/.claude/projects/) to a tmp-path nonexistent dir so boot sync stays hermetic for tests that don't override jsonl_root explicitly
 - 2026-04-26: Phase 2 manual smoke checkpoint (Plan 02-06) APPROVED by user — all 5 ROADMAP success criteria verified against real ~/.claude/projects/ data + recorded OTLP samples; SMOKE.md preserved as the canonical replayable Phase 2 smoke recipe for future contributors
 - Plan 02-06: per-step SMOKE.md transcript backfill skipped — Plan 02-05's internal smoke (148 sessions ingested at boot, POST /api/sync returned documented summary, Ctrl+C clean) already supplied real-data evidence for the major steps; user "approved" reply covers integrated system. SMOKE.md primary value is the embedded payloads + replayable recipe, not a one-time transcript
+- Plan 03-01 complete: Phase 3 Wave 0 foundation landed (psutil, lifespan boot_time, 6 schema modules with all Wave 1 DTOs, tail_otel_events SSE helper, seeded_app+client fixtures, 4 factory helpers, 5 per-router test scaffold files)
+- Plan 03-01: Per-router test file convention declared — all SAPI-* tests in test_phase3_system.py, SESS-* in test_phase3_sessions.py, OBSV-* in test_phase3_observability.py, MCP-* in test_phase3_mcp.py, SKILL-* in test_phase3_skills.py (Phase-3 split avoids the Phase-2 1156-line monolith)
+- Plan 03-01: tail_otel_events SSE generator caps at 60min duration + uses MAX(id)-100 cursor on first connect — clients reconnect; bounds memory per Pitfall 1/3
 
 ### Pending Todos
 
@@ -127,8 +131,8 @@ None — Phase 1 + Phase 2 implementations complete; verifier readiness confirme
 
 ## Session Continuity
 
-Last session: 2026-04-26T11:12:12Z
-Stopped at: Completed 02-06-PLAN.md (Phase 2 manual smoke approved by user — Phase 2 implementation 6/6 complete; ready for verifier)
+Last session: 2026-04-26T12:39:10.792Z
+Stopped at: Completed 03-01-PLAN.md (Phase 3 Wave 0 foundation; 70/70 tests green; ready for Wave 1 plans 03-02..03-05)
 Resume file: None
 
 Phase 1 final commit chain:
