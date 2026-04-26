@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: phase-4-in-progress
-stopped_at: Completed 04-01-PLAN.md (Phase 4 Wave 0 foundation; 134/134 tests green)
-last_updated: "2026-04-26T16:19:26Z"
+status: executing
+stopped_at: Completed 04-02-PLAN.md (HITL router; 17 new tests; 151/151 green)
+last_updated: "2026-04-26T16:38:38.554Z"
 last_activity: 2026-04-26
 progress:
   total_phases: 9
   completed_phases: 3
   total_plans: 23
-  completed_plans: 19
-  percent: 100
+  completed_plans: 20
+  percent: 87
 ---
 
 # Project State
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 ## Current Position
 
 Phase: 4 of 9 IN PROGRESS (Stateful APIs)
-Plan: 1 of 5 complete in Phase 4 (04-01 ✅; 134/134 tests green — 130 prior + 4 Phase-4 smokes)
-Status: Wave 0 complete; Wave 1 plans 04-02 (HITL) + 04-05 (ESTOP) parallel-ready
-Last activity: 2026-04-26 — Plan 04-01 executed (4 task commits + SUMMARY)
+Plan: 2 of 5 complete in Phase 4 (04-01 ✅; 134/134 tests green — 130 prior + 4 Phase-4 smokes)
+Status: Ready to execute
+Last activity: 2026-04-26
 
 Progress (Phase 4): [██░░░░░░░░] 20%
 
@@ -71,6 +71,7 @@ Progress (Phase 4): [██░░░░░░░░] 20%
 | Phase Phase 03-read-only-apis PP05 | 25 min | 2 tasks (TDD; 4 commits) tasks | 5 created + 3 modified files |
 | Phase 03-read-only-apis P03 | 75 min | 2 (TDD; 4 commits) tasks | 4 files files |
 | Phase 04-stateful-apis P01 | ~25 min | 4 tasks (1A/1B/3/4) | 22 files (17 created + 5 modified) |
+| Phase 04-stateful-apis P02 | 12 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -148,6 +149,9 @@ Recent decisions affecting current work:
 - Plan 04-01: Open Q7 (answered_by typing) LOCKED — `Literal["dashboard", "telegram", "cli"]` for cleaner UI types vs free-text
 - Plan 04-01: TaskTriggerRequest INTENTIONALLY OMITTED from cmc.api.schemas.tasks — trigger endpoint takes no body in v1; FastAPI handler should omit body parameter rather than declare empty Pydantic model (which forces `{}` payloads + 422 on missing)
 - Plan 04-01 process note: initial `uv sync` (without --all-extras) pruned dev deps; immediately re-ran `uv sync --all-extras` to restore pytest+ruff+freezegun. Both uv.lock mutations land cleanly in the Task 1A commit
+- Plan 04-02: HITL router (HITL-01..07) — file-then-DB ordering invariant locked in code (Pitfall 1); INSERT OR IGNORE on partial-unique dedup_key returns 200 on conflict (vs 201 on insert) so the dashboard can distinguish 'created new' from 'returned existing pending'
+- Plan 04-02: HITL-02 conflict-refetch SELECT MUST scope to status='pending' (Pitfall 6) — without it, an answered row with the same dedup_key could shadow the live pending one. Implemented in cmc.api.routes.hitl.create_decision fallback branch
+- Plan 04-02: HITL-06 idempotency check uses DB-side row.read_at comparison (NOT JSON-side string equality) because SQLite strips tzinfo on round-trip — first response includes 'Z'/'+00:00', second response from re-fetched naive datetime does not, even though instants match (Pitfall 4 cousin)
 
 ### Pending Todos
 
@@ -160,8 +164,8 @@ None — Phase 1 + Phase 2 implementations complete; verifier readiness confirme
 
 ## Session Continuity
 
-Last session: 2026-04-26T16:19:26Z
-Stopped at: Completed 04-01-PLAN.md (Phase 4 Wave 0 foundation; 4 task commits 447627c/237f204/fcdaa2e/c865e7b; 134/134 tests green)
+Last session: 2026-04-26T16:38:38.546Z
+Stopped at: Completed 04-02-PLAN.md (HITL router; 17 new tests; 151/151 green)
 Resume file: None
 
 Phase 1 final commit chain:

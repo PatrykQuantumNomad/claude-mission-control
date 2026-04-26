@@ -97,7 +97,7 @@ Wave structure (depends_on chain serializes router-registration writers on `cmc/
 - Wave 3: 04-04 (depends_on 04-01, 04-03)
 
 - [x] 04-01-PLAN.md — Wave 0 foundation: croniter + anthropic deps, 4 schema modules, cmc.core.queue + cmc.core.process, cmc.tasks (transitions + spawn), cmc.schedules (cron + nlcron), dispatcher.oneshot stub, Settings.dispatcher_oneshot_cmd, conftest factories + 4 Phase-4 test scaffolds ✅ 2026-04-26
-- [ ] 04-02-PLAN.md — HITL router (HITL-01..07): decisions list/create-with-INSERT-OR-IGNORE/answer + inbox list/create/read/reply; file-then-DB ordering for queue writes
+- [x] 04-02-PLAN.md — HITL router (HITL-01..07): decisions list/create-with-INSERT-OR-IGNORE/answer + inbox list/create/read/reply; file-then-DB ordering for queue writes ✅ 2026-04-26
 - [ ] 04-03-PLAN.md — Tasks router (TASK-01..07): list/create/patch-with-transition-validation/delete/approve/rerun + dispatcher trigger via subprocess.Popen
 - [ ] 04-04-PLAN.md — Schedules router (SCHD-01..06): list/create/patch-with-cron-recompute/delete/runs + NL→cron via Anthropic Haiku 4.5 (503-graceful)
 - [ ] 04-05-PLAN.md — ESTOP-01..04 extends existing system router: flag flip + ps-validated PID SIGTERM + running-task fail + resume

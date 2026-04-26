@@ -119,13 +119,20 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### HITL API
 
-- [ ] **HITL-01**: GET /api/decisions returns filtered decision list (status=pending|answered)
-- [ ] **HITL-02**: POST /api/decisions creates decision with INSERT OR IGNORE on partial unique index
-- [ ] **HITL-03**: POST /api/decisions/{id}/answer writes answer to queue file, returns {answered: true}
-- [ ] **HITL-04**: GET /api/inbox returns filtered inbox messages (unread, max_age_days)
-- [ ] **HITL-05**: POST /api/inbox creates agent-to-user inbox message
-- [ ] **HITL-06**: POST /api/inbox/{id}/read marks message read
-- [ ] **HITL-07**: POST /api/inbox/{id}/reply writes user reply to queue file
+- [x] **HITL-01
+**: GET /api/decisions returns filtered decision list (status=pending|answered)
+- [x] **HITL-02
+**: POST /api/decisions creates decision with INSERT OR IGNORE on partial unique index
+- [x] **HITL-03
+**: POST /api/decisions/{id}/answer writes answer to queue file, returns {answered: true}
+- [x] **HITL-04
+**: GET /api/inbox returns filtered inbox messages (unread, max_age_days)
+- [x] **HITL-05
+**: POST /api/inbox creates agent-to-user inbox message
+- [x] **HITL-06
+**: POST /api/inbox/{id}/read marks message read
+- [x] **HITL-07
+**: POST /api/inbox/{id}/reply writes user reply to queue file
 
 ### Tasks API
 
