@@ -10,8 +10,7 @@ Phase 2 added: ingest router (Plan 02-03) at root because the OTLP/HTTP spec
 fixes the paths at /v1/logs and /v1/metrics, and sync router (Plan 02-05)
 under /api for the manual ingestion trigger (INGST-10).
 Phase 3 Wave 1 adds: system (Plan 03-02), sessions (Plan 03-03),
-observability (Plan 03-04), mcp (Plan 03-05) routers (under /api). Skills
-router lands later in the same wave.
+observability (Plan 03-04), mcp + skills (Plan 03-05) routers (under /api).
 Phase 4 will add: hitl (decisions, inbox), tasks, schedules routers
 (under /api).
 """
@@ -22,6 +21,7 @@ from cmc.api.routes.ingest import router as ingest_router
 from cmc.api.routes.mcp import router as mcp_router
 from cmc.api.routes.observability import router as observability_router
 from cmc.api.routes.sessions import router as sessions_router
+from cmc.api.routes.skills import router as skills_router
 from cmc.api.routes.sync import router as sync_router
 from cmc.api.routes.system import router as system_router
 
@@ -35,6 +35,7 @@ def all_routers() -> list[APIRouter]:
         sessions_router,
         observability_router,
         system_router,
+        skills_router,
     ]
 
 
