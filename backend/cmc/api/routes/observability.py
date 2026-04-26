@@ -414,5 +414,258 @@ async def hooks_activity(
     return HookActivityResponse(items=items, range=RangeWindow(range_), total_fires=total)
 
 
-# ---- OBSV-06..10 (added by Task 2) -----------------------------------------
-# (Implemented in Task 2 below this marker.)
+# ---- OBSV-06: sessions by project (cwd rollup) ------------------------------
+
+# Two separate text() constants — one with the WHERE filter, one without
+# (range="all"). Avoids fragile string.replace() on a text() object.
+_BY_PROJECT_SQL_RANGE = text("""
+    SELECT
+      COALESCE(cwd, '(unknown)') AS cwd,
+      COUNT(*)                                                              AS sessions,
+      COALESCE(SUM(tokens_input + tokens_output + tokens_cache_create), 0)  AS tokens_effective,
+      COALESCE(SUM(tool_call_count), 0)                                     AS tool_calls
+    FROM sessions
+    WHERE started_at >= datetime('now', :since_clause)
+    GROUP BY cwd
+    ORDER BY sessions DESC
+""")
+
+_BY_PROJECT_SQL_ALL = text("""
+    SELECT
+      COALESCE(cwd, '(unknown)') AS cwd,
+      COUNT(*)                                                              AS sessions,
+      COALESCE(SUM(tokens_input + tokens_output + tokens_cache_create), 0)  AS tokens_effective,
+      COALESCE(SUM(tool_call_count), 0)                                     AS tool_calls
+    FROM sessions
+    GROUP BY cwd
+    ORDER BY sessions DESC
+""")
+
+# Strip /Users/<username>/ prefix to ~/ for compact display in the UI.
+_HOME_RE = re.compile(r"^/Users/[^/]+/")
+
+
+@router.get("/sessions/by-project", response_model=ProjectRollupResponse)
+async def sessions_by_project(
+    db: AsyncSession = Depends(get_session),
+    range_: Literal["today", "7d", "30d", "all"] = Query("30d", alias="range"),
+):
+    if range_ == "all":
+        rows = (await db.execute(_BY_PROJECT_SQL_ALL)).mappings().all()
+    else:
+        since = _RANGE_TO_SINCE[range_]
+        rows = (await db.execute(_BY_PROJECT_SQL_RANGE, {"since_clause": since})).mappings().all()
+    total_sessions = sum(int(r["sessions"]) for r in rows) or 1
+    items = [
+        ProjectRollupRow(
+            cwd=r["cwd"],
+            display_path=_HOME_RE.sub("~/", r["cwd"]),
+            sessions=int(r["sessions"]),
+            tokens_effective=int(r["tokens_effective"]),
+            tool_calls=int(r["tool_calls"]),
+            pct_of_total=round(int(r["sessions"]) / total_sessions, 4),
+        )
+        for r in rows
+    ]
+    return ProjectRollupResponse(items=items, range=RangeWindow(range_))
+
+
+# ---- OBSV-07: agent fanout --------------------------------------------------
+
+_AGENT_FANOUT_SQL = text("""
+    SELECT
+      t.session_id,
+      COUNT(*) AS agent_calls,
+      s.cwd, s.started_at
+    FROM tools t
+    JOIN sessions s ON s.session_id = t.session_id
+    WHERE t.tool_name = 'Agent'
+      AND s.started_at >= datetime('now', :since_clause)
+    GROUP BY t.session_id
+    ORDER BY agent_calls DESC
+    LIMIT 100
+""")
+
+
+@router.get("/tools/agent-fanout", response_model=AgentFanoutResponse)
+async def agent_fanout(
+    db: AsyncSession = Depends(get_session),
+    range_: Literal["today", "7d", "30d"] = Query("7d", alias="range"),
+):
+    since = _RANGE_TO_SINCE[range_]
+    rows = (await db.execute(_AGENT_FANOUT_SQL, {"since_clause": since})).mappings().all()
+    items: list[AgentFanoutRow] = []
+    for r in rows:
+        cwd = r["cwd"] or ""
+        title = (
+            cwd.rstrip("/").rsplit("/", 1)[-1] if cwd else (r["session_id"][:8] + "…")
+        )
+        items.append(
+            AgentFanoutRow(
+                session_id=r["session_id"],
+                title=title or None,
+                agent_calls=int(r["agent_calls"]),
+                started_at=r["started_at"],
+            )
+        )
+    return AgentFanoutResponse(items=items, range=RangeWindow(range_))
+
+
+# ---- OBSV-08: edit decisions (dual-source: tools.decision + otel_events) ---
+
+_EDIT_TOOL_NAMES = ("Edit", "MultiEdit", "Write", "NotebookEdit")
+
+_EDIT_DECISIONS_SQL = text("""
+    SELECT
+      tool_name,
+      SUM(CASE WHEN decision = 'accept' THEN 1 ELSE 0 END) AS accepted,
+      SUM(CASE WHEN decision = 'reject' THEN 1 ELSE 0 END) AS rejected
+    FROM tools
+    WHERE tool_name IN ('Edit', 'MultiEdit', 'Write', 'NotebookEdit')
+      AND decision IN ('accept', 'reject')
+      AND started_at >= datetime('now', :since_clause)
+    GROUP BY tool_name
+""")
+
+_EDIT_DECISIONS_OTEL_SQL = text("""
+    SELECT
+      json_extract(body, '$.tool_name') AS tool_name,
+      SUM(CASE WHEN json_extract(body, '$.decision') = 'accept' THEN 1 ELSE 0 END) AS accepted,
+      SUM(CASE WHEN json_extract(body, '$.decision') = 'reject' THEN 1 ELSE 0 END) AS rejected
+    FROM otel_events
+    WHERE event_name = 'claude_code.tool_decision'
+      AND json_extract(body, '$.tool_name') IN ('Edit', 'MultiEdit', 'Write', 'NotebookEdit')
+      AND ts >= datetime('now', :since_clause)
+    GROUP BY tool_name
+""")
+
+
+@router.get("/tools/edit-decisions", response_model=EditDecisionsResponse)
+async def edit_decisions(
+    db: AsyncSession = Depends(get_session),
+    range_: Literal["today", "7d", "30d"] = Query("7d", alias="range"),
+):
+    """Read decisions from BOTH tools.decision and otel_events tool_decision.
+
+    Phase 2's parser may write either path depending on which signal arrives
+    first; we sum both sources by tool_name. low_sample = (acc+rej) < 10.
+    """
+    since = _RANGE_TO_SINCE[range_]
+    tool_rows = (await db.execute(_EDIT_DECISIONS_SQL, {"since_clause": since})).mappings().all()
+    otel_rows = (await db.execute(_EDIT_DECISIONS_OTEL_SQL, {"since_clause": since})).mappings().all()
+    merged: dict[str, dict[str, int]] = {
+        n: {"accepted": 0, "rejected": 0} for n in _EDIT_TOOL_NAMES
+    }
+    for r in tool_rows:
+        merged[r["tool_name"]]["accepted"] += int(r["accepted"] or 0)
+        merged[r["tool_name"]]["rejected"] += int(r["rejected"] or 0)
+    for r in otel_rows:
+        tn = r["tool_name"]
+        if tn in merged:
+            merged[tn]["accepted"] += int(r["accepted"] or 0)
+            merged[tn]["rejected"] += int(r["rejected"] or 0)
+    items: list[EditDecisionRow] = []
+    for tn, d in merged.items():
+        total = d["accepted"] + d["rejected"]
+        items.append(
+            EditDecisionRow(
+                tool_name=tn,
+                accepted=d["accepted"],
+                rejected=d["rejected"],
+                accept_rate=round(d["accepted"] / total, 4) if total else 0.0,
+                low_sample=total < 10,
+            )
+        )
+    return EditDecisionsResponse(items=items, range=RangeWindow(range_))
+
+
+# ---- OBSV-09: developer productivity (git-derived metrics) -----------------
+
+_PRODUCTIVITY_SQL = text("""
+    SELECT
+      metric_name,
+      json_extract(attrs, '$.type') AS attr_type,
+      SUM(value) AS total
+    FROM otel_metrics
+    WHERE metric_name IN (
+        'claude_code.commit.count',
+        'claude_code.pull_request.count',
+        'claude_code.lines_of_code.count'
+      )
+      AND ts >= datetime('now', :since_clause)
+    GROUP BY metric_name, attr_type
+""")
+
+
+@router.get("/activity/productivity", response_model=ProductivityResponse)
+async def productivity(
+    db: AsyncSession = Depends(get_session),
+    range_: Literal["today", "7d", "30d"] = Query("7d", alias="range"),
+):
+    since = _RANGE_TO_SINCE[range_]
+    rows = (await db.execute(_PRODUCTIVITY_SQL, {"since_clause": since})).mappings().all()
+    commits = pull_requests = lines_added = lines_removed = 0
+    for r in rows:
+        total = int(r["total"] or 0)
+        if r["metric_name"] == "claude_code.commit.count":
+            commits += total
+        elif r["metric_name"] == "claude_code.pull_request.count":
+            pull_requests += total
+        elif r["metric_name"] == "claude_code.lines_of_code.count":
+            if r["attr_type"] == "added":
+                lines_added += total
+            elif r["attr_type"] == "removed":
+                lines_removed += total
+    return ProductivityResponse(
+        commits=commits,
+        pull_requests=pull_requests,
+        lines_added=lines_added,
+        lines_removed=lines_removed,
+        range=RangeWindow(range_),
+    )
+
+
+# ---- OBSV-10: system pressure (errors, retries, compaction) ----------------
+
+_PRESSURE_COUNTS_SQL = text("""
+    SELECT
+      event_name,
+      COUNT(*) AS c
+    FROM otel_events
+    WHERE event_name IN (
+        'claude_code.api_retries_exhausted',
+        'claude_code.compaction',
+        'claude_code.api_error'
+      )
+    GROUP BY event_name
+""")
+
+_RECENT_ERRORS_SQL = text("""
+    SELECT
+      ts, session_id,
+      COALESCE(json_extract(body, '$.message'), event_name) AS message
+    FROM otel_events
+    WHERE event_name = 'claude_code.api_error'
+    ORDER BY ts DESC
+    LIMIT 10
+""")
+
+
+@router.get("/system/pressure", response_model=PressureResponse)
+async def system_pressure(db: AsyncSession = Depends(get_session)):
+    counts = (await db.execute(_PRESSURE_COUNTS_SQL)).mappings().all()
+    c_map = {r["event_name"]: int(r["c"]) for r in counts}
+    err_rows = (await db.execute(_RECENT_ERRORS_SQL)).mappings().all()
+    recent = [
+        ApiErrorEntry(
+            ts=r["ts"],
+            session_id=r["session_id"],
+            message=str(r["message"] or ""),
+        )
+        for r in err_rows
+    ]
+    return PressureResponse(
+        api_retries_exhausted=c_map.get("claude_code.api_retries_exhausted", 0),
+        compaction_count=c_map.get("claude_code.compaction", 0),
+        recent_api_errors=recent,
+    )
