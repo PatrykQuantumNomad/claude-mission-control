@@ -56,6 +56,13 @@ async def _seed_rows(app, table_name: str, rows: list[dict]) -> None:
     For `token_usage`, normalizes `day` ISO strings (from
     `make_token_usage_bucket`'s default) to `date` objects because the
     SQLite Date column type requires actual `date` instances.
+
+    For `otel_events` and `tools`, auto-seeds missing parent `sessions` rows
+    so FK enforcement (PRAGMA foreign_keys=1 from Phase 1 engine listener)
+    doesn't reject the insert. The auto-seeded sessions use `started_at` set
+    to `datetime.now(UTC)` minus 5 minutes so they fall inside any reasonable
+    test range. Real ingestion always creates the session row before the
+    event row, so this matches production semantics.
     """
     from cmc.db.base import SQLModel
 
@@ -66,6 +73,31 @@ async def _seed_rows(app, table_name: str, rows: list[dict]) -> None:
             {**r, "day": date.fromisoformat(r["day"]) if isinstance(r.get("day"), str) else r.get("day")}
             for r in rows
         ]
+
+    # Auto-seed parent sessions for any FK-referenced session_id that doesn't
+    # yet exist, so tests can focus on the table they care about.
+    if table_name in ("otel_events", "tools"):
+        sessions_table = SQLModel.metadata.tables["sessions"]
+        needed_session_ids = {r.get("session_id") for r in rows if r.get("session_id")}
+        if needed_session_ids:
+            async with engine.begin() as conn:
+                from sqlalchemy import select as sa_select
+                existing = (
+                    await conn.execute(
+                        sa_select(sessions_table.c.session_id).where(
+                            sessions_table.c.session_id.in_(needed_session_ids)
+                        )
+                    )
+                ).scalars().all()
+                missing = needed_session_ids - set(existing)
+                base_ts = datetime.now(timezone.utc) - timedelta(minutes=5)
+                for sid in missing:
+                    await conn.execute(
+                        insert(sessions_table).values(
+                            **make_session_row(session_id=sid, started_at=base_ts)
+                        )
+                    )
+
     async with engine.begin() as conn:
         for row in rows:
             await conn.execute(insert(table).values(**row))
