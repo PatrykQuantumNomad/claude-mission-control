@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 03-04-PLAN.md (Wave 1 observability router; 10 OBSV endpoints; 17 tests pass; sibling Wave 1 plans 03-02/03-03/03-05 still in-flight)
-last_updated: "2026-04-26T13:04:58.695Z"
+stopped_at: Completed 03-02-PLAN.md (system router SAPI-02..05 + firehose SSE; 17/17 system tests + 78/78 P1+P2+system green)
+last_updated: "2026-04-26T13:32:50.950Z"
 last_activity: 2026-04-26
 progress:
   total_phases: 9
   completed_phases: 2
   total_plans: 18
-  completed_plans: 15
-  percent: 83
+  completed_plans: 16
+  percent: 89
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 ## Current Position
 
 Phase: 3 of 9 IN PROGRESS (Read-Only APIs) — Wave 0 complete; Wave 1 plans 03-02..03-05 ready
-Plan: 2 of 5 complete in Phase 3 (03-01 ✅ Wave 0 foundation; 70/70 tests green)
+Plan: 3 of 5 complete in Phase 3 (03-01 ✅ Wave 0 foundation; 70/70 tests green)
 Status: Ready to execute
 Last activity: 2026-04-26
 
@@ -67,6 +67,7 @@ Progress (Phase 3): [██░░░░░░░░] 20%
 | Phase 02-data-ingestion P06 | ~5 min agent + overnight human-verify wait | 2 tasks (1 auto + 1 checkpoint) | 1 file |
 | Phase 03-read-only-apis P01 | 14 min | 3 tasks tasks | 16 files files |
 | Phase 03-read-only-apis P04 | 14 min | 2 tasks tasks | 3 files files |
+| Phase 03-read-only-apis P02 | 30 min | 2 tasks (TDD; 4 commits) tasks | 3 files files |
 
 ## Accumulated Context
 
@@ -123,6 +124,10 @@ Recent decisions affecting current work:
 - Plan 03-04 complete: 10 OBSV endpoints implemented; window-function percentile (ROW_NUMBER OVER PARTITION + COUNT OVER PARTITION) replaces plan's correlated-subquery-with-COUNT-in-OFFSET form (Rule 1 — SQLite rejects aggregate in OFFSET); all 17 OBSV tests pass
 - Plan 03-04: FK-aware test seeding pattern — _seed_rows helper auto-seeds parent sessions for any otel_events/tools rows referencing missing session_ids (PRAGMA foreign_keys=1 from Phase 1 listener requires parent to exist on insert; soft-FK ON DELETE SET NULL only applies on parent delete)
 - Plan 03-04 entry contract for Phase 6 dashboard: 10 GET endpoints under /api/usage/, /api/sessions/, /api/tools/, /api/hooks/, /api/activity/, /api/system/ — see 03-04-SUMMARY.md for sample response shapes; OBSV-08 dual-source merge pattern (tools.decision UNION otel_events claude_code.tool_decision) means parser changes in Phase 2+ on EITHER path show up in this endpoint without router changes
+- Plan 03-02: FastAPI 0.136.1 SSE pattern locked — path operation IS an async generator with response_class=EventSourceResponse (NOT sse_starlette's return-the-generator). Validation lives in a separate Depends() because HTTPException raised inside an SSE generator gets swallowed by FastAPI's inner anyio task group
+- Plan 03-02: SAPI-03 whitelist locked at frozenset({tzname, last_jsonl_sync_at, jsonl_sync_last_tick_at, dispatcher_last_tick_at, telegram_last_tick_at, emergency_stop}); per-key 404 message identical for non-whitelisted vs. whitelisted-but-absent (T-03-02-01 Information Disclosure mitigation)
+- Plan 03-02 auto-fix (Rule 1): SSE behavior tests cannot run through httpx ASGITransport — the transport never delivers http.disconnect for streaming responses (response_complete is never set during SSE). Pattern: ONE HTTP-level test for Content-Type + 400 validation, THREE direct unit tests on tail_otel_events with a mock Request that flips is_disconnected() after N calls. Production behavior verified by Phase 3 verifier checkpoint, not by ASGITransport tests
+- Plan 03-02: Pitfall 7 attention shape locked — pending_decisions=0 + failed_tasks=0 ALWAYS in /api/attention response, NOT branched on Phase 4 schema presence. When Phase 4 lands tasks/decisions tables, edit attention() to populate counters via real queries; do not add schema branching
 
 ### Pending Todos
 
@@ -135,8 +140,8 @@ None — Phase 1 + Phase 2 implementations complete; verifier readiness confirme
 
 ## Session Continuity
 
-Last session: 2026-04-26T13:04:58.688Z
-Stopped at: Completed 03-04-PLAN.md (Wave 1 observability router; 10 OBSV endpoints; 17 tests pass; sibling Wave 1 plans 03-02/03-03/03-05 still in-flight)
+Last session: 2026-04-26T13:32:50.943Z
+Stopped at: Completed 03-02-PLAN.md (system router SAPI-02..05 + firehose SSE; 17/17 system tests + 78/78 P1+P2+system green)
 Resume file: None
 
 Phase 1 final commit chain:

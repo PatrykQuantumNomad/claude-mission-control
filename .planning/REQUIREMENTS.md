@@ -48,10 +48,14 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **SAPI-01
 **: GET /api/health returns quick liveness check
-- [ ] **SAPI-02**: GET /api/system/health returns server uptime, memory, last OTEL event age, daemon tick ages, tzname
-- [ ] **SAPI-03**: GET /api/system/state reads system_state KV store
-- [ ] **SAPI-04**: GET /api/attention returns aggregated issue feed (stuck loops, failed tasks, stale dispatcher, pending decisions)
-- [ ] **SAPI-05**: GET /api/firehose returns SSE stream of recent OTEL events
+- [x] **SAPI-02
+**: GET /api/system/health returns server uptime, memory, last OTEL event age, daemon tick ages, tzname
+- [x] **SAPI-03
+**: GET /api/system/state reads system_state KV store
+- [x] **SAPI-04
+**: GET /api/attention returns aggregated issue feed (stuck loops, failed tasks, stale dispatcher, pending decisions)
+- [x] **SAPI-05
+**: GET /api/firehose returns SSE stream of recent OTEL events
 
 ### Sessions API
 
