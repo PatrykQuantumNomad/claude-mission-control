@@ -70,7 +70,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. GET /api/usage/tokens returns daily token breakdown by model with today/7d/30d range support
   4. GET /api/mcp returns server list with latency stats and GET /api/mcp/{server}/tools returns per-tool breakdown
   5. GET /api/firehose returns an SSE stream of recent OTEL events
-**Plans**: TBD
+**Plans**: 5 plans
+
+- [ ] 03-01-PLAN.md — Wave 0 foundation: psutil dep, app.state.boot_time wiring, 7 Pydantic v2 schema modules, shared SSE helper, per-router test scaffolding + conftest fixtures (SAPI-01 stays in Phase 1 health.py)
+- [ ] 03-02-PLAN.md — System router (SAPI-02..05): /api/system/health, /api/system/state (KV with whitelist), /api/attention (Phase-4-graceful zeros), /api/firehose (SSE)
+- [ ] 03-03-PLAN.md — Sessions router (SESS-01..07): paginated list + filters, details with tool timeline, live (Pitfall 8 fallback), live-state, live SSE stream, follow-up POST queue, today summary
+- [ ] 03-04-PLAN.md — Observability router (OBSV-01..10): tokens, cache, outcomes (read-time CASE), tool latency (Pattern 4 percentile), hooks, by-project, agent fanout, edit decisions, productivity, pressure
+- [ ] 03-05-PLAN.md — MCP + Skills routers (MCP-01..04 + SKIL-01..03): three-source priority aggregator, single-flight sync, filesystem skill scanner (no symlinks, 1-level, 1000-cap), autonomy patch with regex validation
 
 ### Phase 4: Stateful APIs
 **Goal**: Users can create, manage, and interact with decisions, inbox messages, tasks, schedules, and emergency stop via the API
@@ -158,7 +164,7 @@ Note: Phases 3, 4, and 5 can execute in parallel after Phase 2 (or Phase 1 for 4
 |-------|----------------|--------|-----------|
 | 1. Foundation & Database | 7/7 | Complete | 2026-04-25 |
 | 2. Data Ingestion | 6/6 | Complete (verifier: 5/5 must-haves) | 2026-04-26 |
-| 3. Read-Only APIs | 0/TBD | Not started | - |
+| 3. Read-Only APIs | 0/5 | Planned (waves 0+1) | - |
 | 4. Stateful APIs | 0/TBD | Not started | - |
 | 5. Frontend Shell & Design System | 0/TBD | Not started | - |
 | 6. Observability & Activity Panels | 0/TBD | Not started | - |
