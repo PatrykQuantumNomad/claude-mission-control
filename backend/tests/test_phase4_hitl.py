@@ -409,7 +409,6 @@ async def test_hitl06_mark_read(client) -> None:
     assert body["id"] == inbox_id
     assert body["read"] is True
     assert body["read_at"] is not None
-    first_read_at = body["read_at"]
 
     # DB row updated
     sessionmaker = client._transport.app.state.sessions
@@ -420,11 +419,21 @@ async def test_hitl06_mark_read(client) -> None:
         )).scalar_one()
         assert row.read is True
         assert row.read_at is not None
+        first_read_at_db = row.read_at  # source of truth (DB row)
 
-    # Idempotency: second call returns same read_at
+    # Idempotency: second call returns the SAME read_at instant (no DB write).
+    # Compare DB-side rather than JSON-side because SQLite strips tzinfo on
+    # round-trip (Pitfall 4) — the first response was serialized from the
+    # in-memory aware datetime, the second from the round-tripped naive one,
+    # so JSON strings differ in the trailing 'Z'/'+00:00' but represent the
+    # same instant. The invariant under test is "no second DB write."
     r2 = await client.post(f"/api/inbox/{inbox_id}/read")
     assert r2.status_code == 200, r2.text
-    assert r2.json()["read_at"] == first_read_at
+    async with sessionmaker() as db:
+        row2 = (await db.execute(
+            _sel(InboxMessage).where(InboxMessage.id == inbox_id)
+        )).scalar_one()
+        assert row2.read_at == first_read_at_db
 
 
 @pytest.mark.asyncio

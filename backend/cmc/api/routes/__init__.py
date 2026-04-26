@@ -11,12 +11,13 @@ fixes the paths at /v1/logs and /v1/metrics, and sync router (Plan 02-05)
 under /api for the manual ingestion trigger (INGST-10).
 Phase 3 Wave 1 adds: system (Plan 03-02), sessions (Plan 03-03),
 observability (Plan 03-04), mcp + skills (Plan 03-05) routers (under /api).
-Phase 4 will add: hitl (decisions, inbox), tasks, schedules routers
-(under /api).
+Phase 4 Wave 1 adds: hitl router (Plan 04-02 — decisions + inbox combined,
+HITL-01..07). Tasks + schedules routers land later in Phase 4.
 """
 from fastapi import APIRouter
 
 from cmc.api.routes.health import router as health_router
+from cmc.api.routes.hitl import router as hitl_router
 from cmc.api.routes.ingest import router as ingest_router
 from cmc.api.routes.mcp import router as mcp_router
 from cmc.api.routes.observability import router as observability_router
@@ -36,6 +37,7 @@ def all_routers() -> list[APIRouter]:
         observability_router,
         system_router,
         skills_router,
+        hitl_router,
     ]
 
 
