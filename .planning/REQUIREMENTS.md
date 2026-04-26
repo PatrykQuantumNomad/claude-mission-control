@@ -65,16 +65,26 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Observability API
 
-- [ ] **OBSV-01**: GET /api/usage/tokens returns daily breakdown by model + source with today/7d/30d range
-- [ ] **OBSV-02**: GET /api/usage/cache returns cache hit rate + daily trend with low-sample badge (<10K billable tokens)
-- [ ] **OBSV-03**: GET /api/sessions/outcomes returns daily mutually-exclusive outcome buckets (errored > rate_limited > truncated > unfinished > ok)
-- [ ] **OBSV-04**: GET /api/tools/latency returns per-tool p50/p95/max/error-rate/call-count sorted by p95 desc
-- [ ] **OBSV-05**: GET /api/hooks/activity returns daily hook fires + paired-duration estimates (60s cap, FIFO per session)
-- [ ] **OBSV-06**: GET /api/sessions/by-project returns rollup by cwd (sessions, effective tokens, tool count)
-- [ ] **OBSV-07**: GET /api/tools/agent-fanout returns sessions with Agent tool calls
-- [ ] **OBSV-08**: GET /api/tools/edit-decisions returns accept/reject rate for Edit/MultiEdit/Write/NotebookEdit from tool_decision events
-- [ ] **OBSV-09**: GET /api/activity/productivity returns OTEL counters for commits, PRs, lines of code (SUM of delta-counters)
-- [ ] **OBSV-10**: GET /api/system/pressure returns retry exhaustion count, compaction count, recent api_errors
+- [x] **OBSV-01
+**: GET /api/usage/tokens returns daily breakdown by model + source with today/7d/30d range
+- [x] **OBSV-02
+**: GET /api/usage/cache returns cache hit rate + daily trend with low-sample badge (<10K billable tokens)
+- [x] **OBSV-03
+**: GET /api/sessions/outcomes returns daily mutually-exclusive outcome buckets (errored > rate_limited > truncated > unfinished > ok)
+- [x] **OBSV-04
+**: GET /api/tools/latency returns per-tool p50/p95/max/error-rate/call-count sorted by p95 desc
+- [x] **OBSV-05
+**: GET /api/hooks/activity returns daily hook fires + paired-duration estimates (60s cap, FIFO per session)
+- [x] **OBSV-06
+**: GET /api/sessions/by-project returns rollup by cwd (sessions, effective tokens, tool count)
+- [x] **OBSV-07
+**: GET /api/tools/agent-fanout returns sessions with Agent tool calls
+- [x] **OBSV-08
+**: GET /api/tools/edit-decisions returns accept/reject rate for Edit/MultiEdit/Write/NotebookEdit from tool_decision events
+- [x] **OBSV-09
+**: GET /api/activity/productivity returns OTEL counters for commits, PRs, lines of code (SUM of delta-counters)
+- [x] **OBSV-10
+**: GET /api/system/pressure returns retry exhaustion count, compaction count, recent api_errors
 
 ### MCP API
 

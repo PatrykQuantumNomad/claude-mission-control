@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Completed 03-01-PLAN.md (Phase 3 Wave 0 foundation; 70/70 tests green; ready for Wave 1 plans 03-02..03-05)
-last_updated: "2026-04-26T12:39:10.799Z"
+status: executing
+stopped_at: Completed 03-04-PLAN.md (Wave 1 observability router; 10 OBSV endpoints; 17 tests pass; sibling Wave 1 plans 03-02/03-03/03-05 still in-flight)
+last_updated: "2026-04-26T13:04:58.695Z"
 last_activity: 2026-04-26
 progress:
   total_phases: 9
   completed_phases: 2
   total_plans: 18
-  completed_plans: 14
-  percent: 78
+  completed_plans: 15
+  percent: 83
 ---
 
 # Project State
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 ## Current Position
 
 Phase: 3 of 9 IN PROGRESS (Read-Only APIs) — Wave 0 complete; Wave 1 plans 03-02..03-05 ready
-Plan: 1 of 5 complete in Phase 3 (03-01 ✅ Wave 0 foundation; 70/70 tests green)
-Status: Plan 03-01 complete — ready to execute Wave 1 (plans 03-02..03-05 in parallel)
+Plan: 2 of 5 complete in Phase 3 (03-01 ✅ Wave 0 foundation; 70/70 tests green)
+Status: Ready to execute
 Last activity: 2026-04-26
 
 Progress (Phase 3): [██░░░░░░░░] 20%
@@ -66,6 +66,7 @@ Progress (Phase 3): [██░░░░░░░░] 20%
 | Phase 02-data-ingestion PP05 | 14 min | 2 tasks (TDD; 4 commits) tasks | 4 files files |
 | Phase 02-data-ingestion P06 | ~5 min agent + overnight human-verify wait | 2 tasks (1 auto + 1 checkpoint) | 1 file |
 | Phase 03-read-only-apis P01 | 14 min | 3 tasks tasks | 16 files files |
+| Phase 03-read-only-apis P04 | 14 min | 2 tasks tasks | 3 files files |
 
 ## Accumulated Context
 
@@ -119,6 +120,9 @@ Recent decisions affecting current work:
 - Plan 03-01 complete: Phase 3 Wave 0 foundation landed (psutil, lifespan boot_time, 6 schema modules with all Wave 1 DTOs, tail_otel_events SSE helper, seeded_app+client fixtures, 4 factory helpers, 5 per-router test scaffold files)
 - Plan 03-01: Per-router test file convention declared — all SAPI-* tests in test_phase3_system.py, SESS-* in test_phase3_sessions.py, OBSV-* in test_phase3_observability.py, MCP-* in test_phase3_mcp.py, SKILL-* in test_phase3_skills.py (Phase-3 split avoids the Phase-2 1156-line monolith)
 - Plan 03-01: tail_otel_events SSE generator caps at 60min duration + uses MAX(id)-100 cursor on first connect — clients reconnect; bounds memory per Pitfall 1/3
+- Plan 03-04 complete: 10 OBSV endpoints implemented; window-function percentile (ROW_NUMBER OVER PARTITION + COUNT OVER PARTITION) replaces plan's correlated-subquery-with-COUNT-in-OFFSET form (Rule 1 — SQLite rejects aggregate in OFFSET); all 17 OBSV tests pass
+- Plan 03-04: FK-aware test seeding pattern — _seed_rows helper auto-seeds parent sessions for any otel_events/tools rows referencing missing session_ids (PRAGMA foreign_keys=1 from Phase 1 listener requires parent to exist on insert; soft-FK ON DELETE SET NULL only applies on parent delete)
+- Plan 03-04 entry contract for Phase 6 dashboard: 10 GET endpoints under /api/usage/, /api/sessions/, /api/tools/, /api/hooks/, /api/activity/, /api/system/ — see 03-04-SUMMARY.md for sample response shapes; OBSV-08 dual-source merge pattern (tools.decision UNION otel_events claude_code.tool_decision) means parser changes in Phase 2+ on EITHER path show up in this endpoint without router changes
 
 ### Pending Todos
 
@@ -131,8 +135,8 @@ None — Phase 1 + Phase 2 implementations complete; verifier readiness confirme
 
 ## Session Continuity
 
-Last session: 2026-04-26T12:39:10.792Z
-Stopped at: Completed 03-01-PLAN.md (Phase 3 Wave 0 foundation; 70/70 tests green; ready for Wave 1 plans 03-02..03-05)
+Last session: 2026-04-26T13:04:58.688Z
+Stopped at: Completed 03-04-PLAN.md (Wave 1 observability router; 10 OBSV endpoints; 17 tests pass; sibling Wave 1 plans 03-02/03-03/03-05 still in-flight)
 Resume file: None
 
 Phase 1 final commit chain:
