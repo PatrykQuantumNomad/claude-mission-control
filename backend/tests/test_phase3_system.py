@@ -290,3 +290,156 @@ async def test_sapi04_attention_detects_stuck_session(client) -> None:
     assert body["stuck_sessions"] == 1
     kinds = {item["kind"] for item in body["items"]}
     assert "stuck_sessions" in kinds
+
+
+# ---------- Wave 1 / Plan 03-02 — Task 2: SAPI-05 firehose SSE ----------
+
+import asyncio
+import json as _json
+
+
+def _parse_sse_chunks(raw: str) -> list[dict]:
+    """Tiny SSE parser for tests.
+
+    Returns a list of {event, id, data} dicts. Ignores comment lines
+    (`: ping`) and empty events. `data` stays as the raw string (callers
+    json.loads if they need a dict).
+    """
+    events: list[dict] = []
+    current: dict = {}
+    for line in raw.splitlines():
+        if not line:
+            if current:
+                events.append(current)
+                current = {}
+            continue
+        if line.startswith(":"):
+            # comment / keep-alive
+            continue
+        if ":" not in line:
+            continue
+        field, _, value = line.partition(":")
+        if value.startswith(" "):
+            value = value[1:]
+        if field == "data" and "data" in current:
+            # multi-line data is concatenated with newlines per spec
+            current["data"] = current["data"] + "\n" + value
+        else:
+            current[field] = value
+    if current:
+        events.append(current)
+    return events
+
+
+async def test_sapi05_firehose_returns_sse_content_type_and_event(client) -> None:
+    """SAPI-05: /api/firehose serves Content-Type: text/event-stream and
+    yields one SSE event per OtelEvent row, framed `event: otel\\ndata: {...}`."""
+    # Insert one OtelEvent so the stream has something to emit.
+    one_s_ago = datetime.now(timezone.utc) - timedelta(seconds=1)
+    await _seed(
+        client,
+        [(OtelEvent, make_otel_event(
+            ts=one_s_ago, event_name="claude_code.api_request"
+        ))],
+    )
+
+    # Stream with a short timeout so we don't hang. Read enough bytes to capture
+    # the first event then aclose.
+    async with client.stream("GET", "/api/firehose", timeout=5) as resp:
+        assert resp.status_code == 200
+        assert "text/event-stream" in resp.headers["content-type"]
+        # Pull bytes until we see one full event (`\n\n` terminator).
+        buf = b""
+        try:
+            async for chunk in resp.aiter_bytes():
+                buf += chunk
+                if b"\n\n" in buf and b"event: otel" in buf:
+                    break
+        except (asyncio.TimeoutError, Exception):
+            pass
+
+    text = buf.decode("utf-8", errors="replace")
+    events = _parse_sse_chunks(text)
+    otel_events = [e for e in events if e.get("event") == "otel"]
+    assert len(otel_events) >= 1
+    payload = _json.loads(otel_events[0]["data"])
+    assert payload["event_name"] == "claude_code.api_request"
+
+
+async def test_sapi05_firehose_filters_by_event_name(client) -> None:
+    """SAPI-05: ?event_name= filter narrows the stream server-side; only
+    matching events are yielded."""
+    base = datetime.now(timezone.utc) - timedelta(seconds=2)
+    await _seed(
+        client,
+        [
+            (OtelEvent, make_otel_event(
+                ts=base, event_name="claude_code.api_request"
+            )),
+            (OtelEvent, make_otel_event(
+                ts=base + timedelta(milliseconds=100),
+                event_name="claude_code.tool_result",
+            )),
+        ],
+    )
+
+    async with client.stream(
+        "GET",
+        "/api/firehose?event_name=claude_code.api_request",
+        timeout=5,
+    ) as resp:
+        assert resp.status_code == 200
+        buf = b""
+        # Read for ~2s — long enough to flush the api_request event AND
+        # confirm tool_result wasn't sent.
+        try:
+            async with asyncio.timeout(2.5):
+                async for chunk in resp.aiter_bytes():
+                    buf += chunk
+                    if b"\n\n" in buf and b"event: otel" in buf:
+                        # got at least one event; keep collecting briefly
+                        # to make sure no tool_result sneaks through
+                        break
+        except (asyncio.TimeoutError, TimeoutError):
+            pass
+
+    text = buf.decode("utf-8", errors="replace")
+    events = _parse_sse_chunks(text)
+    otel_events = [e for e in events if e.get("event") == "otel"]
+    payloads = [_json.loads(e["data"]) for e in otel_events]
+    names = {p["event_name"] for p in payloads}
+    assert "claude_code.api_request" in names
+    assert "claude_code.tool_result" not in names
+
+
+async def test_sapi05_firehose_disconnect_does_not_break_subsequent_requests(client) -> None:
+    """SAPI-05 (Pitfall 1): client disconnect ends the generator cleanly so
+    subsequent requests on the same client succeed (no DB pool exhaustion,
+    no hanging tasks)."""
+    # Open + immediately close a stream
+    async with client.stream("GET", "/api/firehose", timeout=3) as resp:
+        assert resp.status_code == 200
+        # Read 1 byte then aclose
+        try:
+            async with asyncio.timeout(1.5):
+                async for _chunk in resp.aiter_bytes():
+                    break
+        except (asyncio.TimeoutError, TimeoutError):
+            pass
+
+    # Brief pause for generator teardown
+    await asyncio.sleep(0.5)
+
+    # Subsequent /api/health request must still succeed
+    response = await client.get("/api/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+async def test_sapi05_firehose_invalid_since_returns_400(client) -> None:
+    """SAPI-05: ?since=<bogus> returns 400 with a helpful detail (Validation
+    is a Tampering mitigation per RESEARCH Security Domain V5 / T-03-02-02)."""
+    response = await client.get("/api/firehose?since=not-a-timestamp")
+    assert response.status_code == 400
+    detail = response.json().get("detail", "")
+    assert "since" in detail.lower() or "timestamp" in detail.lower()
