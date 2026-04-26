@@ -269,3 +269,228 @@ def otlp_metric_payload() -> dict:
             }],
         }],
     }
+
+
+# ---- Phase 3 Wave 0 fixtures (Plan 03-01 Task 3) ----
+#
+# Promotes the Phase 2 _bootstrap_app helper to a shared `seeded_app` fixture
+# and adds a httpx ASGITransport-backed `client` fixture so all five Phase 3
+# router test files can exercise endpoints without re-bootstrapping. The
+# four `make_*` factories return plain dicts suitable for either ORM
+# construction OR raw INSERT statements (they are NOT fixtures — just module-
+# level helpers callable from any test).
+
+from typing import Optional
+
+import httpx
+import pytest_asyncio
+
+
+@pytest_asyncio.fixture
+async def seeded_app(test_settings):
+    """Phase 3 shared fixture: a FastAPI app with the full router set wired in
+    via cmc.app.factory.create_app and lifespan ready to enter.
+
+    Returns (app, lifespan_cm) — caller wraps `async with cm:` to start the
+    lifespan (which runs alembic upgrade + boot-time sync_once + starts the
+    periodic loop).
+
+    Hermetic guarantees:
+      - jsonl_root is auto-redirected to a tmp nonexistent path when it
+        defaults to `~/.claude/projects` (mirrors Phase 2 _bootstrap_app's
+        BLOCKER-3-style protection).
+      - static_dir is left as-is — factory.create_app skips the SPA mount
+        when the directory has no index.html, which is the test default.
+      - boot_time defensive write: lifespan ALREADY sets app.state.boot_time
+        on startup (Task 1a), but we additionally pre-seed it here with a
+        deterministic 42-seconds-ago timestamp BEFORE entering the lifespan,
+        so any test that inspects boot_time before the lifespan starts gets
+        a sensible value. The lifespan WILL overwrite this on startup with
+        the true `datetime.now(timezone.utc)`.
+
+    Wave 1 plans (03-02..03-05) typically destructure this fixture as:
+        app, cm = seeded_app
+        async with cm:
+            ... # use app.state.sessions, app.state.engine, etc.
+
+    For HTTP-level tests, prefer the `client` fixture below — it handles
+    ASGITransport + lifespan entry for you.
+    """
+    from cmc.app.factory import create_app
+
+    # Mirror the Phase 2 _bootstrap_app jsonl_root override (Pitfall: never
+    # ingest user data in tests). Detect the default and replace with a
+    # tmp-path nonexistent dir so sync_once early-returns harmlessly.
+    if str(test_settings.jsonl_root).endswith(".claude/projects"):
+        test_settings = test_settings.model_copy(update={
+            "jsonl_root": test_settings.db_path.parent / "no-jsonl-here",
+        })
+
+    app = create_app(test_settings)
+    # Defensive pre-seed (the lifespan will overwrite on startup).
+    app.state.boot_time = datetime.now(timezone.utc) - timedelta(seconds=42)
+
+    return app, app.router.lifespan_context(app)
+
+
+@pytest_asyncio.fixture
+async def client(seeded_app):
+    """Phase 3 shared fixture: httpx.AsyncClient bound to seeded_app via
+    ASGITransport so the lifespan is properly entered.
+
+    Yields an httpx.AsyncClient pinned to base_url='http://testserver'.
+    The lifespan runs alembic upgrade + boot-time sync (against the
+    redirected jsonl_root, which early-returns on missing dir) before the
+    first request is dispatched, so /api/health and other DB-touching
+    endpoints work immediately.
+    """
+    app, cm = seeded_app
+    async with cm:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as ac:
+            yield ac
+
+
+# ---- Factory helpers (NOT fixtures — plain module-level helpers) ----
+#
+# These return dicts shaped to match the corresponding ORM model's __init__
+# kwargs, so callers can either:
+#   - construct an ORM instance:  Session(**make_session_row())
+#   - emit raw SQL INSERT bind params:  conn.execute(insert(Session), [row])
+# Pitfall 4 awareness: defaults use timezone-aware UTC datetimes, NEVER
+# datetime.utcnow() (deprecated path).
+
+
+def make_session_row(
+    session_id: str = "sess-1",
+    started_at: Optional[datetime] = None,
+    ended_at: Optional[datetime] = None,
+    cwd: str = "/Users/test/proj",
+    model: Optional[str] = "claude-opus-4-7",
+    source: Optional[str] = "claude-code",
+    outcome: Optional[str] = None,
+    tokens_input: int = 0,
+    tokens_output: int = 0,
+    tokens_cache_read: int = 0,
+    tokens_cache_create: int = 0,
+    tool_call_count: int = 0,
+    message_count: int = 0,
+    error_message: Optional[str] = None,
+) -> dict:
+    """Return a dict suitable for Session ORM construction or raw insert."""
+    if started_at is None:
+        started_at = datetime.now(timezone.utc)
+    return {
+        "session_id": session_id,
+        "started_at": started_at,
+        "ended_at": ended_at,
+        "synced_at": started_at,
+        "jsonl_mtime": started_at,
+        "jsonl_path": f"/tmp/{session_id}.jsonl",
+        "cwd": cwd,
+        "model": model,
+        "source": source,
+        "outcome": outcome,
+        "tokens_input": tokens_input,
+        "tokens_output": tokens_output,
+        "tokens_cache_read": tokens_cache_read,
+        "tokens_cache_create": tokens_cache_create,
+        "tool_call_count": tool_call_count,
+        "message_count": message_count,
+        "error_message": error_message,
+    }
+
+
+def make_otel_event(
+    id: Optional[int] = None,
+    ts: Optional[datetime] = None,
+    event_name: str = "claude_code.tool_result",
+    session_id: Optional[str] = None,
+    body: Optional[dict] = None,
+    attrs_mcp_server: Optional[str] = None,
+    attrs_mcp_tool: Optional[str] = None,
+) -> dict:
+    """Return a dict suitable for OtelEvent ORM construction or raw insert.
+
+    `id` is left None by default — the DB autogenerates the rowid.
+    """
+    if ts is None:
+        ts = datetime.now(timezone.utc)
+    row: dict = {
+        "ts": ts,
+        "event_name": event_name,
+        "session_id": session_id,
+        "body": body or {},
+        "attrs_mcp_server": attrs_mcp_server,
+        "attrs_mcp_tool": attrs_mcp_tool,
+        "received_at": ts,
+    }
+    if id is not None:
+        row["id"] = id
+    return row
+
+
+def make_token_usage_bucket(
+    day: Optional[str] = None,
+    model: str = "claude-opus-4-7",
+    source: str = "claude-code",
+    tokens_input: int = 1000,
+    tokens_output: int = 500,
+    tokens_cache_read: int = 0,
+    tokens_cache_create: int = 0,
+    sessions_count: int = 1,
+) -> dict:
+    """Return a dict suitable for TokenUsageDaily ORM construction.
+
+    `day` defaults to today's date in system tz, matching the local-day bucket
+    convention from Plan 02-04.
+    """
+    from datetime import date as _date
+
+    if day is None:
+        day = _date.today().isoformat()
+    return {
+        "day": day,
+        "model": model,
+        "source": source,
+        "tokens_input": tokens_input,
+        "tokens_output": tokens_output,
+        "tokens_cache_read": tokens_cache_read,
+        "tokens_cache_create": tokens_cache_create,
+        "sessions_count": sessions_count,
+    }
+
+
+def make_tool_call(
+    tool_use_id: str = "tu-1",
+    session_id: str = "sess-1",
+    tool_name: str = "Bash",
+    started_at: Optional[datetime] = None,
+    ended_at: Optional[datetime] = None,
+    duration_ms: Optional[int] = None,
+    status: str = "ok",
+    error_message: Optional[str] = None,
+    input_summary: Optional[str] = None,
+    mcp_server_name: Optional[str] = None,
+    mcp_tool_name: Optional[str] = None,
+    decision: Optional[str] = None,
+) -> dict:
+    """Return a dict suitable for ToolCall ORM construction or raw insert."""
+    if started_at is None:
+        started_at = datetime.now(timezone.utc)
+    return {
+        "tool_use_id": tool_use_id,
+        "session_id": session_id,
+        "tool_name": tool_name,
+        "started_at": started_at,
+        "ended_at": ended_at,
+        "duration_ms": duration_ms,
+        "status": status,
+        "error_message": error_message,
+        "input_summary": input_summary,
+        "mcp_server_name": mcp_server_name,
+        "mcp_tool_name": mcp_tool_name,
+        "decision": decision,
+    }

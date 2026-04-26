@@ -51,3 +51,36 @@ def test_tail_otel_events_callable() -> None:
     from cmc.api.sse import tail_otel_events
 
     assert callable(tail_otel_events)
+
+
+def test_seeded_app_yields_tuple(seeded_app) -> None:
+    """Wave-0 smoke: seeded_app fixture yields (app, lifespan_cm) tuple.
+
+    Wave 1 plans pattern-match this shape as
+        app, cm = seeded_app
+        async with cm:
+            ...
+    so we lock the contract here.
+    """
+    assert isinstance(seeded_app, tuple)
+    assert len(seeded_app) == 2
+    app, cm = seeded_app
+    # `cm` is an async context manager (lifespan_context returns one)
+    assert hasattr(cm, "__aenter__")
+    assert hasattr(cm, "__aexit__")
+    # `app` carries the test settings
+    assert app.state.settings is not None
+
+
+async def test_client_health_endpoint_returns_200(client) -> None:
+    """Wave-0 smoke: the `client` fixture properly enters the lifespan and
+    routes /api/health through to the Phase 1 health router.
+
+    This proves the full Phase 3 fixture chain works end-to-end:
+      seeded_app -> create_app(settings) -> lifespan startup -> ASGITransport
+      -> httpx.AsyncClient -> /api/health -> 200
+    Future Phase 3 plans can rely on `client` for any endpoint test.
+    """
+    response = await client.get("/api/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
