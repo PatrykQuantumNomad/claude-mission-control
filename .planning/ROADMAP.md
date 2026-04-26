@@ -58,7 +58,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] 02-03-PLAN.md — OTLP /v1/logs + /v1/metrics router with always-200 contract + body cap + raw_routers() factory wiring (INGST-07, INGST-08, INGST-09) ✅ 2026-04-25
 - [x] 02-04-PLAN.md — Repository upserts (Option B token rollups) + scheduler sync_once + periodic_sync_loop (INGST-04, INGST-05) ✅ 2026-04-25
 - [x] 02-05-PLAN.md — Lifespan extension (boot sync + create_task) + POST /api/sync route (INGST-01, INGST-10) ✅ 2026-04-25
-- [ ] 02-06-PLAN.md — Manual smoke checkpoint: real ~/.claude/projects/ ingestion + curl OTLP samples + clean shutdown verification
+- [x] 02-06-PLAN.md — Manual smoke checkpoint: real ~/.claude/projects/ ingestion + curl OTLP samples + clean shutdown verification ✅ 2026-04-26
 
 ### Phase 3: Read-Only APIs
 **Goal**: All observability and analytics data is accessible via well-structured JSON API endpoints
@@ -157,7 +157,7 @@ Note: Phases 3, 4, and 5 can execute in parallel after Phase 2 (or Phase 1 for 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Database | 7/7 | Complete | 2026-04-25 |
-| 2. Data Ingestion | 4/6 | In progress | - |
+| 2. Data Ingestion | 6/6 | Implementation complete (ready for verifier) | 2026-04-26 |
 | 3. Read-Only APIs | 0/TBD | Not started | - |
 | 4. Stateful APIs | 0/TBD | Not started | - |
 | 5. Frontend Shell & Design System | 0/TBD | Not started | - |

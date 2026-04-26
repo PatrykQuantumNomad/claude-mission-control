@@ -30,7 +30,8 @@ Requirements for initial release. Each maps to roadmap phases.
 **: JSONL parser extracts user/assistant messages with token usage (input, output, cache_read, cache_create)
 - [x] **INGST-03
 **: JSONL parser pairs tool_use and tool_result by tool_use_id, computing duration (capped at 10 min)
-- [ ] **INGST-04**: JSONL parser upserts sessions row with totals on session end; re-parses if ended_at IS NULL or mtime > synced_at
+- [x] **INGST-04
+**: JSONL parser upserts sessions row with totals on session end; re-parses if ended_at IS NULL or mtime > synced_at
 - [ ] **INGST-05**: JSONL parser writes daily token_usage rollups with local-time day bucketing
 - [x] **INGST-06
 **: JSONL parser handles corrupted lines gracefully (skip + log, never crash sync cycle)
@@ -279,16 +280,16 @@ Requirements for initial release. Each maps to roadmap phases.
 | FOUND-04 | Phase 1 | Complete |
 | FOUND-05 | Phase 1 | Complete |
 | FOUND-06 | Phase 1 | Complete |
-| INGST-01 | Phase 2 | Pending |
+| INGST-01 | Phase 2 | Complete |
 | INGST-02 | Phase 2 | Pending |
 | INGST-03 | Phase 2 | Pending |
-| INGST-04 | Phase 2 | Pending |
+| INGST-04 | Phase 2 | Complete |
 | INGST-05 | Phase 2 | Pending |
 | INGST-06 | Phase 2 | Pending |
-| INGST-07 | Phase 2 | Pending |
+| INGST-07 | Phase 2 | Complete |
 | INGST-08 | Phase 2 | Pending |
-| INGST-09 | Phase 2 | Pending |
-| INGST-10 | Phase 2 | Pending |
+| INGST-09 | Phase 2 | Complete |
+| INGST-10 | Phase 2 | Complete |
 | SAPI-01 | Phase 3 | Pending |
 | SAPI-02 | Phase 3 | Pending |
 | SAPI-03 | Phase 3 | Pending |

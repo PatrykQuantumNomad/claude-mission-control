@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-05-PLAN.md (lifespan boot sync + POST /api/sync; Phase 2 last autonomous plan)
-last_updated: "2026-04-25T19:23:17.990Z"
-last_activity: 2026-04-25
+stopped_at: Completed 02-06-PLAN.md (Phase 2 manual smoke approved by user — Phase 2 implementation 6/6 complete; ready for verifier)
+last_updated: "2026-04-26T11:12:12Z"
+last_activity: 2026-04-26
 progress:
   total_phases: 9
   completed_phases: 1
   total_plans: 13
-  completed_plans: 12
-  percent: 92
+  completed_plans: 13
+  percent: 100
 ---
 
 # Project State
@@ -25,32 +25,32 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 
 ## Current Position
 
-Phase: 2 of 9 IN PROGRESS (Data Ingestion)
-Plan: 5 of 6 complete in Phase 2 (02-01..02-05 ✅; next 02-06 manual smoke checkpoint)
-Status: Ready to execute
-Last activity: 2026-04-25
+Phase: 2 of 9 IMPLEMENTATION COMPLETE (Data Ingestion) — ready for verifier
+Plan: 6 of 6 complete in Phase 2 (02-01..02-06 ✅; user approved Phase 2 manual smoke 2026-04-26)
+Status: Awaiting `/gsd:verify-work` for Phase 2 close-out, then Phase 3 (Read-Only APIs)
+Last activity: 2026-04-26
 
-Progress (Phase 2): [████████░░] 83%
+Progress (Phase 2): [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 1
-- Average duration: ~30 min
-- Total execution time: ~0.5 hours
+- Total plans completed: 13 (Phase 1: 7; Phase 2: 6)
+- Average duration: ~12 min/plan (excluding human-verify wait time)
+- Total execution time: ~2.5 hours of agent work across both phases
 
 **By Phase:**
 
 | Phase                       | Plans | Total    | Avg/Plan |
 |-----------------------------|-------|----------|----------|
 | Phase 1 (Foundation & DB)   | 7 / 7 | ~110 min | ~16 min  |
-| Phase 2 (Data Ingestion)    | 5 / 6 | ~46 min  | ~9 min   |
+| Phase 2 (Data Ingestion)    | 6 / 6 | ~51 min  | ~9 min   |
 
 **Recent Trend:**
 
-- Last 5 plans: 02-01, 02-02, 02-03, 02-04, 02-05 (Phase 2 ingestion complete in code; 61 tests passing; real ~/.claude/projects ingested at boot via lifespan; POST /api/sync wired)
-- Trend: Stable; ingestion stack landed without architectural deviations (only Rule 3 test-scaffolding fixes when lifespan extension blocked pre-existing tests)
+- Last 6 plans: 02-01, 02-02, 02-03, 02-04, 02-05, 02-06 (Phase 2 implementation complete; 61 tests passing; real ~/.claude/projects ingested at boot via lifespan; POST /api/sync wired; user-approved manual smoke against real data)
+- Trend: Stable; ingestion stack landed without architectural deviations (only Rule 3 test-scaffolding fixes when lifespan extension blocked pre-existing tests). Phase 2 closes ready for verifier.
 
 *Updated after each plan completion*
 | Phase 01-foundation-database P02 | 4 min | 3 tasks | 17 files |
@@ -64,6 +64,7 @@ Progress (Phase 2): [████████░░] 83%
 | Phase 02-data-ingestion PP03 | 11 min | 2 tasks tasks | 6 files files |
 | Phase 02-data-ingestion P04 | 6 min | 2 tasks (TDD; 4 commits) | 3 files |
 | Phase 02-data-ingestion PP05 | 14 min | 2 tasks (TDD; 4 commits) tasks | 4 files files |
+| Phase 02-data-ingestion P06 | ~5 min agent + overnight human-verify wait | 2 tasks (1 auto + 1 checkpoint) | 1 file |
 
 ## Accumulated Context
 
@@ -112,6 +113,8 @@ Recent decisions affecting current work:
 - Plan 02-05: lifespan task lifecycle pattern — asyncio.create_task during startup, store on app.state.sync_task, cancel + await + swallow CancelledError in finally BEFORE engine.dispose(). Phases 3+ adding background workers should follow this shape
 - Plan 02-05: boot-time sync_once is wrapped in try/except — a one-time FS error never prevents server startup; the 120s periodic loop will retry
 - Plan 02-05 auto-fix (Rule 3): _bootstrap_app helper in test_phase2_ingest.py auto-redirects default jsonl_root (~/.claude/projects/) to a tmp-path nonexistent dir so boot sync stays hermetic for tests that don't override jsonl_root explicitly
+- 2026-04-26: Phase 2 manual smoke checkpoint (Plan 02-06) APPROVED by user — all 5 ROADMAP success criteria verified against real ~/.claude/projects/ data + recorded OTLP samples; SMOKE.md preserved as the canonical replayable Phase 2 smoke recipe for future contributors
+- Plan 02-06: per-step SMOKE.md transcript backfill skipped — Plan 02-05's internal smoke (148 sessions ingested at boot, POST /api/sync returned documented summary, Ctrl+C clean) already supplied real-data evidence for the major steps; user "approved" reply covers integrated system. SMOKE.md primary value is the embedded payloads + replayable recipe, not a one-time transcript
 
 ### Pending Todos
 
@@ -120,12 +123,12 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-None — Phase 1 plans complete; verifier readiness confirmed via 25 passing tests + human browser smoke.
+None — Phase 1 + Phase 2 implementations complete; verifier readiness confirmed via 61 passing tests (25 Phase 1 + 36 Phase 2) + human browser smoke (Phase 1) + human end-to-end smoke against real `~/.claude/projects/` data and OTLP samples (Phase 2).
 
 ## Session Continuity
 
-Last session: 2026-04-25T19:23:17.983Z
-Stopped at: Completed 02-05-PLAN.md (lifespan boot sync + POST /api/sync; Phase 2 last autonomous plan)
+Last session: 2026-04-26T11:12:12Z
+Stopped at: Completed 02-06-PLAN.md (Phase 2 manual smoke approved by user — Phase 2 implementation 6/6 complete; ready for verifier)
 Resume file: None
 
 Phase 1 final commit chain:
@@ -136,3 +139,12 @@ Phase 1 final commit chain:
 - 01-05: 4711ade + 308c123 + d1c5d7e (15 SQLModel tables + initial migration)
 - 01-06: 87162fe + 87bc57e + 807c3a5 + d7abdde + 33aa4ec (factory + lifespan + /api/health)
 - 01-07: 7a3e478 + 7c6437f + a8adda0 + 7e4af2a + (closing commit) (SPA mount + 25 tests + browser-verified)
+
+Phase 2 final commit chain:
+
+- 02-01: 5 files (Phase 2 settings + conftest fixtures + test_phase2_ingest.py seed)
+- 02-02: 3 files (TDD jsonl_parser — INGST-02/03/06)
+- 02-03: 6 files (TDD OTLP /v1/logs + /v1/metrics — INGST-07/08/09 + raw_routers factory)
+- 02-04: 0ef404f + eca22ba + ... + f7405a6 (TDD repository + scheduler — INGST-04/05)
+- 02-05: 13e0e08 + 0c13d27 + ccd8296 + 8afb885 + c2f7951 (lifespan boot sync + POST /api/sync — INGST-01/10)
+- 02-06: 4215761 + (this closing commit) (SMOKE.md scaffold + user-approved Phase 2 manual smoke)
