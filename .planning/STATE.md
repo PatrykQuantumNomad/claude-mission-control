@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-03-PLAN.md (Tasks router — 17 new tests; 177/177 green)
-last_updated: "2026-04-26T16:55:03.406Z"
+stopped_at: Completed 04-04-PLAN.md (Schedules router — 16 new tests; 193/193 green)
+last_updated: "2026-04-26T17:10:29.554Z"
 last_activity: 2026-04-26
 progress:
   total_phases: 9
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 23
-  completed_plans: 22
-  percent: 96
+  completed_plans: 23
+  percent: 100
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 ## Current Position
 
 Phase: 4 of 9 IN PROGRESS (Stateful APIs)
-Plan: 4 of 5 complete in Phase 4 (04-01 + 04-02 + 04-05 ✅; 160/160 tests green)
+Plan: 5 of 5 complete in Phase 4 (04-01 + 04-02 + 04-05 ✅; 160/160 tests green)
 Status: Ready to execute
 Last activity: 2026-04-26
 
@@ -74,6 +74,7 @@ Progress (Phase 4): [██████░░░░] 60%
 | Phase 04-stateful-apis P02 | 12 | 2 tasks | 4 files |
 | Phase 04-stateful-apis P05 | ~12 min | 2 tasks (TDD; RED+GREEN) | 2 files |
 | Phase 04-stateful-apis PP03 | 8 min | 2 tasks (TDD; RED+GREEN) tasks | 3 files files |
+| Phase 04-stateful-apis P04 | 5 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -161,6 +162,10 @@ Recent decisions affecting current work:
 - Plan 04-03 complete: Tasks router (TASK-01..07) — 7 endpoints landed; TASK-03 PATCH delegates legal-target validation to cmc.tasks.transitions.validate_transition (Wave 0 matrix); TASK-05/06 bypass matrix because targets are fixed and validate source state inline; TASK-07 spawns detached subprocess.Popen via cmc.tasks.spawn.spawn_dispatcher_oneshot, returns 202 + PID, no body in v1; 17 new tests pass; full suite 177/177 green
 - Plan 04-03: TASK-04 returns 204 No Content (REST idiom — body adds nothing); TASK-06 rerun preserves pid + stdout_path on the row (clears only started_at/ended_at/error_message) so operators can still inspect the previous failed run's logs after pressing rerun; TASK-07 returns 202 Accepted because the dispatcher is async-of-response (subprocess already detached by the time JSON returns)
 - Plan 04-03 test pattern: monkeypatch BOTH cmc.tasks.spawn.repo_root (-> tmp_path) AND cmc.tasks.spawn.subprocess.Popen so TASK-07 tests exercise the router end-to-end without spawning real processes or writing to .tmp/. Reusable for any future test of subprocess-spawning code paths
+- Plan 04-04 complete: Schedules router (SCHD-01..06) — 6 endpoints landed; SCHD-02/03 enforce clear-and-recompute invariant on next_run_at (Pitfall 7 + Open Q4): EITHER cron OR enabled change triggers recompute via cmc.schedules.cron.next_run when enabled, NULL when disabled; SCHD-06 NL->cron returns single 503 'natural-language schedules unavailable' for BOTH 'no API key' AND 'invalid model output' (Security V11 — no env-config leak); 16 new tests + carry-over smoke = 17 in test_phase4_schedules.py; full suite 193/193 green
+- Plan 04-04: SCHD-06 mock site LOCKED — patch at cmc.api.routes.schedules.nl_to_cron (the import binding) NOT cmc.schedules.nlcron.nl_to_cron (the definition). Same pattern as Plan 04-05's emergency_stop_all decision. The conftest mock_anthropic_client fixture (which patches builtins.__import__) remains usable but is more fragile; direct router-import monkeypatch is the cleaner default for any future test of an async helper imported into a router
+- Plan 04-04 test fix (Rule 1): tests must allow naive datetimes in next_run_at responses — SQLite strips tzinfo on round-trip even when the value is inserted tz-aware (Pitfall 4 cousin; same workaround as Plan 04-02 HITL-06 idempotency check). Pattern: parsed = datetime.fromisoformat(...); parsed_aware = parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc); compare parsed_aware to now-UTC
+- Plan 04-04 entry contract for Phase 8 dispatcher (DISP-01): reads schedules WHERE enabled=1 AND next_run_at IS NOT NULL AND next_run_at <= now_utc; idx_schedules_enabled_next_run supports the query. Dispatcher takes ownership of next_run_at advancement after the schedule starts firing — Schedules router is the INITIAL writer (POST + PATCH); dispatcher is the recurring writer (post-fire UPDATE). Both honor the same disabled-clears-next_run_at rule
 
 ### Pending Todos
 
@@ -173,8 +178,8 @@ None — Phase 1 + Phase 2 implementations complete; verifier readiness confirme
 
 ## Session Continuity
 
-Last session: 2026-04-26T16:55:03.399Z
-Stopped at: Completed 04-03-PLAN.md (Tasks router — 17 new tests; 177/177 green)
+Last session: 2026-04-26T17:10:29.547Z
+Stopped at: Completed 04-04-PLAN.md (Schedules router — 16 new tests; 193/193 green)
 Resume file: None
 
 Phase 1 final commit chain:

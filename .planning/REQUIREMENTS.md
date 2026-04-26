@@ -153,12 +153,18 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Schedules API
 
-- [ ] **SCHD-01**: GET /api/schedules returns schedule list
-- [ ] **SCHD-02**: POST /api/schedules creates schedule
-- [ ] **SCHD-03**: PATCH /api/schedules/{id} updates schedule (clears next_run_at on cron change)
-- [ ] **SCHD-04**: DELETE /api/schedules/{id} deletes schedule
-- [ ] **SCHD-05**: GET /api/schedules/{id}/runs returns last N materialized tasks
-- [ ] **SCHD-06**: POST /api/schedules/parse-nl converts natural language to cron via Haiku
+- [x] **SCHD-01
+**: GET /api/schedules returns schedule list
+- [x] **SCHD-02
+**: POST /api/schedules creates schedule
+- [x] **SCHD-03
+**: PATCH /api/schedules/{id} updates schedule (clears next_run_at on cron change)
+- [x] **SCHD-04
+**: DELETE /api/schedules/{id} deletes schedule
+- [x] **SCHD-05
+**: GET /api/schedules/{id}/runs returns last N materialized tasks
+- [x] **SCHD-06
+**: POST /api/schedules/parse-nl converts natural language to cron via Haiku
 
 ### Emergency Stop
 
