@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 03-02-PLAN.md (system router SAPI-02..05 + firehose SSE; 17/17 system tests + 78/78 P1+P2+system green)
-last_updated: "2026-04-26T13:32:50.950Z"
+stopped_at: Completed 03-05-PLAN.md (MCP + Skills routers; 7 endpoints; 15/15 plan-scope tests + 130 full-suite tests green)
+last_updated: "2026-04-26T13:54:10.622Z"
 last_activity: 2026-04-26
 progress:
   total_phases: 9
   completed_phases: 2
   total_plans: 18
-  completed_plans: 16
-  percent: 89
+  completed_plans: 17
+  percent: 94
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 ## Current Position
 
 Phase: 3 of 9 IN PROGRESS (Read-Only APIs) — Wave 0 complete; Wave 1 plans 03-02..03-05 ready
-Plan: 3 of 5 complete in Phase 3 (03-01 ✅ Wave 0 foundation; 70/70 tests green)
+Plan: 4 of 5 complete in Phase 3 (03-01 ✅ Wave 0 foundation; 70/70 tests green)
 Status: Ready to execute
 Last activity: 2026-04-26
 
@@ -68,6 +68,7 @@ Progress (Phase 3): [██░░░░░░░░] 20%
 | Phase 03-read-only-apis P01 | 14 min | 3 tasks tasks | 16 files files |
 | Phase 03-read-only-apis P04 | 14 min | 2 tasks tasks | 3 files files |
 | Phase 03-read-only-apis P02 | 30 min | 2 tasks (TDD; 4 commits) tasks | 3 files files |
+| Phase Phase 03-read-only-apis PP05 | 25 min | 2 tasks (TDD; 4 commits) tasks | 5 created + 3 modified files |
 
 ## Accumulated Context
 
@@ -128,6 +129,10 @@ Recent decisions affecting current work:
 - Plan 03-02: SAPI-03 whitelist locked at frozenset({tzname, last_jsonl_sync_at, jsonl_sync_last_tick_at, dispatcher_last_tick_at, telegram_last_tick_at, emergency_stop}); per-key 404 message identical for non-whitelisted vs. whitelisted-but-absent (T-03-02-01 Information Disclosure mitigation)
 - Plan 03-02 auto-fix (Rule 1): SSE behavior tests cannot run through httpx ASGITransport — the transport never delivers http.disconnect for streaming responses (response_complete is never set during SSE). Pattern: ONE HTTP-level test for Content-Type + 400 validation, THREE direct unit tests on tail_otel_events with a mock Request that flips is_disconnected() after N calls. Production behavior verified by Phase 3 verifier checkpoint, not by ASGITransport tests
 - Plan 03-02: Pitfall 7 attention shape locked — pending_decisions=0 + failed_tasks=0 ALWAYS in /api/attention response, NOT branched on Phase 4 schema presence. When Phase 4 lands tasks/decisions tables, edit attention() to populate counters via real queries; do not add schema branching
+- Plan 03-05 complete: 7 endpoints (MCP-01..04 + SKIL-01..03) backed by three-source priority MCP aggregator + Pitfall-5-hardened skill scanner; SQLite window-function percentiles; single-flight pattern locked for both sync endpoints
+- Plan 03-05 SQL pattern: window-function percentiles (ROW_NUMBER + COUNT OVER PARTITION BY) replace plan-prescribed correlated-subquery LIMIT/OFFSET (which SQLite rejects with 'misuse of aggregate function COUNT()'); pattern reusable for any future per-partition percentile needs
+- Plan 03-05 path-traversal defense: regex (^[a-zA-Z0-9._-]+$ for MCP server, ^[a-zA-Z0-9_-]+$ for skill name) + explicit '..' substring check. Regex alone permits 'bad..name' since '.' is allowed; the dotdot check rejects literal traversal sequences (V11/V12 mitigation)
+- Plan 03-05 single-flight pattern locked for ALL future sync endpoints: app.state.<feature>_sync_running boolean set in entry, cleared in finally; concurrent calls receive 409 with detail '<feature> sync already running' (mitigation T-03-05-05)
 
 ### Pending Todos
 
@@ -140,8 +145,8 @@ None — Phase 1 + Phase 2 implementations complete; verifier readiness confirme
 
 ## Session Continuity
 
-Last session: 2026-04-26T13:32:50.943Z
-Stopped at: Completed 03-02-PLAN.md (system router SAPI-02..05 + firehose SSE; 17/17 system tests + 78/78 P1+P2+system green)
+Last session: 2026-04-26T13:53:57.142Z
+Stopped at: Completed 03-05-PLAN.md (MCP + Skills routers; 7 endpoints; 15/15 plan-scope tests + 130 full-suite tests green)
 Resume file: None
 
 Phase 1 final commit chain:

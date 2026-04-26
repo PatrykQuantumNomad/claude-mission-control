@@ -92,16 +92,23 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### MCP API
 
-- [ ] **MCP-01**: GET /api/mcp returns list of MCP servers with totals, avg latency, p95
-- [ ] **MCP-02**: GET /api/mcp/{server}/tools returns per-tool breakdown (calls, p50, p95, max, error rate) from three sources in priority order
-- [ ] **MCP-03**: POST /api/mcp/sync rebuilds mcp_stats table
-- [ ] **MCP-04**: POST /api/mcp/measure runs schema-size measurement per server
+- [x] **MCP-01
+**: GET /api/mcp returns list of MCP servers with totals, avg latency, p95
+- [x] **MCP-02
+**: GET /api/mcp/{server}/tools returns per-tool breakdown (calls, p50, p95, max, error rate) from three sources in priority order
+- [x] **MCP-03
+**: POST /api/mcp/sync rebuilds mcp_stats table
+- [x] **MCP-04
+**: POST /api/mcp/measure runs schema-size measurement per server
 
 ### Skills API
 
-- [ ] **SKIL-01**: GET /api/skills returns skill list with environment and user_invocable filters
-- [ ] **SKIL-02**: POST /api/skills/sync rebuilds skills table from filesystem scan
-- [ ] **SKIL-03**: PATCH /api/skills/{name}/autonomy updates autonomy level (auto/review/manual)
+- [x] **SKIL-01
+**: GET /api/skills returns skill list with environment and user_invocable filters
+- [x] **SKIL-02
+**: POST /api/skills/sync rebuilds skills table from filesystem scan
+- [x] **SKIL-03
+**: PATCH /api/skills/{name}/autonomy updates autonomy level (auto/review/manual)
 
 ### HITL API
 
