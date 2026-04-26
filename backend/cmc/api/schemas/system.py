@@ -81,3 +81,30 @@ class FirehoseEvent(BaseModel):
     session_id: Optional[str] = None
     attrs_mcp_server: Optional[str] = None
     attrs_mcp_tool: Optional[str] = None
+
+
+# ---- Phase 4 ESTOP extension (Plan 04-01) ----
+
+
+class EmergencyStopResponse(BaseModel):
+    """ESTOP-01..03: response from POST /api/system/emergency-stop.
+
+    `emergency_stop` is always True in this response (the flag was just set).
+    PID summary mirrors cmc.core.process.StopSummary.
+    `failed_running_tasks` is the count of tasks UPDATEd to status='failed'.
+    """
+
+    emergency_stop: bool
+    terminated_pids: list[int]
+    skipped_pids: list[int]
+    missing_pids: list[int]
+    failed_running_tasks: int
+
+
+class EmergencyResumeResponse(BaseModel):
+    """ESTOP-04: response from POST /api/system/emergency-resume.
+
+    `emergency_stop` is always False in this response (the flag was cleared).
+    """
+
+    emergency_stop: bool
