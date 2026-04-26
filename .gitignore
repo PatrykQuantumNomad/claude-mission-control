@@ -12,3 +12,6 @@ frontend/node_modules/
 
 # OS / editor
 .DS_Store
+
+# SESS-06 follow-up message queue (Phase 3 Plan 03-03)
+.tmp/

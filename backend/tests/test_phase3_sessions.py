@@ -307,3 +307,213 @@ async def test_sessions_router_registered() -> None:
 
     routers = all_routers()
     assert sessions_router in routers
+
+
+# ---------- Task 2 tests: SESS-04, SESS-05, SESS-06 ----------
+
+
+@pytest.mark.asyncio
+async def test_sess04_live_state_with_row(client) -> None:
+    """SESS-04: returns LiveSessionState fields when a live_state row exists."""
+    now = datetime.now(timezone.utc)
+    sid = _new_uuid()
+    last_act = now - timedelta(seconds=5)
+    rows: list[tuple[type, dict]] = [
+        (SessionModel, make_session_row(session_id=sid, started_at=now - timedelta(minutes=1))),
+        (LiveState, {
+            "session_id": sid,
+            "last_activity_at": last_act,
+            "state": "streaming",
+            "current_message": "hi",
+            "current_tool": "Bash",
+            "pid": None,
+            "updated_at": now,
+        }),
+    ]
+    await _seed(client, rows)
+
+    r = await client.get(f"/api/sessions/live/{sid}/state")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["session_id"] == sid
+    assert body["state"] == "streaming"
+    assert body["current_message"] == "hi"
+    assert body["current_tool"] == "Bash"
+
+
+@pytest.mark.asyncio
+async def test_sess04_live_state_without_row_returns_404(client) -> None:
+    """SESS-04: 404 when no live_state row for the session."""
+    sid = _new_uuid()
+    await _seed(client, [
+        (SessionModel, make_session_row(session_id=sid)),
+    ])
+    r = await client.get(f"/api/sessions/live/{sid}/state")
+    assert r.status_code == 404
+    assert "no live state" in r.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_sess04_invalid_uuid_returns_400(client) -> None:
+    r = await client.get("/api/sessions/live/not-a-uuid/state")
+    assert r.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_sess05_stream_with_row(client) -> None:
+    """SESS-05: SSE stream with Content-Type text/event-stream + live_state event."""
+    now = datetime.now(timezone.utc)
+    sid = _new_uuid()
+    rows: list[tuple[type, dict]] = [
+        (SessionModel, make_session_row(session_id=sid, started_at=now - timedelta(minutes=1))),
+        (LiveState, {
+            "session_id": sid,
+            "last_activity_at": now,
+            "state": "streaming",
+            "current_message": "hi",
+            "current_tool": "Bash",
+            "pid": None,
+            "updated_at": now,
+        }),
+    ]
+    await _seed(client, rows)
+
+    # Use streaming so we can read the first chunk and disconnect.
+    chunks: list[str] = []
+    async with client.stream("GET", f"/api/sessions/live/{sid}/stream",
+                             timeout=5.0) as resp:
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("text/event-stream")
+        # Read for up to ~2s — first poll should yield a live_state event.
+        async for raw in resp.aiter_text():
+            chunks.append(raw)
+            if any("event: live_state" in c for c in chunks):
+                break
+
+    joined = "".join(chunks)
+    assert "event: live_state" in joined
+    # data field is JSON-encoded (FastAPI's SSE wraps as data: <json>); the
+    # current_message string should appear inside.
+    assert "hi" in joined
+
+
+@pytest.mark.asyncio
+async def test_sess05_stream_without_row_emits_heartbeat_and_closes(client) -> None:
+    """SESS-05: when no live_state row, emit heartbeat + retry then close."""
+    sid = _new_uuid()
+    await _seed(client, [
+        (SessionModel, make_session_row(session_id=sid)),
+    ])
+
+    chunks: list[str] = []
+    async with client.stream("GET", f"/api/sessions/live/{sid}/stream",
+                             timeout=10.0) as resp:
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("text/event-stream")
+        async for raw in resp.aiter_text():
+            chunks.append(raw)
+            # Stream should close on its own after 3 missing-row polls (~3-4s).
+            # Defensive cap: bail out once we have multiple heartbeats already.
+            if "".join(chunks).count("event: heartbeat") >= 3:
+                break
+
+    joined = "".join(chunks)
+    assert "event: heartbeat" in joined
+    # Retry hint signals 5s reconnect; appears at least once.
+    assert "retry: 5000" in joined
+
+
+@pytest.mark.asyncio
+async def test_sess06_queue_message_happy_path(client) -> None:
+    """SESS-06: 202 + JSONL line written to repo_root() queue path."""
+    now = datetime.now(timezone.utc)
+    sid = _new_uuid()
+    await _seed(client, [
+        (SessionModel, make_session_row(
+            session_id=sid, started_at=now - timedelta(minutes=1), ended_at=None,
+        )),
+    ])
+
+    # Clean any pre-existing queue file from prior test runs.
+    queue_file = repo_root() / ".tmp" / "mission-control-queue" / "messages" / f"{sid}.jsonl"
+    if queue_file.exists():
+        queue_file.unlink()
+
+    r = await client.post(
+        f"/api/sessions/live/{sid}/message",
+        json={"message": "hello there"},
+    )
+    assert r.status_code == 202, r.text
+    body = r.json()
+    assert body["queued"] is True
+    assert body["session_id"] == sid
+    assert body["queue_path"].endswith(f".tmp/mission-control-queue/messages/{sid}.jsonl")
+    assert queue_file.exists()
+    lines = queue_file.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 1
+    rec = json.loads(lines[0])
+    assert rec["session_id"] == sid
+    assert rec["message"] == "hello there"
+    assert "ts" in rec
+
+    # cleanup
+    queue_file.unlink()
+
+
+@pytest.mark.asyncio
+async def test_sess06_invalid_uuid_returns_400(client) -> None:
+    r = await client.post(
+        "/api/sessions/live/not-a-uuid/message",
+        json={"message": "hi"},
+    )
+    assert r.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_sess06_empty_message_returns_422(client) -> None:
+    sid = _new_uuid()
+    await _seed(client, [
+        (SessionModel, make_session_row(session_id=sid, ended_at=None)),
+    ])
+    r = await client.post(
+        f"/api/sessions/live/{sid}/message",
+        json={"message": ""},
+    )
+    assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_sess06_unknown_session_returns_404(client) -> None:
+    sid = _new_uuid()  # valid UUID format but not in DB
+    r = await client.post(
+        f"/api/sessions/live/{sid}/message",
+        json={"message": "hi"},
+    )
+    assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_sess06_ended_session_returns_409(client) -> None:
+    now = datetime.now(timezone.utc)
+    sid = _new_uuid()
+    await _seed(client, [
+        (SessionModel, make_session_row(
+            session_id=sid, started_at=now - timedelta(minutes=5),
+            ended_at=now - timedelta(minutes=1),
+        )),
+    ])
+    r = await client.post(
+        f"/api/sessions/live/{sid}/message",
+        json={"message": "hi"},
+    )
+    assert r.status_code == 409
+
+
+def test_sess06_queue_path_is_gitignored() -> None:
+    """SESS-06 queue path is excluded from git via .gitignore."""
+    result = subprocess.run(
+        ["git", "check-ignore", "-q",
+         ".tmp/mission-control-queue/messages/probe.jsonl"],
+        cwd=str(repo_root()),
+    )
+    assert result.returncode == 0, "queue path is NOT gitignored — .gitignore must include .tmp/"
