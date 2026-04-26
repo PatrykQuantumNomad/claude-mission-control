@@ -17,12 +17,15 @@ from fastapi import APIRouter
 
 from cmc.api.routes.health import router as health_router
 from cmc.api.routes.ingest import router as ingest_router
+from cmc.api.routes.mcp import router as mcp_router
+from cmc.api.routes.observability import router as observability_router
+from cmc.api.routes.sessions import router as sessions_router
 from cmc.api.routes.sync import router as sync_router
 
 
 def all_routers() -> list[APIRouter]:
     """Routers mounted under the /api prefix."""
-    return [health_router, sync_router]
+    return [health_router, sync_router, mcp_router, sessions_router, observability_router]
 
 
 def raw_routers() -> list[APIRouter]:
