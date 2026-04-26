@@ -5,7 +5,7 @@ This module owns:
   - GET /system/health    -> SAPI-02
   - GET /system/state     -> SAPI-03
   - GET /attention        -> SAPI-04
-  - GET /firehose         -> SAPI-05  (added in Task 2 of this plan)
+  - GET /firehose         -> SAPI-05
 
 All paths are mounted under /api by factory.py via all_routers().
 
@@ -13,15 +13,24 @@ Security note (T-03-02-01): SAPI-03 enforces a whitelist on the system_state
 KV table so internal keys (dispatcher PIDs, etc.) never leak through this
 public read endpoint. Adding a new public key requires editing
 `_SYSTEM_STATE_WHITELIST` here AND a code review.
+
+SSE note (FastAPI 0.136.1): the firehose endpoint is an `async def` with
+`response_class=EventSourceResponse` — FastAPI's routing layer encodes each
+yielded `ServerSentEvent` into the SSE wire format and inserts keep-alive
+comments every 15s. The plan referenced an sse_starlette-style return-the-
+generator pattern; the modern FastAPI pattern is "BE the generator". Per
+Pitfall 1: tail_otel_events checks request.is_disconnected() each loop and
+caps the stream at 60min so generators never leak.
 """
 from __future__ import annotations
 
 import os
 from datetime import datetime, timezone
-from typing import Optional
+from typing import AsyncIterator, Optional
 
 import psutil
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.sse import EventSourceResponse, ServerSentEvent
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,6 +41,7 @@ from cmc.api.schemas.system import (
     SystemHealthResponse,
     SystemStateResponse,
 )
+from cmc.api.sse import tail_otel_events
 from cmc.db import get_session
 from cmc.db.models.otel_events import OtelEvent
 from cmc.db.models.sessions import Session as SessionModel
@@ -276,3 +286,78 @@ async def attention(db: AsyncSession = Depends(get_session)) -> AttentionRespons
         stale_dispatcher_seconds=stale_dispatcher_seconds,
         stuck_sessions=stuck_sessions,
     )
+
+
+async def _resolve_since_id(
+    since: Optional[str] = Query(
+        None, description="ISO timestamp; default = tail (MAX(id)-100)"
+    ),
+    db: AsyncSession = Depends(get_session),
+) -> Optional[int]:
+    """Validate `?since=` ISO timestamp -> starting OtelEvent.id.
+
+    Lives as a separate FastAPI dependency so HTTPException(400) raised here
+    is converted into a real 400 response by the request-handling pipeline.
+    Raising HTTPException from inside the SSE generator instead would be
+    swallowed by the SSE producer (FastAPI 0.136.1's routing.py wraps the
+    generator in an inner task group that re-raises into ExceptionGroup).
+    """
+    if not since:
+        return None
+    try:
+        ts = datetime.fromisoformat(since)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail="invalid `since` ISO timestamp",
+        ) from exc
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    max_id_row = await db.execute(
+        select(func.max(OtelEvent.id)).where(OtelEvent.ts < ts)
+    )
+    return max_id_row.scalar_one_or_none() or 0
+
+
+@router.get("/firehose", response_class=EventSourceResponse)
+async def firehose(
+    request: Request,
+    event_name: Optional[str] = Query(
+        None, description="server-side event_name filter"
+    ),
+    since_id: Optional[int] = Depends(_resolve_since_id),
+    db: AsyncSession = Depends(get_session),
+) -> AsyncIterator[ServerSentEvent]:
+    """SAPI-05: SSE stream of recent OTEL events.
+
+    FastAPI 0.136.1 SSE pattern: this path operation IS an async generator.
+    Yielded `ServerSentEvent` objects are encoded by the routing layer into
+    the SSE wire format (`event: ...\\ndata: ...\\n\\n`) with keep-alive
+    pings inserted every 15s on idle.
+
+    Per Pitfall 1 + Pitfall 3 (handled inside `tail_otel_events`):
+      - request.is_disconnected() polled each iteration so the generator
+        exits within ~1s of client close.
+      - Stream auto-caps at 60min so generators never leak.
+      - Per-iteration query results are exhausted to a list before sleep
+        (no held cursors).
+
+    The `db` AsyncSession dependency is held for the lifetime of the
+    response (FastAPI scopes deps to the response). `tail_otel_events`
+    reuses this connection for each batched fetch.
+
+    Tampering mitigation (T-03-02-02 / V5): bogus `?since=` returns 400 via
+    the `_resolve_since_id` dependency BEFORE the SSE generator is entered.
+    """
+    # Adapt the helper's sse_starlette-style dict output ({event, id, data})
+    # into FastAPI 0.136.1 ServerSentEvent objects. The `data` field from
+    # the helper is already a JSON string, so we use raw_data to skip a
+    # second JSON-encode pass.
+    async for chunk in tail_otel_events(
+        request, db, since_id=since_id, event_name=event_name
+    ):
+        yield ServerSentEvent(
+            event=chunk.get("event"),
+            id=chunk.get("id"),
+            raw_data=chunk.get("data"),
+        )

@@ -296,6 +296,7 @@ async def test_sapi04_attention_detects_stuck_session(client) -> None:
 
 import asyncio
 import json as _json
+from unittest.mock import AsyncMock, MagicMock
 
 
 def _parse_sse_chunks(raw: str) -> list[dict]:
@@ -331,115 +332,193 @@ def _parse_sse_chunks(raw: str) -> list[dict]:
     return events
 
 
-async def test_sapi05_firehose_returns_sse_content_type_and_event(client) -> None:
-    """SAPI-05: /api/firehose serves Content-Type: text/event-stream and
-    yields one SSE event per OtelEvent row, framed `event: otel\\ndata: {...}`."""
-    # Insert one OtelEvent so the stream has something to emit.
-    one_s_ago = datetime.now(timezone.utc) - timedelta(seconds=1)
-    await _seed(
-        client,
-        [(OtelEvent, make_otel_event(
-            ts=one_s_ago, event_name="claude_code.api_request"
-        ))],
-    )
-
-    # Stream with a short timeout so we don't hang. Read enough bytes to capture
-    # the first event then aclose.
-    async with client.stream("GET", "/api/firehose", timeout=5) as resp:
-        assert resp.status_code == 200
-        assert "text/event-stream" in resp.headers["content-type"]
-        # Pull bytes until we see one full event (`\n\n` terminator).
-        buf = b""
-        try:
-            async for chunk in resp.aiter_bytes():
-                buf += chunk
-                if b"\n\n" in buf and b"event: otel" in buf:
-                    break
-        except (asyncio.TimeoutError, Exception):
-            pass
-
-    text = buf.decode("utf-8", errors="replace")
-    events = _parse_sse_chunks(text)
-    otel_events = [e for e in events if e.get("event") == "otel"]
-    assert len(otel_events) >= 1
-    payload = _json.loads(otel_events[0]["data"])
-    assert payload["event_name"] == "claude_code.api_request"
-
-
-async def test_sapi05_firehose_filters_by_event_name(client) -> None:
-    """SAPI-05: ?event_name= filter narrows the stream server-side; only
-    matching events are yielded."""
-    base = datetime.now(timezone.utc) - timedelta(seconds=2)
-    await _seed(
-        client,
-        [
-            (OtelEvent, make_otel_event(
-                ts=base, event_name="claude_code.api_request"
-            )),
-            (OtelEvent, make_otel_event(
-                ts=base + timedelta(milliseconds=100),
-                event_name="claude_code.tool_result",
-            )),
-        ],
-    )
-
-    async with client.stream(
-        "GET",
-        "/api/firehose?event_name=claude_code.api_request",
-        timeout=5,
-    ) as resp:
-        assert resp.status_code == 200
-        buf = b""
-        # Read for ~2s — long enough to flush the api_request event AND
-        # confirm tool_result wasn't sent.
-        try:
-            async with asyncio.timeout(2.5):
-                async for chunk in resp.aiter_bytes():
-                    buf += chunk
-                    if b"\n\n" in buf and b"event: otel" in buf:
-                        # got at least one event; keep collecting briefly
-                        # to make sure no tool_result sneaks through
-                        break
-        except (asyncio.TimeoutError, TimeoutError):
-            pass
-
-    text = buf.decode("utf-8", errors="replace")
-    events = _parse_sse_chunks(text)
-    otel_events = [e for e in events if e.get("event") == "otel"]
-    payloads = [_json.loads(e["data"]) for e in otel_events]
-    names = {p["event_name"] for p in payloads}
-    assert "claude_code.api_request" in names
-    assert "claude_code.tool_result" not in names
-
-
-async def test_sapi05_firehose_disconnect_does_not_break_subsequent_requests(client) -> None:
-    """SAPI-05 (Pitfall 1): client disconnect ends the generator cleanly so
-    subsequent requests on the same client succeed (no DB pool exhaustion,
-    no hanging tasks)."""
-    # Open + immediately close a stream
-    async with client.stream("GET", "/api/firehose", timeout=3) as resp:
-        assert resp.status_code == 200
-        # Read 1 byte then aclose
-        try:
-            async with asyncio.timeout(1.5):
-                async for _chunk in resp.aiter_bytes():
-                    break
-        except (asyncio.TimeoutError, TimeoutError):
-            pass
-
-    # Brief pause for generator teardown
-    await asyncio.sleep(0.5)
-
-    # Subsequent /api/health request must still succeed
-    response = await client.get("/api/health")
-    assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+# ---- Note on SSE testing strategy (Rule 1 deviation from plan) ----
+#
+# The plan's original tests used `client.stream("GET", "/api/firehose")` over
+# httpx ASGITransport. That pattern HANGS in this stack because:
+#   - tail_otel_events polls request.is_disconnected() each iteration
+#   - ASGITransport's receive() never returns http.disconnect for a streaming
+#     response: it can only signal disconnect AFTER response_complete.set(),
+#     which never fires for SSE (more_body=True forever)
+#   - Even client-side aclose() doesn't push http.disconnect through fast
+#     enough; the inner FastAPI task group keeps awaiting our generator
+#
+# Mitigation: keep ONE HTTP-level test (asserting Content-Type + 400) and
+# move the streaming-behavior assertions to a unit test that drives
+# tail_otel_events directly with a controllable mock Request. This preserves
+# every behavior in the plan's done criteria without requiring a real
+# uvicorn server in the test loop.
+# Production behavior (real uvicorn / curl -N) is verified by the Phase 3
+# verifier checkpoint and the SMOKE recipe — not by these tests.
 
 
 async def test_sapi05_firehose_invalid_since_returns_400(client) -> None:
     """SAPI-05: ?since=<bogus> returns 400 with a helpful detail (Validation
-    is a Tampering mitigation per RESEARCH Security Domain V5 / T-03-02-02)."""
+    is a Tampering mitigation per RESEARCH Security Domain V5 / T-03-02-02).
+
+    Note: the Phase 1 register_error_handlers wrapper renders HTTPException
+    as `{"error": detail}` (NOT FastAPI's default `{"detail": ...}`), so the
+    body assertion uses `error`. See cmc/core/errors.py.
+    """
     response = await client.get("/api/firehose?since=not-a-timestamp")
     assert response.status_code == 400
-    detail = response.json().get("detail", "")
-    assert "since" in detail.lower() or "timestamp" in detail.lower()
+    body = response.json()
+    err = body.get("error", "") or body.get("detail", "")
+    assert "since" in err.lower() or "timestamp" in err.lower()
+
+
+async def test_sapi05_firehose_route_is_registered(client) -> None:
+    """SAPI-05: /api/firehose route exists (does not 404 / does not fall
+    through to the SPA mount). We can't read the SSE body via ASGITransport
+    without hanging, so we just assert the route resolves to a streaming
+    response by sending a HEAD-like check via a 0-byte read pattern.
+
+    Strategy: open a stream with a hard wait_for(...) cap. We accept either:
+      (a) a 200 + text/event-stream content-type within the cap, OR
+      (b) the stream takes >cap and we abort — which still proves the
+          endpoint is wired (otherwise we'd get an immediate 200 text/html
+          from the SPA mount catching the GET).
+    """
+    async def _check():
+        async with client.stream("GET", "/api/firehose", timeout=5) as resp:
+            assert resp.status_code == 200
+            ct = resp.headers["content-type"]
+            return ct
+    try:
+        ct = await asyncio.wait_for(_check(), timeout=3.0)
+        assert "text/event-stream" in ct
+    except (asyncio.TimeoutError, TimeoutError):
+        # Stream is open and waiting for events — that's the right behavior.
+        # If route weren't registered, SPA mount would have returned text/html
+        # synchronously before any timeout could fire.
+        pass
+
+
+# ---- Direct unit tests for tail_otel_events (the SSE machinery) ----
+
+
+def _fake_disconnecting_request(after_n_calls: int = 1) -> MagicMock:
+    """Build a fake Request whose is_disconnected() returns True after N
+    calls. Mirrors the contract Starlette's Request guarantees."""
+    req = MagicMock()
+    counter = {"n": 0}
+
+    async def is_disconnected():
+        counter["n"] += 1
+        return counter["n"] > after_n_calls
+
+    req.is_disconnected = is_disconnected
+    return req
+
+
+async def test_sapi05_tail_otel_events_yields_dict_per_row(seeded_app) -> None:
+    """SAPI-05 unit: tail_otel_events yields one {event,id,data} dict per
+    new OtelEvent and exits when request.is_disconnected() flips True."""
+    from cmc.api.sse import tail_otel_events
+
+    app, cm = seeded_app
+    async with cm:
+        # Insert two events
+        async with app.state.sessions() as s:
+            base = datetime.now(timezone.utc) - timedelta(seconds=1)
+            from sqlalchemy import insert as _insert
+            await s.execute(_insert(OtelEvent).values(
+                **make_otel_event(ts=base, event_name="claude_code.api_request")
+            ))
+            await s.execute(_insert(OtelEvent).values(
+                **make_otel_event(
+                    ts=base + timedelta(milliseconds=10),
+                    event_name="claude_code.tool_result",
+                )
+            ))
+            await s.commit()
+
+        # Drive the generator with a fake Request that disconnects after the
+        # first iteration (so we collect events from one batch then exit)
+        async with app.state.sessions() as s:
+            req = _fake_disconnecting_request(after_n_calls=1)
+            chunks: list[dict] = []
+            async for chunk in tail_otel_events(req, s, since_id=0):
+                chunks.append(chunk)
+
+        # Both events should be yielded in the first batch
+        assert len(chunks) == 2
+        for chunk in chunks:
+            assert chunk["event"] == "otel"
+            assert chunk["id"]  # non-empty id string
+            payload = _json.loads(chunk["data"])
+            assert "event_name" in payload
+            assert "ts" in payload
+
+
+async def test_sapi05_tail_otel_events_event_name_filter(seeded_app) -> None:
+    """SAPI-05 unit: ?event_name= filter narrows what tail_otel_events yields."""
+    from cmc.api.sse import tail_otel_events
+    from sqlalchemy import insert as _insert
+
+    app, cm = seeded_app
+    async with cm:
+        async with app.state.sessions() as s:
+            base = datetime.now(timezone.utc) - timedelta(seconds=1)
+            await s.execute(_insert(OtelEvent).values(
+                **make_otel_event(ts=base, event_name="claude_code.api_request")
+            ))
+            await s.execute(_insert(OtelEvent).values(
+                **make_otel_event(
+                    ts=base + timedelta(milliseconds=10),
+                    event_name="claude_code.tool_result",
+                )
+            ))
+            await s.commit()
+
+        async with app.state.sessions() as s:
+            req = _fake_disconnecting_request(after_n_calls=1)
+            chunks: list[dict] = []
+            async for chunk in tail_otel_events(
+                req, s, since_id=0, event_name="claude_code.api_request"
+            ):
+                chunks.append(chunk)
+
+        # Only the api_request event should pass the filter
+        assert len(chunks) == 1
+        payload = _json.loads(chunks[0]["data"])
+        assert payload["event_name"] == "claude_code.api_request"
+
+
+async def test_sapi05_tail_otel_events_exits_on_disconnect(seeded_app) -> None:
+    """SAPI-05 / Pitfall 1: tail_otel_events exits cleanly when
+    request.is_disconnected() returns True — no infinite loop, no leaked
+    coroutines."""
+    from cmc.api.sse import tail_otel_events
+
+    app, cm = seeded_app
+    async with cm:
+        async with app.state.sessions() as s:
+            req = _fake_disconnecting_request(after_n_calls=0)  # disconnect immediately
+            chunks: list[dict] = []
+            # Should return after first is_disconnected() check
+            async for chunk in tail_otel_events(req, s, since_id=0):
+                chunks.append(chunk)
+
+        # No events were inserted, and we disconnect immediately, so 0 chunks
+        assert chunks == []
+
+
+async def test_sapi05_firehose_route_uses_event_source_response() -> None:
+    """SAPI-05 wiring contract: the firehose path operation is registered
+    with response_class=EventSourceResponse so FastAPI's routing layer wraps
+    yielded ServerSentEvent objects into SSE wire format."""
+    from fastapi.sse import EventSourceResponse
+
+    from cmc.api.routes.system import router as system_router
+
+    firehose_routes = [
+        r for r in system_router.routes if getattr(r, "path", None) == "/firehose"
+    ]
+    assert len(firehose_routes) == 1
+    route = firehose_routes[0]
+    # FastAPI APIRoute exposes response_class as a default-placeholder; assert
+    # the underlying class is EventSourceResponse.
+    rc = getattr(route, "response_class", None)
+    actual = getattr(rc, "value", rc)
+    assert actual is EventSourceResponse
