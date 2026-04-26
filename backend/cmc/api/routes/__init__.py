@@ -13,7 +13,9 @@ Phase 3 Wave 1 adds: system (Plan 03-02), sessions (Plan 03-03),
 observability (Plan 03-04), mcp + skills (Plan 03-05) routers (under /api).
 Phase 4 Wave 1 adds: hitl router (Plan 04-02 — decisions + inbox combined,
 HITL-01..07) and tasks router (Plan 04-03 — TASK-01..07; mounts /tasks*
-+ /dispatcher/trigger under /api). Schedules router lands later in Phase 4.
++ /dispatcher/trigger under /api). Phase 4 Wave 3 adds schedules router
+(Plan 04-04 — SCHD-01..06; full CRUD + runs view + NL->cron via Claude
+Haiku 4.5 with 503-graceful fallback when ANTHROPIC_API_KEY missing).
 """
 from fastapi import APIRouter
 
@@ -22,6 +24,7 @@ from cmc.api.routes.hitl import router as hitl_router
 from cmc.api.routes.ingest import router as ingest_router
 from cmc.api.routes.mcp import router as mcp_router
 from cmc.api.routes.observability import router as observability_router
+from cmc.api.routes.schedules import router as schedules_router
 from cmc.api.routes.sessions import router as sessions_router
 from cmc.api.routes.skills import router as skills_router
 from cmc.api.routes.sync import router as sync_router
@@ -41,6 +44,7 @@ def all_routers() -> list[APIRouter]:
         skills_router,
         hitl_router,
         tasks_router,
+        schedules_router,
     ]
 
 

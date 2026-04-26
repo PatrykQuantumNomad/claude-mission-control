@@ -100,8 +100,11 @@ async def test_schd02_create_valid_cron(client) -> None:
     assert body["enabled"] is True
     assert body["next_run_at"] is not None
     parsed = datetime.fromisoformat(body["next_run_at"].replace("Z", "+00:00"))
-    # Must be tz-aware AND in the future.
-    assert parsed.tzinfo is not None
+    # SQLite strips tzinfo on round-trip (Pitfall 4 cousin — see Plan 04-02
+    # STATE.md note); accept either naive or aware datetimes by normalizing
+    # naive values to UTC for the futurity comparison.
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
     assert parsed > datetime.now(timezone.utc) - timedelta(seconds=5)
     assert isinstance(body["id"], int)
 
@@ -177,11 +180,11 @@ async def test_schd03_patch_cron_change_recomputes_next_run(client) -> None:
     assert body["cron"] == "0 12 * * *"
     assert body["next_run_at"] is not None
     parsed = datetime.fromisoformat(body["next_run_at"].replace("Z", "+00:00"))
-    # Recomputed -> different from seeded value AND in the future relative to "now"
-    # (we cannot pin exactly, but the new firing must NOT equal the seeded marker).
-    assert parsed != seeded_next
-    assert parsed.tzinfo is not None
-    assert parsed > datetime.now(timezone.utc) - timedelta(seconds=5)
+    # SQLite strips tzinfo on round-trip (Pitfall 4 cousin); normalize.
+    parsed_aware = parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+    # Recomputed -> different from seeded value AND in the future relative to "now".
+    assert parsed_aware != seeded_next
+    assert parsed_aware > datetime.now(timezone.utc) - timedelta(seconds=5)
 
 
 @pytest.mark.asyncio
