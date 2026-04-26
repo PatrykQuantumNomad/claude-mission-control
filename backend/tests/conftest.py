@@ -494,3 +494,166 @@ def make_tool_call(
         "mcp_tool_name": mcp_tool_name,
         "decision": decision,
     }
+
+
+# ---- Phase 4 factories + fixtures (Plan 04-01) ----
+
+
+def make_decision_row(
+    dedup_key: str = "dk-1",
+    prompt: str = "test decision prompt",
+    options: Optional[list] = None,
+    status: str = "pending",
+    session_id: Optional[str] = None,
+    task_id: Optional[int] = None,
+    answer: Optional[str] = None,
+    answered_at: Optional[datetime] = None,
+    answered_by: Optional[str] = None,
+) -> dict:
+    """Return a dict suitable for Decision ORM construction or raw insert."""
+    return {
+        "dedup_key": dedup_key,
+        "prompt": prompt,
+        "options": options if options is not None else [],
+        "status": status,
+        "session_id": session_id,
+        "task_id": task_id,
+        "answer": answer,
+        "answered_at": answered_at,
+        "answered_by": answered_by,
+        "created_at": datetime.now(timezone.utc),
+    }
+
+
+def make_inbox_row(
+    body: str = "test inbox body",
+    subject: Optional[str] = None,
+    session_id: Optional[str] = None,
+    task_id: Optional[int] = None,
+    read: bool = False,
+    read_at: Optional[datetime] = None,
+    reply: Optional[str] = None,
+    replied_at: Optional[datetime] = None,
+) -> dict:
+    """Return a dict suitable for InboxMessage ORM construction or raw insert."""
+    return {
+        "body": body,
+        "subject": subject,
+        "session_id": session_id,
+        "task_id": task_id,
+        "read": read,
+        "read_at": read_at,
+        "reply": reply,
+        "replied_at": replied_at,
+        "created_at": datetime.now(timezone.utc),
+    }
+
+
+def make_task_row(
+    title: str = "test task",
+    description: str = "",
+    status: str = "pending",
+    priority: int = 3,
+    quadrant: Optional[str] = None,
+    approval: str = "auto",
+    risk: Optional[str] = None,
+    dry_run: bool = False,
+    model: Optional[str] = None,
+    execution_mode: str = "interactive",
+    skill: Optional[str] = None,
+    scheduled_for: Optional[datetime] = None,
+    schedule_id: Optional[int] = None,
+    pid: Optional[int] = None,
+    stdout_path: Optional[str] = None,
+    error_message: Optional[str] = None,
+    started_at: Optional[datetime] = None,
+    ended_at: Optional[datetime] = None,
+    approved_at: Optional[datetime] = None,
+) -> dict:
+    """Return a dict suitable for Task ORM construction or raw insert."""
+    return {
+        "title": title,
+        "description": description,
+        "status": status,
+        "priority": priority,
+        "quadrant": quadrant,
+        "approval": approval,
+        "risk": risk,
+        "dry_run": dry_run,
+        "model": model,
+        "execution_mode": execution_mode,
+        "skill": skill,
+        "scheduled_for": scheduled_for,
+        "schedule_id": schedule_id,
+        "pid": pid,
+        "stdout_path": stdout_path,
+        "error_message": error_message,
+        "created_at": datetime.now(timezone.utc),
+        "started_at": started_at,
+        "ended_at": ended_at,
+        "approved_at": approved_at,
+    }
+
+
+def make_schedule_row(
+    name: str = "sched-1",
+    cron: str = "0 9 * * *",
+    enabled: bool = True,
+    next_run_at: Optional[datetime] = None,
+    last_run_at: Optional[datetime] = None,
+    task_template: Optional[dict] = None,
+    skill: Optional[str] = None,
+) -> dict:
+    """Return a dict suitable for Schedule ORM construction or raw insert."""
+    now = datetime.now(timezone.utc)
+    return {
+        "name": name,
+        "cron": cron,
+        "enabled": enabled,
+        "next_run_at": next_run_at,
+        "last_run_at": last_run_at,
+        "task_template": task_template if task_template is not None else {},
+        "skill": skill,
+        "created_at": now,
+        "updated_at": now,
+    }
+
+
+@pytest.fixture
+def tmp_pid_dir(tmp_path: Path) -> Path:
+    """Per-test fresh PID directory for ESTOP tests. Mirrors the prod path
+    shape (.tmp/mission-control-queue/pids/) but anchored to tmp_path so
+    tests never touch real /Users/.../.tmp/."""
+    d = tmp_path / "pids"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+@pytest.fixture
+def mock_anthropic_client(monkeypatch):
+    """Replaces nl_to_cron's AsyncAnthropic constructor with an AsyncMock.
+
+    Yields a configurable mock; tests set
+        mock_anthropic_client.messages.create.return_value = ...
+    to control the response. Auto-sets ANTHROPIC_API_KEY so the function
+    actually attempts the call (rather than early-returning None).
+    """
+    from unittest.mock import AsyncMock, MagicMock
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    fake_client = MagicMock()
+    fake_msg = MagicMock()
+    fake_msg.content = [MagicMock(text="* * * * *")]
+    fake_client.messages.create = AsyncMock(return_value=fake_msg)
+    # Patch the AsyncAnthropic constructor inside the local import in
+    # cmc.schedules.nlcron. Each test can overwrite content[0].text.
+    original_import = __import__
+
+    def _patched_import(name, *args, **kwargs):
+        module = original_import(name, *args, **kwargs)
+        if name == "anthropic":
+            module.AsyncAnthropic = MagicMock(return_value=fake_client)
+        return module
+
+    monkeypatch.setattr("builtins.__import__", _patched_import)
+    return fake_client
