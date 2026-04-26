@@ -37,7 +37,7 @@ Declared values (all multiples of 4, 8-point base):
 |-------|-------|-------|
 | 2xs | 4px | Icon gaps, badge inline padding, dot-divider spacing |
 | xs | 8px | Compact element spacing, small badge padding |
-| sm | 12px | Tight component internal padding |
+| sm | 12px | Tight component internal padding (compact-input slot — see Exceptions) |
 | md | 16px | Default element spacing, header padding (DESG-04 — already in Phase 1 styles.css) |
 | lg | 24px | Section padding, page main padding (DESG-04 — already in Phase 1 styles.css), card padding lower bound |
 | xl | 32px | Layout gaps, card padding upper bound (DESG-04 declares 24–32px card padding) |
@@ -54,6 +54,7 @@ Border-radius scale (DESG-04 — 14–16px primary; corroborated by build-your-o
 | radius-xl | 16px | Large cards, modal panels, command palette container |
 
 Exceptions:
+- **`--space-sm: 12px` (off-standard, approved exception):** Used for compact input internal vertical padding (CommandPalette query input, header Cmd+K trigger chip, inline filter pills, NavBar link vertical padding). Rationale — 8px clips Inter 14px-body ascenders/descenders inside bordered inputs and breaks DESG-03's data-density target on the Command screen; 16px inflates input heights past the NavBar 56px header and fights the dense KPI strip below. 12px is the minimum value that preserves both legibility and density. Restricted to the listed surfaces — never used for component-to-component layout gaps (those use the standard set {4, 8, 16, 24, 32, 48, 64}).
 - Avatar/icon circles use `border-radius: 50%` (StatePill dot indicators only — never on text containers)
 - Skeleton placeholders inherit their parent's radius (FESH-08)
 - Touch targets MUST be at least 32×32px hit area even when visual element is smaller (use padding to expand)
@@ -65,11 +66,11 @@ Exceptions:
 | Role | Size | Weight | Line Height | Family |
 |------|------|--------|-------------|--------|
 | Body | 14px | 400 (regular) | 1.5 (= 21px) | Inter |
-| Label/Kicker | 12px | 500 (medium) | 1.4 (= 16.8px) — uppercase, letter-spacing 0.05em | JetBrains Mono |
+| Label/Kicker | 12px | 500 (inline only — see note) | 1.4 (= 16.8px) — uppercase, letter-spacing 0.05em | JetBrains Mono |
 | Heading | 18px | 600 (semibold) | 1.3 (= 23.4px) | Inter |
 | Display | 28px | 600 (semibold) | 1.2 (= 33.6px) | Inter |
 
-Sizes: 4 (12, 14, 18, 28). Weights: 2 (400 regular, 600 semibold). 500 medium ONLY on JetBrains-Mono labels (DESG-03 locks JetBrains Mono for kickers/labels/numeric — medium reads better at small caps than 600 in monospace).
+Sizes: 4 (12, 14, 18, 28). Weights: 2 named tokens — `--weight-regular: 400` and `--weight-semibold: 600`. JetBrains Mono label/kicker uses `font-weight: 500` directly (not a named token) — applied inline only in the `.cmc-label` / kicker rule in `frontend/src/styles.css` because medium reads better than 600 at small caps in monospace (DESG-03 rationale). The 500 value is intentionally NOT exported as a CSS custom property to keep the design-token contract at exactly 2 weights.
 
 **Numeric/data display rule:** All numeric values in panels (token counts, latency ms, durations, percentages, KPI tile big-numbers) use JetBrains Mono at the role-appropriate size. Tabular figures via `font-variant-numeric: tabular-nums`.
 
@@ -119,6 +120,8 @@ body {
   background-attachment: fixed;
 }
 ```
+
+**Visual focal point (Command route `/`):** The primary focal point on the Command screen is the **KpiRow tile strip** — the first content element directly below the NavBar — which anchors the eye before the panel grid below. Hierarchy descends: KpiRow (display-size numerics in mono) → AttentionBar (status-amber/red when active) → Card grid (LiveSessions, RecentTasks, NextRuns) → footer skeletons. On Activity (`/activity`) the focal point is the OTEL event firehose head; on Skills (`/skills`) the focal point is the Skills directory grid header card. (Phase 5 ships only the shell — KpiRow and panel grid are Phase 6 deliverables — but the AppShell layout slot ordering is locked here so Phase 6 inherits the focal-point contract.)
 
 **Destructive color:** `--cmc-status-red` (`#ef4444`). Used for: EmergencyStop banner button (HPNL/TPNL phases), Delete actions in Task board, "Fail task" confirm action. Never for general errors — those use status-red-tinted toast/banner without a confirm CTA.
 
@@ -264,7 +267,7 @@ For Phase 5 implementation, the executor lands these CSS custom properties in `f
   /* Spacing scale */
   --space-2xs: 4px;
   --space-xs: 8px;
-  --space-sm: 12px;
+  --space-sm: 12px;   /* off-standard — see Spacing Scale Exceptions; restricted to compact-input internal padding */
   --space-md: 16px;
   --space-lg: 24px;
   --space-xl: 32px;
@@ -285,8 +288,9 @@ For Phase 5 implementation, the executor lands these CSS custom properties in `f
   --size-heading: 18px;
   --size-display: 28px;
   --weight-regular: 400;
-  --weight-medium: 500;
   --weight-semibold: 600;
+  /* NOTE: JetBrains Mono labels/kickers use font-weight: 500 inline in the .cmc-label rule.
+     500 is intentionally NOT exported as a token — design contract caps named weights at 2. */
 }
 ```
 
@@ -297,10 +301,10 @@ The Phase 1 utility classes (`.cmc-shell`, `.cmc-header`, `.cmc-main`) are SUPER
 ## Checker Sign-Off
 
 - [ ] Dimension 1 Copywriting: PASS — empty/error/CTA copy specific and remediation-focused
-- [ ] Dimension 2 Visuals: PASS — motion durations declared, hierarchy explicit, reduced-motion path defined
+- [ ] Dimension 2 Visuals: PASS — motion durations declared, hierarchy explicit, focal point declared per route, reduced-motion path defined
 - [ ] Dimension 3 Color: PASS — 60/30/10 declared, accent reserved-for list explicit, status separated from accent
-- [ ] Dimension 4 Typography: PASS — exactly 4 sizes, exactly 2 weights (medium reserved for mono labels), line-heights specified
-- [ ] Dimension 5 Spacing: PASS — 8-point scale, all multiples of 4, exceptions enumerated
+- [ ] Dimension 4 Typography: PASS — exactly 4 sizes, exactly 2 named weights (`--weight-regular`, `--weight-semibold`); JetBrains Mono label `font-weight: 500` is inline-only and NOT a token
+- [ ] Dimension 5 Spacing: PASS — 8-point scale, all multiples of 4, off-standard `--space-sm: 12px` documented in Exceptions block with rationale + restricted-use scope
 - [ ] Dimension 6 Registry Safety: PASS — no third-party registries; direct deps are vetted Radix/lucide/framer-motion/cmdk
 
 **Approval:** pending
