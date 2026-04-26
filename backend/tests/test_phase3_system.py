@@ -84,3 +84,209 @@ async def test_client_health_endpoint_returns_200(client) -> None:
     response = await client.get("/api/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+# ---------- Wave 1 / Plan 03-02 — Task 1: SAPI-01..04 ----------
+
+from datetime import datetime, timedelta, timezone
+from uuid import uuid4
+
+from sqlalchemy import insert
+
+from cmc.db.models.otel_events import OtelEvent
+from cmc.db.models.sessions import Session as SessionModel
+from cmc.db.models.system_state import SystemState
+
+from .conftest import make_otel_event, make_session_row
+
+
+async def _seed(client_fixture, rows: list[tuple[type, dict]]) -> None:
+    """Insert ORM rows directly via the seeded app's sessionmaker.
+
+    Mirrors the helper in test_phase3_sessions.py so SAPI tests can stay
+    self-contained.
+    """
+    sessionmaker = client_fixture._transport.app.state.sessions
+    async with sessionmaker() as s:
+        for model, row in rows:
+            await s.execute(insert(model).values(**row))
+        await s.commit()
+
+
+# ---- Test 0: SAPI-01 contract preserved through Wave 1 router edits ----
+
+
+async def test_sapi01_health_still_returns_ok(client) -> None:
+    """SAPI-01: GET /api/health continues to return 200 + {"status": "ok"}
+    after this plan registers system_router into all_routers().
+
+    The Phase 1 health route lives in cmc/api/routes/health.py and is NOT
+    touched by Plan 03-02 (per RESEARCH Open Q9). This is the contract
+    verification that Wave 1's router-registration edits don't regress it.
+    """
+    response = await client.get("/api/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+# ---- Test 1: SAPI-02 happy path (empty otel_events table) ----
+
+
+async def test_sapi02_system_health_happy_empty_otel(client) -> None:
+    """SAPI-02: /api/system/health returns 200 with all 6 fields. With an
+    empty otel_events table, last_otel_event_age_seconds MUST be None."""
+    response = await client.get("/api/system/health")
+    assert response.status_code == 200
+    body = response.json()
+
+    # All 6 fields present
+    assert "status" in body
+    assert "uptime_seconds" in body
+    assert "memory_rss_mb" in body
+    assert "last_otel_event_age_seconds" in body
+    assert "daemon_ages" in body
+    assert "tzname" in body
+
+    # status defaults to "ok" (degraded heuristic deferred)
+    assert body["status"] == "ok"
+
+    # Numeric ranges
+    assert body["uptime_seconds"] >= 0
+    assert body["memory_rss_mb"] > 0
+
+    # daemon_ages: 3 entries, ages None when no system_state rows present
+    assert isinstance(body["daemon_ages"], list)
+    assert len(body["daemon_ages"]) == 3
+    keys = {d["key"] for d in body["daemon_ages"]}
+    assert keys == {
+        "jsonl_sync_last_tick_at",
+        "dispatcher_last_tick_at",
+        "telegram_last_tick_at",
+    }
+    for entry in body["daemon_ages"]:
+        assert entry["age_seconds"] is None
+
+    # Empty otel_events table
+    assert body["last_otel_event_age_seconds"] is None
+
+    # tzname is a non-empty string
+    assert isinstance(body["tzname"], str)
+    assert len(body["tzname"]) > 0
+
+
+# ---- Test 2: SAPI-02 with otel events present ----
+
+
+async def test_sapi02_system_health_with_otel_events(client) -> None:
+    """SAPI-02: When otel_events has rows, last_otel_event_age_seconds is an
+    int >= 0 (Pitfall 4: tz-naive SQLite datetimes are normalized to UTC)."""
+    # Insert one OtelEvent ~10s in the past (tz-aware UTC)
+    ten_s_ago = datetime.now(timezone.utc) - timedelta(seconds=10)
+    await _seed(
+        client,
+        [(OtelEvent, make_otel_event(ts=ten_s_ago, event_name="claude_code.api_request"))],
+    )
+
+    response = await client.get("/api/system/health")
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["last_otel_event_age_seconds"] is not None
+    assert isinstance(body["last_otel_event_age_seconds"], int)
+    assert body["last_otel_event_age_seconds"] >= 0
+    # generous upper bound: should be ~10s, allow 60s of test slop
+    assert body["last_otel_event_age_seconds"] < 600
+
+
+# ---- Test 3: SAPI-03 whitelist enforcement ----
+
+
+async def test_sapi03_system_state_whitelist_enforcement(client) -> None:
+    """SAPI-03: Non-whitelisted DB rows MUST NEVER appear in response.
+    Per-key request to non-whitelisted key returns 404."""
+    # Three rows: 2 whitelisted, 1 non-whitelisted
+    await _seed(
+        client,
+        [
+            (SystemState, {"key": "tzname", "value": "PDT", "value_json": None}),
+            (SystemState, {"key": "emergency_stop", "value": "0", "value_json": None}),
+            (SystemState, {"key": "internal_secret_key", "value": "leak-me", "value_json": None}),
+        ],
+    )
+
+    # No-key request returns ONLY whitelisted keys
+    response = await client.get("/api/system/state")
+    assert response.status_code == 200
+    body = response.json()
+    assert "items" in body
+    items = body["items"]
+    assert "tzname" in items
+    assert items["tzname"] == "PDT"
+    assert "emergency_stop" in items
+    assert items["emergency_stop"] == "0"
+    assert "internal_secret_key" not in items  # critical: non-whitelisted MUST be absent
+
+    # Per-key request to non-whitelisted key returns 404 (does not confirm existence)
+    response = await client.get("/api/system/state?key=internal_secret_key")
+    assert response.status_code == 404
+
+    # Per-key request to whitelisted-and-present key returns single-item dict
+    response = await client.get("/api/system/state?key=tzname")
+    assert response.status_code == 200
+    assert response.json() == {"items": {"tzname": "PDT"}}
+
+    # Per-key request to whitelisted-but-not-in-DB key returns 404
+    response = await client.get("/api/system/state?key=last_jsonl_sync_at")
+    assert response.status_code == 404
+
+
+# ---- Test 4: SAPI-04 graceful Phase 4 emptiness (Pitfall 7) ----
+
+
+async def test_sapi04_attention_phase4_emptiness_returns_zeros(client) -> None:
+    """SAPI-04 / Pitfall 7: pending_decisions=0, failed_tasks=0 ALWAYS in the
+    response, even when Phase 4 tables are empty. No conditional schema."""
+    response = await client.get("/api/attention")
+    assert response.status_code == 200
+    body = response.json()
+
+    # All required fields present
+    assert "items" in body
+    assert "pending_decisions" in body
+    assert "failed_tasks" in body
+    assert "stale_dispatcher_seconds" in body
+    assert "stuck_sessions" in body
+
+    # Pitfall 7: zeros are explicit, NOT omitted via branching on empty tables
+    assert body["pending_decisions"] == 0
+    assert body["failed_tasks"] == 0
+    assert body["stuck_sessions"] == 0
+    assert body["stale_dispatcher_seconds"] is None
+    assert body["items"] == []
+
+
+# ---- Test 5: SAPI-04 detects stuck session (>3h with no end timestamp) ----
+
+
+async def test_sapi04_attention_detects_stuck_session(client) -> None:
+    """SAPI-04 stuck_sessions: a session that started >3h ago and has no
+    ended_at is counted as stuck and surfaces as an AttentionItem."""
+    four_hours_ago = datetime.now(timezone.utc) - timedelta(hours=4)
+    await _seed(
+        client,
+        [
+            (SessionModel, make_session_row(
+                session_id=str(uuid4()),
+                started_at=four_hours_ago,
+                ended_at=None,
+            )),
+        ],
+    )
+
+    response = await client.get("/api/attention")
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["stuck_sessions"] == 1
+    kinds = {item["kind"] for item in body["items"]}
+    assert "stuck_sessions" in kinds
