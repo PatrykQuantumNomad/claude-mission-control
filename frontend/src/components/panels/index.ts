@@ -38,3 +38,10 @@ export { InboxCard } from './InboxCard'
 // Phase 7 Plan 02 (Wave 1) — SKLP panels (SkillsRegistry + SkillCostCard v2 placeholder)
 export { SkillsRegistry } from './SkillsRegistry'
 export { SkillCostCard } from './SkillCostCard'
+// Phase 7 Plan 03 (Wave 2) — TPNL panels (TaskBoard + TaskComposer with context provider)
+export { TaskBoard } from './TaskBoard'
+export {
+  TaskComposer,
+  TaskComposerProvider,
+  useTaskComposer,
+} from './TaskComposer'

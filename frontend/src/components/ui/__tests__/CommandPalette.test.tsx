@@ -17,7 +17,34 @@ import { TaskComposerProvider } from '../../panels/TaskComposer'
 // (createMemoryHistory + createRoute) — preferred over `createFileRoute` here
 // because file-route helpers expect a file-system convention that vitest
 // cannot model in-memory.
-function makeRouter(component: () => ReactNode = () => <CommandPalette />) {
+//
+// Phase 7 Plan 03: CommandPalette now consumes useTaskComposer() (Quick task
+// → opens TaskComposer Sheet via context). Every test wraps the palette in
+// TaskComposerProvider + QueryClientProvider — the provider mounts the
+// composer Sheet which uses useCreateTask() and therefore needs a QC.
+function makeWrapped(): () => ReactNode {
+  return () => (
+    <TestWrap>
+      <CommandPalette />
+    </TestWrap>
+  )
+}
+
+function TestWrap({ children }: { children: ReactNode }) {
+  const client = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, refetchInterval: false, refetchOnWindowFocus: false },
+      mutations: { retry: false },
+    },
+  })
+  return (
+    <QueryClientProvider client={client}>
+      <TaskComposerProvider>{children}</TaskComposerProvider>
+    </QueryClientProvider>
+  )
+}
+
+function makeRouter(component: () => ReactNode = makeWrapped()) {
   const rootRoute = createRootRoute({ component })
   const indexRoute = createRoute({
     getParentRoute: () => rootRoute,
@@ -96,30 +123,10 @@ describe('CommandPalette', () => {
   })
 
   it('selecting "Quick task" opens TaskComposer (Sheet visible) and closes the palette', async () => {
-    // Phase 7 Plan 03 wiring — composer is opened via the new TaskComposerProvider
-    // context. Mount the palette inside the provider; selecting the Quick task
-    // item must flip composerOpen=true and close the palette in one click.
-    function Mount() {
-      return (
-        <TaskComposerProvider>
-          <CommandPalette />
-        </TaskComposerProvider>
-      )
-    }
-    function Wrap({ children }: { children: ReactNode }) {
-      const client = new QueryClient({
-        defaultOptions: {
-          queries: { retry: false, refetchInterval: false, refetchOnWindowFocus: false },
-          mutations: { retry: false },
-        },
-      })
-      return <QueryClientProvider client={client}>{children}</QueryClientProvider>
-    }
-    const router = makeRouter(() => (
-      <Wrap>
-        <Mount />
-      </Wrap>
-    ))
+    // Phase 7 Plan 03 wiring — selecting the Quick task item flips
+    // composerOpen=true via the TaskComposerProvider context that wraps every
+    // test (see TestWrap above) AND closes the palette in one click.
+    const router = makeRouter()
     await router.load()
     const user = userEvent.setup()
     render(<RouterProvider router={router} />)

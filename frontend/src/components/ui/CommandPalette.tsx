@@ -6,8 +6,10 @@
 // double-invokes effects in dev, and without removeEventListener we'd register
 // the handler twice and Cmd+K would toggle twice per press.
 //
-// "Quick task" closes the palette as a no-op per CONTEXT decision; Phase 7
-// (TPNL-03) will replace `close()` with a TaskComposer-open call.
+// "Quick task" opens the global TaskComposer (TPNL-02) via the
+// TaskComposerProvider context that AppShell wraps the tree with. Phase 7
+// Plan 03 wired this — earlier comments referenced "TPNL-03" by mistake;
+// the composer is TPNL-02 (Schedules slide-out is TPNL-04, Wave 3 territory).
 //
 // Empty-state body and input placeholder copy are verbatim from
 // UI-SPEC §Copywriting — do not paraphrase without re-reading the spec.
@@ -15,10 +17,12 @@
 import { Command } from 'cmdk'
 import { useEffect, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
+import { useTaskComposer } from '../panels/TaskComposer'
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
+  const composer = useTaskComposer()
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -81,8 +85,8 @@ export function CommandPalette() {
         <Command.Group heading="Actions" className="cmc-cmdk__group">
           <Command.Item
             onSelect={() => {
-              // Phase 7 wires TaskComposer (TPNL-03) — for now, close as a no-op.
               close()
+              composer.setOpen(true)
             }}
             className="cmc-cmdk__item"
           >

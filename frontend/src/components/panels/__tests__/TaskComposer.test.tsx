@@ -13,7 +13,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, userEvent, waitFor, act } from '../../../test/utils'
+import { render, screen, userEvent, waitFor } from '../../../test/utils'
 import { TaskComposer } from '../TaskComposer'
 import { storage } from '../../../lib/storage'
 

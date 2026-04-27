@@ -269,6 +269,9 @@ function makeFetchMock() {
       return json({ items: [], total: 0 })
     if (url.startsWith('/api/skills'))
       return json({ items: [] })
+    // Phase 7 Plan 03 — TPNL TaskBoard (TPNL-01)
+    if (url.startsWith('/api/tasks'))
+      return json({ items: [], total: 0 })
     return json({})
   })
 }
@@ -340,8 +343,9 @@ describe('integration: full app', () => {
     const router = makeRouter('/skills')
     const { findByText, container } = render(<RouterProvider router={router} />)
     expect(await findByText('Skills', { selector: 'h1' })).toBeInTheDocument()
-    // Plan 07-02 retired 5 placeholder slots. Each reqId now appears via the
-    // live PanelCard kicker (not the placeholder grid).
+    // Plan 07-02 + 07-03 retired 6 of the 7 original SKILLS_SLOTS placeholder
+    // slots. Each reqId now appears via the live PanelCard kicker (not the
+    // placeholder grid).
     expect(await findByText('HPNL-01')).toBeInTheDocument() // DecisionsCard
     expect(await findByText('HPNL-02')).toBeInTheDocument() // InboxCard
     expect(await findByText('SKLP-01')).toBeInTheDocument() // McpPanel reused with reqId override
@@ -350,15 +354,17 @@ describe('integration: full app', () => {
     // Plan 07-01 retired SKLP-03 — ContextHealthCard renders the live panel.
     expect(await findByText('SKLP-03')).toBeInTheDocument()
     expect(await findByText('Context Health')).toBeInTheDocument()
-    // Remaining placeholders: only TPNL-01 + TPNL-03 (Plan 07-03/07-04 territory).
+    // Plan 07-03 retired TPNL-01 — TaskBoard renders alongside the SKLP grid.
     expect(await findByText('TPNL-01')).toBeInTheDocument()
+    expect(await findByText('Task Board')).toBeInTheDocument()
+    // Last placeholder: only TPNL-03 (Plan 07-04 territory).
     expect(await findByText('TPNL-03')).toBeInTheDocument()
     // Pitfall 10 mitigation: count lucide-inbox icons (PlaceholderCardGrid's
-    // EmptyState discriminator — STATE.md L247). Two slots remain so exactly
-    // 2 placeholder icons; the live PanelCard EmptyStates do NOT use the
+    // EmptyState discriminator — STATE.md L247). One slot remains so exactly
+    // 1 placeholder icon; the live PanelCard EmptyStates do NOT use the
     // lucide-inbox icon (PanelCard's EmptyState passes no icon).
     const inboxIcons = container.querySelectorAll('svg.lucide-inbox')
-    expect(inboxIcons.length).toBe(2)
+    expect(inboxIcons.length).toBe(1)
   })
 
   it('Cmd+K opens the global CommandPalette from / route', async () => {

@@ -1562,3 +1562,121 @@ body {
   min-width: 100px;
   width: auto;
 }
+
+/* ============================================================================
+ * Phase 7 Plan 03 (Wave 2) — TaskBoard + TaskComposer
+ * Tokens only; no inline hex.
+ * ============================================================================ */
+
+.cmc-task-board {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.cmc-task-board__banner {
+  background: var(--cmc-surface-2);
+  border: 1px solid var(--cmc-border-glow);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.cmc-task-board__banner-headline {
+  font-weight: 600;
+  color: var(--cmc-text);
+}
+
+.cmc-task-board__banner-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.cmc-task-board__banner-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.cmc-task-board__columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+
+.cmc-task-board__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.cmc-task-board__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  background: var(--cmc-surface);
+  border: 1px solid var(--cmc-border);
+  border-radius: var(--radius-sm);
+}
+
+.cmc-task-board__title {
+  font-weight: 500;
+  color: var(--cmc-text);
+}
+
+.cmc-task-board__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.cmc-task-board__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+/* TaskComposer form layout. Sheet body wraps the form; cmc-composer keeps
+ * label/control pairs stacked vertically with consistent spacing. */
+.cmc-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.cmc-composer__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  font-size: var(--size-sm);
+  color: var(--cmc-text-subtle);
+}
+
+.cmc-composer__field--inline {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.cmc-composer__error {
+  color: var(--cmc-status-red);
+  font-size: var(--size-sm);
+  margin: 0;
+}
+
+.cmc-composer__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
