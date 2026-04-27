@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 07-03-PLAN.md (Wave 2 part 1)
-last_updated: "2026-04-27T17:15:29.628Z"
+stopped_at: Completed 07-04-PLAN.md (Phase 7 close-out — visual quality bar APPROVED)
+last_updated: "2026-04-27T18:00:00.000Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 9
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 36
-  completed_plans: 35
-  percent: 97
+  completed_plans: 36
+  percent: 100
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-25)
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, queue and approve tasks, and kill runaway sessions — all from one browser tab.
-**Current focus:** Phase 7 (Command Centre Panels) Wave 1 COMPLETE 2026-04-27 — Plan 07-02 lands HPNL panels (DecisionsCard + InboxCard) + SKLP page lower half (SkillsRegistry + SkillCostCard v2 placeholder + McpPanel reused via reqId override); /skills SKILLS_SLOTS shrinks from 7 to 2 (TPNL-01 + TPNL-03 only). Plans 07-03 (TaskBoard + Schedules) and 07-04 (close-out + PlaceholderCardGrid deletion) remain.
+**Current focus:** Phase 7 (Command Centre Panels) COMPLETE 2026-04-27 — Plan 07-04 lands TPNL-03 SchedulesCard + TPNL-04 ScheduleComposer + final /skills overhaul + PlaceholderCardGrid file deletion. All 11 reqIds (HPNL-01/02 + TPNL-01..05 + SKLP-01..04) live; visual quality bar APPROVED by user against ROADMAP success criteria 1-5. Phase 8 (Mission Control Dispatcher) ready to plan — UI is feature-complete; Phase 8 is purely backend (DISP-* requirements).
 
 ## Current Position
 
-Phase: 7 of 9 IN PROGRESS (Command Centre Panels)
-Plan: 3 of 4 complete in Phase 7 (07-01 Wave 0 ✅; 07-02 Wave 1 ✅; 07-03 / 07-04 pending; 202/202 frontend tests green; 208/208 backend tests green)
-Status: Ready to execute
+Phase: 7 of 9 COMPLETE (Command Centre Panels) — visual quality bar approved by user 2026-04-27
+Plan: 4 of 4 complete in Phase 7 (07-01 Wave 0 ✅; 07-02 Wave 1 ✅; 07-03 Wave 2 part 1 ✅; 07-04 Wave 2 part 2 + close ✅; 234/234 frontend tests green; 209/209 backend tests green)
+Status: Phase 7 closed; Phase 8 (Mission Control Dispatcher) ready to plan
 Last activity: 2026-04-27
 
-Progress (Phase 7): [█████░░░░░] 50% (2 of 4 plans)
+Progress (Phase 7): [██████████] 100% (4 of 4 plans)
 
 ## Performance Metrics
 
@@ -50,12 +50,12 @@ Progress (Phase 7): [█████░░░░░] 50% (2 of 4 plans)
 | Phase 4 (Stateful APIs)                      | 5 / 5 | ~62 min                         | ~12 min  |
 | Phase 5 (Frontend Shell & Design System)     | 4 / 4 | ~31 min agent + checkpoint wait | ~8 min   |
 | Phase 6 (Observability & Activity Panels)    | 5 / 5 | ~74 min                         | ~14.8 min|
-| Phase 7 (Command Centre Panels)              | 2 / 4 | ~60 min                         | ~30 min  |
+| Phase 7 (Command Centre Panels)              | 4 / 4 | ~116 min                        | ~29 min  |
 
 **Recent Trend:**
 
-- Last 5 plans: 06-03, 06-04, 06-05, 07-01, 07-02 (Phase 7 Wave 1 HPNL+SKLP panels landed; DecisionsCard + InboxCard + SkillsRegistry + SkillCostCard v2 placeholder + McpPanel reused with reqId override on /skills; SKILLS_SLOTS shrinks from 7 to 2; 202/202 frontend + 208/208 backend tests green)
-- Trend: Plan 07-02 landed as 4 atomic commits (2 RED + 2 GREEN — TDD for both tasks). One auto-fix (Rule 1 — McpPanel reqId hardcoded vs integration test SKLP-01 assertion conflict resolved by adding optional reqId prop with default OPNL-15; routes/index.tsx unchanged, /skills passes reqId="SKLP-01"). Plan landed +14 net frontend tests (5 DecisionsCard + 4 InboxCard + 4 SkillsRegistry + 1 SkillCostCard) — close to plan's ~16 target; integration smoke test gained 3 new fetch-mock branches (/api/decisions, /api/inbox, /api/skills) and an exact-equals-2 lucide-inbox icon assertion guarding the placeholder retirement (Pitfall 10). Backend untouched (208/208 unchanged).
+- Last 5 plans: 06-05, 07-01, 07-02, 07-03, 07-04 (Phase 7 closes; SchedulesCard + ScheduleComposer land; PlaceholderCardGrid file + test DELETED; visual quality bar APPROVED by user 2026-04-27 against ROADMAP success criteria 1-5; 234/234 frontend + 209/209 backend tests green)
+- Trend: Plan 07-04 landed as 3 atomic commits (1 RED + 1 GREEN for Task 1 TDD + 1 retirement-and-integration commit for Task 2). Zero deviations — plan executed exactly as written; every Pitfall (3 mid-typing fallback, 9 lazy run-history, 10 PlaceholderCardGrid retirement, V11 single-message NL-cron 503) spec'd directly into RED tests up-front. Plan landed +18 new frontend tests (8 SchedulesCard + 10 ScheduleComposer) − 3 retired (deleted PlaceholderCardGrid.test.tsx) = +15 net (219 → 234). Backend untouched (209/209 unchanged). Phase 7 close-out human-verify checkpoint approved by user covering all 14 verification steps including TPNL-05 banner state machine, schedule composer cron preview live updates, lazy run-history (verified DevTools network tab), and visual quality bar match to Phase 6.
 
 *Updated after each plan completion*
 | Phase 01-foundation-database P02 | 4 min | 3 tasks | 17 files |
@@ -92,6 +92,7 @@ Progress (Phase 7): [█████░░░░░] 50% (2 of 4 plans)
 | Phase 07-command-centre-panels P01 | ~35 min (continuation run) | 3 tasks (TDD; 6 commits) | 24 files (11 created + 13 modified) |
 | Phase 07-command-centre-panels P02 | ~25 min | 2 tasks (TDD; 4 commits) | 13 files (8 created + 5 modified) |
 | Phase 07-command-centre-panels PP03 | 28 min | 2 tasks (TDD; 4 commits) tasks | 16 files (7 created + 9 modified) files |
+| Phase 07-command-centre-panels P04 | ~28 min | 3 tasks (1 TDD + 1 retire + 1 checkpoint) | 10 files (4 created + 4 modified + 2 deleted) |
 
 ## Accumulated Context
 
@@ -271,6 +272,14 @@ Recent decisions affecting current work:
 - Plan 07-03: TaskBoard awaiting_approval rows render in above-board banner (Pitfall 11 / RESEARCH Open Q1 lock) — NOT a 4th column; failed rows merge into Done with destructive Failed badge
 - Plan 07-03: TaskComposer drafts persist under cmc.composer.task.draft via storage helper; skipPersistRef guard prevents empty-default re-write after onSuccess clear+reset
 - Plan 07-03: backend routes/system.py L231-232 hardcoded zeros REPLACED with SELECT COUNT(*) WHERE status='pending' (Decision) and WHERE status='failed' (Task); AttentionBar surfaces both as conditional badges; closes Plan 06-02 STATE.md L227 deferral atomically (Pitfall 7)
+- Plan 07-04 complete: Phase 7 Wave 2 part 2 + close landed — SchedulesCard (TPNL-03) + ScheduleComposer (TPNL-04) + final /skills overhaul + PlaceholderCardGrid file DELETION; 234/234 frontend + 209/209 backend tests green; visual quality bar APPROVED by user 2026-04-27 against ROADMAP success criteria 1-5
+- Plan 07-04 pattern LOCKED (lazy hook test pattern): Pitfall 9 verified at TEST level via URL-aware fetch spy + collapse-mount snapshot — RED test asserts NO `/api/schedules/<id>/runs` GET on mount; expand-triggered test asserts exactly one GET fires after `setHistoryOpen(true)`. Reusable for any TanStack Query hook gated on a UI open state (CollapsibleSection, AccordionItem, conditional drawer, etc.)
+- Plan 07-04 pattern LOCKED (Pitfall 3 cron preview): mid-typing fallback uses cmc-text-subtle "Keep typing…"; error renders only after blur via local `advancedBlurred` state. Reusable for any UX where validators run on every keystroke but errors should only appear on commit (cron, JSON, regex, semver, etc.)
+- Plan 07-04 pattern LOCKED (file-deletion as Pitfall 10 final lockdown): removing only the import would leave the helper in `git ls-files` and a future change could resurrect it; deleting the file makes typecheck enforce that no consumer can ever import it again. Strongest possible guarantee — preferred over `data-testid="placeholder-card"` / `lucide-inbox` discriminators
+- Plan 07-04 pattern LOCKED (skipPersistRef in composers): TaskComposer (07-03) and ScheduleComposer (07-04) share the pattern — set ref true before `setDraft(defaultDraft())` after onSuccess clear so the persistence useEffect skips the empty-default re-write race. Extract to a shared helper if a third composer ships
+- Plan 07-04 pattern LOCKED (V11 NL-cron 503 surfacing): frontend renders `mutation.error.message` body literal verbatim — never branches on cause ("no API key" vs "invalid model output" vs "anthropic SDK error"). Backend already collapsed the 3 paths to one message in Plan 04-04. Reusable for any future endpoint that needs to expose a server error without leaking config detail
+- Plan 07-04 pattern LOCKED (bespoke aria-pressed day chips): 7 `<button>` with `aria-pressed={isOn}` + `cmc-day-chip--on` modifier. RESEARCH §Day-of-week chips ruling: bespoke for v1, Radix toggle group is a v2 candidate. Reusable for any 7-of-N or M-of-N segmented selector where toggle group's group-level aria-multiselectable contract isn't required
+- 2026-04-27: Phase 7 visual quality bar APPROVED by user — every Plan 07-04 Task 3 verification step (TPNL-05 banner state machine; HPNL-01/02 live curl→refresh paths; TPNL-01/02 Cmd+K composer + approval banner; TPNL-03/04 cron preview live + NL parse + lazy run-history; SKLP-01..04 spot checks; AttentionBar real counts; PlaceholderCardGrid grep returns no matches) passed against running dev server. Phase 7 closes ready for verifier handoff with 11/11 reqIds live, 234/234 frontend tests green, 209/209 backend tests green. Phase 8 (Mission Control Dispatcher) is purely backend (DISP-* requirements) — UI is feature-complete
 
 ### Pending Todos
 
@@ -279,12 +288,12 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-None — Phases 1–6 implementations complete + Phase 7 Waves 0+1 landed. Verifier readiness confirmed via 208 backend tests + 202 frontend tests. /skills now has 6 live panels (DecisionsCard + InboxCard above-grid; SkillsRegistry + McpPanel(reqId="SKLP-01") + SkillCostCard + ContextHealthCard in cmc-card-grid); PlaceholderCardGrid still mounts with 2 remaining slots (TPNL-01 + TPNL-03); Plan 07-04 retires the helper. Plans 07-03 (TaskBoard + Schedules) and 07-04 (close-out) are pure binding work over the queries.ts/api.ts/AlertDialog/cron-utils foundation Plan 07-01 shipped.
+None — Phases 1–7 implementations complete; visual quality bar APPROVED by user 2026-04-27 against ROADMAP success criteria 1-5. Verifier readiness confirmed via 209 backend tests + 234 frontend tests green. /skills final form: 8 panels (DecisionsCard + InboxCard above-grid; TaskBoard + SchedulesCard + SkillsRegistry + McpPanel(reqId="SKLP-01") + SkillCostCard + ContextHealthCard in cmc-card-grid). PlaceholderCardGrid file + test DELETED — last consumer eliminated; Plan 05-04 STATE.md L207 contract closed atomically with typecheck-time guarantee. Phase 8 (Mission Control Dispatcher) is purely backend DISP-* — UI is feature-complete.
 
 ## Session Continuity
 
-Last session: 2026-04-27T17:15:29.620Z
-Stopped at: Completed 07-03-PLAN.md (Wave 2 part 1)
+Last session: 2026-04-27T18:00:00.000Z
+Stopped at: Completed 07-04-PLAN.md (Phase 7 close-out — visual quality bar APPROVED)
 Resume file: None
 
 Phase 1 final commit chain:
@@ -320,6 +329,9 @@ Phase 6 final commit chain:
 - 06-04: 993d98c + 05032a3 + a768a31 (ActivityHeatmap + ChartsStrip + SessionsTable stub + Wave-4 barrel + Wave-4 styles.css section + 8 tests / SessionsTable full body + routes/activity.tsx wires Wave-4 panels above remaining PlaceholderCardGrid + 6 tests / plan close)
 - 06-05: 02fa534 + 14b9fb6 + c966167 (OtelPanel ACTV-03 SSE + UnifiedFailures ACTV-05 + TopSkills ACTV-04 v2 placeholder + routes/activity.tsx DELETES PlaceholderCardGrid + integration test extension + Wave-5 styles.css + 12 tests / Phase 6 close-out: SUMMARY + STATE + ROADMAP + REQUIREMENTS — visual quality bar APPROVED by user against ROADMAP success criteria 1-5)
 
-Phase 7 commit chain (in progress):
+Phase 7 final commit chain:
 
-- 07-01: 1b23395 + 576b981 + 5ab9ffa + 7c3fe4f + 255b076 + d69b773 + (this closing commit) (chore deps install / RED frontend tests cron-utils + AlertDialog / GREEN AlertDialog primitive + cron-utils + lib/api.ts narrowing + Phase 7 Wave 0 styles.css section / GREEN queries.ts +22 hooks + EmergencyStopBanner mounted in NavBar + ContextHealthCard on /skills + NavBar/AppShell test plumbing + integration test fetch-mock entries / RED backend tests test_phase7_context.py / GREEN backend SKLP-03 GET /api/context/health route + ContextHealthResponse schema + router registration / Phase 7 Plan 01 close-out SUMMARY + STATE)
+- 07-01: 1b23395 + 576b981 + 5ab9ffa + 7c3fe4f + 255b076 + d69b773 + (closing commit) (chore deps install / RED frontend tests cron-utils + AlertDialog / GREEN AlertDialog primitive + cron-utils + lib/api.ts narrowing + Phase 7 Wave 0 styles.css section / GREEN queries.ts +22 hooks + EmergencyStopBanner mounted in NavBar + ContextHealthCard on /skills + NavBar/AppShell test plumbing + integration test fetch-mock entries / RED backend tests test_phase7_context.py / GREEN backend SKLP-03 GET /api/context/health route + ContextHealthResponse schema + router registration / Phase 7 Plan 01 close-out SUMMARY + STATE)
+- 07-02: (Wave 1) RED + GREEN for HPNL panels (DecisionsCard + InboxCard) + RED + GREEN for SKLP page lower half (SkillsRegistry + SkillCostCard v2 placeholder + McpPanel reqId override) + plan close (4 atomic commits + docs)
+- 07-03: (Wave 2 part 1) RED + GREEN for TaskBoard (TPNL-01) + TaskComposer (TPNL-02) + CommandPalette wiring; routes/system.py AttentionBar real counts atomic fix; 4 atomic commits + docs (7577f70 GREEN among them)
+- 07-04: eca3d87 + 30b17d0 + 404f93d + (this closing commit) (RED — SchedulesCard + ScheduleComposer behavior 18 cases / GREEN — SchedulesCard TPNL-03 + ScheduleComposer TPNL-04 panels + barrel + styles.css / Task 2 — /skills final overhaul + PlaceholderCardGrid file + test DELETED + integration smoke updates / Phase 7 close-out SUMMARY + STATE — visual quality bar APPROVED by user 2026-04-27)
