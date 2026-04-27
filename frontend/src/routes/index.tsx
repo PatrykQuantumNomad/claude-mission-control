@@ -1,21 +1,28 @@
-// Command page (`/`) — Phase 5 Plan 04 (Wave 3 page grids).
+// Command page (`/`) — Phase 5 Plan 04 (Wave 3 page grids) +
+// Phase 6 Plan 02 (Wave 2 top-strip panels).
 //
-// Per CONTEXT decision: Phase 5 ships named-but-empty placeholders for every
-// Phase-6 OPNL-* requirement. Phase 6 fills each Card with the real data
-// panel keyed by reqId.
+// Layout:
+//   1. Page header (gradient title)
+//   2. SystemHealthStrip (OPNL-01)  ┐
+//   3. KpiRow            (OPNL-02)  ├ Top strip — full-width above grid
+//   4. AttentionBar      (OPNL-03)  │  (AttentionBar disappears via
+//   5. LiveSessionsCard  (OPNL-04)  ┘   PanelCard hiddenWhenEmpty)
+//   6. PlaceholderCardGrid — remaining OPNL-05..15 slots; Plan 06-03 (Wave 3)
+//      replaces these with the real analytical panels.
 //
-// KpiRow (OPNL-02) is intentionally NOT placed here — Phase 6 introduces both
-// the slot AND the component above the panel grid (UI-SPEC focal-point
-// hierarchy: KpiRow → AttentionBar → Panel grid). Phase 6 plan must add the
-// slot above <PlaceholderCardGrid> on this page.
+// OPNL-01/03/04 are explicitly REMOVED from COMMAND_SLOTS so they don't
+// double-render alongside the live components above the grid.
 
 import { createFileRoute } from '@tanstack/react-router'
+import {
+  AttentionBar,
+  KpiRow,
+  LiveSessionsCard,
+  SystemHealthStrip,
+} from '../components/panels'
 import { PlaceholderCardGrid, type PlaceholderSlot } from '../components/PlaceholderCardGrid'
 
 const COMMAND_SLOTS: PlaceholderSlot[] = [
-  { reqId: 'OPNL-01', title: 'System Health Strip', dataNoun: 'health metrics' },
-  { reqId: 'OPNL-03', title: 'Attention', dataNoun: 'attention items' },
-  { reqId: 'OPNL-04', title: 'Live Sessions', dataNoun: 'live session activity' },
   { reqId: 'OPNL-05', title: 'Token Usage', dataNoun: 'token usage data' },
   { reqId: 'OPNL-06', title: 'Cache Efficiency', dataNoun: 'cache hit rate data' },
   { reqId: 'OPNL-07', title: 'Session Outcomes', dataNoun: 'session outcome data' },
@@ -46,6 +53,10 @@ function CommandPage() {
           Live view of every Claude Code agent session, token spend, and tool latency.
         </p>
       </header>
+      <SystemHealthStrip />
+      <KpiRow />
+      <AttentionBar />
+      <LiveSessionsCard />
       <PlaceholderCardGrid slots={COMMAND_SLOTS} />
     </section>
   )
