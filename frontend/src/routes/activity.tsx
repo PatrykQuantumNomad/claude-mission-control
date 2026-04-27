@@ -1,19 +1,18 @@
-// Activity page (`/activity`) — Phase 5 Plan 04 (Wave 3 page grids).
-//
-// Per CONTEXT decision: Phase 5 ships named-but-empty placeholders for every
-// Phase-6 ACTV-* requirement. Phase 6 fills each Card with the real data
-// panel keyed by reqId.
+// Activity page (`/activity`) — Phase 6 Plan 04 (Wave 4) replaces three of the
+// six Phase-5 placeholder slots with real panels: ActivityHeatmap (ACTV-01),
+// ChartsStrip (ACTV-02), SessionsTable (ACTV-06). The remaining three slots
+// (ACTV-03 OTEL Firehose, ACTV-04 Top Skills, ACTV-05 Unified Failures) stay
+// in the placeholder grid; Plan 06-05 lands those panels and removes
+// PlaceholderCardGrid usage from this route entirely.
 
 import { createFileRoute } from '@tanstack/react-router'
 import { PlaceholderCardGrid, type PlaceholderSlot } from '../components/PlaceholderCardGrid'
+import { ActivityHeatmap, ChartsStrip, SessionsTable } from '../components/panels'
 
 const ACTIVITY_SLOTS: PlaceholderSlot[] = [
-  { reqId: 'ACTV-01', title: '30-Day Heatmap', dataNoun: '30 days of session activity' },
-  { reqId: 'ACTV-02', title: '14-Day Token Charts', dataNoun: '14 days of token usage' },
   { reqId: 'ACTV-03', title: 'OTEL Firehose', dataNoun: 'OTEL events' },
   { reqId: 'ACTV-04', title: 'Top Skills', dataNoun: 'skill usage data' },
   { reqId: 'ACTV-05', title: 'Unified Failures', dataNoun: 'crashed session data' },
-  { reqId: 'ACTV-06', title: 'Sessions Table', dataNoun: 'session history' },
 ]
 
 function ActivityPage() {
@@ -33,6 +32,9 @@ function ActivityPage() {
           Historical view: heatmaps, OTEL firehose, sessions table.
         </p>
       </header>
+      <ActivityHeatmap />
+      <ChartsStrip />
+      <SessionsTable />
       <PlaceholderCardGrid slots={ACTIVITY_SLOTS} />
     </section>
   )
