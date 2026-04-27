@@ -1126,3 +1126,62 @@ body {
 .cmc-mcp-tools-table {
   width: 100%;
 }
+
+/* ============================================================================
+ * Phase 6 Plan 04 (Wave 4) — Activity page core panels (heatmap + charts +
+ * sessions table). HeatmapGrid base classes live in Wave 1 (~L632); this
+ * section appends panel-specific layout only.
+ * ============================================================================
+ */
+
+/* ChartsStrip — wrapper around the 14-day stacked bar chart figure. */
+.cmc-charts-strip {
+  width: 100%;
+}
+
+/* SessionsTable — header chrome + pagination strip. */
+.cmc-sessions-table-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: center;
+}
+.cmc-sessions-table-header__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+.cmc-sessions-table-header__label {
+  font-size: var(--size-label);
+  color: var(--cmc-text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.cmc-sessions-table-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-md);
+  padding-top: var(--space-sm);
+  color: var(--cmc-text-dim);
+  font-family: var(--font-mono);
+  font-size: var(--size-body);
+}
+.cmc-sessions-table-pagination__controls {
+  display: inline-flex;
+  gap: var(--space-2xs);
+}
+.cmc-table input[type='text'] {
+  background: var(--cmc-surface-2);
+  border: 1px solid var(--cmc-border);
+  border-radius: 6px;
+  color: var(--cmc-text);
+  padding: var(--space-2xs) var(--space-xs);
+  font-family: var(--font-sans);
+  font-size: var(--size-body);
+  min-width: 8ch;
+}
+.cmc-table input[type='text']:focus-visible {
+  outline: 2px solid var(--cmc-accent-blue);
+  outline-offset: 2px;
+}

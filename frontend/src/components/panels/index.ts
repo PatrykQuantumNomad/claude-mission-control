@@ -22,3 +22,7 @@ export { EditAcceptanceCard } from './EditAcceptanceCard'
 export { ProductivityCard } from './ProductivityCard'
 export { PressurePanel } from './PressurePanel'
 export { McpPanel } from './McpPanel'
+// Phase 6 Plan 04 (Wave 4) — Activity page core panels
+export { ActivityHeatmap } from './ActivityHeatmap'
+export { ChartsStrip } from './ChartsStrip'
+export { SessionsTable } from './SessionsTable'
