@@ -19,6 +19,7 @@ Haiku 4.5 with 503-graceful fallback when ANTHROPIC_API_KEY missing).
 """
 from fastapi import APIRouter
 
+from cmc.api.routes.context import router as context_router
 from cmc.api.routes.health import router as health_router
 from cmc.api.routes.hitl import router as hitl_router
 from cmc.api.routes.ingest import router as ingest_router
@@ -31,9 +32,20 @@ from cmc.api.routes.sync import router as sync_router
 from cmc.api.routes.system import router as system_router
 from cmc.api.routes.tasks import router as tasks_router
 
+# Phase 7 Plan 01 — also re-export the context module under its short name
+# so test fixtures can `from cmc.api.routes import context as context_module`
+# and monkeypatch HOME_CLAUDE_DIR for hermetic filesystem testing.
+from cmc.api.routes import context as context  # noqa: F401,PLC0414  (re-export)
+
 
 def all_routers() -> list[APIRouter]:
-    """Routers mounted under the /api prefix."""
+    """Routers mounted under the /api prefix.
+
+    Phase 7 Plan 01 adds context_router (SKLP-03 GET /api/context/health) —
+    placed after skills_router (which it complements) and before the
+    Phase-4 hitl/tasks/schedules block to keep observability-style read
+    routers grouped together.
+    """
     return [
         health_router,
         sync_router,
@@ -42,6 +54,7 @@ def all_routers() -> list[APIRouter]:
         observability_router,
         system_router,
         skills_router,
+        context_router,
         hitl_router,
         tasks_router,
         schedules_router,
