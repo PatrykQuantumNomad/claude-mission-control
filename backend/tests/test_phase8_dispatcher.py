@@ -454,7 +454,14 @@ async def test_disp02_emergency_stop_early_return(
             "cmc.dispatcher.heartbeat.make_sessionmaker", lambda e: sessions
         )
         # Disable engine.dispose() so our engine survives the test (we own it).
-        monkeypatch.setattr(engine, "dispose", lambda: asyncio.sleep(0))
+        # heartbeat's `await engine.dispose()` runs at end of run_one_cycle;
+        # we let it run — AsyncEngine.dispose is idempotent. Subsequent
+        # session-factory calls via the (patched) sessions = sessionmaker
+        # still work because async_sessionmaker holds its own engine ref and
+        # dispose only closes the connection pool (a fresh connection is
+        # acquired on next session() use). We confirmed by reading the
+        # SQLAlchemy 2.0 source: `engine.dispose()` calls `pool.dispose()`
+        # which is safe to call multiple times.
 
         rc = await hb.run_one_cycle()
         assert rc == 0
@@ -510,7 +517,14 @@ async def test_disp01_one_cycle_smoke(
         monkeypatch.setattr(
             "cmc.dispatcher.heartbeat.make_sessionmaker", lambda e: sessions
         )
-        monkeypatch.setattr(engine, "dispose", lambda: asyncio.sleep(0))
+        # heartbeat's `await engine.dispose()` runs at end of run_one_cycle;
+        # we let it run — AsyncEngine.dispose is idempotent. Subsequent
+        # session-factory calls via the (patched) sessions = sessionmaker
+        # still work because async_sessionmaker holds its own engine ref and
+        # dispose only closes the connection pool (a fresh connection is
+        # acquired on next session() use). We confirmed by reading the
+        # SQLAlchemy 2.0 source: `engine.dispose()` calls `pool.dispose()`
+        # which is safe to call multiple times.
 
         rc = await hb.run_one_cycle()
         assert rc == 0
@@ -572,7 +586,14 @@ async def test_disp04_concurrency_cap(
         monkeypatch.setattr(
             "cmc.dispatcher.heartbeat.make_sessionmaker", lambda e: sessions
         )
-        monkeypatch.setattr(engine, "dispose", lambda: asyncio.sleep(0))
+        # heartbeat's `await engine.dispose()` runs at end of run_one_cycle;
+        # we let it run — AsyncEngine.dispose is idempotent. Subsequent
+        # session-factory calls via the (patched) sessions = sessionmaker
+        # still work because async_sessionmaker holds its own engine ref and
+        # dispose only closes the connection pool (a fresh connection is
+        # acquired on next session() use). We confirmed by reading the
+        # SQLAlchemy 2.0 source: `engine.dispose()` calls `pool.dispose()`
+        # which is safe to call multiple times.
 
         rc = await hb.run_one_cycle()
         assert rc == 0
@@ -613,7 +634,14 @@ async def test_disp_tick_stamp_on_exception(
         monkeypatch.setattr(
             "cmc.dispatcher.heartbeat.make_sessionmaker", lambda e: sessions
         )
-        monkeypatch.setattr(engine, "dispose", lambda: asyncio.sleep(0))
+        # heartbeat's `await engine.dispose()` runs at end of run_one_cycle;
+        # we let it run — AsyncEngine.dispose is idempotent. Subsequent
+        # session-factory calls via the (patched) sessions = sessionmaker
+        # still work because async_sessionmaker holds its own engine ref and
+        # dispose only closes the connection pool (a fresh connection is
+        # acquired on next session() use). We confirmed by reading the
+        # SQLAlchemy 2.0 source: `engine.dispose()` calls `pool.dispose()`
+        # which is safe to call multiple times.
 
         with pytest.raises(RuntimeError, match="synthetic sweep failure"):
             await hb.run_one_cycle()
