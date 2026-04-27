@@ -569,8 +569,14 @@ def make_task_row(
     started_at: Optional[datetime] = None,
     ended_at: Optional[datetime] = None,
     approved_at: Optional[datetime] = None,
+    timeout_s: Optional[int] = None,
 ) -> dict:
-    """Return a dict suitable for Task ORM construction or raw insert."""
+    """Return a dict suitable for Task ORM construction or raw insert.
+
+    Phase 8 addition: `timeout_s` (Optional[int]) is forwarded for DISP-05
+    classic-timeout tests. Default None preserves backward compatibility for
+    every Phase 4 caller.
+    """
     return {
         "title": title,
         "description": description,
@@ -592,6 +598,7 @@ def make_task_row(
         "started_at": started_at,
         "ended_at": ended_at,
         "approved_at": approved_at,
+        "timeout_s": timeout_s,
     }
 
 
@@ -657,3 +664,83 @@ def mock_anthropic_client(monkeypatch):
 
     monkeypatch.setattr("builtins.__import__", _patched_import)
     return fake_client
+
+
+# ---- Phase 8 dispatcher fixtures (additive — do NOT replace Phase 4 helpers) ----
+
+
+@pytest.fixture
+def tmp_pid_dir_monkey(tmp_path, monkeypatch):
+    """Phase 8 variant of tmp_pid_dir: also monkeypatches cmc.core.process.pid_dir
+    AND cmc.dispatcher.state._phase4_pid_dir so dispatcher modules see the tmp
+    directory regardless of which import binding they use. Distinct from
+    Phase 4's tmp_pid_dir(tmp_path) which only returns a path without
+    monkeypatching."""
+    d = tmp_path / "pids"
+    d.mkdir()
+    monkeypatch.setattr("cmc.core.process.pid_dir", lambda: d)
+    monkeypatch.setattr("cmc.dispatcher.state._phase4_pid_dir", lambda: d)
+    return d
+
+
+@pytest.fixture
+def mock_psutil_pids(monkeypatch):
+    """Returns a callable that registers a set[int] of PIDs psutil should consider alive.
+
+    Patches BOTH `cmc.dispatcher.state.psutil.pid_exists` and
+    `cmc.dispatcher.sweep.psutil.pid_exists` so either consumer sees the mock.
+    """
+    live: set[int] = set()
+
+    def _register(pids: set[int]) -> None:
+        live.clear()
+        live.update(pids)
+
+    # Patch the global psutil module's pid_exists (covers all `import psutil`
+    # consumers since they share the same module object).
+    monkeypatch.setattr("psutil.pid_exists", lambda pid: pid in live)
+    return _register
+
+
+def make_task_orm(**overrides):
+    """Phase 8 variant: returns a Task ORM instance (not a dict).
+
+    Phase 4's `make_task_row` returns a dict — kept intact for Phase 4 tests.
+    New Phase 8 tests that need an ORM instance use this helper.
+    """
+    from cmc.db.models.tasks import Task
+
+    defaults = dict(
+        title="test task",
+        description="",
+        status="pending",
+        priority=3,
+        approval="auto",
+        dry_run=False,
+        execution_mode="classic",
+        created_at=datetime.now(timezone.utc),
+    )
+    defaults.update(overrides)
+    return Task(**defaults)
+
+
+def make_schedule_orm(**overrides):
+    """Phase 8 variant — Schedule ORM instance (sibling of make_task_orm)."""
+    from cmc.db.models.schedules import Schedule
+
+    now = datetime.now(timezone.utc)
+    defaults = dict(
+        name="test schedule",
+        cron="*/5 * * * *",
+        enabled=True,
+        task_template={
+            "title": "from schedule",
+            "description": "auto",
+            "execution_mode": "classic",
+        },
+        next_run_at=now,
+        created_at=now,
+        updated_at=now,
+    )
+    defaults.update(overrides)
+    return Schedule(**defaults)
