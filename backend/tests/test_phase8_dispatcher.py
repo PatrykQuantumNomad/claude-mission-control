@@ -657,3 +657,402 @@ async def test_disp_tick_stamp_on_exception(
         assert tick is not None  # tick stamp survived the exception
     finally:
         await engine.dispose()
+
+
+# ---- Plan 08-02 — DISP-10 model resolver ------------------------------------
+
+
+def test_disp10_model_resolution_task_wins(clean_env, test_settings):
+    """task.model wins over skill, env, settings."""
+    from cmc.db.models.skills import Skill
+    from cmc.dispatcher.model_resolve import resolve_model
+
+    skill = Skill(
+        name="x", environment="personal", path="/tmp/x.md",
+        frontmatter={"model": "claude-opus-4"},
+    )
+    task = {"model": "claude-haiku-4-5"}
+    os.environ["CMC_DEFAULT_MODEL"] = "claude-sonnet-4"
+    try:
+        assert resolve_model(task, skill, test_settings) == "claude-haiku-4-5"
+    finally:
+        del os.environ["CMC_DEFAULT_MODEL"]
+
+
+def test_disp10_model_resolution_skill_frontmatter(clean_env, test_settings):
+    """skill.frontmatter['model'] wins when task.model is None."""
+    from cmc.db.models.skills import Skill
+    from cmc.dispatcher.model_resolve import resolve_model
+
+    skill = Skill(
+        name="x", environment="personal", path="/tmp/x.md",
+        frontmatter={"model": "claude-opus-4"},
+    )
+    task = {"model": None}
+    assert resolve_model(task, skill, test_settings) == "claude-opus-4"
+
+
+def test_disp10_model_resolution_env_override(clean_env, monkeypatch, test_settings):
+    """CMC_DEFAULT_MODEL env wins when task.model + skill.frontmatter.model both empty."""
+    from cmc.dispatcher.model_resolve import resolve_model
+
+    monkeypatch.setenv("CMC_DEFAULT_MODEL", "claude-sonnet-4")
+    task = {"model": None}
+    assert resolve_model(task, None, test_settings) == "claude-sonnet-4"
+
+
+def test_disp10_model_resolution_default_fallback(clean_env, test_settings):
+    """Falls through to settings.claude_default_model when nothing else set."""
+    from cmc.dispatcher.model_resolve import resolve_model
+
+    # Ensure CMC_DEFAULT_MODEL not set (clean_env doesn't strip it).
+    os.environ.pop("CMC_DEFAULT_MODEL", None)
+    task = {"model": None}
+    assert resolve_model(task, None, test_settings) == test_settings.claude_default_model
+    assert resolve_model(task, None, test_settings) == "sonnet"
+
+
+def test_disp10_model_resolution_skill_without_frontmatter(clean_env, test_settings):
+    """Skill with empty/missing frontmatter falls through cleanly."""
+    from cmc.db.models.skills import Skill
+    from cmc.dispatcher.model_resolve import resolve_model
+
+    os.environ.pop("CMC_DEFAULT_MODEL", None)
+    skill_empty_fm = Skill(
+        name="x", environment="personal", path="/tmp/x.md", frontmatter={}
+    )
+    task = {"model": None}
+    assert resolve_model(task, skill_empty_fm, test_settings) == "sonnet"
+
+    skill_no_model_key = Skill(
+        name="y", environment="personal", path="/tmp/y.md",
+        frontmatter={"description": "no model here"},
+    )
+    assert resolve_model(task, skill_no_model_key, test_settings) == "sonnet"
+
+
+# ---- Plan 08-02 — DISP-05 classic runner -----------------------------------
+
+
+def _classic_cmd_args() -> tuple[str, list[str]]:
+    """Returns (claude_bin, prefix-args) so run_classic spawns the fake.
+
+    We point claude_bin at sys.executable. The fake is invoked as
+    `python -m tests.fixtures.fake_claude_classic ...`. The first positional arg
+    in run_classic's cmd is settings.claude_bin; we cannot stuff `-m` between bin
+    and prompt, so instead we shim claude_bin to a shell-script wrapper. Simpler:
+    write a small wrapper script to tmp_path and chmod +x.
+    """
+    raise NotImplementedError
+
+
+def _write_fake_claude_wrapper(tmp_path, fixture_extra_args=()) -> "Path":
+    """Write a small executable shim that delegates to fake_claude_classic.py.
+
+    Returns a Path the runner can use as settings.claude_bin. The wrapper
+    *prepends* `fixture_extra_args` (e.g. --print-pid-file) before passing the
+    real Popen-supplied argv through, so tests can flip behavior via env vars
+    or extra flags without rewriting run_classic's cmd construction.
+    """
+    import stat
+    import sys as _sys
+    from pathlib import Path as _Path
+
+    extra = " ".join(fixture_extra_args)
+    fixture_path = (
+        _Path(__file__).resolve().parent / "fixtures" / "fake_claude_classic.py"
+    )
+    wrapper = tmp_path / "fake_claude.sh"
+    wrapper.write_text(
+        f'#!/bin/sh\n'
+        f'exec "{_sys.executable}" "{fixture_path}" {extra} "$@"\n'
+    )
+    wrapper.chmod(wrapper.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+    return wrapper
+
+
+@pytest.mark.asyncio
+async def test_disp05_classic_happy_path(
+    test_settings, tmp_path, tmp_pid_dir_monkey, monkeypatch
+):
+    """DISP-05 happy path: pending classic task → done, PID file unlinked, ended_at set."""
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher.run_classic import run_classic
+
+    wrapper = _write_fake_claude_wrapper(tmp_path)
+    settings = test_settings.model_copy(update={"claude_bin": wrapper})
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            t = Task(
+                title="hi", description="run me", status="running",
+                execution_mode="classic", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        task_row = {
+            "id": task_id, "title": "hi", "description": "run me",
+            "model": None, "timeout_s": 60, "execution_mode": "classic",
+        }
+
+        # run_classic is sync; run in thread to keep the event loop responsive.
+        await asyncio.to_thread(run_classic, task_row, settings, sessions)
+
+        async with sessions() as db:
+            refreshed = (
+                await db.execute(select(Task).where(Task.id == task_id))
+            ).scalar_one()
+        assert refreshed.status == "done"
+        assert refreshed.ended_at is not None
+        assert not (tmp_pid_dir_monkey / f"{task_id}.pid").exists()
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_disp05_classic_writes_pid_immediately(
+    test_settings, tmp_path, tmp_pid_dir_monkey, monkeypatch
+):
+    """Pitfall 10: PID file exists DURING the subprocess run, not just after."""
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher.run_classic import run_classic
+
+    # Have the fake write its pid to a marker file, then sleep 1s so we can stat
+    # the parent's PID file *while the subprocess is still alive*.
+    marker = tmp_path / "child.pid"
+    wrapper = _write_fake_claude_wrapper(
+        tmp_path, fixture_extra_args=["--print-pid-file", str(marker)]
+    )
+    settings = test_settings.model_copy(update={"claude_bin": wrapper})
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            t = Task(
+                title="x", description="x", status="running",
+                execution_mode="classic", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        task_row = {
+            "id": task_id, "title": "x", "description": "x",
+            "model": None, "timeout_s": 30,
+        }
+
+        # Spawn run_classic in a background thread, then poll for PID file
+        # presence WHILE the child is still alive.
+        async def _run():
+            return await asyncio.to_thread(run_classic, task_row, settings, sessions)
+
+        task_future = asyncio.create_task(_run())
+
+        # Wait for the marker file (proof the child has started). Then assert
+        # the parent's PID file exists at that moment (Pitfall 10).
+        deadline = asyncio.get_event_loop().time() + 5.0
+        while asyncio.get_event_loop().time() < deadline:
+            if marker.exists():
+                break
+            await asyncio.sleep(0.05)
+        assert marker.exists(), "child fixture did not start in time"
+
+        pid_file = tmp_pid_dir_monkey / f"{task_id}.pid"
+        # The fixture sleeps 1s after writing its marker, giving us a window.
+        assert pid_file.exists(), "PID file must exist while subprocess is alive (Pitfall 10)"
+
+        await task_future
+
+        # After completion the PID file is unlinked.
+        assert not pid_file.exists()
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_disp05_classic_nonzero_exit(
+    test_settings, tmp_path, tmp_pid_dir_monkey
+):
+    """Nonzero exit → status=failed, error_message contains 'nonzero exit 7', PID unlinked."""
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher.run_classic import run_classic
+
+    wrapper = _write_fake_claude_wrapper(
+        tmp_path, fixture_extra_args=["--exit-code", "7"]
+    )
+    settings = test_settings.model_copy(update={"claude_bin": wrapper})
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            t = Task(
+                title="boom", description="x", status="running",
+                execution_mode="classic", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        task_row = {
+            "id": task_id, "title": "boom", "description": "x",
+            "model": None, "timeout_s": 30,
+        }
+        await asyncio.to_thread(run_classic, task_row, settings, sessions)
+
+        async with sessions() as db:
+            refreshed = (
+                await db.execute(select(Task).where(Task.id == task_id))
+            ).scalar_one()
+        assert refreshed.status == "failed"
+        assert "nonzero exit 7" in (refreshed.error_message or "")
+        assert not (tmp_pid_dir_monkey / f"{task_id}.pid").exists()
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_disp05_classic_timeout(
+    test_settings, tmp_path, tmp_pid_dir_monkey
+):
+    """--hang fixture + timeout_s=2 → terminated, status=failed, error='timeout'."""
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher.run_classic import run_classic
+
+    wrapper = _write_fake_claude_wrapper(tmp_path, fixture_extra_args=["--hang"])
+    settings = test_settings.model_copy(update={"claude_bin": wrapper})
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            t = Task(
+                title="slow", description="x", status="running",
+                execution_mode="classic", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        task_row = {
+            "id": task_id, "title": "slow", "description": "x",
+            "model": None, "timeout_s": 2,
+        }
+        await asyncio.to_thread(run_classic, task_row, settings, sessions)
+
+        async with sessions() as db:
+            refreshed = (
+                await db.execute(select(Task).where(Task.id == task_id))
+            ).scalar_one()
+        assert refreshed.status == "failed"
+        assert refreshed.error_message == "timeout"
+        assert not (tmp_pid_dir_monkey / f"{task_id}.pid").exists()
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_disp05_classic_scrubs_anthropic_key(
+    test_settings, tmp_path, tmp_pid_dir_monkey, monkeypatch
+):
+    """Pitfall 8: ANTHROPIC_API_KEY is removed from the Popen env."""
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher import run_classic as rc_module
+    from cmc.dispatcher.run_classic import run_classic
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "secret-must-not-leak")
+
+    wrapper = _write_fake_claude_wrapper(tmp_path)
+    settings = test_settings.model_copy(update={"claude_bin": wrapper})
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            t = Task(
+                title="ok", description="x", status="running",
+                execution_mode="classic", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        # Spy on subprocess.Popen to capture the env it received.
+        captured_env: list[dict] = []
+        real_popen = rc_module.subprocess.Popen
+
+        def _spy_popen(cmd, **kwargs):
+            captured_env.append(dict(kwargs.get("env") or {}))
+            return real_popen(cmd, **kwargs)
+
+        monkeypatch.setattr(rc_module.subprocess, "Popen", _spy_popen)
+
+        task_row = {
+            "id": task_id, "title": "ok", "description": "x",
+            "model": None, "timeout_s": 30,
+        }
+        await asyncio.to_thread(run_classic, task_row, settings, sessions)
+
+        assert captured_env, "Popen was not called"
+        assert "ANTHROPIC_API_KEY" not in captured_env[0]
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_disp05_classic_passes_resolved_model(
+    test_settings, tmp_path, tmp_pid_dir_monkey, monkeypatch
+):
+    """task.model='claude-opus-4' → Popen argv includes '--model' 'claude-opus-4'."""
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher import run_classic as rc_module
+    from cmc.dispatcher.run_classic import run_classic
+
+    wrapper = _write_fake_claude_wrapper(tmp_path)
+    settings = test_settings.model_copy(update={"claude_bin": wrapper})
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            t = Task(
+                title="m", description="x", status="running",
+                execution_mode="classic", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        captured_cmd: list[list[str]] = []
+        real_popen = rc_module.subprocess.Popen
+
+        def _spy_popen(cmd, **kwargs):
+            captured_cmd.append(list(cmd))
+            return real_popen(cmd, **kwargs)
+
+        monkeypatch.setattr(rc_module.subprocess, "Popen", _spy_popen)
+
+        task_row = {
+            "id": task_id, "title": "m", "description": "x",
+            "model": "claude-opus-4", "timeout_s": 30,
+        }
+        await asyncio.to_thread(run_classic, task_row, settings, sessions)
+
+        assert captured_cmd, "Popen was not called"
+        argv = captured_cmd[0]
+        # Sequential pair: '--model' immediately followed by 'claude-opus-4'.
+        idx = argv.index("--model")
+        assert argv[idx + 1] == "claude-opus-4"
+    finally:
+        await engine.dispose()
