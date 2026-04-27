@@ -2300,3 +2300,595 @@ def test_input_format_spike_returns_accepted_or_rejected(tmp_path):
     )
     outcome2, detail2 = spike_module.probe_stdin_shape(claude_bin=str(rejected_recorder))
     assert outcome2 == "rejected", f"expected rejected, got {outcome2}: {detail2}"
+
+
+# ============================================================================
+# Plan 08-04 — DISP-09 / DISP-11 / DISP-04 part 2 + heartbeat fan-out + E2E
+# ============================================================================
+
+
+# ---- DISP-11 skill router ---------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_disp11_skill_router_no_api_key(test_settings, monkeypatch):
+    """ANTHROPIC_API_KEY unset → returns None (503-graceful, mirrors nl_to_cron)."""
+    from cmc.dispatcher.skill_router import pick_skill
+
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    engine, sessions = await _bootstrap_db(test_settings)
+    try:
+        async with sessions() as db:
+            result = await pick_skill(db, "task title", "task description")
+        assert result is None
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_disp11_skill_router_no_skills(test_settings, monkeypatch):
+    """Empty skills table → returns None even with API key set."""
+    from cmc.dispatcher.skill_router import pick_skill
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+    engine, sessions = await _bootstrap_db(test_settings)
+    try:
+        async with sessions() as db:
+            result = await pick_skill(db, "task title", "task description")
+        assert result is None
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_disp11_skill_router_picks_existing_skill(test_settings, monkeypatch):
+    """3 user_invocable skills seeded; mocked Haiku picks 'deploy' → returns 'deploy'."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from cmc.db.models.skills import Skill
+    from cmc.dispatcher.skill_router import pick_skill
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+    fake_msg = MagicMock()
+    fake_msg.content = [MagicMock(text='{"skill": "deploy"}')]
+    fake_client = MagicMock()
+    fake_client.messages.create = AsyncMock(return_value=fake_msg)
+    original_import = __import__
+
+    def _patched_import(name, *args, **kwargs):
+        module = original_import(name, *args, **kwargs)
+        if name == "anthropic":
+            module.AsyncAnthropic = MagicMock(return_value=fake_client)
+        return module
+
+    monkeypatch.setattr("builtins.__import__", _patched_import)
+
+    engine, sessions = await _bootstrap_db(test_settings)
+    try:
+        async with sessions() as db:
+            db.add_all([
+                Skill(name="deploy", environment="personal", path="/tmp/d.md",
+                      user_invocable=True, autonomy="auto",
+                      description="Deploy a service"),
+                Skill(name="test", environment="personal", path="/tmp/t.md",
+                      user_invocable=True, autonomy="auto",
+                      description="Run tests"),
+                Skill(name="lint", environment="personal", path="/tmp/l.md",
+                      user_invocable=True, autonomy="auto",
+                      description="Run linter"),
+            ])
+            await db.commit()
+
+        async with sessions() as db:
+            result = await pick_skill(db, "ship it", "deploy the service")
+        assert result == "deploy"
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_disp11_skill_router_rejects_hallucinated_skill(test_settings, monkeypatch):
+    """Mock returns a skill name not in registry → returns None (validation)."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from cmc.db.models.skills import Skill
+    from cmc.dispatcher.skill_router import pick_skill
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+    fake_msg = MagicMock()
+    fake_msg.content = [MagicMock(text='{"skill": "nonexistent-skill"}')]
+    fake_client = MagicMock()
+    fake_client.messages.create = AsyncMock(return_value=fake_msg)
+    original_import = __import__
+
+    def _patched_import(name, *args, **kwargs):
+        module = original_import(name, *args, **kwargs)
+        if name == "anthropic":
+            module.AsyncAnthropic = MagicMock(return_value=fake_client)
+        return module
+
+    monkeypatch.setattr("builtins.__import__", _patched_import)
+
+    engine, sessions = await _bootstrap_db(test_settings)
+    try:
+        async with sessions() as db:
+            db.add(Skill(name="deploy", environment="personal", path="/tmp/d.md",
+                         user_invocable=True, autonomy="auto"))
+            await db.commit()
+
+        async with sessions() as db:
+            result = await pick_skill(db, "ship it", "do thing")
+        assert result is None
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_disp11_skill_router_handles_malformed_json(test_settings, monkeypatch):
+    """Mock returns plaintext (not JSON) → returns None, does NOT raise."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from cmc.db.models.skills import Skill
+    from cmc.dispatcher.skill_router import pick_skill
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+    fake_msg = MagicMock()
+    fake_msg.content = [MagicMock(text="I think deploy is best")]
+    fake_client = MagicMock()
+    fake_client.messages.create = AsyncMock(return_value=fake_msg)
+    original_import = __import__
+
+    def _patched_import(name, *args, **kwargs):
+        module = original_import(name, *args, **kwargs)
+        if name == "anthropic":
+            module.AsyncAnthropic = MagicMock(return_value=fake_client)
+        return module
+
+    monkeypatch.setattr("builtins.__import__", _patched_import)
+
+    engine, sessions = await _bootstrap_db(test_settings)
+    try:
+        async with sessions() as db:
+            db.add(Skill(name="deploy", environment="personal", path="/tmp/d.md",
+                         user_invocable=True, autonomy="auto"))
+            await db.commit()
+
+        async with sessions() as db:
+            result = await pick_skill(db, "ship it", "do thing")
+        assert result is None
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_disp11_skill_router_filters_user_invocable(test_settings, monkeypatch):
+    """Only user_invocable=True skills are sent to Haiku in the prompt."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from cmc.db.models.skills import Skill
+    from cmc.dispatcher.skill_router import pick_skill
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+    captured_messages: list[list] = []
+    fake_msg = MagicMock()
+    fake_msg.content = [MagicMock(text='{"skill": null}')]
+
+    async def _fake_create(**kwargs):
+        captured_messages.append(kwargs.get("messages", []))
+        return fake_msg
+
+    fake_client = MagicMock()
+    fake_client.messages.create = AsyncMock(side_effect=_fake_create)
+    original_import = __import__
+
+    def _patched_import(name, *args, **kwargs):
+        module = original_import(name, *args, **kwargs)
+        if name == "anthropic":
+            module.AsyncAnthropic = MagicMock(return_value=fake_client)
+        return module
+
+    monkeypatch.setattr("builtins.__import__", _patched_import)
+
+    engine, sessions = await _bootstrap_db(test_settings)
+    try:
+        async with sessions() as db:
+            db.add_all([
+                Skill(name="public-a", environment="personal", path="/tmp/a.md",
+                      user_invocable=True, autonomy="auto",
+                      description="Public skill A"),
+                Skill(name="public-b", environment="personal", path="/tmp/b.md",
+                      user_invocable=True, autonomy="auto",
+                      description="Public skill B"),
+                Skill(name="private-c", environment="personal", path="/tmp/c.md",
+                      user_invocable=False, autonomy="auto",
+                      description="PRIVATE skill C"),
+            ])
+            await db.commit()
+
+        async with sessions() as db:
+            await pick_skill(db, "task title", "task desc")
+
+        assert captured_messages, "messages.create was not called"
+        # The user prompt content should mention the public skills but NOT 'private-c'
+        full_prompt = captured_messages[0][0]["content"]
+        assert "public-a" in full_prompt
+        assert "public-b" in full_prompt
+        assert "private-c" not in full_prompt, (
+            "user_invocable=False skills must not be sent to Haiku"
+        )
+    finally:
+        await engine.dispose()
+
+
+# ---- DISP-04 part 2 — autonomy gate ----------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_disp04_autonomy_gate_no_skill_proceeds(test_settings):
+    """Task with skill=None → ('proceed', None); task row UNCHANGED."""
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher.autonomy_gate import check_autonomy
+
+    engine, sessions = await _bootstrap_db(test_settings)
+    try:
+        async with sessions() as db:
+            t = Task(
+                title="t", description="x", status="running",
+                execution_mode="classic", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        task_row = {"id": task_id, "title": "t", "description": "x"}
+        decision, reason = await check_autonomy(task_row, None, sessions)
+        assert decision == "proceed"
+        assert reason is None
+
+        async with sessions() as db:
+            refreshed = (
+                await db.execute(select(Task).where(Task.id == task_id))
+            ).scalar_one()
+        assert refreshed.status == "running"
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_disp04_autonomy_gate_auto_proceeds(test_settings):
+    """skill.autonomy='auto' → ('proceed', None); task UNCHANGED."""
+    from cmc.db.models.skills import Skill
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher.autonomy_gate import check_autonomy
+
+    engine, sessions = await _bootstrap_db(test_settings)
+    try:
+        async with sessions() as db:
+            t = Task(
+                title="t", description="x", status="running",
+                execution_mode="classic", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        skill = Skill(name="auto-skill", environment="personal", path="/tmp/a.md",
+                      user_invocable=True, autonomy="auto")
+        task_row = {"id": task_id, "title": "t", "description": "x"}
+        decision, reason = await check_autonomy(task_row, skill, sessions)
+        assert decision == "proceed"
+        assert reason is None
+
+        async with sessions() as db:
+            refreshed = (
+                await db.execute(select(Task).where(Task.id == task_id))
+            ).scalar_one()
+        assert refreshed.status == "running"
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_disp04_autonomy_gate_review_blocks(test_settings):
+    """skill.autonomy='review' → ('block', 'review'); task PATCHed to awaiting_approval."""
+    from cmc.db.models.skills import Skill
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher.autonomy_gate import check_autonomy
+
+    engine, sessions = await _bootstrap_db(test_settings)
+    try:
+        async with sessions() as db:
+            t = Task(
+                title="t", description="x", status="running",
+                execution_mode="classic", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        skill = Skill(name="review-skill", environment="personal", path="/tmp/r.md",
+                      user_invocable=True, autonomy="review")
+        task_row = {"id": task_id, "title": "t", "description": "x"}
+        decision, reason = await check_autonomy(task_row, skill, sessions)
+        assert decision == "block"
+        assert reason == "review"
+
+        async with sessions() as db:
+            refreshed = (
+                await db.execute(select(Task).where(Task.id == task_id))
+            ).scalar_one()
+        assert refreshed.status == "awaiting_approval"
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_disp04_autonomy_gate_manual_blocks(test_settings):
+    """skill.autonomy='manual' → ('block', 'manual'); task PATCHed."""
+    from cmc.db.models.skills import Skill
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher.autonomy_gate import check_autonomy
+
+    engine, sessions = await _bootstrap_db(test_settings)
+    try:
+        async with sessions() as db:
+            t = Task(
+                title="t", description="x", status="running",
+                execution_mode="classic", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        skill = Skill(name="manual-skill", environment="personal", path="/tmp/m.md",
+                      user_invocable=True, autonomy="manual")
+        task_row = {"id": task_id, "title": "t", "description": "x"}
+        decision, reason = await check_autonomy(task_row, skill, sessions)
+        assert decision == "block"
+        assert reason == "manual"
+
+        async with sessions() as db:
+            refreshed = (
+                await db.execute(select(Task).where(Task.id == task_id))
+            ).scalar_one()
+        assert refreshed.status == "awaiting_approval"
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_disp04_autonomy_gate_unknown_value_treated_as_manual(test_settings):
+    """Pitfall 12: skill.autonomy='approval-required' → ('block', 'manual')."""
+    from cmc.db.models.skills import Skill
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher.autonomy_gate import check_autonomy
+
+    engine, sessions = await _bootstrap_db(test_settings)
+    try:
+        async with sessions() as db:
+            t = Task(
+                title="t", description="x", status="running",
+                execution_mode="classic", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        skill = Skill(name="weird-skill", environment="personal", path="/tmp/w.md",
+                      user_invocable=True, autonomy="approval-required")
+        task_row = {"id": task_id, "title": "t", "description": "x"}
+        decision, reason = await check_autonomy(task_row, skill, sessions)
+        assert decision == "block"
+        assert reason == "manual", "unknown autonomy must be conservatively manual"
+
+        async with sessions() as db:
+            refreshed = (
+                await db.execute(select(Task).where(Task.id == task_id))
+            ).scalar_one()
+        assert refreshed.status == "awaiting_approval"
+    finally:
+        await engine.dispose()
+
+
+# ---- DISP-09 follow-up pump -------------------------------------------------
+
+
+def test_disp09_followup_pump_reads_messages_file(tmp_path, monkeypatch):
+    """queue_path('messages', 'task-42') has 2 NDJSON lines; pump reads, truncates,
+    writes both to proc.stdin in symmetric NDJSON shape."""
+    import json as _json
+    import threading
+
+    from cmc.config import Settings
+    from cmc.dispatcher.follow_ups import FollowUpPump
+
+    # Redirect queue_path to tmp_path so we don't touch real .tmp/.
+    queue_root = tmp_path / "queue"
+    monkeypatch.setattr(
+        "cmc.core.queue.repo_root", lambda: tmp_path
+    )
+    # The pump reads via `cmc.core.queue.queue_path`; ensure it points here.
+    msg_dir = tmp_path / ".tmp" / "mission-control-queue" / "messages"
+    msg_dir.mkdir(parents=True, exist_ok=True)
+    msg_file = msg_dir / "task-42.jsonl"
+    msg_file.write_text(
+        '{"body": "first message"}\n'
+        '{"body": "second message"}\n'
+    )
+
+    # Fake proc.stdin: write lines into a captured file.
+    captured = tmp_path / "stdin-captured.txt"
+    captured_fp = captured.open("w")
+
+    class _FakeStdin:
+        closed = False
+
+        def write(self, s):
+            captured_fp.write(s)
+            captured_fp.flush()
+
+        def flush(self):
+            captured_fp.flush()
+
+    class _FakeProc:
+        stdin = _FakeStdin()
+
+    settings = Settings(dispatcher_followup_poll_s=0.05)
+    task_row = {"id": 42}
+    pump = FollowUpPump(task_row, _FakeProc(), settings)
+
+    # Run pump in a thread, give it time to drain, then stop.
+    th = threading.Thread(target=pump.run, daemon=True)
+    th.start()
+    import time as _t
+    _t.sleep(0.5)
+    pump.stop()
+    th.join(timeout=2)
+    captured_fp.close()
+
+    text = captured.read_text()
+    lines = [_json.loads(line) for line in text.strip().splitlines() if line.strip()]
+    assert len(lines) == 2, f"expected 2 stdin lines, got {len(lines)}: {text!r}"
+    assert lines[0] == {
+        "type": "user",
+        "message": {"role": "user", "content": "first message"},
+    }
+    assert lines[1] == {
+        "type": "user",
+        "message": {"role": "user", "content": "second message"},
+    }
+    # File was truncated (deleted after rename-swap).
+    assert not msg_file.exists()
+
+
+def test_disp09_followup_pump_handles_missing_file(tmp_path, monkeypatch):
+    """No queue file → pump iteration is no-op (does NOT raise)."""
+    import threading
+
+    from cmc.config import Settings
+    from cmc.dispatcher.follow_ups import FollowUpPump
+
+    monkeypatch.setattr("cmc.core.queue.repo_root", lambda: tmp_path)
+
+    class _FakeStdin:
+        closed = False
+        def write(self, s): pass
+        def flush(self): pass
+
+    class _FakeProc:
+        stdin = _FakeStdin()
+
+    settings = Settings(dispatcher_followup_poll_s=0.05)
+    pump = FollowUpPump({"id": 99}, _FakeProc(), settings)
+
+    th = threading.Thread(target=pump.run, daemon=True)
+    th.start()
+    import time as _t
+    _t.sleep(0.2)
+    pump.stop()
+    th.join(timeout=2)
+    # If we got here without exception, success.
+
+
+def test_disp09_followup_pump_atomic_truncate(tmp_path, monkeypatch):
+    """External writer appending to the queue file while pump is reading does not
+    lose lines: the rename-swap means the new write goes to a fresh file."""
+    import json as _json
+    import threading
+    import time as _t
+
+    from cmc.config import Settings
+    from cmc.dispatcher.follow_ups import FollowUpPump
+
+    monkeypatch.setattr("cmc.core.queue.repo_root", lambda: tmp_path)
+
+    msg_dir = tmp_path / ".tmp" / "mission-control-queue" / "messages"
+    msg_dir.mkdir(parents=True, exist_ok=True)
+    msg_file = msg_dir / "task-7.jsonl"
+    msg_file.write_text('{"body": "round1"}\n')
+
+    captured = tmp_path / "stdin.txt"
+    captured_fp = captured.open("w")
+
+    class _FakeStdin:
+        closed = False
+        def write(self, s):
+            captured_fp.write(s)
+            captured_fp.flush()
+        def flush(self): captured_fp.flush()
+
+    class _FakeProc:
+        stdin = _FakeStdin()
+
+    settings = Settings(dispatcher_followup_poll_s=0.1)
+    pump = FollowUpPump({"id": 7}, _FakeProc(), settings)
+    th = threading.Thread(target=pump.run, daemon=True)
+    th.start()
+
+    # Wait for the first line to be drained.
+    _t.sleep(0.3)
+    # Now write a second line — pump will pick it up next iteration.
+    msg_file.write_text('{"body": "round2"}\n')
+    _t.sleep(0.3)
+
+    pump.stop()
+    th.join(timeout=2)
+    captured_fp.close()
+
+    text = captured.read_text()
+    bodies = [_json.loads(line)["message"]["content"]
+              for line in text.strip().splitlines() if line.strip()]
+    assert "round1" in bodies and "round2" in bodies, (
+        f"expected both round1+round2 in stdin captures, got: {bodies}"
+    )
+
+
+def test_disp09_followup_pump_stops_on_event(tmp_path, monkeypatch):
+    """pump.stop() → pump exits within 2 * poll_s."""
+    import threading
+    import time as _t
+
+    from cmc.config import Settings
+    from cmc.dispatcher.follow_ups import FollowUpPump
+
+    monkeypatch.setattr("cmc.core.queue.repo_root", lambda: tmp_path)
+
+    class _FakeStdin:
+        closed = False
+        def write(self, s): pass
+        def flush(self): pass
+
+    class _FakeProc:
+        stdin = _FakeStdin()
+
+    settings = Settings(dispatcher_followup_poll_s=0.2)
+    pump = FollowUpPump({"id": 1}, _FakeProc(), settings)
+
+    th = threading.Thread(target=pump.run, daemon=True)
+    th.start()
+
+    _t.sleep(0.1)
+    pump.stop()
+    start = _t.monotonic()
+    th.join(timeout=1.0)
+    elapsed = _t.monotonic() - start
+    assert not th.is_alive(), "pump did not stop within join timeout"
+    assert elapsed < 2 * settings.dispatcher_followup_poll_s + 0.5, (
+        f"pump took {elapsed}s to stop; expected ≤ 2*poll_s"
+    )
