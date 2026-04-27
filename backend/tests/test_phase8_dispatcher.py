@@ -3462,3 +3462,319 @@ async def test_run_stream_pumps_followups(
         # so it lands in the real repo. Just assert the run completed.
     finally:
         await engine.dispose()
+
+
+# ---- Plan 08-04 Task 3 — E2E integration tests (ROADMAP SC1-SC5 coverage) ---
+
+
+@pytest.mark.asyncio
+async def test_e2e_classic_full_cycle(
+    test_settings, tmp_path, tmp_pid_dir_monkey, mock_psutil_pids, monkeypatch
+):
+    """SC1+SC2: 1 pending classic task → full heartbeat cycle → done state.
+
+    Verifies:
+    - Task ended in 'done' state.
+    - ended_at populated.
+    - PID file unlinked.
+    - dispatcher_last_tick_at recent.
+    - Per-task log file exists in dispatcher-logs/.
+    """
+    from cmc.db.models.system_state import SystemState
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher import heartbeat as hb
+
+    mock_psutil_pids(set())
+
+    wrapper = _write_fake_claude_wrapper(tmp_path)
+    settings = test_settings.model_copy(update={"claude_bin": wrapper})
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            t = Task(
+                title="E2E classic", description="hello",
+                status="pending", execution_mode="classic", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.create_engine_for_settings", lambda s: engine
+        )
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.make_sessionmaker", lambda e: sessions
+        )
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.load_settings", lambda: settings
+        )
+
+        rc = await hb.run_one_cycle()
+        assert rc == 0
+
+        async with sessions() as db:
+            refreshed = (
+                await db.execute(select(Task).where(Task.id == task_id))
+            ).scalar_one()
+            tick = (
+                await db.execute(
+                    select(SystemState).where(
+                        SystemState.key == "dispatcher_last_tick_at"
+                    )
+                )
+            ).scalar_one_or_none()
+        assert refreshed.status == "done"
+        assert refreshed.ended_at is not None
+        assert tick is not None
+        assert not (tmp_pid_dir_monkey / f"{task_id}.pid").exists()
+
+        # Per-task log file: created by run_classic under
+        # repo_root/.tmp/mission-control-queue/dispatcher-logs/.
+        from cmc.core.paths import repo_root as _rr
+        log_dir = _rr() / ".tmp" / "mission-control-queue" / "dispatcher-logs"
+        log_files = list(log_dir.glob(f"task-{task_id}-*.log")) if log_dir.exists() else []
+        assert len(log_files) >= 1, (
+            f"expected per-task log file in {log_dir}; got {log_files}"
+        )
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_e2e_stream_with_decision_full_cycle(
+    test_settings, tmp_path, tmp_pid_dir_monkey, mock_psutil_pids, monkeypatch
+):
+    """SC3: pending stream task with DECISION marker → full cycle → done.
+
+    Verifies:
+    - DECISION row created.
+    - Decision answered out-of-band → run_stream resumes.
+    - Task transitions to done.
+    """
+    from cmc.db.models.decisions import Decision
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher import heartbeat as hb
+    from cmc.dispatcher import inbox_post as ip_module
+
+    mock_psutil_pids(set())
+
+    class _FakeResp:
+        status_code = 201
+        def json(self): return {"id": 1}
+
+    class _FakeAsyncClient:
+        def __init__(self, *a, **kw): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *exc): return False
+        async def post(self, url, json=None): return _FakeResp()
+
+    monkeypatch.setattr(ip_module.httpx, "AsyncClient", _FakeAsyncClient)
+
+    wrapper = _write_fake_claude_stream_wrapper(
+        tmp_path, fixture_extra_args=["--emit-decision", "should I deploy?"]
+    )
+    settings = test_settings.model_copy(update={
+        "claude_bin": wrapper,
+        "port": 8765,
+        "dispatcher_decision_timeout_s": 30,
+        "dispatcher_answer_poll_s": 0.1,
+    })
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            t = Task(
+                title="E2E stream", description="x",
+                status="pending", execution_mode="stream", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.create_engine_for_settings", lambda s: engine
+        )
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.make_sessionmaker", lambda e: sessions
+        )
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.load_settings", lambda: settings
+        )
+
+        async def _flip_decision_after():
+            deadline = asyncio.get_event_loop().time() + 30.0
+            while asyncio.get_event_loop().time() < deadline:
+                async with sessions() as db:
+                    row = (await db.execute(
+                        select(Decision).where(Decision.task_id == task_id)
+                    )).scalar_one_or_none()
+                    if row is not None:
+                        row.status = "answered"
+                        row.answer = "yes"
+                        row.answered_at = datetime.now(timezone.utc)
+                        row.answered_by = "test"
+                        await db.commit()
+                        return
+                await asyncio.sleep(0.1)
+            raise AssertionError("Decision row never appeared")
+
+        flipper = asyncio.create_task(_flip_decision_after())
+        rc = await hb.run_one_cycle()
+        await flipper
+        assert rc == 0
+
+        async with sessions() as db:
+            refreshed = (
+                await db.execute(select(Task).where(Task.id == task_id))
+            ).scalar_one()
+            decision = (await db.execute(
+                select(Decision).where(Decision.task_id == task_id)
+            )).scalar_one()
+        assert refreshed.status == "done", (
+            f"unexpected: {refreshed.status} / {refreshed.error_message}"
+        )
+        assert decision.status == "answered"
+        assert decision.answer == "yes"
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_e2e_emergency_stop_short_circuits_full_cycle(
+    test_settings, tmp_path, tmp_pid_dir_monkey, mock_psutil_pids, monkeypatch
+):
+    """SC4: emergency_stop='1' → no PID files; no transitions; tick still updated."""
+    from cmc.db.models.system_state import SystemState
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher import heartbeat as hb
+
+    mock_psutil_pids(set())
+
+    wrapper = _write_fake_claude_wrapper(tmp_path)
+    settings = test_settings.model_copy(update={"claude_bin": wrapper})
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            db.add(SystemState(
+                key="emergency_stop", value="1",
+                updated_at=datetime.now(timezone.utc),
+            ))
+            db.add_all([
+                Task(title=f"e{i}", description="x",
+                     status="pending", execution_mode="classic", priority=3,
+                     created_at=datetime.now(timezone.utc))
+                for i in range(3)
+            ])
+            await db.commit()
+
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.create_engine_for_settings", lambda s: engine
+        )
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.make_sessionmaker", lambda e: sessions
+        )
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.load_settings", lambda: settings
+        )
+
+        rc = await hb.run_one_cycle()
+        assert rc == 0
+
+        # No PID files written.
+        assert list(tmp_pid_dir_monkey.glob("*.pid")) == []
+
+        # Tasks all stayed pending.
+        async with sessions() as db:
+            tasks = (await db.execute(select(Task))).scalars().all()
+            tick = (
+                await db.execute(
+                    select(SystemState).where(
+                        SystemState.key == "dispatcher_last_tick_at"
+                    )
+                )
+            ).scalar_one_or_none()
+        assert all(t.status == "pending" for t in tasks)
+        # Tick stamp WAS written (Pitfall 5).
+        assert tick is not None
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_e2e_overlapping_cycles_no_double_claim(
+    test_settings, tmp_path, tmp_pid_dir_monkey, mock_psutil_pids, monkeypatch
+):
+    """SC5: 5 pending tasks; two parallel run_one_cycle invocations.
+
+    Asserts the union of claimed task IDs covers exactly 5 with no duplicates
+    (BEGIN IMMEDIATE serializes the claim writes).
+    """
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher import heartbeat as hb
+
+    mock_psutil_pids(set())
+
+    wrapper = _write_fake_claude_wrapper(tmp_path)
+    settings = test_settings.model_copy(update={"claude_bin": wrapper})
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            db.add_all([
+                Task(title=f"t{i}", description="x",
+                     status="pending", execution_mode="classic", priority=3,
+                     created_at=datetime.now(timezone.utc))
+                for i in range(5)
+            ])
+            await db.commit()
+
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.create_engine_for_settings", lambda s: engine
+        )
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.make_sessionmaker", lambda e: sessions
+        )
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.load_settings", lambda: settings
+        )
+
+        # Stub the runners: we want to verify CLAIM partitioning, not full
+        # subprocess execution. The fan-out spawns the threads and we let
+        # them no-op so cycles stay fast.
+        claimed_ids: list[int] = []
+        claimed_lock = threading.Lock() if False else None  # not needed; GIL serializes append
+
+        import threading as _threading
+        lock = _threading.Lock()
+
+        def _stub_classic(task_row, settings, sessions, *, skill=None):
+            with lock:
+                claimed_ids.append(task_row.get("id"))
+
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.run_classic", _stub_classic
+        )
+
+        # Two cycles racing for slots=3 each.
+        results = await asyncio.gather(
+            hb.run_one_cycle(),
+            hb.run_one_cycle(),
+        )
+        assert results == [0, 0]
+
+        # Union covers all 5; no duplicates.
+        assert sorted(claimed_ids) == [1, 2, 3, 4, 5]
+        assert len(set(claimed_ids)) == 5
+
+        async with sessions() as db:
+            tasks = (await db.execute(select(Task))).scalars().all()
+        # All 5 tasks transitioned out of pending (claim flipped them to running).
+        assert all(t.status == "running" for t in tasks)
+    finally:
+        await engine.dispose()

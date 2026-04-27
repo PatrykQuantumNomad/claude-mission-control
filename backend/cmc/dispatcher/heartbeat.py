@@ -132,8 +132,13 @@ async def run_one_cycle() -> int:
 
             # 7d. Cycle ends when ALL runner threads exit (each is bounded by
             # per-task timeouts: dispatcher_classic_timeout_s / decision timeout).
+            # Use asyncio.to_thread so the event loop keeps processing other
+            # coroutines (e.g., parallel run_one_cycle invocations) while we
+            # wait for runner threads — straight thread.join() would block
+            # the loop and could starve out cooperating async work.
+            import asyncio as _asyncio
             for t in threads:
-                t.join()
+                await _asyncio.to_thread(t.join)
 
             return 0
         finally:
