@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 6 Plan 03 (Wave 3 analytical-grid panels) complete; Plan 06-04 ready
-last_updated: "2026-04-27T12:24:00.000Z"
+stopped_at: Phase 6 Plan 04 (Wave 4 Activity-page core panels) complete; Plan 06-05 ready
+last_updated: "2026-04-27T12:37:16.000Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 9
   completed_phases: 5
-  total_plans: 31
-  completed_plans: 30
+  total_plans: 32
+  completed_plans: 31
   percent: 97
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-25)
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, queue and approve tasks, and kill runaway sessions — all from one browser tab.
-**Current focus:** Phase 6 (Observability & Activity Panels) IN PROGRESS — Wave 1 foundation (Plan 06-01) complete 2026-04-27; Wave 2 (06-02 token usage + cache + outcomes) ready to start.
+**Current focus:** Phase 6 (Observability & Activity Panels) IN PROGRESS — Wave 4 Activity-page core panels (Plan 06-04) complete 2026-04-27; Wave 5 (06-05 Activity tail + close-out checkpoint) ready to start.
 
 ## Current Position
 
-Phase: 6 of 9 IN PROGRESS (Observability & Activity Panels) — Wave 3 analytical-grid panels complete
-Plan: 3 of 5 complete in Phase 6 (06-01 Wave 1 foundation ✅; 06-02 Wave 2 top-strip ✅; 06-03 Wave 3 analytical grid — 11 OPNL-05..15 panels live on /, PlaceholderCardGrid removed from / ✅; 144/144 frontend tests green; 202/202 backend tests green)
-Status: Plan 06-04 (Wave 4 Activity page core panels — ACTV-01 + ACTV-02 + ACTV-06) ready to execute
+Phase: 6 of 9 IN PROGRESS (Observability & Activity Panels) — Wave 4 Activity-page core panels complete
+Plan: 4 of 5 complete in Phase 6 (06-01 Wave 1 foundation ✅; 06-02 Wave 2 top-strip ✅; 06-03 Wave 3 analytical grid ✅; 06-04 Wave 4 Activity-page core — ACTV-01 ActivityHeatmap + ACTV-02 ChartsStrip + ACTV-06 SessionsTable live on /activity, ACTV-03/04/05 still placeholders ✅; 158/158 frontend tests green; 202/202 backend tests green)
+Status: Plan 06-05 (Wave 5 Activity-page tail — ACTV-03 OtelPanel + ACTV-04 TopSkills v2 + ACTV-05 UnifiedFailures + close-out checkpoint) ready to execute
 Last activity: 2026-04-27
 
-Progress (Phase 6): [██████░░░░] 60% (3 of 5 plans)
+Progress (Phase 6): [████████░░] 80% (4 of 5 plans)
 
 ## Performance Metrics
 
@@ -49,12 +49,12 @@ Progress (Phase 6): [██████░░░░] 60% (3 of 5 plans)
 | Phase 3 (Read-Only APIs)                     | 5 / 5 | ~158 min                        | ~32 min  |
 | Phase 4 (Stateful APIs)                      | 5 / 5 | ~62 min                         | ~12 min  |
 | Phase 5 (Frontend Shell & Design System)     | 4 / 4 | ~31 min agent + checkpoint wait | ~8 min   |
-| Phase 6 (Observability & Activity Panels)    | 3 / 5 | ~45 min                         | ~15 min  |
+| Phase 6 (Observability & Activity Panels)    | 4 / 5 | ~58 min                         | ~14.5 min|
 
 **Recent Trend:**
 
-- Last 5 plans: 05-03, 05-04, 06-01, 06-02, 06-03 (Phase 6 Wave 3 analytical grid complete: 11 OPNL-05..15 panels live on /; PlaceholderCardGrid removed from /; routes/index.tsx renders explicit grid containing TokenUsage / CacheEfficiency / SessionOutcomes / ToolLatency / HookActivity / ProjectBreakdown / AgentFanout / EditAcceptance / Productivity / Pressure / McpPanel; 144/144 frontend tests green; 202/202 backend tests green)
-- Trend: Plan 06-03 landed in 2 atomic commits with three Rule-1 auto-fixes (Recharts ResponsiveContainer renders width=0 in happy-dom → assert on container class; Recharts Tooltip formatter ValueType narrow; McpPanel summary row moved outside CollapsibleSection so flag badges stay visible). All deviations were UI design + test infra; no architectural changes.
+- Last 5 plans: 05-04, 06-01, 06-02, 06-03, 06-04 (Phase 6 Wave 4 Activity-page core panels complete: ActivityHeatmap (ACTV-01) + ChartsStrip (ACTV-02) + SessionsTable (ACTV-06) live on /activity above 3 remaining placeholders for ACTV-03/04/05; 158/158 frontend tests green; 202/202 backend tests green)
+- Trend: Plan 06-04 landed in 2 atomic commits with two Rule-1 auto-fixes (SessionsTable column field names corrected `id`/`project` → `session_id`/`cwd` to match backend SESS-01 surface; SessionsTable test text matcher reads textContent.slice(0,8) instead of literal getByText because React renders slice + ellipsis as 2 text nodes). All deviations were schema-binding + test infra; no architectural changes. Plan landed +14 net tests (8 ActivityHeatmap+ChartsStrip + 6 SessionsTable).
 
 *Updated after each plan completion*
 | Phase 01-foundation-database P02 | 4 min | 3 tasks | 17 files |
@@ -86,6 +86,7 @@ Progress (Phase 6): [██████░░░░] 60% (3 of 5 plans)
 | Phase 06-observability-activity-panels P01 | ~16 min | 3 tasks (1a/1b/2/3) | 22 files (19 created + 3 modified by edit) |
 | Phase 06-observability-activity-panels P02 | ~17 min | 2 tasks | 11 files (9 created + 2 modified) |
 | Phase 06-observability-activity-panels P03 | ~12 min | 2 tasks | 27 files (24 created + 3 modified) |
+| Phase 06-observability-activity-panels P04 | ~13 min | 2 tasks | 11 files (8 created + 3 modified) |
 
 ## Accumulated Context
 
@@ -232,6 +233,13 @@ Recent decisions affecting current work:
 - Plan 06-03 deviation (Rule 1 - Bug): Recharts 3.8.1 Tooltip Formatter type widened ValueType to include undefined; CacheEfficiencyCard formatter switched from `(v: number)` to `(value)` + typeof guard for tsc strict
 - Plan 06-03 deviation (Rule 1 - Design): McpPanel summary row originally inside CollapsibleSection body — would have hidden Slow/Fast flag tags until expanded. Refactored to keep summary always visible; CollapsibleSection wraps only tools table. Trigger label "Tools for {server_name}" so server name still appears at the closed/summary state too. Test reqId 'serverA' adjusted to 'Tools for serverA' accordingly
 - Plan 06-03 entry contract for Plan 06-04 (Wave 4): panels barrel exports 15 names total (4 from Wave 2 + 11 from Wave 3); routes/index.tsx for `/` is fully wired (no placeholder grid); routes/activity.tsx still has the ACTV-* PlaceholderCardGrid usage that Wave 4 (06-04) will start replacing; styles.css has Wave-3 section appended — Plan 06-04 appends its own Wave-4 section after
+- Plan 06-04 complete: Phase 6 Wave 4 Activity-page core panels landed — ActivityHeatmap (ACTV-01) wraps Wave-1 HeatmapGrid primitive + 5-bucket blue-opacity colorScale; ChartsStrip (ACTV-02) overfetches /api/usage/tokens?range=30d and slices last 14 days client-side via sliceLast14Days (delegates to TokenUsageCard.utils.groupTokensByDay — single-source aggregation; backend Range Literal stays unchanged per RESEARCH §11); SessionsTable (ACTV-06) wraps DataTable primitive with Range/Source/Model filter inputs in PanelCard.trailing + client-side search on session_id+cwd + Prev/Next pagination strip below the table keyed off backend total. routes/activity.tsx wires the 3 live panels above PlaceholderCardGrid (still rendering ACTV-03/04/05 for Plan 06-05); 14 new tests bring frontend suite from 144 to 158/158 green; backend 202/202 unchanged
+- Plan 06-04 pattern LOCKED (color ramp fallback): when styles.css does not define green-2..5 (or any color ladder) tokens, fall back to var(--cmc-accent-blue) with progressive opacity (0.25/0.45/0.7/1.0); document the choice in the panel's *.utils.ts. Reusable for any future heatmap/intensity-grid panel
+- Plan 06-04 pattern LOCKED (overfetch+slice): when backend Range Literal is closed-set and a panel needs an intermediate range, overfetch the next-largest range and slice client-side via a pure helper sibling (`*.utils.ts`); inline code comment in the panel cites RESEARCH §11. Backend Literal stays untouched. Reusable for any future panel needing a sub-range chart
+- Plan 06-04 pattern LOCKED (server-paginated + client-filtered table): pagination strip below DataTable keyed off backend `total` (NOT in-memory filtered count) because client-side search narrows whatever the current page returned. Filter changes (range/source/model) reset page to 0; search changes do NOT reset page (operator typing search after navigating to page 3 keeps their position). Reusable for any future table that mixes server pagination with client-side narrowing
+- Plan 06-04 deviation (Rule 1 - Bug): SessionsTable plan §Step 1 referenced field names `id` + `project` but backend SESS-01 / SessionListItemFull surface uses `session_id` + `cwd`. Columns + searchKeys + cell renders bind the real shape. Pre-existing latent contract drift between plan shorthand and api.ts types
+- Plan 06-04 deviation (Rule 1 - Test infra): React renders `{r.session_id.slice(0, 8)}` and `{'\u2026'}` as 2 separate text nodes in the same span; literal `getByText('abc12345')` fails because RTL needs the full normalized text content. Test reads `.textContent.slice(0, 8)` from each first-column .cmc-mono span and compares the array to expected prefixes. Pattern reusable for any future test asserting on a sliced string + sigil (ellipsis, em-dash) cell render
+- Plan 06-04 entry contract for Plan 06-05 (Wave 5): panels barrel exports 18 names total (4 Wave 2 + 11 Wave 3 + 3 Wave 4 — ActivityHeatmap / ChartsStrip / SessionsTable); routes/activity.tsx still imports PlaceholderCardGrid + ACTIVITY_SLOTS containing only ACTV-03/04/05 entries; Plan 06-05 lands the last 3 panels and DELETES the PlaceholderCardGrid import + usage on /activity (mirrors what Plan 06-03 did to routes/index.tsx); styles.css ends with Wave-4 section, Plan 06-05 appends its Wave-5 section after
 
 ### Pending Todos
 
@@ -240,12 +248,12 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-None — Phases 1–5 implementations complete + Plan 06-01 (Phase 6 Wave 1 foundation) complete + Plan 06-02 (Phase 6 Wave 2 top-strip panels) complete + Plan 06-03 (Phase 6 Wave 3 analytical grid) complete. Verifier readiness confirmed via 202 backend tests + 144 frontend tests; all 15 OPNL-01..15 panels live on / route — PlaceholderCardGrid removed from /; activity + skills routes still use placeholder cards pending Plans 06-04/05 + Phase 7 respectively.
+None — Phases 1–5 implementations complete + Plan 06-01 (Wave 1 foundation) complete + Plan 06-02 (Wave 2 top-strip panels) complete + Plan 06-03 (Wave 3 analytical grid) complete + Plan 06-04 (Wave 4 Activity-page core panels) complete. Verifier readiness confirmed via 202 backend tests + 158 frontend tests; all 15 OPNL-01..15 panels live on / route + 3 of 6 ACTV-* panels (ACTV-01/02/06) live on /activity; PlaceholderCardGrid removed from / but still rendering ACTV-03/04/05 on /activity (Plan 06-05 closes those); skills route still uses placeholder cards pending Phase 7.
 
 ## Session Continuity
 
-Last session: 2026-04-27T12:24:00.000Z
-Stopped at: Phase 6 Plan 03 (Wave 3 analytical-grid panels) complete; Plan 06-04 ready
+Last session: 2026-04-27T12:37:16.000Z
+Stopped at: Phase 6 Plan 04 (Wave 4 Activity-page core panels) complete; Plan 06-05 ready
 Resume file: None
 
 Phase 1 final commit chain:
@@ -278,3 +286,4 @@ Phase 6 commit chain (in progress):
 - 06-01: c27a2b5 + 99d1d8c + d108fec + 303bfb7 + 1e856a7 (Recharts 3.8.1 + tightened api.ts + Phase 6 primitive CSS / 7 ui primitives + barrel + 24 component tests / lib/queries.ts qk + 20 hooks + useFollowUpMessage + useFirehose + 11 lib tests / ACTV-01 heatmap + ACTV-05 failures backend routes + 4 Pydantic models + 9 backend tests)
 - 06-02: 6ab49cc + 5114efb + 934aa48 (SystemHealthStrip + KpiRow + AttentionBar 3 panels + barrel + CSS + 12 tests / LiveSessionsCard with Sheet drawer + follow-up + routes wiring + 4 tests)
 - 06-03: 365c9d8 + 50d14f7 + (this closing commit) (TokenUsage + Cache + Outcomes + Hooks + ProjectBreakdown 5 cards + 15 tests / ToolLatency + Fanout + Edit + Productivity + Pressure + McpPanel 6 cards + 16 tests + routes/index.tsx live grid wiring + Wave 3 CSS section)
+- 06-04: 993d98c + 05032a3 + (this closing commit) (ActivityHeatmap + ActivityHeatmap.utils + ChartsStrip + ChartsStrip.utils + SessionsTable stub + Wave-4 barrel + Wave-4 styles.css section + 8 tests / SessionsTable full body + routes/activity.tsx wires ActivityHeatmap → ChartsStrip → SessionsTable above PlaceholderCardGrid for ACTV-03/04/05 + 6 tests)
