@@ -1,4 +1,4 @@
-// AttentionBar — OPNL-03 (Phase 6 Plan 02 / Wave 2).
+// AttentionBar — OPNL-03 (Phase 6 Plan 02 / Wave 2; extended Phase 7 Plan 03).
 //
 // Full-width warning bar that DISAPPEARS via PanelCard's hiddenWhenEmpty=true
 // when there is nothing demanding the operator's attention. Pulls /api/attention
@@ -8,13 +8,18 @@
 //   - items.length === 0
 //   - stuck_sessions === 0
 //   - stale_dispatcher_seconds === null
+//   - pending_decisions === 0 (Plan 07-03)
+//   - failed_tasks === 0 (Plan 07-03)
 //
 // Visible content:
 //   - Badge "Stuck sessions: N" when stuck_sessions > 0
 //   - Badge "Dispatcher stale Xs" when stale_dispatcher_seconds != null
+//   - Badge "N pending decisions" when pending_decisions > 0 (Plan 07-03)
+//   - Badge "N failed tasks" when failed_tasks > 0 (Plan 07-03)
 //   - One pill per items[i] showing kind/severity/count/detail
 //
-// Phase 7 will populate pending_decisions / failed_tasks; AttentionBar v1 ignores them.
+// Plan 07-03 closes the Plan 06-02 deferral by surfacing pending_decisions
+// + failed_tasks (now real-data-backed in routes/system.py SAPI-04).
 
 import { Badge, PanelCard } from '../ui'
 import { useAttention } from '../../lib/queries'
@@ -39,7 +44,9 @@ export function AttentionBar() {
         when: (d) =>
           d.items.length === 0 &&
           d.stuck_sessions === 0 &&
-          d.stale_dispatcher_seconds === null,
+          d.stale_dispatcher_seconds === null &&
+          d.pending_decisions === 0 &&
+          d.failed_tasks === 0,
       }}
     >
       {(data) => (
@@ -50,6 +57,18 @@ export function AttentionBar() {
           {data.stale_dispatcher_seconds !== null ? (
             <Badge variant="warning">
               Dispatcher stale {Math.round(data.stale_dispatcher_seconds)}s
+            </Badge>
+          ) : null}
+          {data.pending_decisions > 0 ? (
+            <Badge variant="warning">
+              {data.pending_decisions} pending decision
+              {data.pending_decisions === 1 ? '' : 's'}
+            </Badge>
+          ) : null}
+          {data.failed_tasks > 0 ? (
+            <Badge variant="danger">
+              {data.failed_tasks} failed task
+              {data.failed_tasks === 1 ? '' : 's'}
             </Badge>
           ) : null}
           {data.items.map((item, idx) => (

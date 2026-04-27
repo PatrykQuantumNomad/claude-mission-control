@@ -100,4 +100,51 @@ describe('AttentionBar', () => {
     // The bar root region renders.
     expect(container.querySelector('.cmc-attention-bar')).not.toBeNull()
   })
+
+  // Plan 07-03 — pending_decisions + failed_tasks render extension.
+  it('renders "N pending decisions" badge when pending_decisions > 0 (Plan 07-03)', async () => {
+    const client = makeClient()
+    client.setQueryData(qk.attention(), {
+      ...empty,
+      pending_decisions: 2,
+    } satisfies AttentionResponse)
+    render(
+      <Wrap client={client}>
+        <AttentionBar />
+      </Wrap>,
+    )
+    await waitFor(() =>
+      expect(screen.getByText(/2 pending decisions/)).toBeInTheDocument(),
+    )
+  })
+
+  it('renders "1 failed task" badge when failed_tasks=1 (Plan 07-03)', async () => {
+    const client = makeClient()
+    client.setQueryData(qk.attention(), {
+      ...empty,
+      failed_tasks: 1,
+    } satisfies AttentionResponse)
+    render(
+      <Wrap client={client}>
+        <AttentionBar />
+      </Wrap>,
+    )
+    await waitFor(() =>
+      expect(screen.getByText(/1 failed task/)).toBeInTheDocument(),
+    )
+    // Singular form (no trailing 's' on 'task').
+    expect(screen.queryByText(/1 failed tasks/)).toBeNull()
+  })
+
+  it('hiddenWhenEmpty still returns null when all 5 fields are empty incl. pending_decisions + failed_tasks', async () => {
+    // Same `empty` fixture (now has the 5th + 6th fields — both 0).
+    const client = makeClient()
+    client.setQueryData(qk.attention(), empty)
+    const { container } = render(
+      <Wrap client={client}>
+        <AttentionBar />
+      </Wrap>,
+    )
+    await waitFor(() => expect(container.firstChild).toBeNull())
+  })
 })

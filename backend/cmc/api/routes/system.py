@@ -47,6 +47,7 @@ from cmc.api.schemas.system import (
 from cmc.api.sse import tail_otel_events
 from cmc.core.process import emergency_stop_all
 from cmc.db import get_session
+from cmc.db.models.decisions import Decision
 from cmc.db.models.otel_events import OtelEvent
 from cmc.db.models.sessions import Session as SessionModel
 from cmc.db.models.system_state import SystemState
@@ -221,15 +222,24 @@ async def system_state(
 async def attention(db: AsyncSession = Depends(get_session)) -> AttentionResponse:
     """SAPI-04: aggregate attention snapshot.
 
-    Per Pitfall 7: pending_decisions and failed_tasks are returned as 0 even
-    when Phase 4 tables are empty — the contract MUST stay stable so the
-    frontend doesn't need to branch on schema presence. When Phase 4 lands the
-    `tasks`/`decisions` tables, edit this function to populate the counters
-    (do NOT introduce schema branching).
+    Plan 07-03 (Phase 7 Wave 2 part 1) closes the Plan 06-02 deferral:
+    pending_decisions / failed_tasks now reflect real DB state via SELECT
+    COUNT(*) queries scoped WHERE status='pending' (decisions) and
+    WHERE status='failed' (tasks). The response shape is unchanged
+    (Pitfall 7 — frontend never branches on schema presence).
     """
-    # Phase-4-deferred fields (Pitfall 7): explicit 0, not omitted.
-    pending_decisions = 0
-    failed_tasks = 0
+    pending_decisions = (
+        await db.execute(
+            select(func.count())
+            .select_from(Decision)
+            .where(Decision.status == "pending")
+        )
+    ).scalar_one()
+    failed_tasks = (
+        await db.execute(
+            select(func.count()).select_from(Task).where(Task.status == "failed")
+        )
+    ).scalar_one()
 
     # Stuck sessions: started >3h ago and never ended.
     # Use func.datetime("now", "-3 hours") which is SQLite-native and matches
