@@ -9,3 +9,9 @@ export { KpiRow } from './KpiRow'
 export { AttentionBar } from './AttentionBar'
 // LiveSessionsCard re-export added in Task 2 of Plan 06-02 (same plan).
 export { LiveSessionsCard } from './LiveSessionsCard'
+// Phase 6 Plan 03 (Wave 3) — analytical-grid panels (Task 1: chart + project)
+export { TokenUsageCard } from './TokenUsageCard'
+export { CacheEfficiencyCard } from './CacheEfficiencyCard'
+export { SessionOutcomesCard } from './SessionOutcomesCard'
+export { HookActivityCard } from './HookActivityCard'
+export { ProjectBreakdownCard } from './ProjectBreakdownCard'
