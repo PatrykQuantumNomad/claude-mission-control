@@ -183,9 +183,12 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **DISP-04**: Dispatcher runs up to MAX_CONCURRENT (3) tasks with skill autonomy check
 - [x] **DISP-05
 **: Classic mode: subprocess.Popen claude -p with timeout, stdout capture, PID tracking
-- [ ] **DISP-06**: Stream mode: subprocess.Popen with stdin/stdout pipes, JSON line parsing, PID tracking
-- [ ] **DISP-07**: Stream mode parses DECISION: markers (skipping fenced code blocks) and blocks on answer poll
-- [ ] **DISP-08**: Stream mode parses INBOX: markers and posts to /api/inbox
+- [x] **DISP-06
+**: Stream mode: subprocess.Popen with stdin/stdout pipes, JSON line parsing, PID tracking
+- [x] **DISP-07
+**: Stream mode parses DECISION: markers (skipping fenced code blocks) and blocks on answer poll
+- [x] **DISP-08
+**: Stream mode parses INBOX: markers and posts to /api/inbox
 - [ ] **DISP-09**: Stream mode polls queue file for user follow-ups and injects to stdin
 - [x] **DISP-10
 **: Dispatcher resolves model from task > skill frontmatter > env > CLI default
@@ -455,9 +458,9 @@ Requirements for initial release. Each maps to roadmap phases.
 | DISP-03 | Phase 8 | Pending |
 | DISP-04 | Phase 8 | Pending |
 | DISP-05 | Phase 8 | Pending |
-| DISP-06 | Phase 8 | Pending |
-| DISP-07 | Phase 8 | Pending |
-| DISP-08 | Phase 8 | Pending |
+| DISP-06 | Phase 8 | Complete |
+| DISP-07 | Phase 8 | Complete |
+| DISP-08 | Phase 8 | Complete |
 | DISP-09 | Phase 8 | Pending |
 | DISP-10 | Phase 8 | Pending |
 | DISP-11 | Phase 8 | Pending |

@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 08-02-PLAN.md (Phase 8 Wave 2 — DISP-05 classic runner + DISP-10 model chain + DISP-12 plist landed)
-last_updated: "2026-04-27T21:40:26.022Z"
+stopped_at: Completed 08-03-PLAN.md
+last_updated: "2026-04-27T22:17:17.725Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 9
   completed_phases: 7
   total_plans: 40
-  completed_plans: 38
-  percent: 95
+  completed_plans: 39
+  percent: 98
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-25)
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, queue and approve tasks, and kill runaway sessions — all from one browser tab.
-**Current focus:** Phase 8 (Mission Control Dispatcher) IN PROGRESS — Plan 08-01 Wave 1 landed 2026-04-27: atomic-claim primitive (BEGIN IMMEDIATE + UPDATE…RETURNING), PID-file contract, schedules→tasks materializer, run_one_cycle async orchestrator skeleton (try/finally tick stamp, emergency-stop early return). DISP-02/03 + atomic-claim half of DISP-01 + concurrency-cap half of DISP-04 live; per-task fan-out deferred to Plan 08-04. 226/226 backend tests green (209 baseline + 17 new). Plans 08-02 (classic runner), 08-03 (stream runner + decisions), 08-04 (fan-out + oneshot wire-up) remain.
+**Current focus:** Phase 8 (Mission Control Dispatcher) IN PROGRESS — Plan 08-03 Wave 3 landed 2026-04-27: stream-mode subprocess runner + fenced-code-aware DECISION/INBOX marker parser + decision answer poll + INBOX→/api/inbox httpx poster + Wave-2 stdin-shape spike (RESULT: ACCEPTED — claude 2.1.112 accepts symmetric NDJSON on stdin; RESEARCH §Open Q2 RESOLVED). DISP-06 (bidirectional pipes + reader thread + dedicated asyncio loop) + DISP-07 (locked grammar + answer poll) + DISP-08 (httpx POST) all live. 271/271 backend tests green (246 baseline + 25 new across 6 commits = 3 RED + 3 GREEN). Plan 08-04 (heartbeat fan-out + follow-up pump + skill router + autonomy gate + close-out) remains. heartbeat.run_one_cycle fan-out TODO PRESERVED — Plan 04 will replace it.
 
 ## Current Position
 
-Phase: 8 of 9 (Mission Control Dispatcher) — Plan 1 of 4 COMPLETE
-Plan: 2 of 4 complete in Phase 8 (08-01 Wave 1 ✅; 08-02 Wave 2 classic runner pending; 08-03 Wave 2 stream runner pending; 08-04 Wave 3 fan-out + oneshot wire-up pending)
+Phase: 8 of 9 (Mission Control Dispatcher) — Plan 3 of 4 COMPLETE
+Plan: 3 of 4 complete in Phase 8 (08-01 Wave 1 ✅; 08-02 Wave 2 classic runner ✅; 08-03 Wave 3 stream runner ✅; 08-04 Wave 4 fan-out + follow-up pump + skill router + autonomy gate pending)
 Status: Ready to execute
 Last activity: 2026-04-27
 
-Progress (Phase 8): [██░░░░░░░░] 25% (1 of 4 plans)
+Progress (Phase 8): [████████░░] 75% (3 of 4 plans)
 
 ## Performance Metrics
 
@@ -95,6 +95,7 @@ Progress (Phase 8): [██░░░░░░░░] 25% (1 of 4 plans)
 | Phase 07-command-centre-panels P04 | ~28 min | 3 tasks (1 TDD + 1 retire + 1 checkpoint) | 10 files (4 created + 4 modified + 2 deleted) |
 | Phase 08-mission-control-dispatcher P01 | 11 min | 2 (TDD; 4 commits) tasks | 11 files (6 created + 5 modified) files |
 | Phase 08-mission-control-dispatcher PP02 | 9 min | 2 tasks (TDD; 4 commits) tasks | 9 files (7 created + 2 modified) files |
+| Phase 08 P03 | 30min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -293,6 +294,13 @@ Recent decisions affecting current work:
 - Plan 08-02: string.Template.safe_substitute over Jinja2 for plist rendering — three placeholders (python_path / python_path_dir / repo_root) is below the threshold for adding a runtime dep. .plist.j2 suffix is convention only.
 - Plan 08-02: Sync subprocess.Popen with thread-spawned DB writes (asyncio.run inside thread) for run_classic — Plan 04 fan-out wraps run_classic in threading.Thread; classic mode chose this over asyncio.create_subprocess_exec for simpler error semantics over a 600s subprocess.
 - Plan 08-02: Late import of heartbeat in oneshot.main() (from cmc.dispatcher import heartbeat as _hb) — module-level import would defeat monkeypatch.setattr('cmc.dispatcher.heartbeat.run_one_cycle', ...). Late re-resolution preserves the standard test pattern.
+- Plan 08-03: Wave-2 stdin-shape spike result is ACCEPTED — claude CLI 2.1.112 accepts symmetric NDJSON {type:'user',message:{role:'user',content:'...'}} on stdin, emits assistant event within 5s deadline. RESEARCH §Open Q2 RESOLVED. Plan 04's follow-up pump can rely on this shape; no contingency needed.
+- Plan 08-03: Decision body uses 'prompt' column (not 'content'). Phase-1 schema names it Decision.prompt with required JSON Decision.options (default []). _insert_decision uses prompt=body, options=[]. Tracked as Rule-1 deviation against the plan's content= wording.
+- Plan 08-03: run_stream wakes up the child via stdin follow-up on decision-answered. After wait_for_answer returns the answer, run_stream writes {type:'user',message:{role:'user',content:answer}} + \n to proc.stdin so the agent's stdin-read loop unblocks. Plan 04's follow-up pump replaces this minimal wake-up with queue-driven content; the symmetric NDJSON shape is locked here.
+- Plan 08-03: Inbox marker payload is {source:'agent_marker', body}. InboxCreate schema lacks a 'source' column; Pydantic v2 default extra-fields behavior is 'ignore' so 'source' is silently dropped server-side. Forward-compatible — if a future migration adds a source column the wire shape stays correct.
+- Plan 08-03: shell-script test wrapper helpers MUST shlex.quote each fixture arg. _write_fake_claude_stream_wrapper joined args with single spaces; the shell then word-split flag values containing whitespace (e.g. --emit-inbox 'heads up' became three tokens). Pattern locked: shlex.quote per arg before space-join.
+- Plan 08-03 complete: Phase 8 Wave 3 stream-mode runner landed — 5 production modules (marker_parser/answer_poll/inbox_post/run_stream/_input_format_spike) + 1 test fixture (fake_claude_stream.py) + 25 new tests (271/271 backend green; 246 baseline + 12 marker/poll/inbox + 10 run_stream + 3 spike). DISP-06 (bidirectional pipes + reader thread + dedicated asyncio loop), DISP-07 (locked grammar + answer poll + decision INSERT + wake-up follow-up + timeout interrupt), DISP-08 (httpx POST /api/inbox with ConnectError tolerance) all live. Wave-2 stdin-shape spike returns ACCEPTED against /opt/homebrew/bin/claude (Claude Code 2.1.112) — RESEARCH §Open Q2 RESOLVED. heartbeat fan-out TODO PRESERVED. Threading model: caller thread (subprocess lifecycle) + reader thread (sync stdout.readline → parser dispatch) + asyncio-loop thread (async DB / httpx via run_coroutine_threadsafe). Teardown order LOCKED: close stdin → reader.join → loop.stop → loop_thread.join → loop.close → log close → unlink_pid_file
+- Plan 08-03 entry contract for Plan 08-04: run_stream(task_row, settings, sessions, *, skill=None) is callable directly with PID-file lifecycle correctness; symmetric NDJSON stdin shape LOCKED (verified by spike); MarkerParser + wait_for_answer + post_inbox_marker independently importable; fake_claude_stream.py supports --emit-decision pause-on-stdin mode for follow-up-pump tests; the wake-up follow-up at run_stream.handle_marker DECISION branch (lines ~120-145) is THE single point Plan 04 modifies to plug in queue-driven follow-up content from ~/.tmp/mission-control-queue/decisions/{decision_id}.jsonl; everything else stays. heartbeat.run_one_cycle fan-out TODO at heartbeat.py:~88 untouched — Plan 04 replaces with threading.Thread fan-out (per-claimed-row, target=run_classic|run_stream selected by task.execution_mode).
 
 ### Pending Todos
 
@@ -305,8 +313,8 @@ None — Phases 1–7 implementations complete; visual quality bar APPROVED by u
 
 ## Session Continuity
 
-Last session: 2026-04-27T21:40:26.014Z
-Stopped at: Completed 08-02-PLAN.md (Phase 8 Wave 2 — DISP-05 classic runner + DISP-10 model chain + DISP-12 plist landed)
+Last session: 2026-04-27T22:17:00.443Z
+Stopped at: Completed 08-03-PLAN.md
 Resume file: None
 
 Phase 1 final commit chain:
