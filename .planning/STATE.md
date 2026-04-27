@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 7 Plan 02 (Wave 1 HPNL+SKLP panels) complete; Plans 07-03/07-04 ready
-last_updated: "2026-04-27T12:36:00.000Z"
+stopped_at: Completed 07-03-PLAN.md (Wave 2 part 1)
+last_updated: "2026-04-27T17:15:29.628Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 9
   completed_phases: 6
   total_plans: 36
-  completed_plans: 34
-  percent: 94
+  completed_plans: 35
+  percent: 97
 ---
 
 # Project State
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 ## Current Position
 
 Phase: 7 of 9 IN PROGRESS (Command Centre Panels)
-Plan: 2 of 4 complete in Phase 7 (07-01 Wave 0 ✅; 07-02 Wave 1 ✅; 07-03 / 07-04 pending; 202/202 frontend tests green; 208/208 backend tests green)
-Status: Phase 7 Waves 0+1 closed; Plans 07-03 (TPNL TaskBoard+Schedules) + 07-04 (close-out) ready
+Plan: 3 of 4 complete in Phase 7 (07-01 Wave 0 ✅; 07-02 Wave 1 ✅; 07-03 / 07-04 pending; 202/202 frontend tests green; 208/208 backend tests green)
+Status: Ready to execute
 Last activity: 2026-04-27
 
 Progress (Phase 7): [█████░░░░░] 50% (2 of 4 plans)
@@ -91,6 +91,7 @@ Progress (Phase 7): [█████░░░░░] 50% (2 of 4 plans)
 | Phase 06-observability-activity-panels P05 | ~16 min agent + checkpoint wait | 2 tasks (1 auto + 1 checkpoint) | 10 files (6 created + 4 modified) |
 | Phase 07-command-centre-panels P01 | ~35 min (continuation run) | 3 tasks (TDD; 6 commits) | 24 files (11 created + 13 modified) |
 | Phase 07-command-centre-panels P02 | ~25 min | 2 tasks (TDD; 4 commits) | 13 files (8 created + 5 modified) |
+| Phase 07-command-centre-panels PP03 | 28 min | 2 tasks (TDD; 4 commits) tasks | 16 files (7 created + 9 modified) files |
 
 ## Accumulated Context
 
@@ -266,6 +267,10 @@ Recent decisions affecting current work:
 - Plan 07-02 pattern LOCKED (inline-expand mutation row): row head with primary action toggle + clicking exposes textarea form with Submit/Cancel below the head. Both DecisionsCard and InboxCard follow this shape. onError handler intentionally OMITTED for non-optimistic mutations so user-typed input (answer/reply text) survives 409/422 — user can re-read the error body literal (rendered inline via mutation.error.message) and retry against live state. Reusable for any future per-row mutation UI (e.g. TaskBoard inline edit in Plan 07-03)
 - Plan 07-02 pattern LOCKED (data-attribute optimistic discriminator): InboxCard uses `data-read="true"` attribute for the read-state opacity rule (CSS `[data-read='true'] { opacity: 0.55 }`). Tests assert the attribute presence rather than CSS class changes — decouples test from styling decisions. Reusable for any optimistic UI flip
 - Plan 07-02 entry contract for Plans 07-03/07-04: panels barrel exports 23 names total (4 Phase-7 Wave-0 ContextHealthCard + 4 Phase-7 Wave-1: DecisionsCard / InboxCard / SkillsRegistry / SkillCostCard, plus the 18 Phase-6 panels); /skills SKILLS_SLOTS contains exactly `[{ TPNL-01 }, { TPNL-03 }]`; Plan 07-03 retires both via TaskBoard + Schedules panels; Plan 07-04 deletes PlaceholderCardGrid.tsx as the last consumer goes away. Frontend baseline: 202 tests; Backend baseline: 208 tests (Plan 07-02 added 14 frontend, 0 backend)
+- Plan 07-03: TaskComposerProvider mounted at AppShell (sibling-of-CommandPalette) so Cmd+K -> Quick task opens TaskComposer Sheet from any route via useTaskComposer() context
+- Plan 07-03: TaskBoard awaiting_approval rows render in above-board banner (Pitfall 11 / RESEARCH Open Q1 lock) — NOT a 4th column; failed rows merge into Done with destructive Failed badge
+- Plan 07-03: TaskComposer drafts persist under cmc.composer.task.draft via storage helper; skipPersistRef guard prevents empty-default re-write after onSuccess clear+reset
+- Plan 07-03: backend routes/system.py L231-232 hardcoded zeros REPLACED with SELECT COUNT(*) WHERE status='pending' (Decision) and WHERE status='failed' (Task); AttentionBar surfaces both as conditional badges; closes Plan 06-02 STATE.md L227 deferral atomically (Pitfall 7)
 
 ### Pending Todos
 
@@ -278,8 +283,8 @@ None — Phases 1–6 implementations complete + Phase 7 Waves 0+1 landed. Verif
 
 ## Session Continuity
 
-Last session: 2026-04-27T12:36:00.000Z
-Stopped at: Phase 7 Plan 02 (Wave 1 HPNL+SKLP panels) complete
+Last session: 2026-04-27T17:15:29.620Z
+Stopped at: Completed 07-03-PLAN.md (Wave 2 part 1)
 Resume file: None
 
 Phase 1 final commit chain:

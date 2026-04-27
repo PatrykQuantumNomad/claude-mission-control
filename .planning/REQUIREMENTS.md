@@ -229,8 +229,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Task Panels
 
-- [ ] **TPNL-01**: TaskBoard with 3 columns (pending/running/done), skill/model/quadrant/risk badges, approve/rerun/delete actions
-- [ ] **TPNL-02**: TaskComposer slide-out with title, description, model, mode (Interactive default), priority, quadrant, risk, approval, dry_run
+- [x] **TPNL-01
+**: TaskBoard with 3 columns (pending/running/done), skill/model/quadrant/risk badges, approve/rerun/delete actions
+- [x] **TPNL-02
+**: TaskComposer slide-out with title, description, model, mode (Interactive default), priority, quadrant, risk, approval, dry_run
 - [ ] **TPNL-03**: SchedulesCard with name, cron preview, enabled toggle, next-run countdown, stale detection, expandable run history
 - [ ] **TPNL-04**: ScheduleComposer slide-out with time picker, day chips, live cron preview, task fields, skill picker
 - [ ] **TPNL-05**: EmergencyStopBanner with red header button and 2-step confirm dialog
