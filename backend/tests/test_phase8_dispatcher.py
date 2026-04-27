@@ -1056,3 +1056,155 @@ async def test_disp05_classic_passes_resolved_model(
         assert argv[idx + 1] == "claude-opus-4"
     finally:
         await engine.dispose()
+
+
+# ---- Plan 08-02 — DISP-12 plist template + render helper -------------------
+
+
+def test_disp12_plist_template_exists():
+    """Template file must be importable as a package resource."""
+    from importlib.resources import files
+
+    res = files("cmc.dispatcher.templates") / "com.cmc.dispatcher.plist.j2"
+    assert res.is_file()
+
+
+def test_disp12_render_substitutes_python_path(tmp_path):
+    """python_path + repo_root substitute into the rendered output."""
+    from cmc.dispatcher.plist_render import render_plist
+
+    py = tmp_path / "venv" / "bin" / "python"
+    py.parent.mkdir(parents=True)
+    py.write_text("#!/bin/sh\nexec /usr/bin/python3 \"$@\"\n")
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    rendered = render_plist(py, repo)
+    assert f"<string>{py.resolve()}</string>" in rendered
+    assert f"<string>{repo.resolve()}</string>" in rendered
+
+
+def test_disp12_render_includes_required_keys(tmp_path):
+    """All launchd-required keys present in the rendered plist."""
+    from cmc.dispatcher.plist_render import render_plist
+
+    py = tmp_path / "py"
+    py.write_text("")
+    rendered = render_plist(py, tmp_path)
+
+    required = [
+        "<key>Label</key>",
+        "<string>com.cmc.dispatcher</string>",
+        "<key>StartInterval</key>",
+        "<integer>120</integer>",
+        "<key>RunAtLoad</key>",
+        "<true/>",
+        "<key>StandardOutPath</key>",
+        "<key>StandardErrorPath</key>",
+        "<key>ProcessType</key>",
+        "<string>Background</string>",
+        "<key>ProgramArguments</key>",
+        "<key>WorkingDirectory</key>",
+        "<key>EnvironmentVariables</key>",
+    ]
+    for marker in required:
+        assert marker in rendered, f"missing required marker {marker!r}"
+
+
+def test_disp12_render_path_env_includes_python_dir(tmp_path):
+    """PATH env-var in plist must include parent dir of python_path."""
+    from cmc.dispatcher.plist_render import render_plist
+
+    py = tmp_path / "venv" / "bin" / "python"
+    py.parent.mkdir(parents=True)
+    py.write_text("")
+
+    rendered = render_plist(py, tmp_path)
+    # The PATH key should expose the venv's bin dir so claude (and other tools)
+    # are findable via $PATH inside subprocesses spawned by the dispatcher.
+    assert str(py.parent.resolve()) in rendered
+    # Sanity: the substitution did not leave a literal placeholder behind.
+    assert "${python_path_dir}" not in rendered
+
+
+def test_disp12_render_no_anthropic_key(tmp_path):
+    """Pitfall 8: ANTHROPIC_API_KEY must NEVER be embedded in the plist."""
+    from cmc.dispatcher.plist_render import render_plist
+
+    py = tmp_path / "py"
+    py.write_text("")
+    rendered = render_plist(py, tmp_path)
+    assert "ANTHROPIC_API_KEY" not in rendered
+
+
+def test_disp12_render_xml_parseable(tmp_path):
+    """Rendered output is well-formed XML (no malformed substitution)."""
+    import xml.etree.ElementTree as ET
+
+    from cmc.dispatcher.plist_render import render_plist
+
+    py = tmp_path / "py"
+    py.write_text("")
+    rendered = render_plist(py, tmp_path)
+    # Must not throw — the `<plist version="1.0">` root must be well-formed.
+    ET.fromstring(rendered)
+
+
+def test_disp12_render_uses_venv_not_system_python(tmp_path):
+    """DISP-12 pitfall: rendered plist points at venv python, NOT /usr/bin/python3."""
+    from cmc.dispatcher.plist_render import render_plist
+
+    py = tmp_path / "venv" / "bin" / "python"
+    py.parent.mkdir(parents=True)
+    py.write_text("")
+
+    rendered = render_plist(py, tmp_path)
+    # The ProgramArguments[0] should be the venv python, not the system one.
+    assert f"<string>{py.resolve()}</string>" in rendered
+    # /usr/bin/python3 must not sneak in as the entry-point.
+    assert "/usr/bin/python3" not in rendered
+
+
+# ---- Plan 08-02 — oneshot.py replacement ------------------------------------
+
+
+def test_oneshot_main_replaces_stub(monkeypatch, capsys):
+    """oneshot.main() runs run_one_cycle and returns its int exit code."""
+    import cmc.dispatcher.oneshot as oneshot_mod
+
+    sentinel = 42
+
+    async def _fake_cycle():
+        return sentinel
+
+    # Replace the heartbeat module's run_one_cycle so main()'s import sees ours.
+    monkeypatch.setattr(
+        "cmc.dispatcher.heartbeat.run_one_cycle", _fake_cycle
+    )
+
+    rc = oneshot_mod.main()
+    assert rc == sentinel
+
+    out = capsys.readouterr()
+    # No more Phase-4 stub message.
+    assert "Phase-4 stub" not in out.out
+    assert "Phase-4 stub" not in out.err
+
+
+def test_oneshot_main_handles_exception(monkeypatch, capsys):
+    """When run_one_cycle raises, main() returns 1 and logs to stderr."""
+    import cmc.dispatcher.oneshot as oneshot_mod
+
+    async def _explode():
+        raise RuntimeError("synthetic cycle failure")
+
+    monkeypatch.setattr(
+        "cmc.dispatcher.heartbeat.run_one_cycle", _explode
+    )
+
+    rc = oneshot_mod.main()
+    assert rc == 1
+
+    err = capsys.readouterr().err
+    assert "synthetic cycle failure" in err
