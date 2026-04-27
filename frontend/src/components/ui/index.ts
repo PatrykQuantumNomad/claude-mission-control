@@ -12,4 +12,7 @@ export { Skeleton } from './Skeleton'
 export { EmptyState } from './EmptyState'
 export { RelativeTime, formatRelative } from './RelativeTime'
 export { ShellErrorBoundary, ShellErrorFallback } from './ErrorBoundary'
-// Sheet, CollapsibleSection, CommandPalette land in Plan 05-03 — append exports there.
+// Phase 5 Plan 03 — interactive primitives (Wave 2)
+export { Sheet } from './Sheet'
+export { CollapsibleSection } from './CollapsibleSection'
+export { CommandPalette } from './CommandPalette'

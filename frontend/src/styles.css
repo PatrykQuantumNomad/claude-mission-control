@@ -394,3 +394,74 @@ body {
 }
 .cmc-collapsible__chevron[data-state="closed"] { transform: rotate(-90deg); }
 .cmc-collapsible__content { padding: var(--space-lg); }
+
+/* CommandPalette — UI-SPEC FESH-07 + Motion Contract 180ms scale + opacity */
+.cmc-cmdk {
+  position: fixed; inset: 0;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding-top: 12vh;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  z-index: 50;
+  animation: cmc-cmdk-overlay-in 180ms ease-out;
+}
+.cmc-cmdk__content {
+  width: min(640px, 90vw);
+  background: var(--cmc-surface);
+  border: 1px solid var(--cmc-border);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  animation: cmc-cmdk-panel-in 180ms ease-out;
+}
+@keyframes cmc-cmdk-overlay-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes cmc-cmdk-panel-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.cmc-cmdk__input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--cmc-border);
+  color: var(--cmc-text);
+  font-family: var(--font-body);
+  font-size: var(--size-body);
+  padding: var(--space-md) var(--space-lg);
+  outline: none;
+  caret-color: var(--cmc-accent-blue);
+}
+.cmc-cmdk__input::placeholder { color: var(--cmc-text-subtle); }
+.cmc-cmdk__list { max-height: 400px; overflow-y: auto; padding: var(--space-xs); }
+.cmc-cmdk__empty {
+  padding: var(--space-2xl) var(--space-lg);
+  text-align: center;
+  color: var(--cmc-text-dim);
+  font-size: var(--size-body);
+}
+.cmc-cmdk__group { padding: var(--space-xs) 0; }
+.cmc-cmdk__group [cmdk-group-heading] {
+  padding: var(--space-xs) var(--space-md);
+  font-family: var(--font-mono);
+  font-size: var(--size-label);
+  font-weight: 500;
+  color: var(--cmc-text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.cmc-cmdk__item {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  color: var(--cmc-text);
+  cursor: pointer;
+  font-size: var(--size-body);
+}
+.cmc-cmdk__item[data-selected="true"] {
+  background: rgba(77, 124, 255, 0.12); /* UI-SPEC: command palette selected-item background tint */
+  color: var(--cmc-text);
+}
+/* Reduced motion override — UI-SPEC accessibility contract */
+@media (prefers-reduced-motion: reduce) {
+  .cmc-cmdk, .cmc-cmdk__content { animation: none; }
+}
