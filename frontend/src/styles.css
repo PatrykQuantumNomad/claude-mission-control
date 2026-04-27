@@ -322,3 +322,75 @@ body {
 .cmc-error-fallback__heading { margin: 0 0 var(--space-md); color: var(--cmc-text); font-size: var(--size-heading); }
 .cmc-error-fallback__body { margin: 0 0 var(--space-md); color: var(--cmc-text-dim); }
 .cmc-error-fallback__detail { margin: 0 0 var(--space-md); font-family: var(--font-mono); font-size: var(--size-label); color: var(--cmc-text-subtle); }
+
+/* ─────────────────────────────────────────────────────────── */
+/* Interactive primitives — Phase 5 Plan 03                     */
+/* ─────────────────────────────────────────────────────────── */
+
+/* Sheet — UI-SPEC FESH-04 + Motion Contract 220ms ease-out */
+.cmc-sheet__overlay {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 1);
+  backdrop-filter: blur(2px);
+  z-index: 40;
+}
+.cmc-sheet__panel {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: min(480px, 90vw);
+  background: var(--cmc-surface);
+  border-left: 1px solid var(--cmc-border);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.5);
+  z-index: 41;
+  display: flex; flex-direction: column;
+  outline: none;
+}
+.cmc-sheet__header {
+  padding: var(--space-lg);
+  border-bottom: 1px solid var(--cmc-border);
+  background: var(--cmc-surface-3);
+}
+.cmc-sheet__title {
+  margin: 0;
+  font-size: var(--size-heading);
+  font-weight: var(--weight-semibold);
+  color: var(--cmc-text);
+}
+.cmc-sheet__description {
+  margin: var(--space-xs) 0 0;
+  color: var(--cmc-text-dim);
+  font-size: var(--size-body);
+}
+.cmc-sheet__body {
+  flex: 1; overflow-y: auto;
+  padding: var(--space-lg);
+}
+
+/* CollapsibleSection — UI-SPEC FESH-03 + Motion Contract 220ms ease-out */
+.cmc-collapsible {
+  border: 1px solid var(--cmc-border);
+  border-radius: var(--radius-lg);
+  background: var(--cmc-surface);
+  overflow: hidden;
+}
+.cmc-collapsible__trigger {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%;
+  padding: var(--space-md) var(--space-lg);
+  background: var(--cmc-surface-3);
+  border: none;
+  color: var(--cmc-text);
+  font-family: var(--font-body);
+  font-size: var(--size-body);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  text-align: left;
+}
+.cmc-collapsible__trigger:hover { background: var(--cmc-surface-2); }
+.cmc-collapsible__trigger:focus-visible { outline: 2px solid var(--cmc-accent-blue); outline-offset: -2px; }
+.cmc-collapsible__chevron {
+  display: inline-flex;
+  transition: transform 220ms ease-out;
+  color: var(--cmc-text-dim);
+}
+.cmc-collapsible__chevron[data-state="closed"] { transform: rotate(-90deg); }
+.cmc-collapsible__content { padding: var(--space-lg); }
