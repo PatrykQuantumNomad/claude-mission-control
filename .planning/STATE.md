@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 04-04-PLAN.md (Schedules router — 16 new tests; 193/193 green)
-last_updated: "2026-04-26T17:10:29.554Z"
-last_activity: 2026-04-26
+status: verifying
+stopped_at: Completed 05-01-PLAN.md
+last_updated: "2026-04-27T00:07:10.318Z"
+last_activity: 2026-04-27
 progress:
   total_phases: 9
   completed_phases: 4
-  total_plans: 23
-  completed_plans: 23
-  percent: 100
+  total_plans: 27
+  completed_plans: 24
+  percent: 89
 ---
 
 # Project State
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 
 Phase: 4 of 9 IN PROGRESS (Stateful APIs)
 Plan: 5 of 5 complete in Phase 4 (04-01 + 04-02 + 04-05 ✅; 160/160 tests green)
-Status: Ready to execute
-Last activity: 2026-04-26
+Status: Phase complete — ready for verification
+Last activity: 2026-04-27
 
 Progress (Phase 4): [██████░░░░] 60%
 
@@ -75,6 +75,7 @@ Progress (Phase 4): [██████░░░░] 60%
 | Phase 04-stateful-apis P05 | ~12 min | 2 tasks (TDD; RED+GREEN) | 2 files |
 | Phase 04-stateful-apis PP03 | 8 min | 2 tasks (TDD; RED+GREEN) tasks | 3 files files |
 | Phase 04-stateful-apis P04 | 5 | 2 tasks | 3 files |
+| Phase 05-frontend-shell-design-system P01 | 11 min | 3 tasks tasks | 13 created + 9 modified files files |
 
 ## Accumulated Context
 
@@ -166,6 +167,13 @@ Recent decisions affecting current work:
 - Plan 04-04: SCHD-06 mock site LOCKED — patch at cmc.api.routes.schedules.nl_to_cron (the import binding) NOT cmc.schedules.nlcron.nl_to_cron (the definition). Same pattern as Plan 04-05's emergency_stop_all decision. The conftest mock_anthropic_client fixture (which patches builtins.__import__) remains usable but is more fragile; direct router-import monkeypatch is the cleaner default for any future test of an async helper imported into a router
 - Plan 04-04 test fix (Rule 1): tests must allow naive datetimes in next_run_at responses — SQLite strips tzinfo on round-trip even when the value is inserted tz-aware (Pitfall 4 cousin; same workaround as Plan 04-02 HITL-06 idempotency check). Pattern: parsed = datetime.fromisoformat(...); parsed_aware = parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc); compare parsed_aware to now-UTC
 - Plan 04-04 entry contract for Phase 8 dispatcher (DISP-01): reads schedules WHERE enabled=1 AND next_run_at IS NOT NULL AND next_run_at <= now_utc; idx_schedules_enabled_next_run supports the query. Dispatcher takes ownership of next_run_at advancement after the schedule starts firing — Schedules router is the INITIAL writer (POST + PATCH); dispatcher is the recurring writer (post-fire UPDATE). Both honor the same disabled-clears-next_run_at rule
+- Plan 05-01: Phase 5 Wave 0 foundation landed — 16 deps installed, Vitest 4 + happy-dom + RTL 16 harness with all 5 RESEARCH pitfalls pre-mitigated, AppShell + NavBar + 3 routes (/, /activity, /skills), QueryClientProvider + ErrorBoundary mounted at route-tree root, lib/storage.ts + lib/api.ts (40+ endpoints typed); 12 tests green; npm run build/typecheck/test all exit 0
+- Plan 05-01 deviation (Rule 3): Node 25.x default --webstorage flag plants a bare globalThis.localStorage = {} (no methods!) that shadows happy-dom's Storage Proxy via Vitest populateGlobal. Fix: prefix every test script in package.json with NODE_OPTIONS=--no-experimental-webstorage. Wave 1+2 inherit this — npm run test/test:watch/test:coverage already carry the flag
+- Plan 05-01 pattern: vitest.config.ts is FLAT (does NOT mergeConfig with vite.config) so test runs don't trigger tanstackRouter regen of routeTree.gen.ts; explicit @vitejs/plugin-react() reinstated for JSX/TSX transform
+- Plan 05-01 pattern: AppShell is pure-presentational; QueryClientProvider + ErrorBoundary mount at route-tree root in routes/__root.tsx so AppShell stays trivially unit-testable. Wave 1 layout primitives can render against AppShell in isolation without provider scaffolding
+- Plan 05-01 pattern: component test bootstrap = createMemoryHistory + createRoute + await router.load() BEFORE render + findByText for first assertion. Wave 1+ component tests must follow this shape — getByText immediately after render returns empty body because TanStack Router 1.x bootstrap is async
+- Plan 05-01 entry contract for Wave 1: render helper at frontend/src/test/utils.tsx (wraps MotionConfig reducedMotion='always'); ALL Phase 5 component tests MUST import { render, userEvent } from this module — never directly from @testing-library/react (Pitfall 2)
+- Plan 05-01 entry contract for Phase 6: lib/api.ts exports fetchJson<T> + ApiError + api object covering 40+ Phase 3/4 endpoints; HealthResponse + SessionListResponse have full types (likely first consumers), all other responses typed as unknown for Phase 6 to narrow per-endpoint as it consumes them — avoids speculative typing under tsconfig strict
 
 ### Pending Todos
 
@@ -178,8 +186,8 @@ None — Phase 1 + Phase 2 implementations complete; verifier readiness confirme
 
 ## Session Continuity
 
-Last session: 2026-04-26T17:10:29.547Z
-Stopped at: Completed 04-04-PLAN.md (Schedules router — 16 new tests; 193/193 green)
+Last session: 2026-04-27T00:06:47.974Z
+Stopped at: Completed 05-01-PLAN.md
 Resume file: None
 
 Phase 1 final commit chain:
