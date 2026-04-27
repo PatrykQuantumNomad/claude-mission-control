@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 07-04-PLAN.md (Phase 7 close-out — visual quality bar APPROVED)
-last_updated: "2026-04-27T18:00:00.000Z"
+stopped_at: Completed 08-01-PLAN.md (Phase 8 Wave 1 — dispatcher foundation landed)
+last_updated: "2026-04-27T21:26:25.873Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 9
   completed_phases: 7
-  total_plans: 36
-  completed_plans: 36
-  percent: 100
+  total_plans: 40
+  completed_plans: 37
+  percent: 93
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-25)
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, queue and approve tasks, and kill runaway sessions — all from one browser tab.
-**Current focus:** Phase 7 (Command Centre Panels) COMPLETE 2026-04-27 — Plan 07-04 lands TPNL-03 SchedulesCard + TPNL-04 ScheduleComposer + final /skills overhaul + PlaceholderCardGrid file deletion. All 11 reqIds (HPNL-01/02 + TPNL-01..05 + SKLP-01..04) live; visual quality bar APPROVED by user against ROADMAP success criteria 1-5. Phase 8 (Mission Control Dispatcher) ready to plan — UI is feature-complete; Phase 8 is purely backend (DISP-* requirements).
+**Current focus:** Phase 8 (Mission Control Dispatcher) IN PROGRESS — Plan 08-01 Wave 1 landed 2026-04-27: atomic-claim primitive (BEGIN IMMEDIATE + UPDATE…RETURNING), PID-file contract, schedules→tasks materializer, run_one_cycle async orchestrator skeleton (try/finally tick stamp, emergency-stop early return). DISP-02/03 + atomic-claim half of DISP-01 + concurrency-cap half of DISP-04 live; per-task fan-out deferred to Plan 08-04. 226/226 backend tests green (209 baseline + 17 new). Plans 08-02 (classic runner), 08-03 (stream runner + decisions), 08-04 (fan-out + oneshot wire-up) remain.
 
 ## Current Position
 
-Phase: 7 of 9 COMPLETE (Command Centre Panels) — visual quality bar approved by user 2026-04-27
-Plan: 4 of 4 complete in Phase 7 (07-01 Wave 0 ✅; 07-02 Wave 1 ✅; 07-03 Wave 2 part 1 ✅; 07-04 Wave 2 part 2 + close ✅; 234/234 frontend tests green; 209/209 backend tests green)
-Status: Phase 7 closed; Phase 8 (Mission Control Dispatcher) ready to plan
+Phase: 8 of 9 (Mission Control Dispatcher) — Plan 1 of 4 COMPLETE
+Plan: 1 of 4 complete in Phase 8 (08-01 Wave 1 ✅; 08-02 Wave 2 classic runner pending; 08-03 Wave 2 stream runner pending; 08-04 Wave 3 fan-out + oneshot wire-up pending)
+Status: executing — ready for Plan 08-02
 Last activity: 2026-04-27
 
-Progress (Phase 7): [██████████] 100% (4 of 4 plans)
+Progress (Phase 8): [██░░░░░░░░] 25% (1 of 4 plans)
 
 ## Performance Metrics
 
@@ -93,6 +93,7 @@ Progress (Phase 7): [██████████] 100% (4 of 4 plans)
 | Phase 07-command-centre-panels P02 | ~25 min | 2 tasks (TDD; 4 commits) | 13 files (8 created + 5 modified) |
 | Phase 07-command-centre-panels PP03 | 28 min | 2 tasks (TDD; 4 commits) tasks | 16 files (7 created + 9 modified) files |
 | Phase 07-command-centre-panels P04 | ~28 min | 3 tasks (1 TDD + 1 retire + 1 checkpoint) | 10 files (4 created + 4 modified + 2 deleted) |
+| Phase 08-mission-control-dispatcher P01 | 11 min | 2 (TDD; 4 commits) tasks | 11 files (6 created + 5 modified) files |
 
 ## Accumulated Context
 
@@ -280,6 +281,13 @@ Recent decisions affecting current work:
 - Plan 07-04 pattern LOCKED (V11 NL-cron 503 surfacing): frontend renders `mutation.error.message` body literal verbatim — never branches on cause ("no API key" vs "invalid model output" vs "anthropic SDK error"). Backend already collapsed the 3 paths to one message in Plan 04-04. Reusable for any future endpoint that needs to expose a server error without leaking config detail
 - Plan 07-04 pattern LOCKED (bespoke aria-pressed day chips): 7 `<button>` with `aria-pressed={isOn}` + `cmc-day-chip--on` modifier. RESEARCH §Day-of-week chips ruling: bespoke for v1, Radix toggle group is a v2 candidate. Reusable for any 7-of-N or M-of-N segmented selector where toggle group's group-level aria-multiselectable contract isn't required
 - 2026-04-27: Phase 7 visual quality bar APPROVED by user — every Plan 07-04 Task 3 verification step (TPNL-05 banner state machine; HPNL-01/02 live curl→refresh paths; TPNL-01/02 Cmd+K composer + approval banner; TPNL-03/04 cron preview live + NL parse + lazy run-history; SKLP-01..04 spot checks; AttentionBar real counts; PlaceholderCardGrid grep returns no matches) passed against running dev server. Phase 7 closes ready for verifier handoff with 11/11 reqIds live, 234/234 frontend tests green, 209/209 backend tests green. Phase 8 (Mission Control Dispatcher) is purely backend (DISP-* requirements) — UI is feature-complete
+- Plan 08-01 complete: Phase 8 Wave 1 foundation landed — 7 dispatcher Settings fields + httpx promoted to runtime dep + 5 dispatcher modules (state/sweep/claim/materialize/heartbeat) + 17 new tests (226/226 backend green); DISP-02 (emergency stop early return), DISP-03 (stale PID sweep w/ psutil), atomic-claim half of DISP-01 (BEGIN IMMEDIATE + UPDATE...RETURNING via engine.connect()), concurrency-cap half of DISP-04 (slots = max(0, max_concurrent - len(live_pids))) all live; per-task fan-out left as TODO comment for Plan 08-04
+- Plan 08-01: Dispatcher env var convention LOCKED at bare names (CLAUDE_BIN, DISPATCHER_MAX_CONCURRENT, etc.) — matches Phase 1 PORT/DB_PATH/LOG_LEVEL convention; CMC_-prefix experiment deferred (would require renaming all existing env vars + .env.example refactor)
+- Plan 08-01: claim_pending_tasks signature LOCKED at (engine: AsyncEngine, slots: int) NOT (db: AsyncSession, slots: int) — AsyncSession auto-begins DEFERRED transaction conflicting with explicit BEGIN IMMEDIATE; engine.connect() returns untransacted Connection so we issue BEGIN IMMEDIATE before any auto-BEGIN; heartbeat passes engine directly. Documented fallback (engine.connect().execution_options(isolation_level='SERIALIZABLE')) preserved in module docstring
+- Plan 08-01 deviation (Rule 2 - Missing Critical): Pitfall 7 hardened beyond plan — materialize_due_schedules wraps each schedule in db.begin_nested() SAVEPOINT and catches (TypeError, IntegrityError, SQLAlchemyError, ValueError). Plan said TypeError-only but SQLModel/Pydantic extra='allow' silently absorbs unknown kwargs so typos like {'priorty': 5} only fail at flush as IntegrityError NOT NULL constraint failed. SAVEPOINT prevents one bad row from poisoning the session for subsequent schedules in the same cycle; next_run_at left untouched on bad row so SAPI-04 surfaces lag
+- Plan 08-01 entry contract for Plans 08-02/03/04: cmc.dispatcher.state exports {pid_dir, write_pid_file, unlink_pid_file, list_live_pids, stamp_tick, max_concurrent, MAX_CONCURRENT}; cmc.dispatcher.heartbeat exports {run_one_cycle, MAX_CONCURRENT}; per-task fan-out TODO at heartbeat.py line ~88 — Plan 08-04 wires await asyncio.gather(*runner_tasks) and swaps cmc.dispatcher.oneshot:main from Phase 4 stub to asyncio.run(run_one_cycle()). Test file convention: ALL Plans 02-04 APPEND DISP-05..12 sections to backend/tests/test_phase8_dispatcher.py (single-file Phase test convention; mirrors Phase 4)
+- Plan 08-01 conftest fixture additivity convention LOCKED: NEW fixtures use distinct names (tmp_pid_dir_monkey, make_task_orm, make_schedule_orm) — DO NOT redefine Phase 4 helpers (tmp_pid_dir, make_task_row dict). Phase 4 ESTOP/HITL tests continue to use Phase 4 fixtures unchanged. make_task_row gains optional timeout_s=None kwarg (backward-compat for Plan 02 DISP-05 timeout tests)
+- Plan 08-01 deviation (Rule 1 - Test infra): AsyncEngine.dispose is read-only attr (defined via __slots__/property in SQLAlchemy 2.0); monkeypatch.setattr(engine, 'dispose', ...) raises AttributeError. Pattern: do NOT patch dispose — engine.dispose() calls pool.dispose() which is idempotent; subsequent session-factory calls reacquire connections through the same pool. Tests that pass a manually-constructed engine into run_one_cycle let heartbeat dispose it; the test's own finally: await engine.dispose() is a harmless second call. Reusable for any future test of code that disposes engines internally
 
 ### Pending Todos
 
@@ -292,8 +300,8 @@ None — Phases 1–7 implementations complete; visual quality bar APPROVED by u
 
 ## Session Continuity
 
-Last session: 2026-04-27T18:00:00.000Z
-Stopped at: Completed 07-04-PLAN.md (Phase 7 close-out — visual quality bar APPROVED)
+Last session: 2026-04-27T21:25:47.914Z
+Stopped at: Completed 08-01-PLAN.md (Phase 8 Wave 1 — dispatcher foundation landed)
 Resume file: None
 
 Phase 1 final commit chain:

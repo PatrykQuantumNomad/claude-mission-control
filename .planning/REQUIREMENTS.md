@@ -176,8 +176,10 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Mission Control
 
 - [ ] **DISP-01**: Heartbeat runs every 120s via launchd, claims pending tasks atomically, materializes schedules, invokes dispatcher
-- [ ] **DISP-02**: Dispatcher honors emergency_stop flag with early return
-- [ ] **DISP-03**: Dispatcher sweeps stale PIDs from .tmp/mission-control-queue/pids/
+- [x] **DISP-02
+**: Dispatcher honors emergency_stop flag with early return
+- [x] **DISP-03
+**: Dispatcher sweeps stale PIDs from .tmp/mission-control-queue/pids/
 - [ ] **DISP-04**: Dispatcher runs up to MAX_CONCURRENT (3) tasks with skill autonomy check
 - [ ] **DISP-05**: Classic mode: subprocess.Popen claude -p with timeout, stdout capture, PID tracking
 - [ ] **DISP-06**: Stream mode: subprocess.Popen with stdin/stdout pipes, JSON line parsing, PID tracking
