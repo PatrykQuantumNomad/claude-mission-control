@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.cmc.dispatcher</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>${python_path}</string>
+        <string>-m</string>
+        <string>cmc.dispatcher.oneshot</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>${repo_root}</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+        <key>PATH</key>
+        <string>${python_path_dir}:/usr/bin:/bin</string>
+    </dict>
+
+    <key>StartInterval</key>
+    <integer>120</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>${repo_root}/.tmp/mission-control-queue/dispatcher-logs/oneshot.out</string>
+
+    <key>StandardErrorPath</key>
+    <string>${repo_root}/.tmp/mission-control-queue/dispatcher-logs/oneshot.err</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>
