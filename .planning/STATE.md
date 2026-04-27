@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 08-03-PLAN.md
-last_updated: "2026-04-27T22:17:17.725Z"
+stopped_at: Completed 08-04-PLAN.md (Phase 8 close-out — human-verify APPROVED)
+last_updated: "2026-04-27T23:00:00.000Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 9
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 40
-  completed_plans: 39
-  percent: 98
+  completed_plans: 40
+  percent: 100
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-25)
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, queue and approve tasks, and kill runaway sessions — all from one browser tab.
-**Current focus:** Phase 8 (Mission Control Dispatcher) IN PROGRESS — Plan 08-03 Wave 3 landed 2026-04-27: stream-mode subprocess runner + fenced-code-aware DECISION/INBOX marker parser + decision answer poll + INBOX→/api/inbox httpx poster + Wave-2 stdin-shape spike (RESULT: ACCEPTED — claude 2.1.112 accepts symmetric NDJSON on stdin; RESEARCH §Open Q2 RESOLVED). DISP-06 (bidirectional pipes + reader thread + dedicated asyncio loop) + DISP-07 (locked grammar + answer poll) + DISP-08 (httpx POST) all live. 271/271 backend tests green (246 baseline + 25 new across 6 commits = 3 RED + 3 GREEN). Plan 08-04 (heartbeat fan-out + follow-up pump + skill router + autonomy gate + close-out) remains. heartbeat.run_one_cycle fan-out TODO PRESERVED — Plan 04 will replace it.
+**Current focus:** Phase 8 of 9 COMPLETE (Mission Control Dispatcher) — Plan 08-04 Wave 4 close-out APPROVED by user 2026-04-27 against ROADMAP success criteria 1-5. Heartbeat fan-out TODO from Plan 01 finalized (skill_router → autonomy_gate → threading.Thread spawn for run_classic/run_stream); FollowUpPump (DISP-09) wired into run_stream alongside the reader thread; skill_router (DISP-11) Haiku 4.5 routing for unassigned tasks; autonomy_gate (DISP-04 second half) with Pitfall-12 unknown→manual default; 4 E2E integration tests cover ROADMAP SC1-5 in-process. 298/298 backend tests green (271 baseline + 27 new across 5 commits = 2 RED + 2 GREEN + 1 E2E). All 12 DISP-* requirements covered by passing tests. Stdin NDJSON spike RESOLVED in Plan 08-03 (claude 2.1.112 accepts symmetric NDJSON on stdin) — FollowUpPump payload shape locked by spike. Phase 9 (Telegram, Setup & Testing) is the final phase; no plans drafted yet.
 
 ## Current Position
 
-Phase: 8 of 9 (Mission Control Dispatcher) — Plan 3 of 4 COMPLETE
-Plan: 3 of 4 complete in Phase 8 (08-01 Wave 1 ✅; 08-02 Wave 2 classic runner ✅; 08-03 Wave 3 stream runner ✅; 08-04 Wave 4 fan-out + follow-up pump + skill router + autonomy gate pending)
-Status: Ready to execute
+Phase: 8 of 9 COMPLETE (Mission Control Dispatcher) — all 4 plans landed, human-verify APPROVED
+Plan: 4 of 4 complete in Phase 8 (08-01 Wave 1 ✅; 08-02 Wave 2 classic runner ✅; 08-03 Wave 3 stream runner ✅; 08-04 Wave 4 fan-out + follow-up pump + skill router + autonomy gate ✅)
+Status: Ready for verifier handoff; Phase 9 (Telegram, Setup & Testing) is the next phase to plan
 Last activity: 2026-04-27
 
-Progress (Phase 8): [████████░░] 75% (3 of 4 plans)
+Progress (Phase 8): [██████████] 100% (4 of 4 plans)
 
 ## Performance Metrics
 
@@ -54,8 +54,8 @@ Progress (Phase 8): [████████░░] 75% (3 of 4 plans)
 
 **Recent Trend:**
 
-- Last 5 plans: 06-05, 07-01, 07-02, 07-03, 07-04 (Phase 7 closes; SchedulesCard + ScheduleComposer land; PlaceholderCardGrid file + test DELETED; visual quality bar APPROVED by user 2026-04-27 against ROADMAP success criteria 1-5; 234/234 frontend + 209/209 backend tests green)
-- Trend: Plan 07-04 landed as 3 atomic commits (1 RED + 1 GREEN for Task 1 TDD + 1 retirement-and-integration commit for Task 2). Zero deviations — plan executed exactly as written; every Pitfall (3 mid-typing fallback, 9 lazy run-history, 10 PlaceholderCardGrid retirement, V11 single-message NL-cron 503) spec'd directly into RED tests up-front. Plan landed +18 new frontend tests (8 SchedulesCard + 10 ScheduleComposer) − 3 retired (deleted PlaceholderCardGrid.test.tsx) = +15 net (219 → 234). Backend untouched (209/209 unchanged). Phase 7 close-out human-verify checkpoint approved by user covering all 14 verification steps including TPNL-05 banner state machine, schedule composer cron preview live updates, lazy run-history (verified DevTools network tab), and visual quality bar match to Phase 6.
+- Last 5 plans: 07-04, 08-01, 08-02, 08-03, 08-04 (Phase 8 closes; dispatcher fan-out finalized + skill router + autonomy gate + FollowUpPump live; visual/functional human-verify APPROVED by user 2026-04-27 against ROADMAP success criteria 1-5; 234/234 frontend + 298/298 backend tests green)
+- Trend: Plan 08-04 landed as 5 atomic commits (2 RED + 2 GREEN for Tasks 1-2 TDD + 1 commit covering Task 3 E2E integration tests with a heartbeat to_thread join Rule-1 fix). 3 deviations all auto-fixed (all Rule-1 bugs): (1) Python dict mutation in `_resolve_skill_for_task` does not propagate back to the caller's local var → helper now returns `(rebuilt_row, skill)` tuple and the caller reassigns; (2) heartbeat.run_one_cycle waited on threading.Thread.join() inside the asyncio loop without yielding → wrapped in `await asyncio.to_thread(t.join, ...)` so the cycle's tick stamp can write while runner threads are mid-flight; (3) run_stream teardown order locked at pump.stop()→stdin.close()→reader.join(10)→pump_thread.join(2)→loop.stop+join+close→log_fp.close()→unlink_pid_file (Pitfall-multi-thread shutdown race). Plan landed +27 new backend tests (15 unit + 8 fan-out + 4 E2E in-process) bringing suite from 271 to 298. All 12 DISP-* requirements now covered by passing tests. Phase 8 close-out human-verify checkpoint APPROVED by user against ROADMAP success criteria 1-5; the launchd-bootstrap step (SC step 19-21) was deliberately deferred to Phase 9 install.sh per the plan's checkpoint guidance.
 
 *Updated after each plan completion*
 | Phase 01-foundation-database P02 | 4 min | 3 tasks | 17 files |
@@ -96,6 +96,7 @@ Progress (Phase 8): [████████░░] 75% (3 of 4 plans)
 | Phase 08-mission-control-dispatcher P01 | 11 min | 2 (TDD; 4 commits) tasks | 11 files (6 created + 5 modified) files |
 | Phase 08-mission-control-dispatcher PP02 | 9 min | 2 tasks (TDD; 4 commits) tasks | 9 files (7 created + 2 modified) files |
 | Phase 08 P03 | 30min | 3 tasks | 7 files |
+| Phase 08-mission-control-dispatcher P04 | ~25 min | 4 tasks (2 TDD + 1 E2E + 1 close-out checkpoint; 5 commits) | 6 files (3 created + 3 modified) |
 
 ## Accumulated Context
 
@@ -301,6 +302,14 @@ Recent decisions affecting current work:
 - Plan 08-03: shell-script test wrapper helpers MUST shlex.quote each fixture arg. _write_fake_claude_stream_wrapper joined args with single spaces; the shell then word-split flag values containing whitespace (e.g. --emit-inbox 'heads up' became three tokens). Pattern locked: shlex.quote per arg before space-join.
 - Plan 08-03 complete: Phase 8 Wave 3 stream-mode runner landed — 5 production modules (marker_parser/answer_poll/inbox_post/run_stream/_input_format_spike) + 1 test fixture (fake_claude_stream.py) + 25 new tests (271/271 backend green; 246 baseline + 12 marker/poll/inbox + 10 run_stream + 3 spike). DISP-06 (bidirectional pipes + reader thread + dedicated asyncio loop), DISP-07 (locked grammar + answer poll + decision INSERT + wake-up follow-up + timeout interrupt), DISP-08 (httpx POST /api/inbox with ConnectError tolerance) all live. Wave-2 stdin-shape spike returns ACCEPTED against /opt/homebrew/bin/claude (Claude Code 2.1.112) — RESEARCH §Open Q2 RESOLVED. heartbeat fan-out TODO PRESERVED. Threading model: caller thread (subprocess lifecycle) + reader thread (sync stdout.readline → parser dispatch) + asyncio-loop thread (async DB / httpx via run_coroutine_threadsafe). Teardown order LOCKED: close stdin → reader.join → loop.stop → loop_thread.join → loop.close → log close → unlink_pid_file
 - Plan 08-03 entry contract for Plan 08-04: run_stream(task_row, settings, sessions, *, skill=None) is callable directly with PID-file lifecycle correctness; symmetric NDJSON stdin shape LOCKED (verified by spike); MarkerParser + wait_for_answer + post_inbox_marker independently importable; fake_claude_stream.py supports --emit-decision pause-on-stdin mode for follow-up-pump tests; the wake-up follow-up at run_stream.handle_marker DECISION branch (lines ~120-145) is THE single point Plan 04 modifies to plug in queue-driven follow-up content from ~/.tmp/mission-control-queue/decisions/{decision_id}.jsonl; everything else stays. heartbeat.run_one_cycle fan-out TODO at heartbeat.py:~88 untouched — Plan 04 replaces with threading.Thread fan-out (per-claimed-row, target=run_classic|run_stream selected by task.execution_mode).
+- Plan 08-04: Heartbeat fan-out shape LOCKED — for each claimed row: (1) `_resolve_skill_for_task(row, sessions)` returns `(rebuilt_row, skill)` tuple; caller MUST reassign because Python dict mutation in a helper does NOT propagate back to the caller's local var (the earlier in-place `task_row = dict(task_row)` was a no-op bug). (2) `check_autonomy(row, skill, sessions)` returns `('proceed', None)` or `('block', reason)`; review/manual/unknown all block → PATCHes Task to `awaiting_approval` and continues to next claimed row. (3) Mode-to-runner: `execution_mode in {'stream'}` → run_stream; else → run_classic (covers 'classic', 'interactive' per RESEARCH §A8, and unknown). (4) `threading.Thread(target=runner, args=(row, settings, sessions), kwargs={'skill': skill}, daemon=False)` spawned per claimed row; cycle awaits all threads via `asyncio.to_thread(t.join)` so the tick stamp can write while runners are mid-flight.
+- Plan 08-04: FollowUpPump dual-path SHAPE LOCKED — pump polls ONLY `queue_path('messages', f'task-{task_id}')` (single channel in v1); decision answers reach run_stream via the `answer_poll` DB-read loop (Plan 03), NOT via stdin injection; inbox replies are NOT re-injected into the running task in v1 — they land at `queue_path('inbox', <id>)` for downstream consumers (Phase 9+). Symmetric NDJSON shape `{type:'user', message:{role:'user', content:<body>}}` validated by Plan 08-03's stdin-shape spike. Pump terminates when stop_event is set OR when proc.stdin closes (BrokenPipeError → self._stop.set()).
+- Plan 08-04: run_stream teardown order LOCKED at six steps — (1) pump.stop() so the pump loop exits before next poll; (2) close proc.stdin so the subprocess sees EOF and the reader thread is not blocked indefinitely; (3) reader.join(timeout=10) — drains stdout; (4) pump_thread.join(timeout=2) — exits within poll_s of stop(); (5) loop.call_soon_threadsafe(loop.stop) → loop_thread.join(timeout=2) → loop.close(); (6) log_fp.close() and unlink_pid_file (idempotent). Justification documented inline. Pump must stop FIRST or it could write to a closed stdin and log false errors.
+- Plan 08-04: Skill router env-var convention LOCKED — pick_skill returns None when ANTHROPIC_API_KEY is unset (graceful 503-style degradation, mirrors Phase 4 nl_to_cron). Returns None for malformed JSON output (logged but not raised) and for hallucinated skill names (cross-checked against the user_invocable=True registry). Anthropic model: claude-haiku-4-5, max_tokens=128, strict-JSON system prompt. Lazy-imports AsyncAnthropic inside the function (mirrors nlcron pattern).
+- Plan 08-04: autonomy_gate Pitfall-12 LOCKED — unknown autonomy values (e.g. 'approval-required', 'super-auto') are treated as 'manual' (block + PATCH to awaiting_approval), NOT as 'auto'. Conservative default. Skill is None → proceed (treat unrouted tasks as auto). Skill.autonomy='auto' → proceed. Skill.autonomy='review' → block with reason='review'. Else → block with reason='manual'.
+- Plan 08-04: 4 in-process E2E tests + 1 cross-process E2E test (slow-marked) cover ROADMAP Phase 8 success criteria 1-5. The cross-process test (test_e2e_two_processes_no_double_claim) seeds 5 pending tasks in a tmp DB and spawns TWO `python -m cmc.dispatcher.oneshot` subprocesses against the same DB URL via CMC_DATABASE_URL — confirms the SQLite WAL + BEGIN IMMEDIATE atomic-claim contract holds across OS-level processes (not just asyncio coroutines in one process). Test partitions: union of claimed task IDs covers all 5; intersection is empty.
+- 2026-04-27: Phase 8 close-out APPROVED by user — manual SC1-SC4 verification against running system; SC5 (concurrency cap) covered by automated E2E. Steps 19-21 (launchd plist registration via launchctl bootstrap/kickstart) deliberately deferred to Phase 9 install.sh per the plan's checkpoint guidance. 298/298 backend tests green; 12 of 12 DISP-* requirements complete; heartbeat fan-out finalized; FollowUpPump live; skill router + autonomy gate live. Phase 8 closes ready for verifier handoff.
+- Phase 8 close: 13 dispatcher modules under cmc/dispatcher/ (state, sweep, claim, materialize, heartbeat, run_classic, run_stream, model_resolve, plist_render, marker_parser, answer_poll, inbox_post, follow_ups, skill_router, autonomy_gate, _input_format_spike) + 1 plist template + 2 fake-claude test fixtures. 12 DISP-* requirements: DISP-01 (atomic claim + materialize) Plan 01 + 04; DISP-02 (emergency stop early return) Plan 01; DISP-03 (PID sweep) Plan 01; DISP-04 (concurrency cap + autonomy gate) Plan 01 + 04; DISP-05 (classic runner) Plan 02; DISP-06 (stream runner) Plan 03; DISP-07 (DECISION + answer poll) Plan 03; DISP-08 (INBOX → /api/inbox) Plan 03; DISP-09 (FollowUpPump) Plan 04; DISP-10 (model resolution) Plan 02; DISP-11 (skill router) Plan 04; DISP-12 (plist + render) Plan 02. Outstanding items punted to Phase 9: install.sh launchd plist registration; doctor.py dispatcher health check; Telegram fan-out from inbox writes (TELE-02).
 
 ### Pending Todos
 
@@ -309,12 +318,12 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-None — Phases 1–7 implementations complete; visual quality bar APPROVED by user 2026-04-27 against ROADMAP success criteria 1-5. Verifier readiness confirmed via 209 backend tests + 234 frontend tests green. /skills final form: 8 panels (DecisionsCard + InboxCard above-grid; TaskBoard + SchedulesCard + SkillsRegistry + McpPanel(reqId="SKLP-01") + SkillCostCard + ContextHealthCard in cmc-card-grid). PlaceholderCardGrid file + test DELETED — last consumer eliminated; Plan 05-04 STATE.md L207 contract closed atomically with typecheck-time guarantee. Phase 8 (Mission Control Dispatcher) is purely backend DISP-* — UI is feature-complete.
+None — Phases 1–8 implementations complete; visual quality bar APPROVED by user 2026-04-27 against Phase 5/6/7 ROADMAP success criteria 1-5; Phase 8 dispatcher human-verify APPROVED by user 2026-04-27 against Phase 8 ROADMAP success criteria 1-5. Verifier readiness confirmed via 298 backend tests + 234 frontend tests green. All 12 DISP-* requirements covered by passing automated tests. Phase 9 (Telegram, Setup & Testing) is the final phase: TELE-01..07 + SETUP-01..07 + TEST-01..04 — no plans drafted yet. Outstanding items punted from Phase 8 to Phase 9: install.sh launchd plist registration via `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.cmc.dispatcher.plist`; doctor.py dispatcher health check; Telegram fan-out from inbox writes (TELE-02).
 
 ## Session Continuity
 
-Last session: 2026-04-27T22:17:00.443Z
-Stopped at: Completed 08-03-PLAN.md
+Last session: 2026-04-27T23:00:00.000Z
+Stopped at: Completed 08-04-PLAN.md (Phase 8 close-out — human-verify APPROVED)
 Resume file: None
 
 Phase 1 final commit chain:
@@ -356,3 +365,10 @@ Phase 7 final commit chain:
 - 07-02: (Wave 1) RED + GREEN for HPNL panels (DecisionsCard + InboxCard) + RED + GREEN for SKLP page lower half (SkillsRegistry + SkillCostCard v2 placeholder + McpPanel reqId override) + plan close (4 atomic commits + docs)
 - 07-03: (Wave 2 part 1) RED + GREEN for TaskBoard (TPNL-01) + TaskComposer (TPNL-02) + CommandPalette wiring; routes/system.py AttentionBar real counts atomic fix; 4 atomic commits + docs (7577f70 GREEN among them)
 - 07-04: eca3d87 + 30b17d0 + 404f93d + (this closing commit) (RED — SchedulesCard + ScheduleComposer behavior 18 cases / GREEN — SchedulesCard TPNL-03 + ScheduleComposer TPNL-04 panels + barrel + styles.css / Task 2 — /skills final overhaul + PlaceholderCardGrid file + test DELETED + integration smoke updates / Phase 7 close-out SUMMARY + STATE — visual quality bar APPROVED by user 2026-04-27)
+
+Phase 8 final commit chain:
+
+- 08-01: 8c6231e + c975de6 + 5a8b6cf + f7b4eb3 + 91d7530 (RED Settings/state/conftest / GREEN 7 Settings fields + httpx promotion + state.py / RED sweep+claim+materialize+heartbeat skeleton / GREEN sweep + claim BEGIN IMMEDIATE + materialize SAVEPOINT + heartbeat orchestration shell / plan close)
+- 08-02: 61dc067 + 8ede11d + dbfa1bb + c0cad6e + f79ecf5 (RED model_resolve + run_classic + fake_claude_classic / GREEN resolve_model 4-tier precedence + run_classic with Pitfall-8/10 + fake-claude wrapper / RED plist template + oneshot replacement / GREEN com.cmc.dispatcher.plist.j2 string.Template + render_plist + oneshot.py wires asyncio.run(run_one_cycle()) / plan close)
+- 08-03: 37d09e5 + 592c71a + f907e6c + 6ceb130 + 487b468 + 143fa01 + 68d183c (RED marker_parser + answer_poll + inbox_post / GREEN MarkerParser fenced-code-aware grammar + wait_for_answer fresh-AsyncSession-per-iter + post_inbox_marker httpx ConnectError-tolerant / RED run_stream 10 tests / GREEN run_stream reader-thread + dedicated asyncio-loop thread + DECISION/INBOX handlers + wake-up follow-up + fake_claude_stream fixture / RED stdin-shape spike / GREEN _input_format_spike — claude 2.1.112 ACCEPTED / plan close)
+- 08-04: 64ed174 + 2611bdc + f5e470c + bbfc961 + 16e924f + (this closing commit) (RED skill_router + autonomy_gate + follow_ups 15 tests / GREEN pick_skill Haiku 4.5 + check_autonomy Pitfall-12 + FollowUpPump atomic-truncate / RED heartbeat fan-out + run_stream FollowUpPump 8 tests / GREEN heartbeat fan-out finalized — _resolve_skill_for_task tuple-return + threading.Thread spawn + asyncio.to_thread join + run_stream pump_thread + locked teardown order / E2E 4 in-process integration tests covering ROADMAP SC1-5 + heartbeat to_thread Rule-1 fix / Phase 8 close-out SUMMARY + STATE + ROADMAP + REQUIREMENTS — human-verify APPROVED by user 2026-04-27 against ROADMAP success criteria 1-5)

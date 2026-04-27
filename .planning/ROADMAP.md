@@ -19,7 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 5: Frontend Shell & Design System** - TanStack Router, app shell, components, dark theme, visual polish
 - [x] **Phase 6: Observability & Activity Panels** - All 15 observability panels plus the 6 activity page panels
 - [x] **Phase 7: Command Centre Panels** - HITL decision/inbox panels, task board, schedule composer, skills page, emergency stop
-- [ ] **Phase 8: Mission Control Dispatcher** - Heartbeat, task execution (classic + stream), DECISION/INBOX parsing, skill routing
+- [x] **Phase 8: Mission Control Dispatcher** - Heartbeat, task execution (classic + stream), DECISION/INBOX parsing, skill routing
 - [ ] **Phase 9: Telegram, Setup & Testing** - Telegram bridge, install.sh, cc CLI, doctor.py, Playwright e2e tests
 
 ## Phase Details
@@ -197,7 +197,7 @@ Wave structure (sequential — each plan extends modules the next plan exercises
 - [x] 08-01-PLAN.md — Wave 1 foundation: 7 Settings fields + httpx runtime promotion + cmc.dispatcher.{state,sweep,claim,materialize,heartbeat} skeleton (DISP-01 atomic claim + DISP-02 emergency stop + DISP-03 PID sweep + DISP-04 concurrency cap), Phase 8 test scaffold ✅ 2026-04-27 (226/226 backend tests green; per-task fan-out left as documented TODO for Plan 08-04)
 - [x] 08-02-PLAN.md — Wave 2 classic + plist: cmc.dispatcher.{model_resolve,run_classic,plist_render,templates/com.cmc.dispatcher.plist.j2} + oneshot.py replacement (DISP-05 subprocess.Popen claude -p with timeout/stdout/PID + DISP-10 model resolution chain + DISP-12 launchd plist template + render helper) ✅ 2026-04-27 (246/246 backend tests green; classic-mode runner + 4-tier model precedence + launchd plist template all verified; oneshot.py now invokes the real run_one_cycle entry point)
 - [x] 08-03-PLAN.md — Wave 3 stream + markers: cmc.dispatcher.{marker_parser,answer_poll,inbox_post,run_stream,_input_format_spike} + fake_claude_stream fixture (DISP-06 bidirectional pipes + DISP-07 fenced-code-aware DECISION/INBOX parser + answer poll + DISP-08 INBOX→/api/inbox + Wave-2 stdin-shape spike for DISP-09) ✅ 2026-04-27 (271/271 backend tests green; stream-mode runner with reader thread + dedicated asyncio loop verified end-to-end via fake_claude_stream; Wave-2 stdin-shape spike returns ACCEPTED against real claude 2.1.112 — RESEARCH §Open Q2 RESOLVED)
-- [ ] 08-04-PLAN.md — Wave 4 fan-out + close-out: cmc.dispatcher.{follow_ups,skill_router,autonomy_gate} + heartbeat fan-out finalize + run_stream FollowUpPump wiring + 4 E2E tests (DISP-04 autonomy gate + DISP-09 queue→stdin pump + DISP-11 Haiku skill router) + human-verify close-out checkpoint against ROADMAP success criteria 1-5
+- [x] 08-04-PLAN.md — Wave 4 fan-out + close-out: cmc.dispatcher.{follow_ups,skill_router,autonomy_gate} + heartbeat fan-out finalize + run_stream FollowUpPump wiring + 4 E2E tests (DISP-04 autonomy gate + DISP-09 queue→stdin pump + DISP-11 Haiku skill router) + human-verify close-out checkpoint against ROADMAP success criteria 1-5 ✅ 2026-04-27 (298/298 backend tests green; heartbeat fan-out TODO finalized; FollowUpPump live; skill_router + autonomy_gate live; all 12 DISP-* requirements complete; human-verify APPROVED by user against SC1-5)
 
 ### Phase 9: Telegram, Setup & Testing
 **Goal**: Optional Telegram pager works for notifications and callbacks, one-command installer sets up everything, and Playwright tests verify the critical user flows
@@ -227,5 +227,5 @@ Note: Phases 3, 4, and 5 can execute in parallel after Phase 2 (or Phase 1 for 4
 | 5. Frontend Shell & Design System | 4/4 | Complete (visual quality bar approved by user) | 2026-04-27 |
 | 6. Observability & Activity Panels | 5/5 | Complete (visual quality bar approved by user) | 2026-04-27 |
 | 7. Command Centre Panels | 4/4 | Complete (verifier: 5/5 must-haves; visual quality bar approved by user) | 2026-04-27 |
-| 8. Mission Control Dispatcher | 0/TBD | Not started | - |
+| 8. Mission Control Dispatcher | 4/4 | Complete (verifier pending) | 2026-04-27 |
 | 9. Telegram, Setup & Testing | 0/TBD | Not started | - |

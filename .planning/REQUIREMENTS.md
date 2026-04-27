@@ -175,12 +175,14 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Mission Control
 
-- [ ] **DISP-01**: Heartbeat runs every 120s via launchd, claims pending tasks atomically, materializes schedules, invokes dispatcher
+- [x] **DISP-01
+**: Heartbeat runs every 120s via launchd, claims pending tasks atomically, materializes schedules, invokes dispatcher
 - [x] **DISP-02
 **: Dispatcher honors emergency_stop flag with early return
 - [x] **DISP-03
 **: Dispatcher sweeps stale PIDs from .tmp/mission-control-queue/pids/
-- [ ] **DISP-04**: Dispatcher runs up to MAX_CONCURRENT (3) tasks with skill autonomy check
+- [x] **DISP-04
+**: Dispatcher runs up to MAX_CONCURRENT (3) tasks with skill autonomy check
 - [x] **DISP-05
 **: Classic mode: subprocess.Popen claude -p with timeout, stdout capture, PID tracking
 - [x] **DISP-06
@@ -189,10 +191,12 @@ Requirements for initial release. Each maps to roadmap phases.
 **: Stream mode parses DECISION: markers (skipping fenced code blocks) and blocks on answer poll
 - [x] **DISP-08
 **: Stream mode parses INBOX: markers and posts to /api/inbox
-- [ ] **DISP-09**: Stream mode polls queue file for user follow-ups and injects to stdin
+- [x] **DISP-09
+**: Stream mode polls queue file for user follow-ups and injects to stdin
 - [x] **DISP-10
 **: Dispatcher resolves model from task > skill frontmatter > env > CLI default
-- [ ] **DISP-11**: Skill router uses Haiku to pick best skill for unassigned tasks
+- [x] **DISP-11
+**: Skill router uses Haiku to pick best skill for unassigned tasks
 - [x] **DISP-12
 **: Launchd plist template with correct Python path (not /usr/bin/python3)
 
@@ -453,18 +457,18 @@ Requirements for initial release. Each maps to roadmap phases.
 | SKLP-02 | Phase 7 | Pending |
 | SKLP-03 | Phase 7 | Pending |
 | SKLP-04 | Phase 7 | Pending |
-| DISP-01 | Phase 8 | Pending |
-| DISP-02 | Phase 8 | Pending |
-| DISP-03 | Phase 8 | Pending |
-| DISP-04 | Phase 8 | Pending |
-| DISP-05 | Phase 8 | Pending |
+| DISP-01 | Phase 8 | Complete |
+| DISP-02 | Phase 8 | Complete |
+| DISP-03 | Phase 8 | Complete |
+| DISP-04 | Phase 8 | Complete |
+| DISP-05 | Phase 8 | Complete |
 | DISP-06 | Phase 8 | Complete |
 | DISP-07 | Phase 8 | Complete |
 | DISP-08 | Phase 8 | Complete |
-| DISP-09 | Phase 8 | Pending |
-| DISP-10 | Phase 8 | Pending |
-| DISP-11 | Phase 8 | Pending |
-| DISP-12 | Phase 8 | Pending |
+| DISP-09 | Phase 8 | Complete |
+| DISP-10 | Phase 8 | Complete |
+| DISP-11 | Phase 8 | Complete |
+| DISP-12 | Phase 8 | Complete |
 | TELE-01 | Phase 9 | Pending |
 | TELE-02 | Phase 9 | Pending |
 | TELE-03 | Phase 9 | Pending |
