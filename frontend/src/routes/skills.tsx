@@ -12,7 +12,12 @@
 
 import { createFileRoute } from '@tanstack/react-router'
 import { PlaceholderCardGrid, type PlaceholderSlot } from '../components/PlaceholderCardGrid'
+import { ContextHealthCard } from '../components/panels'
 
+// Plan 07-01 (Wave 0) removed SKLP-03 from this list — ContextHealthCard
+// renders the live panel below the placeholder grid. Plans 07-02..07-04
+// retire the remaining slots one-by-one and Plan 07-04 deletes the
+// PlaceholderCardGrid helper entirely.
 const SKILLS_SLOTS: PlaceholderSlot[] = [
   { reqId: 'HPNL-01', title: 'Decisions', dataNoun: 'pending decisions' },
   { reqId: 'HPNL-02', title: 'Inbox', dataNoun: 'agent-to-user messages' },
@@ -20,7 +25,6 @@ const SKILLS_SLOTS: PlaceholderSlot[] = [
   { reqId: 'TPNL-03', title: 'Schedules', dataNoun: 'scheduled task data' },
   { reqId: 'SKLP-01', title: 'MCP Panel', dataNoun: 'MCP server data' },
   { reqId: 'SKLP-02', title: 'Skill Cost', dataNoun: 'skill cost data' },
-  { reqId: 'SKLP-03', title: 'Context Health', dataNoun: 'context configuration data' },
   { reqId: 'SKLP-04', title: 'Skills Registry', dataNoun: 'skill registry entries' },
 ]
 
@@ -42,6 +46,10 @@ function SkillsPage() {
         </p>
       </header>
       <PlaceholderCardGrid slots={SKILLS_SLOTS} />
+      {/* Phase 7 Plan 01 — SKLP-03 live panel rendered below the placeholder grid. */}
+      <div className="cmc-card-grid">
+        <ContextHealthCard />
+      </div>
     </section>
   )
 }

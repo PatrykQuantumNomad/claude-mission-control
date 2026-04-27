@@ -30,3 +30,5 @@ export { SessionsTable } from './SessionsTable'
 export { OtelPanel } from './OtelPanel'
 export { UnifiedFailures } from './UnifiedFailures'
 export { TopSkills } from './TopSkills'
+// Phase 7 Plan 01 (Wave 0) — SKLP-03 panel (replaces SKLP-03 placeholder slot)
+export { ContextHealthCard } from './ContextHealthCard'

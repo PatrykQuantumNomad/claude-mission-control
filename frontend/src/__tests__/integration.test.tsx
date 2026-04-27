@@ -248,6 +248,20 @@ function makeFetchMock() {
         server_name: 'a-server',
         items: [],
       })
+    // Phase 7 Plan 01 — system state (ESTOP banner) + context/health (SKLP-03)
+    if (url.includes('/api/system/state'))
+      return json({ items: { emergency_stop: '0' } })
+    if (url.includes('/api/context/health'))
+      return json({
+        settings_path: '/Users/test/.claude/settings.json',
+        settings_exists: true,
+        claude_md_path: '/Users/test/.claude/CLAUDE.md',
+        claude_md_exists: true,
+        claude_md_lines: 42,
+        settings_keys: ['ANTHROPIC_API_KEY (redacted)', 'model_default'],
+        mcp_server_count: 1,
+        hook_count: 0,
+      })
     return json({})
   })
 }
@@ -315,16 +329,21 @@ describe('integration: full app', () => {
     expect(container.querySelector('svg.lucide-inbox')).toBeNull()
   })
 
-  it('mounts /skills and shows Skills heading + HPNL/TPNL/SKLP slots (placeholder still expected)', async () => {
+  it('mounts /skills and shows Skills heading + HPNL/TPNL/SKLP slots (placeholder still expected, SKLP-03 now live)', async () => {
     const router = makeRouter('/skills')
     const { findByText, findAllByText } = render(<RouterProvider router={router} />)
     expect(await findByText('Skills', { selector: 'h1' })).toBeInTheDocument()
     expect(await findByText('HPNL-01')).toBeInTheDocument()
     expect(await findByText('TPNL-01')).toBeInTheDocument()
     expect(await findByText('SKLP-01')).toBeInTheDocument()
-    // /skills still uses PlaceholderCardGrid — Phase 7 territory; "Nothing to
+    // Plan 07-01 retired SKLP-03 — ContextHealthCard now renders below the
+    // placeholder grid. The kicker still appears (in the live panel) but it
+    // no longer carries the placeholder body.
+    expect(await findByText('SKLP-03')).toBeInTheDocument()
+    expect(await findByText('Context Health')).toBeInTheDocument()
+    // Remaining placeholder slots still use PlaceholderCardGrid; "Nothing to
     // show yet" copy is expected here. Assert multiple such bodies render
-    // (one per HPNL/TPNL/SKLP slot).
+    // (one per HPNL/TPNL/remaining-SKLP slot — 7 slots remain after 07-01).
     const placeholders = await findAllByText(/Nothing to show yet/)
     expect(placeholders.length).toBeGreaterThan(1)
   })

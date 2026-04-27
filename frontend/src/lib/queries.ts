@@ -17,7 +17,28 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './api'
-import type { FollowUpRequest, Range, RangeAll, SessionsListParams } from './api'
+import type {
+  DecisionAnswerRequest,
+  DecisionListItem,
+  DecisionListResponse,
+  FollowUpRequest,
+  InboxListItem,
+  InboxListResponse,
+  InboxReplyRequest,
+  NLCronRequest,
+  Range,
+  RangeAll,
+  ScheduleCreate,
+  SchedulePatch,
+  SessionsListParams,
+  SkillAutonomyRequest,
+  SkillListResponse,
+  SkillRow,
+  TaskCreate,
+  TaskListParams,
+  TaskListResponse,
+  TaskPatch,
+} from './api'
 
 // ============================================================================
 // Query-key factory — typed and lossless. Every hook below builds its key via
@@ -46,6 +67,18 @@ export const qk = {
   heatmap: (range: Range) => ['activity', 'heatmap', range] as const,
   failures: (range: Range) => ['sessions', 'failures', range] as const,
   sessionsList: (params: SessionsListParams) => ['sessions', 'list', params] as const,
+  // Phase 7 Plan 01 (Wave 0) — keys for HITL/Tasks/Schedules/Skills/Context/SystemState
+  decisions: (status?: string) =>
+    ['decisions', { status: status ?? 'pending' }] as const,
+  inbox: (unread?: boolean) =>
+    ['inbox', { unread: unread ?? true }] as const,
+  tasks: (filter?: { status?: string; quadrant?: string }) =>
+    ['tasks', filter ?? {}] as const,
+  schedules: () => ['schedules'] as const,
+  scheduleRuns: (id: number) => ['schedules', id, 'runs'] as const,
+  skills: () => ['skills'] as const,
+  contextHealth: () => ['context', 'health'] as const,
+  systemState: (key: string) => ['system', 'state', key] as const,
 } as const
 
 // ============================================================================
@@ -257,3 +290,371 @@ export function useFollowUpMessage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.liveSessions() }),
   })
 }
+
+// ============================================================================
+// Phase 7 Plan 01 (Wave 0) — HITL / Tasks / Schedules / Skills / Context /
+// SystemState hooks + mutations. Cadence + optimistic policy are encoded
+// HERE (single source of truth — panels never inline refetchInterval or
+// optimistic config). Cadence buckets locked from RESEARCH §Polling Cadence:
+//   5_000ms  — useDecisions, useTasks, useSystemState (live decision queue)
+//   10_000ms — useInbox (less-urgent agent-to-user messages)
+//   30_000ms — useSchedules, useScheduleRuns (drawer-open lazy)
+//   60_000ms — useSkills, useContextHealth (slow-changing catalog state)
+//
+// Optimistic policy (Pitfall 2 — RESEARCH §Patterns):
+//   - useReadInbox: idempotent "mark as read" → optimistic, snapshot rollback
+//   - usePatchTask (status only): idempotent transition → optimistic
+//   - usePatchSchedule (enabled toggle only): idempotent → optimistic
+//   - usePatchSkillAutonomy: idempotent → optimistic with rollback
+//   - useAnswerDecision: NOT optimistic — preserves user's typed input on 409
+//   - useCreateTask, useCreateSchedule, useReplyInbox: NOT optimistic
+//     (server may 422 on validation; we preserve typed state on error)
+//   - useEmergencyStop / useEmergencyResume: NOT optimistic (terminal action)
+// ============================================================================
+
+// ---- Reads ----------------------------------------------------------------
+
+export const useDecisions = (status: string = 'pending') =>
+  useQuery<DecisionListResponse>({
+    queryKey: qk.decisions(status),
+    queryFn: () => api.decisions({ status, limit: 50 }),
+    refetchInterval: 5_000,
+    staleTime: 0,
+  })
+
+export const useInbox = (unread: boolean = true) =>
+  useQuery<InboxListResponse>({
+    queryKey: qk.inbox(unread),
+    queryFn: () => api.inbox({ unread, max_age_days: 14 }),
+    refetchInterval: 10_000,
+    staleTime: 5_000,
+  })
+
+export const useTasks = (filter?: { status?: string; quadrant?: string }) =>
+  useQuery<TaskListResponse>({
+    queryKey: qk.tasks(filter),
+    queryFn: () => api.tasks(filter as TaskListParams | undefined),
+    refetchInterval: 5_000,
+    staleTime: 0,
+  })
+
+export const useSchedules = () =>
+  useQuery({
+    queryKey: qk.schedules(),
+    queryFn: api.schedules,
+    refetchInterval: 30_000,
+    staleTime: 20_000,
+  })
+
+/** SCHD-05 lazy: only fetches when drawer is open (Pitfall 9 — avoid burning
+ * 30s polls on every collapsed schedule row). Caller passes enabled=true
+ * once the user opens the runs drawer. */
+export const useScheduleRuns = (id: number, enabled: boolean) =>
+  useQuery({
+    queryKey: qk.scheduleRuns(id),
+    queryFn: () => api.scheduleRuns(id),
+    enabled,
+    refetchInterval: enabled ? 30_000 : false,
+    staleTime: 20_000,
+  })
+
+export const useSkills = () =>
+  useQuery<SkillListResponse>({
+    queryKey: qk.skills(),
+    queryFn: () => api.skills(),
+    refetchInterval: 60_000,
+    staleTime: 45_000,
+  })
+
+export const useContextHealth = () =>
+  useQuery({
+    queryKey: qk.contextHealth(),
+    queryFn: api.contextHealth,
+    refetchInterval: 60_000,
+    staleTime: 45_000,
+  })
+
+/** READ-ONLY view of system_state KV (Pitfall 4: ESTOP writes go through
+ * dedicated useEmergencyStop/useEmergencyResume mutations — never via this
+ * hook's data shape). 5_000ms cadence so the EmergencyStopBanner reflects
+ * remote toggles within one tick. */
+export const useSystemState = (key: string) =>
+  useQuery({
+    queryKey: qk.systemState(key),
+    queryFn: () => api.systemState(key),
+    refetchInterval: 5_000,
+    staleTime: 0,
+  })
+
+// ---- Mutations: HITL ------------------------------------------------------
+
+/** HITL-03 — answer a pending decision. NOT optimistic (Pitfall 2): on 409
+ * conflict (already-answered) we want to preserve the user's typed input
+ * so they can edit and retry against the live server state. */
+export function useAnswerDecision() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: { id: number; body: DecisionAnswerRequest }) =>
+      api.decisionAnswer(id, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['decisions'] })
+      qc.invalidateQueries({ queryKey: qk.attention() })
+    },
+  })
+}
+
+/** HITL-05 — mark inbox row as read. Idempotent → safe to optimistic.
+ * onMutate snapshots current data; on error restores. */
+export function useReadInbox() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.inboxRead(id),
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: ['inbox'] })
+      const snapshots = qc.getQueriesData<InboxListResponse>({ queryKey: ['inbox'] })
+      qc.setQueriesData<InboxListResponse>({ queryKey: ['inbox'] }, (prev) => {
+        if (!prev) return prev
+        const nowIso = new Date().toISOString()
+        return {
+          ...prev,
+          items: prev.items.map((row) =>
+            row.id === id ? { ...row, read: true, read_at: nowIso } : row,
+          ),
+        }
+      })
+      return { snapshots }
+    },
+    onError: (_err, _id, ctx) => {
+      ctx?.snapshots.forEach(([key, value]) => qc.setQueryData(key, value))
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['inbox'] })
+    },
+  })
+}
+
+/** HITL-06 — reply to an inbox message. NOT optimistic (generative content). */
+export function useReplyInbox() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: { id: number; body: InboxReplyRequest }) =>
+      api.inboxReply(id, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['inbox'] }),
+  })
+}
+
+// ---- Mutations: Tasks -----------------------------------------------------
+
+/** TASK-02 — create. NOT optimistic (server may 422 on validation). */
+export function useCreateTask() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: TaskCreate) => api.taskCreate(body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tasks'] })
+      qc.invalidateQueries({ queryKey: qk.attention() })
+    },
+  })
+}
+
+/** TASK-03 — patch. Optimistic for status-only transitions (idempotent).
+ * Body fields beyond status do NOT participate in optimistic update —
+ * the server projection is the source of truth on next invalidation. */
+export function usePatchTask() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: { id: number; body: TaskPatch }) =>
+      api.taskPatch(id, body),
+    onMutate: async ({ id, body }) => {
+      if (!body.status) return { snapshots: [] as const }
+      await qc.cancelQueries({ queryKey: ['tasks'] })
+      const snapshots = qc.getQueriesData<TaskListResponse>({ queryKey: ['tasks'] })
+      qc.setQueriesData<TaskListResponse>({ queryKey: ['tasks'] }, (prev) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          items: prev.items.map((row) =>
+            row.id === id ? { ...row, status: body.status as string } : row,
+          ),
+        }
+      })
+      return { snapshots }
+    },
+    onError: (_err, _vars, ctx) => {
+      ctx?.snapshots.forEach(([key, value]) => qc.setQueryData(key, value))
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
+  })
+}
+
+/** TASK-04 — delete. Returns void (204 No Content). */
+export function useDeleteTask() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.taskDelete(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
+  })
+}
+
+/** TASK-05 — approve. */
+export function useApproveTask() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.taskApprove(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
+  })
+}
+
+/** TASK-06 — rerun. */
+export function useRerunTask() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.taskRerun(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
+  })
+}
+
+/** TASK-07 — trigger dispatcher (NOT per-task; backend dispatches whatever
+ * is ready). RESEARCH §Summary correction 3. */
+export function useTriggerDispatcher() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.dispatcherTrigger(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
+  })
+}
+
+// ---- Mutations: Schedules -------------------------------------------------
+
+/** SCHD-02 — create. NOT optimistic (server may 422 on cron). */
+export function useCreateSchedule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: ScheduleCreate) => api.scheduleCreate(body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['schedules'] }),
+  })
+}
+
+/** SCHD-03 — patch. Optimistic for `enabled` toggle ONLY (per plan behavior). */
+export function usePatchSchedule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: { id: number; body: SchedulePatch }) =>
+      api.schedulePatch(id, body),
+    onMutate: async ({ id, body }) => {
+      if (typeof body.enabled !== 'boolean') return { snapshots: [] as const }
+      await qc.cancelQueries({ queryKey: ['schedules'] })
+      const snapshots = qc.getQueriesData<{
+        items: Array<{ id: number; enabled: boolean }>
+      }>({ queryKey: ['schedules'] })
+      qc.setQueriesData<{
+        items: Array<{ id: number; enabled: boolean }>
+      }>({ queryKey: ['schedules'] }, (prev) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          items: prev.items.map((row) =>
+            row.id === id ? { ...row, enabled: body.enabled as boolean } : row,
+          ),
+        }
+      })
+      return { snapshots }
+    },
+    onError: (_err, _vars, ctx) => {
+      ctx?.snapshots.forEach(([key, value]) => qc.setQueryData(key, value))
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['schedules'] }),
+  })
+}
+
+/** SCHD-04 — delete. Returns void (204 No Content). */
+export function useDeleteSchedule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.scheduleDelete(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['schedules'] }),
+  })
+}
+
+/** SCHD-06 — NL→cron via Claude Haiku. Surfaces 503 body literal verbatim
+ * on error (V11 — RESEARCH §Open Q6). */
+export function useParseNlCron() {
+  return useMutation({
+    mutationFn: (body: NLCronRequest) => api.schedulesParseNl(body),
+  })
+}
+
+// ---- Mutations: Skills ----------------------------------------------------
+
+/** SKILL-03 — patch autonomy. OPTIMISTIC with rollback (RESEARCH §Pattern 2). */
+export function usePatchSkillAutonomy() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      name,
+      body,
+    }: {
+      name: string
+      body: SkillAutonomyRequest
+    }) => api.skillAutonomy(name, body),
+    onMutate: async ({ name, body }) => {
+      await qc.cancelQueries({ queryKey: qk.skills() })
+      const snapshot = qc.getQueryData<SkillListResponse>(qk.skills())
+      if (snapshot) {
+        qc.setQueryData<SkillListResponse>(qk.skills(), {
+          ...snapshot,
+          items: snapshot.items.map((row: SkillRow) =>
+            row.name === name ? { ...row, autonomy: body.autonomy } : row,
+          ),
+        })
+      }
+      return { snapshot }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.snapshot) qc.setQueryData(qk.skills(), ctx.snapshot)
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: qk.skills() }),
+  })
+}
+
+/** SKILL-02 — sync. */
+export function useSkillsSync() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.skillsSync(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.skills() }),
+  })
+}
+
+// ---- Mutations: Emergency Stop --------------------------------------------
+
+/** ESTOP-01..03 — set the kill flag. Invalidates the dedicated systemState
+ * polling key + attention so banner state flips within one tick. */
+export function useEmergencyStop() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.emergencyStop(),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: qk.systemState('emergency_stop') })
+      qc.invalidateQueries({ queryKey: qk.attention() })
+    },
+  })
+}
+
+/** ESTOP-04 — clear the kill flag (POST /api/system/emergency-resume). */
+export function useEmergencyResume() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.emergencyResume(),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: qk.systemState('emergency_stop') })
+      qc.invalidateQueries({ queryKey: qk.attention() })
+    },
+  })
+}
+
+// Suppress unused-import warning for DecisionListItem / InboxListItem when
+// Phase 7 panels (Plans 07-02..) don't yet consume them — Phase 7 plans
+// add panels that import these row types alongside the response types.
+// Compile-time noop: re-export under a private alias.
+export type _Phase7Reexports = DecisionListItem | InboxListItem

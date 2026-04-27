@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { EmergencyStopBanner } from './EmergencyStopBanner'
 
 const routes = [
   { to: '/', label: 'Command' },
@@ -24,6 +25,9 @@ export function NavBar() {
           </li>
         ))}
       </ul>
+      {/* Phase 7 Plan 01 — TPNL-05. EmergencyStopBanner is mounted in the
+          right-side action area so it is visible on every route from boot. */}
+      <EmergencyStopBanner />
       <button
         type="button"
         className="cmc-cmdk-trigger cmc-label"
