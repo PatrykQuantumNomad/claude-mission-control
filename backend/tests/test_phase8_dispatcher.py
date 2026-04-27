@@ -1208,3 +1208,308 @@ def test_oneshot_main_handles_exception(monkeypatch, capsys):
 
     err = capsys.readouterr().err
     assert "synthetic cycle failure" in err
+
+
+# ============================================================================
+# Plan 08-03 — DISP-06/07/08 stream-mode runner + markers + decisions + inbox
+# ============================================================================
+
+
+# ---- Plan 08-03 — DISP-07 MarkerParser (fenced-code-aware) -----------------
+
+
+def test_marker_parser_skips_fenced_code():
+    """DECISION/INBOX inside ```fenced``` blocks must NOT be emitted (Pitfall 4)."""
+    from cmc.dispatcher.marker_parser import Marker, MarkerParser
+
+    parser = MarkerParser()
+    text = (
+        "Some prose first.\n"
+        "```python\n"
+        "DECISION: ignored?\n"
+        "```\n"
+        "DECISION: real one?\n"
+        "INBOX: heads up\n"
+    )
+    markers = list(parser.feed_text(text))
+    markers.extend(parser.flush())
+    kinds_bodies = [(m.kind, m.body) for m in markers]
+    assert kinds_bodies == [("DECISION", "real one?"), ("INBOX", "heads up")]
+
+
+def test_marker_parser_inline_backtick_no_match():
+    """Inline `DECISION: foo` mid-line must NOT match (line-start anchor)."""
+    from cmc.dispatcher.marker_parser import MarkerParser
+
+    parser = MarkerParser()
+    markers = list(parser.feed_text("Like `DECISION: foo` not real\n"))
+    markers.extend(parser.flush())
+    assert markers == []
+
+
+def test_marker_parser_chunk_boundary():
+    """A marker spanning two chunks must emit as one marker."""
+    from cmc.dispatcher.marker_parser import MarkerParser
+
+    parser = MarkerParser()
+    out = []
+    out.extend(parser.feed_text("DECISI"))
+    out.extend(parser.feed_text("ON: foo\n"))
+    out.extend(parser.flush())
+    assert len(out) == 1
+    assert out[0].kind == "DECISION"
+    assert out[0].body == "foo"
+
+
+def test_marker_parser_flush_emits_final_line():
+    """flush() emits the final un-newlined buffered marker."""
+    from cmc.dispatcher.marker_parser import MarkerParser
+
+    parser = MarkerParser()
+    out = list(parser.feed_text("DECISION: bar"))  # no trailing \n
+    assert out == []  # not yet emitted (waiting for \n)
+    out = list(parser.flush())
+    assert len(out) == 1
+    assert out[0].kind == "DECISION"
+    assert out[0].body == "bar"
+
+
+def test_marker_parser_fence_state_persists_across_chunks():
+    """in_fence flag must survive feed_text boundaries."""
+    from cmc.dispatcher.marker_parser import MarkerParser
+
+    parser = MarkerParser()
+    out = []
+    out.extend(parser.feed_text("```\n"))
+    out.extend(parser.feed_text("DECISION: hidden\n"))
+    out.extend(parser.feed_text("```\n"))
+    out.extend(parser.feed_text("DECISION: visible\n"))
+    out.extend(parser.flush())
+    bodies = [m.body for m in out]
+    assert bodies == ["visible"]
+
+
+def test_marker_parser_strips_body_whitespace():
+    """Body text is stripped (leading/trailing whitespace)."""
+    from cmc.dispatcher.marker_parser import MarkerParser
+
+    parser = MarkerParser()
+    out = list(parser.feed_text("  DECISION:    body text   \n"))
+    out.extend(parser.flush())
+    assert len(out) == 1
+    assert out[0].body == "body text"
+
+
+# ---- Plan 08-03 — DISP-07 wait_for_answer (decision answer poll) -----------
+
+
+@pytest.mark.asyncio
+async def test_answer_poll_returns_answer_when_status_flips(test_settings):
+    """Pending decision → flip to answered after delay → wait_for_answer returns answer."""
+    from cmc.db.models.decisions import Decision
+    from cmc.dispatcher.answer_poll import wait_for_answer
+
+    engine, sessions = await _bootstrap_db(test_settings)
+    try:
+        async with sessions() as db:
+            d = Decision(
+                dedup_key="dk-pollA",
+                prompt="should I deploy?",
+                options=[],
+                status="pending",
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(d)
+            await db.commit()
+            await db.refresh(d)
+            decision_id = d.id
+
+        async def _flip_after(delay: float):
+            await asyncio.sleep(delay)
+            async with sessions() as db:
+                row = (
+                    await db.execute(select(Decision).where(Decision.id == decision_id))
+                ).scalar_one()
+                row.status = "answered"
+                row.answer = "yes"
+                row.answered_at = datetime.now(timezone.utc)
+                row.answered_by = "dashboard"
+                await db.commit()
+
+        # Run the poll and the flipper concurrently.
+        flipper = asyncio.create_task(_flip_after(0.3))
+        answer = await wait_for_answer(
+            sessions, decision_id, timeout_s=5.0, poll_s=0.1
+        )
+        await flipper
+        assert answer == "yes"
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_answer_poll_returns_none_on_timeout(test_settings):
+    """Pending decision never flips → wait_for_answer returns None after timeout_s."""
+    from cmc.db.models.decisions import Decision
+    from cmc.dispatcher.answer_poll import wait_for_answer
+
+    engine, sessions = await _bootstrap_db(test_settings)
+    try:
+        async with sessions() as db:
+            d = Decision(
+                dedup_key="dk-pollB",
+                prompt="never answered",
+                options=[],
+                status="pending",
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(d)
+            await db.commit()
+            await db.refresh(d)
+            decision_id = d.id
+
+        start = asyncio.get_event_loop().time()
+        answer = await wait_for_answer(
+            sessions, decision_id, timeout_s=1.5, poll_s=0.5
+        )
+        elapsed = asyncio.get_event_loop().time() - start
+        assert answer is None
+        # Sanity: did not return early.
+        assert 1.0 <= elapsed <= 3.5
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_answer_poll_uses_fresh_session_per_poll(test_settings, monkeypatch):
+    """Each poll iteration must open a fresh session (not pin one across sleep)."""
+    from cmc.db.models.decisions import Decision
+    from cmc.dispatcher.answer_poll import wait_for_answer
+
+    engine, sessions = await _bootstrap_db(test_settings)
+    try:
+        async with sessions() as db:
+            d = Decision(
+                dedup_key="dk-pollC",
+                prompt="count my sessions",
+                options=[],
+                status="pending",
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(d)
+            await db.commit()
+            await db.refresh(d)
+            decision_id = d.id
+
+        # Wrap sessions() so we can count session opens.
+        opens = {"count": 0}
+        original = sessions
+
+        def _counting_sessions():
+            opens["count"] += 1
+            return original()
+
+        # Run for 1.0s with poll_s=0.25 → should yield ~4 polls (>= 3 sessions).
+        await wait_for_answer(
+            _counting_sessions, decision_id, timeout_s=1.0, poll_s=0.25
+        )
+        # At least 3 session opens (one per poll iteration). Allow some slack.
+        assert opens["count"] >= 3, f"expected >=3 fresh sessions, got {opens['count']}"
+    finally:
+        await engine.dispose()
+
+
+# ---- Plan 08-03 — DISP-08 post_inbox_marker (httpx POST /api/inbox) --------
+
+
+@pytest.mark.asyncio
+async def test_inbox_post_success(monkeypatch):
+    """post_inbox_marker(body, port) → POST /api/inbox with json={source, body}, returns id."""
+    from cmc.dispatcher import inbox_post as ip_module
+    from cmc.dispatcher.inbox_post import post_inbox_marker
+
+    captured: dict = {}
+
+    class _FakeResp:
+        status_code = 201
+
+        def json(self):
+            return {"id": 42}
+
+    class _FakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            captured["init_kwargs"] = kwargs
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def post(self, url, json=None):
+            captured["url"] = url
+            captured["json"] = json
+            return _FakeResp()
+
+    monkeypatch.setattr(ip_module.httpx, "AsyncClient", _FakeAsyncClient)
+    inbox_id = await post_inbox_marker("heads up", port=8765)
+    assert inbox_id == 42
+    assert captured["url"] == "http://127.0.0.1:8765/api/inbox"
+    assert captured["json"] == {"source": "agent_marker", "body": "heads up"}
+
+
+@pytest.mark.asyncio
+async def test_inbox_post_handles_connection_error(monkeypatch, caplog):
+    """ConnectError → logged warning, returns None, does NOT raise."""
+    import httpx as _httpx
+
+    from cmc.dispatcher import inbox_post as ip_module
+    from cmc.dispatcher.inbox_post import post_inbox_marker
+
+    class _BoomAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def post(self, url, json=None):
+            raise _httpx.ConnectError("nope")
+
+    monkeypatch.setattr(ip_module.httpx, "AsyncClient", _BoomAsyncClient)
+    # Must NOT raise.
+    result = await post_inbox_marker("body text", port=8765)
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_inbox_post_handles_unexpected_status(monkeypatch):
+    """Non-2xx response → returns None (logged but no raise)."""
+    from cmc.dispatcher import inbox_post as ip_module
+    from cmc.dispatcher.inbox_post import post_inbox_marker
+
+    class _FakeResp:
+        status_code = 500
+
+        def json(self):
+            return {"error": "boom"}
+
+    class _FakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def post(self, url, json=None):
+            return _FakeResp()
+
+    monkeypatch.setattr(ip_module.httpx, "AsyncClient", _FakeAsyncClient)
+    result = await post_inbox_marker("x", port=8765)
+    assert result is None
