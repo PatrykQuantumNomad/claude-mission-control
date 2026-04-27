@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 5 complete; Phase 6 ready to plan
-last_updated: "2026-04-27T06:25:00.000Z"
+stopped_at: Phase 6 Plan 01 (Wave 1 foundation) complete; Plan 06-02 ready
+last_updated: "2026-04-27T07:50:00.000Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 9
   completed_phases: 5
-  total_plans: 27
-  completed_plans: 27
-  percent: 100
+  total_plans: 31
+  completed_plans: 28
+  percent: 90
 ---
 
 # Project State
@@ -21,17 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-25)
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, queue and approve tasks, and kill runaway sessions — all from one browser tab.
-**Current focus:** Phase 5 (Frontend Shell & Design System) COMPLETE — visual quality bar approved by user 2026-04-27; Phase 6 (Observability & Activity Panels) is next.
+**Current focus:** Phase 6 (Observability & Activity Panels) IN PROGRESS — Wave 1 foundation (Plan 06-01) complete 2026-04-27; Wave 2 (06-02 token usage + cache + outcomes) ready to start.
 
 ## Current Position
 
-Phase: 5 of 9 COMPLETE (Frontend Shell & Design System) — visual quality bar APPROVED by user 2026-04-27
-Next phase: 6 of 9 (Observability & Activity Panels) — ready to plan
-Plan: 4 of 4 complete in Phase 5 (05-01 Wave 0 + 05-02 Wave 1 layout primitives + 05-03 Wave 2 interactive primitives + 05-04 Wave 3 placeholder grids ✅; 62/62 frontend tests green)
-Status: Phase 5 ready for verifier
+Phase: 6 of 9 IN PROGRESS (Observability & Activity Panels) — Wave 1 foundation complete
+Plan: 1 of 5 complete in Phase 6 (06-01 Wave 1 foundation: 7 ui primitives + lib/queries.ts + useFirehose + 2 backend routes ✅; 97/97 frontend tests green; 202/202 backend tests green)
+Status: Plan 06-02 (token usage + cache + outcomes panels) ready to execute
 Last activity: 2026-04-27
 
-Progress (Phase 5): [██████████] 100%
+Progress (Phase 6): [██░░░░░░░░] 20% (1 of 5 plans)
 
 ## Performance Metrics
 
@@ -50,11 +49,12 @@ Progress (Phase 5): [██████████] 100%
 | Phase 3 (Read-Only APIs)                     | 5 / 5 | ~158 min                        | ~32 min  |
 | Phase 4 (Stateful APIs)                      | 5 / 5 | ~62 min                         | ~12 min  |
 | Phase 5 (Frontend Shell & Design System)     | 4 / 4 | ~31 min agent + checkpoint wait | ~8 min   |
+| Phase 6 (Observability & Activity Panels)    | 1 / 5 | ~16 min                         | ~16 min  |
 
 **Recent Trend:**
 
-- Last 4 plans: 05-01, 05-02, 05-03, 05-04 (Phase 5 implementation complete; 62/62 frontend tests green; 12 design-system primitives + 3 placeholder card grids on /, /activity, /skills; Cmd+K wired globally via AppShell; visual quality bar approved by user 2026-04-27)
-- Trend: Phase 5 closed without architectural deviations beyond a Sheet aria-modal test correction (Rule 1) and the Phase-2-era Node 25.x experimental-webstorage flag mitigation. Phase 5 ready for verifier; Phase 6/7 can plan in parallel.
+- Last 5 plans: 05-01, 05-02, 05-03, 05-04, 06-01 (Phase 6 Wave 1 foundation complete; 97/97 frontend + 202/202 backend tests green; 7 new ui primitives behind components/ui barrel; lib/queries.ts is single source of truth for cadence; useFirehose SSE hook with ring buffer; 2 new backend routes ACTV-01 + ACTV-05; ACTV-04 punted to v2)
+- Trend: Plan 06-01 landed in 4 atomic commits with one Rule 1 inline auto-fix (vi.fn signature inference for HeatmapGrid colorScale test). No architectural deviations.
 
 *Updated after each plan completion*
 | Phase 01-foundation-database P02 | 4 min | 3 tasks | 17 files |
@@ -83,6 +83,7 @@ Progress (Phase 5): [██████████] 100%
 | Phase 05 P02 | 5min | 2 tasks tasks | 11 created + 1 modified files |
 | Phase 05 P03 | 3 min | 2 tasks tasks | 9 files (6 created + 3 modified) files |
 | Phase 05-frontend-shell-design-system P04 | ~12 min agent + human-verify wait | 1 task auto + 1 checkpoint | 7 files (3 created + 4 modified) |
+| Phase 06-observability-activity-panels P01 | ~16 min | 3 tasks (1a/1b/2/3) | 22 files (19 created + 3 modified by edit) |
 
 ## Accumulated Context
 
@@ -202,6 +203,16 @@ Recent decisions affecting current work:
 - Plan 05-04 pattern: Selector discrimination via { selector: 'h1' } when same text appears in nav, palette, and content — scope assertions to role-bearing element
 - Plan 05-04 deferral: OPNL-02 (KpiRow) intentionally NOT placed in / placeholder grid — Phase 6 plan inserts the slot ABOVE PlaceholderCardGrid and ships KpiRow component in same plan; TPNL-02 (Task composer slide-out) lives in Sheet not Card; TPNL-04/05 (filter+search) live in page header chrome not grid Cards
 - 2026-04-27: Phase 5 visual quality bar APPROVED by user — every UI-SPEC checklist item passed against running dev server (radial-gradient backdrop, Inter + JetBrains Mono fonts, gradient brand text, accent-blue active-nav underline, Cmd+K chip, palette open + fuzzy match + Esc, 14px card radius, EmptyState icon at 48px, prefers-reduced-motion respected, zero console warnings); Phase 5 closes ready for verifier
+- Plan 06-01 complete: Phase 6 Wave 1 foundation landed — Recharts 3.8.1 installed; 7 new ui primitives (PanelCard, RangeToggle, DataTable, HeatmapGrid, StatList, KpiTile, ErrorState) with className-passthrough shape; lib/queries.ts (qk + 20 hooks + useFollowUpMessage mutation) is single source of truth for polling cadences; useFirehose native-EventSource hook with ring-buffered events; lib/api.ts tightened with 24 typed responses for Phase-6-consumed endpoints (Phase-7 endpoints stay `unknown`); systemState path-vs-query bug fixed; 2 new backend routes (ACTV-01 heatmap, ACTV-05 unified failures) + 4 Pydantic models + 9 backend tests; 97/97 frontend + 202/202 backend tests green
+- Plan 06-01 cadence policy LOCKED in lib/queries.ts (no panel inlines refetchInterval): 5s live (systemHealth, liveSessions); 10s attention; 15s today summary; 30s pressure/latency/failures/sessions list; 60s daily aggregates (tokens, cache, outcomes, hooks, edits); 120s slow rollups (by-project, fanout, productivity, mcp servers); 300s heatmap. staleTime set just below refetchInterval so window-focus refetch doesn't double-fire
+- Plan 06-01 ACTV-04 TopSkills DECISION: scoped to v2 — no backend route shipped this plan; 06-05 ships a 'coming soon' EmptyState card. Rationale: claude_code.skill_invoked OTEL event does not exist in current ingest, and cwd-heuristic alternative is insufficient because Claude Code sessions run from project cwd not skill folder. Punting to v2 over speculative ingest changes
+- Plan 06-01 lib/api.ts systemState bug FIX: replaced path-style `/api/system/state/${key}` with query-string `/api/system/state?key=${key}` matching backend SAPI-03 route signature (`key` is a Query parameter). Pre-existing latent bug; no production callers existed yet because Phase 5 was infra-only
+- Plan 06-01 PanelCard pattern LOCKED: hiddenWhenEmpty=true returns null when query.data is empty (used by AttentionBar so the bar disappears entirely from layout); empty detection defaults to data.items.length === 0 with custom override via `empty.when: (data) => boolean`; 4 render branches (skeleton/error/empty/data) live at exactly ONE observable site so Phase 6 panels never duplicate copy
+- Plan 06-01 ACTV-05 outcome derivation pattern: inline CASE on otel_events EXISTS (mirrors OBSV-03 Pitfall 9 fallback) — works regardless of whether Phase 2 ingest populates sessions.outcome (currently it does not). Same pattern reusable for any future endpoint that needs to filter by computed outcome
+- Plan 06-01 useFirehose pattern: native EventSource (not @microsoft/fetch-event-source) — same-origin dashboard sends session cookie; auto-reconnect baked in; explicit removeEventListener + es.close() cleanup so React 19 StrictMode double-effect-invoke stays idempotent. typeof EventSource === 'undefined' guard for happy-dom test env without polyfill
+- Plan 06-01 entry contract for plans 06-02..05: every panel imports from exactly two modules — `import { PanelCard, RangeToggle, ... } from '../ui'` and `import { useTokens, ... } from '../../lib/queries'`. Panels NEVER inline refetchInterval/staleTime; panels NEVER re-implement loading/empty/error JSX
+- Plan 06-01 Phase-7 entries left as `unknown` in api.ts: HITL/Tasks/Schedules/Skills/EmergencyStop/Sync/MCP-write — Phase 7 narrows when it consumes them (avoids speculative typing under tsconfig strict)
+- Plan 06-01 deviation (Rule 1): vi.fn() type inference in HeatmapGrid.test.tsx required explicit signature `(_v: number, _max: number) => string` so colorScale.mock.calls[i][1] passes tsc strict tuple-index check. One-line fix; pattern reusable for any future test that calls vi.fn().mock.calls[*][n] where n > 0
 
 ### Pending Todos
 
@@ -210,12 +221,12 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-None — Phases 1–5 implementations complete. Verifier readiness confirmed via 61 backend tests (25 Phase 1 + 36 Phase 2) + 62 frontend tests (Phase 5) + human browser smoke (Phase 1) + human end-to-end smoke against real `~/.claude/projects/` data and OTLP samples (Phase 2) + human-verify visual quality bar approved against running dev server (Phase 5, 2026-04-27).
+None — Phases 1–5 implementations complete + Plan 06-01 (Phase 6 Wave 1 foundation) complete. Verifier readiness confirmed via 202 backend tests + 97 frontend tests; foundation primitives + queries layer + 2 new backend routes ready for plans 06-02..05 to bind against.
 
 ## Session Continuity
 
-Last session: 2026-04-27T06:25:00.000Z
-Stopped at: Phase 5 complete; Phase 6 ready to plan
+Last session: 2026-04-27T07:50:00.000Z
+Stopped at: Phase 6 Plan 01 (Wave 1 foundation) complete; Plan 06-02 ready
 Resume file: None
 
 Phase 1 final commit chain:
@@ -242,3 +253,7 @@ Phase 5 final commit chain:
 - 05-02: c384c84 + ceb1a5f + 93594ee (Card/Button/Badge/StatePill + Tooltip/Skeleton/EmptyState/RelativeTime/ErrorBoundary + barrel + plan close)
 - 05-03: ea1314f + 499fd06 + f9e5ea9 (Sheet/CollapsibleSection + CommandPalette + global Cmd+K via AppShell + plan close)
 - 05-04: 40dbe80 + (this closing commit) (PlaceholderCardGrid + 3 routes wired + integration smoke + .cmc-card-grid CSS + user-approved visual quality bar)
+
+Phase 6 commit chain (in progress):
+
+- 06-01: c27a2b5 + 99d1d8c + d108fec + 303bfb7 + (this closing commit) (Recharts 3.8.1 + tightened api.ts + Phase 6 primitive CSS / 7 ui primitives + barrel + 24 component tests / lib/queries.ts qk + 20 hooks + useFollowUpMessage + useFirehose + 11 lib tests / ACTV-01 heatmap + ACTV-05 failures backend routes + 4 Pydantic models + 9 backend tests)

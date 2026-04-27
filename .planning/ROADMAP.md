@@ -136,7 +136,20 @@ Wave structure (serialized — 05-02 and 05-03 both append to styles.css and com
   3. Token usage card displays stacked daily bars with today/7d/30d toggle and correct model/source breakdown
   4. MCP panel shows server list with expandable per-tool drill-down showing p50/p95/max/error-rate and slow/fast tags
   5. Activity page shows 30-day heatmap, 14-day token charts, OTEL firehose with filtering, sessions table with search/pagination
-**Plans**: TBD
+**Plans**: 5 plans
+
+Wave structure (fully serialized — multiple plans share `frontend/src/components/panels/index.ts` (panels barrel), `frontend/src/styles.css`, and route files like `routes/index.tsx` / `routes/activity.tsx`. Per Phase 5 file-ownership rule, all writers to a shared barrel/CSS file must be sequenced):
+- Wave 1: 06-01 (foundation — chart lib + 7 ui primitives + queries.ts + useFirehose + 2 backend gap routes + ACTV-04 v2 decision)
+- Wave 2: 06-02 (depends_on 06-01) — Command top strip
+- Wave 3: 06-03 (depends_on 06-01, 06-02) — Command analytical grid
+- Wave 4: 06-04 (depends_on 06-01, 06-03) — Activity page core panels
+- Wave 5: 06-05 (depends_on 06-01, 06-04) — Activity page tail + close-out checkpoint
+
+- [x] 06-01-PLAN.md — Wave 1 foundation: Recharts 3.8.1 installed, 7 new ui primitives (PanelCard/RangeToggle/DataTable/HeatmapGrid/StatList/KpiTile/ErrorState), lib/queries.ts (20 query hooks + useFollowUpMessage mutation + locked polling cadences) + lib/useFirehose.ts (bespoke SSE hook), 2 new backend GET routes (/activity/heatmap ACTV-01, /sessions/failures ACTV-05), api.ts systemState bug fix + type tightening, ACTV-04 scoped to v2 ✅ 2026-04-27 (97/97 frontend + 202/202 backend tests green)
+- [ ] 06-02-PLAN.md — Wave 2 Command top strip: OPNL-01 SystemHealthStrip + OPNL-02 KpiRow + OPNL-03 AttentionBar (hiddenWhenEmpty) + OPNL-04 LiveSessionsCard (Sheet drawer + follow-up mutation)
+- [ ] 06-03-PLAN.md — Wave 3 Command analytical grid: OPNL-05..15 (11 cards: TokenUsage/CacheEfficiency/SessionOutcomes/ToolLatency/HookActivity/ProjectBreakdown/AgentFanout/EditAcceptance/Productivity/Pressure/Mcp); deletes PlaceholderCardGrid usage on /
+- [ ] 06-04-PLAN.md — Wave 4 Activity page core: ACTV-01 ActivityHeatmap + ACTV-02 ChartsStrip (client-side 14-day slice of 30d response) + ACTV-06 SessionsTable (DataTable + filters + client-side search)
+- [ ] 06-05-PLAN.md — Wave 5 Activity page tail + close: ACTV-03 OtelPanel (SSE firehose + client-side filter) + ACTV-04 TopSkills v2 placeholder + ACTV-05 UnifiedFailures; deletes PlaceholderCardGrid usage on /activity; integration test extension; human-verify checkpoint against ROADMAP success criteria 1-5
 **UI hint**: yes
 
 ### Phase 7: Command Centre Panels
@@ -190,7 +203,7 @@ Note: Phases 3, 4, and 5 can execute in parallel after Phase 2 (or Phase 1 for 4
 | 3. Read-Only APIs | 5/5 | Complete (verifier: 5/5 must-haves) | 2026-04-26 |
 | 4. Stateful APIs | 5/5 | Complete (verifier: 5/5 must-haves) | 2026-04-26 |
 | 5. Frontend Shell & Design System | 4/4 | Complete (visual quality bar approved by user) | 2026-04-27 |
-| 6. Observability & Activity Panels | 0/TBD | Not started | - |
+| 6. Observability & Activity Panels | 0/5 | Not started | - |
 | 7. Command Centre Panels | 0/TBD | Not started | - |
 | 8. Mission Control Dispatcher | 0/TBD | Not started | - |
 | 9. Telegram, Setup & Testing | 0/TBD | Not started | - |
