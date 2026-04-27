@@ -106,6 +106,7 @@ dependencies = [
     { name = "croniter" },
     { name = "fastapi" },
     { name = "greenlet" },
+    { name = "httpx" },
     { name = "psutil" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
@@ -117,7 +118,6 @@ dependencies = [
 
 [package.optional-dependencies]
 dev = [
-    { name = "httpx" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-freezer" },
@@ -132,7 +132,7 @@ requires-dist = [
     { name = "croniter", specifier = "==6.2.2" },
     { name = "fastapi", specifier = "==0.136.1" },
     { name = "greenlet", specifier = ">=3.0" },
-    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.28" },
+    { name = "httpx", specifier = ">=0.28" },
     { name = "psutil", specifier = "==7.2.2" },
     { name = "pydantic", specifier = "==2.13.3" },
     { name = "pydantic-settings", specifier = "==2.14.0" },

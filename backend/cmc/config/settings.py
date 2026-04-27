@@ -62,6 +62,39 @@ class Settings(BaseSettings):
         description="argv list spawned by TASK-07; Phase 4 default invokes the stub",
     )
 
+    # Phase 8 — Mission Control Dispatcher (DISP-01..12)
+    # NOTE: claude_bin is INTENTIONALLY OMITTED from `_resolve_repo_root_paths`
+    # below — it's an absolute system path, not a repo-anchored path. launchd
+    # does not inherit user PATH so a fully-qualified path is required.
+    claude_bin: Path = Field(
+        default=Path("/opt/homebrew/bin/claude"),
+        description="Absolute path to the claude CLI binary; launchd does NOT inherit user PATH",
+    )
+    claude_default_model: str = Field(
+        default="sonnet",
+        description="DISP-10 fallback model alias (passed to claude --model when task.model is null)",
+    )
+    dispatcher_max_concurrent: int = Field(
+        default=3,
+        description="DISP-04 cap on concurrent claude subprocesses",
+    )
+    dispatcher_classic_timeout_s: int = Field(
+        default=600,
+        description="DISP-05 default timeout for classic-mode subprocesses (seconds)",
+    )
+    dispatcher_decision_timeout_s: int = Field(
+        default=3600,
+        description="DISP-07 cap on decision-answer poll loop (seconds)",
+    )
+    dispatcher_followup_poll_s: float = Field(
+        default=1.0,
+        description="DISP-09 cadence for polling the follow-up message queue file (seconds)",
+    )
+    dispatcher_answer_poll_s: float = Field(
+        default=2.0,
+        description="DISP-07 cadence for polling decision-status changes (seconds)",
+    )
+
     @model_validator(mode="after")
     def _resolve_repo_root_paths(self) -> "Settings":
         """Make path-shaped fields cwd-independent.

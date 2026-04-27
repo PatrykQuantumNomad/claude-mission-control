@@ -39,11 +39,12 @@ def test_settings_dispatcher_fields_present(clean_env):
 
 
 def test_settings_env_overrides(clean_env, monkeypatch):
-    """Pydantic-Settings auto-derives CMC_* env names; verify two override-able fields."""
+    """Pydantic-Settings derives env names from field names (no CMC_ prefix —
+    matches existing PORT/DB_PATH/LOG_LEVEL convention from Phase 1)."""
     from cmc.config import Settings
 
-    monkeypatch.setenv("CMC_CLAUDE_BIN", "/usr/local/bin/claude")
-    monkeypatch.setenv("CMC_DISPATCHER_MAX_CONCURRENT", "5")
+    monkeypatch.setenv("CLAUDE_BIN", "/usr/local/bin/claude")
+    monkeypatch.setenv("DISPATCHER_MAX_CONCURRENT", "5")
     s = Settings()
     assert s.claude_bin == Path("/usr/local/bin/claude")
     assert s.dispatcher_max_concurrent == 5
@@ -79,28 +80,42 @@ def test_state_list_live_pids_uses_psutil(tmp_pid_dir_monkey, mock_psutil_pids):
     assert live == {10001}
 
 
-@pytest.mark.asyncio
-async def test_state_stamp_tick_upserts(test_settings):
-    """stamp_tick creates the row on first call and updates value on the second."""
-    from cmc.db import create_engine_for_settings, make_sessionmaker
-    from cmc.db.models.system_state import SystemState
-    from cmc.dispatcher.state import stamp_tick
+async def _bootstrap_db(test_settings):
+    """Helper: alembic-upgrade a freshly-created engine and return (engine, sessions).
 
-    # Run alembic migration to create tables in tmp DB
+    Caller is responsible for awaiting engine.dispose() at teardown.
+    """
     from alembic import command
     from alembic.config import Config
 
+    from cmc.db import create_engine_for_settings, make_sessionmaker
+
     engine = create_engine_for_settings(test_settings)
+    cfg = Config(str(test_settings.alembic_ini_path))
+    # Mirror lifespan's BLOCKER 1 fix (absolutize script_location).
+    cfg.set_main_option(
+        "script_location", str(test_settings.alembic_ini_path.parent / "migrations")
+    )
+
+    async with engine.begin() as conn:
+        def _upgrade(sync_conn):
+            cfg.attributes["connection"] = sync_conn
+            command.upgrade(cfg, "head")
+
+        await conn.run_sync(_upgrade)
+
+    sessions = make_sessionmaker(engine)
+    return engine, sessions
+
+
+@pytest.mark.asyncio
+async def test_state_stamp_tick_upserts(test_settings):
+    """stamp_tick creates the row on first call and updates value on the second."""
+    from cmc.db.models.system_state import SystemState
+    from cmc.dispatcher.state import stamp_tick
+
+    engine, sessions = await _bootstrap_db(test_settings)
     try:
-        cfg = Config(str(test_settings.alembic_ini_path))
-        cfg.set_main_option(
-            "script_location", str(test_settings.alembic_ini_path.parent / "migrations")
-        )
-        cfg.set_main_option("sqlalchemy.url", f"sqlite:///{test_settings.db_path}")
-        command.upgrade(cfg, "head")
-
-        sessions = make_sessionmaker(engine)
-
         await stamp_tick(sessions)
         async with sessions() as db:
             rows = (
