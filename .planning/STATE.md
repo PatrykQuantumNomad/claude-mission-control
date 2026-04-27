@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 7 Plan 01 (Wave 0 foundation) complete; Plans 07-02..07-04 ready
-last_updated: "2026-04-27T12:08:00.000Z"
+stopped_at: Phase 7 Plan 02 (Wave 1 HPNL+SKLP panels) complete; Plans 07-03/07-04 ready
+last_updated: "2026-04-27T12:36:00.000Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 9
   completed_phases: 6
   total_plans: 36
-  completed_plans: 33
-  percent: 91
+  completed_plans: 34
+  percent: 94
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-25)
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, queue and approve tasks, and kill runaway sessions — all from one browser tab.
-**Current focus:** Phase 7 (Command Centre Panels) Wave 0 foundation COMPLETE 2026-04-27 — Plan 07-01 lands every cross-cutting concern (AlertDialog + cron-utils + ESTOP banner mounted in NavBar + SKLP-03 backend route + ContextHealthCard + lib/api.ts narrowed + lib/queries.ts ~22 new hooks/mutations). Plans 07-02..07-04 are pure binding work.
+**Current focus:** Phase 7 (Command Centre Panels) Wave 1 COMPLETE 2026-04-27 — Plan 07-02 lands HPNL panels (DecisionsCard + InboxCard) + SKLP page lower half (SkillsRegistry + SkillCostCard v2 placeholder + McpPanel reused via reqId override); /skills SKILLS_SLOTS shrinks from 7 to 2 (TPNL-01 + TPNL-03 only). Plans 07-03 (TaskBoard + Schedules) and 07-04 (close-out + PlaceholderCardGrid deletion) remain.
 
 ## Current Position
 
 Phase: 7 of 9 IN PROGRESS (Command Centre Panels)
-Plan: 1 of 4 complete in Phase 7 (07-01 Wave 0 foundation ✅; 07-02 / 07-03 / 07-04 pending; 188/188 frontend tests green; 208/208 backend tests green)
-Status: Phase 7 Wave 0 closed; Plans 07-02..07-04 ready (HPNL panels + TPNL panels + SKLP retirement)
+Plan: 2 of 4 complete in Phase 7 (07-01 Wave 0 ✅; 07-02 Wave 1 ✅; 07-03 / 07-04 pending; 202/202 frontend tests green; 208/208 backend tests green)
+Status: Phase 7 Waves 0+1 closed; Plans 07-03 (TPNL TaskBoard+Schedules) + 07-04 (close-out) ready
 Last activity: 2026-04-27
 
-Progress (Phase 7): [██░░░░░░░░] 25% (1 of 4 plans)
+Progress (Phase 7): [█████░░░░░] 50% (2 of 4 plans)
 
 ## Performance Metrics
 
@@ -50,12 +50,12 @@ Progress (Phase 7): [██░░░░░░░░] 25% (1 of 4 plans)
 | Phase 4 (Stateful APIs)                      | 5 / 5 | ~62 min                         | ~12 min  |
 | Phase 5 (Frontend Shell & Design System)     | 4 / 4 | ~31 min agent + checkpoint wait | ~8 min   |
 | Phase 6 (Observability & Activity Panels)    | 5 / 5 | ~74 min                         | ~14.8 min|
-| Phase 7 (Command Centre Panels)              | 1 / 4 | ~35 min (continuation run)      | ~35 min  |
+| Phase 7 (Command Centre Panels)              | 2 / 4 | ~60 min                         | ~30 min  |
 
 **Recent Trend:**
 
-- Last 5 plans: 06-02, 06-03, 06-04, 06-05, 07-01 (Phase 7 Wave 0 foundation landed; AlertDialog primitive + cron-utils + ESTOP banner globally mounted + SKLP-03 backend route + ContextHealthCard + lib/api.ts narrowed for 7 endpoint families + lib/queries.ts +22 hooks/mutations behind locked cadence policy; 188/188 frontend + 208/208 backend tests green)
-- Trend: Plan 07-01 landed as 6 atomic commits (chore + 2 RED + 3 GREEN) with 4 small auto-fixes (Rule 1 router prefix; Rule 3 fake-timers infinite loop; Rule 3 NavBar/AppShell QueryClientProvider plumbing; Rule 3 integration fetch mock entries). All four were predictable test-environment plumbing tweaks driven by the new globally-mounted ESTOP banner. Plan landed +18 net frontend tests (4 cron-utils + 4 AlertDialog + 5 EmergencyStopBanner + 3 ContextHealthCard + 1 NavBar update + 1 integration update) and +6 backend tests (test_phase7_context.py — empty fs / redaction / line counting / corrupt-JSON degradation / query-param ignore / closed schema). Run was a continuation: deps and RED tests landed in a prior interrupted execution; this run committed deps cleanly and shipped GREEN.
+- Last 5 plans: 06-03, 06-04, 06-05, 07-01, 07-02 (Phase 7 Wave 1 HPNL+SKLP panels landed; DecisionsCard + InboxCard + SkillsRegistry + SkillCostCard v2 placeholder + McpPanel reused with reqId override on /skills; SKILLS_SLOTS shrinks from 7 to 2; 202/202 frontend + 208/208 backend tests green)
+- Trend: Plan 07-02 landed as 4 atomic commits (2 RED + 2 GREEN — TDD for both tasks). One auto-fix (Rule 1 — McpPanel reqId hardcoded vs integration test SKLP-01 assertion conflict resolved by adding optional reqId prop with default OPNL-15; routes/index.tsx unchanged, /skills passes reqId="SKLP-01"). Plan landed +14 net frontend tests (5 DecisionsCard + 4 InboxCard + 4 SkillsRegistry + 1 SkillCostCard) — close to plan's ~16 target; integration smoke test gained 3 new fetch-mock branches (/api/decisions, /api/inbox, /api/skills) and an exact-equals-2 lucide-inbox icon assertion guarding the placeholder retirement (Pitfall 10). Backend untouched (208/208 unchanged).
 
 *Updated after each plan completion*
 | Phase 01-foundation-database P02 | 4 min | 3 tasks | 17 files |
@@ -90,6 +90,7 @@ Progress (Phase 7): [██░░░░░░░░] 25% (1 of 4 plans)
 | Phase 06-observability-activity-panels P04 | ~13 min | 2 tasks | 11 files (8 created + 3 modified) |
 | Phase 06-observability-activity-panels P05 | ~16 min agent + checkpoint wait | 2 tasks (1 auto + 1 checkpoint) | 10 files (6 created + 4 modified) |
 | Phase 07-command-centre-panels P01 | ~35 min (continuation run) | 3 tasks (TDD; 6 commits) | 24 files (11 created + 13 modified) |
+| Phase 07-command-centre-panels P02 | ~25 min | 2 tasks (TDD; 4 commits) | 13 files (8 created + 5 modified) |
 
 ## Accumulated Context
 
@@ -260,6 +261,11 @@ Recent decisions affecting current work:
 - Plan 07-01 deviation (Rule 3 — Blocking): TanStack Query + vi.useFakeTimers() + 5_000ms refetchInterval on useSystemState caused vi.runAllTimersAsync() to spin Query's internal setInterval indefinitely (test runner aborted at 10_000-timer guard rail). Fix: replace runAllTimersAsync() with `await vi.advanceTimersByTimeAsync(0)` inside act() — flushes microtasks (mutation promise resolves; Query onSettled runs) without unwinding the polling interval. Pattern reusable for any test that mounts both fake timers and TanStack Query
 - Plan 07-01 deviation (Rule 3 — Blocking): NavBar test (and AppShell test transitively) now requires QueryClientProvider because EmergencyStopBanner is mounted globally. Fix: wrap render in <QueryClientProvider client={makeClient()}> + spy `globalThis.fetch` to return a benign idle systemState response. Reusable shape for any future component test where a sibling/descendant mounts a TanStack Query hook
 - Plan 07-01 entry contract for Plans 07-02..07-04: every panel imports `from '../ui'` (now includes AlertDialog) and `from '../../lib/queries'` (~22 new hooks/mutations). No panel re-implements polling cadence or ESTOP state machine. ScheduleComposer (Wave 2) imports partsToCron + prettyCron from '../../lib/cron-utils'. TaskBoard delete-confirm (Wave 2) uses AlertDialog primitive directly. /skills SKILLS_SLOTS still has 7 entries (HPNL-01/02 + TPNL-01/03 + SKLP-01/02/04); Plan 07-04 deletes the helper after retiring the final SKLP-04 slot
+- Plan 07-02 complete: Phase 7 Wave 1 HPNL+SKLP panels landed — DecisionsCard (HPNL-01) inline-expand answer form with non-optimistic useAnswerDecision + 409 body literal preserved + answer text preserved on error (Pitfall 2); InboxCard (HPNL-02) per-row Mark-read (optimistic via useReadInbox) + Reply (non-optimistic via useReplyInbox); SkillsRegistry (SKLP-04) DataTable with per-row autonomy <select> dispatching usePatchSkillAutonomy (optimistic w/rollback verified by 422 mock test); SkillCostCard (SKLP-02) v2 placeholder mirroring TopSkills shape; McpPanel reused on /skills via optional reqId prop (default OPNL-15; /skills passes "SKLP-01"); /skills SKILLS_SLOTS shrinks from 7 to 2 (TPNL-01 + TPNL-03 only); integration smoke extended with 3 new fetch-mock branches and exact-equals-2 lucide-inbox icon assertion (Pitfall 10); 202/202 frontend + 208/208 backend tests green
+- Plan 07-02 deviation (Rule 1 — Bug): McpPanel reqId hardcoded "OPNL-15" conflicted with integration smoke's `findByText('SKLP-01')` requirement on /skills. Fix: added optional `reqId` prop with default "OPNL-15" — additive, non-breaking; routes/index.tsx unchanged; /skills says `<McpPanel reqId="SKLP-01" />`. Pattern reusable for any future Phase-N panel that needs reuse on a Phase-(N+1) page under a different requirement ID
+- Plan 07-02 pattern LOCKED (inline-expand mutation row): row head with primary action toggle + clicking exposes textarea form with Submit/Cancel below the head. Both DecisionsCard and InboxCard follow this shape. onError handler intentionally OMITTED for non-optimistic mutations so user-typed input (answer/reply text) survives 409/422 — user can re-read the error body literal (rendered inline via mutation.error.message) and retry against live state. Reusable for any future per-row mutation UI (e.g. TaskBoard inline edit in Plan 07-03)
+- Plan 07-02 pattern LOCKED (data-attribute optimistic discriminator): InboxCard uses `data-read="true"` attribute for the read-state opacity rule (CSS `[data-read='true'] { opacity: 0.55 }`). Tests assert the attribute presence rather than CSS class changes — decouples test from styling decisions. Reusable for any optimistic UI flip
+- Plan 07-02 entry contract for Plans 07-03/07-04: panels barrel exports 23 names total (4 Phase-7 Wave-0 ContextHealthCard + 4 Phase-7 Wave-1: DecisionsCard / InboxCard / SkillsRegistry / SkillCostCard, plus the 18 Phase-6 panels); /skills SKILLS_SLOTS contains exactly `[{ TPNL-01 }, { TPNL-03 }]`; Plan 07-03 retires both via TaskBoard + Schedules panels; Plan 07-04 deletes PlaceholderCardGrid.tsx as the last consumer goes away. Frontend baseline: 202 tests; Backend baseline: 208 tests (Plan 07-02 added 14 frontend, 0 backend)
 
 ### Pending Todos
 
@@ -268,12 +274,12 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-None — Phases 1–6 implementations complete + Phase 7 Wave 0 foundation landed. Verifier readiness confirmed via 208 backend tests + 188 frontend tests; all 15 OPNL-01..15 panels live on / + all 6 ACTV-01..06 panels live on /activity + SKLP-03 ContextHealthCard live on /skills (Phase 7 first slot retirement); PlaceholderCardGrid still mounts on /skills (7 remaining slots; Plan 07-04 retires the helper). Plans 07-02..07-04 are pure binding work over the queries.ts/api.ts/AlertDialog/cron-utils foundation Plan 07-01 shipped.
+None — Phases 1–6 implementations complete + Phase 7 Waves 0+1 landed. Verifier readiness confirmed via 208 backend tests + 202 frontend tests. /skills now has 6 live panels (DecisionsCard + InboxCard above-grid; SkillsRegistry + McpPanel(reqId="SKLP-01") + SkillCostCard + ContextHealthCard in cmc-card-grid); PlaceholderCardGrid still mounts with 2 remaining slots (TPNL-01 + TPNL-03); Plan 07-04 retires the helper. Plans 07-03 (TaskBoard + Schedules) and 07-04 (close-out) are pure binding work over the queries.ts/api.ts/AlertDialog/cron-utils foundation Plan 07-01 shipped.
 
 ## Session Continuity
 
-Last session: 2026-04-27T12:08:00.000Z
-Stopped at: Phase 7 Plan 01 (Wave 0 foundation) complete
+Last session: 2026-04-27T12:36:00.000Z
+Stopped at: Phase 7 Plan 02 (Wave 1 HPNL+SKLP panels) complete
 Resume file: None
 
 Phase 1 final commit chain:
