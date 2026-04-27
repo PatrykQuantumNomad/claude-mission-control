@@ -1423,3 +1423,135 @@ body {
   color: var(--cmc-text-subtle);
   font-style: italic;
 }
+
+/* ============================================================================
+ * Phase 7 Plan 02 (Wave 1) — DecisionsCard + InboxCard inline-expand row
+ * pattern. Both panels list rows with an inline-expand form (textarea +
+ * Submit/Cancel) that materializes when the operator clicks Answer / Reply.
+ * Tokens only — no inline hex.
+ * ============================================================================
+ */
+
+.cmc-decisions-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+.cmc-decisions-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  border: 1px solid var(--cmc-border);
+  border-radius: var(--radius-sm);
+  background: var(--cmc-surface-2);
+}
+.cmc-decisions-row__head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+.cmc-decisions-row__question {
+  flex: 1 1 auto;
+  font-size: var(--size-md);
+  color: var(--cmc-text);
+}
+.cmc-decisions-row__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+.cmc-decisions-row__error {
+  margin: 0;
+  color: var(--cmc-status-red);
+  font-size: var(--size-sm);
+}
+.cmc-decisions-row__actions {
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-xs);
+  justify-content: flex-end;
+}
+
+.cmc-inbox-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+.cmc-inbox-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  border: 1px solid var(--cmc-border);
+  border-radius: var(--radius-sm);
+  background: var(--cmc-surface-2);
+}
+.cmc-inbox-row[data-read='true'] {
+  opacity: 0.55;
+}
+.cmc-inbox-row__head {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+.cmc-inbox-row__copy {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+.cmc-inbox-row__subject {
+  font-size: var(--size-md);
+  font-weight: var(--weight-semibold);
+  color: var(--cmc-text);
+}
+.cmc-inbox-row__body {
+  font-size: var(--size-body);
+  color: var(--cmc-text-dim);
+}
+.cmc-inbox-row__actions {
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-xs);
+  align-items: center;
+}
+.cmc-inbox-row__reply-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+.cmc-inbox-row__form-actions {
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-xs);
+  justify-content: flex-end;
+}
+
+/* Generic input recipe — matches the existing cmc-input usages without
+ * collision. SkillsRegistry select inherits this, plus a min-width modifier
+ * (Plan 07-02 Task 2). */
+.cmc-input {
+  background: var(--cmc-surface);
+  color: var(--cmc-text);
+  border: 1px solid var(--cmc-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-xs) var(--space-sm);
+  font-family: var(--font-sans);
+  font-size: var(--size-body);
+  width: 100%;
+}
+.cmc-input:focus-visible {
+  outline: 2px solid var(--cmc-accent-blue);
+  outline-offset: 2px;
+}

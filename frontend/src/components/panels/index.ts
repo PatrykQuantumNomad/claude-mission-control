@@ -32,3 +32,6 @@ export { UnifiedFailures } from './UnifiedFailures'
 export { TopSkills } from './TopSkills'
 // Phase 7 Plan 01 (Wave 0) — SKLP-03 panel (replaces SKLP-03 placeholder slot)
 export { ContextHealthCard } from './ContextHealthCard'
+// Phase 7 Plan 02 (Wave 1) — HPNL panels (DecisionsCard + InboxCard)
+export { DecisionsCard } from './DecisionsCard'
+export { InboxCard } from './InboxCard'
