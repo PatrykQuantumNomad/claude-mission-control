@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: Stateful APIs** - HITL decisions/inbox, tasks, schedules, emergency stop CRUD
 - [x] **Phase 5: Frontend Shell & Design System** - TanStack Router, app shell, components, dark theme, visual polish
 - [x] **Phase 6: Observability & Activity Panels** - All 15 observability panels plus the 6 activity page panels
-- [ ] **Phase 7: Command Centre Panels** - HITL decision/inbox panels, task board, schedule composer, skills page, emergency stop
+- [x] **Phase 7: Command Centre Panels** - HITL decision/inbox panels, task board, schedule composer, skills page, emergency stop
 - [ ] **Phase 8: Mission Control Dispatcher** - Heartbeat, task execution (classic + stream), DECISION/INBOX parsing, skill routing
 - [ ] **Phase 9: Telegram, Setup & Testing** - Telegram bridge, install.sh, cc CLI, doctor.py, Playwright e2e tests
 
@@ -162,7 +162,18 @@ Wave structure (fully serialized — multiple plans share `frontend/src/componen
   3. Task composer slide-out creates a new task with all fields (model, mode, priority, quadrant, risk, approval, dry_run)
   4. Schedule composer creates schedules with time picker, day chips, live cron preview, and run history is viewable
   5. Emergency stop banner appears in header with 2-step confirmation dialog
-**Plans**: TBD
+**Plans**: 4 plans
+
+Wave structure (fully serialized — multiple plans share `frontend/src/components/panels/index.ts`, `frontend/src/styles.css`, and `routes/skills.tsx`. Per Phase 5/6 file-ownership rule, all writers to a shared barrel/CSS file must be sequenced):
+- Wave 1: 07-01 (foundation — deps + AlertDialog + EmergencyStopBanner + ContextHealthCard + queries.ts hooks + cron-utils + backend /api/context/health)
+- Wave 2: 07-02 (depends_on 07-01) — HPNL DecisionsCard/InboxCard + Skills page lower half (SKLP-01/02/04)
+- Wave 3: 07-03 (depends_on 07-01, 07-02) — TaskBoard + TaskComposer + AttentionBar real counts
+- Wave 4: 07-04 (depends_on 07-01, 07-02, 07-03) — SchedulesCard + ScheduleComposer + PlaceholderCardGrid retirement + close-out checkpoint
+
+- [x] 07-01-PLAN.md — Wave 1 foundation: cronstrue@^3 + @radix-ui/react-alert-dialog@^1, AlertDialog primitive, EmergencyStopBanner globally mounted in NavBar (TPNL-05 visible from boot), ContextHealthCard live on /skills (SKLP-03), lib/api.ts narrowed for 7 endpoint families + 5 new fetchers, lib/queries.ts +22 hooks/mutations behind locked cadence policy, lib/cron-utils.ts (partsToCron + prettyCron), backend GET /api/context/health with secret-key name redaction + defense-in-depth schema ✅ 2026-04-27 (188/188 frontend + 208/208 backend tests green)
+- [x] 07-02-PLAN.md — Wave 2 HPNL + SKLP panels: DecisionsCard (HPNL-01) + InboxCard (HPNL-02) with non-optimistic + idempotent-optimistic mutations, SkillsRegistry (SKLP-04) with optimistic onMutate/onError rollback, SkillCostCard (SKLP-02) v2 placeholder, McpPanel (SKLP-01) reused verbatim from Phase 6 with additive reqId prop ✅ 2026-04-27 (202/202 frontend + 208/208 backend tests green)
+- [x] 07-03-PLAN.md — Wave 3 TaskBoard + TaskComposer + AttentionBar: TaskBoard (TPNL-01) 3-column client-side grouping with awaiting_approval banner + per-row Approve/Rerun/Delete via AlertDialog confirm; TaskComposer (TPNL-02) Sheet with bespoke form + draft persistence under cmc.composer.task.draft + skipPersistRef guard; global mount via TaskComposerProvider for Cmd+K from any route; AttentionBar render extension + backend func.count SELECT replacements for pending_decisions/failed_tasks ✅ 2026-04-27 (219/219 frontend + 209/209 backend tests green)
+- [x] 07-04-PLAN.md — Wave 4 Schedules + close-out: SchedulesCard (TPNL-03) with cronstrue preview + lazy useScheduleRuns(id, open) Pitfall 9 + stale styling; ScheduleComposer (TPNL-04) with native time picker + 7 aria-pressed day chips + live partsToCron+prettyCron preview + Pitfall 3 keep-typing fallback + NL-cron entry + embedded task_template + draft persistence under cmc.composer.schedule.draft; /skills SKILLS_SLOTS array deleted; PlaceholderCardGrid.tsx + its test DELETED; integration smoke final assertions; Phase 7 close-out human-verify checkpoint ✅ 2026-04-27 (234/234 frontend + 209/209 backend tests green; visual quality bar approved by user)
 **UI hint**: yes
 
 ### Phase 8: Mission Control Dispatcher
@@ -204,6 +215,6 @@ Note: Phases 3, 4, and 5 can execute in parallel after Phase 2 (or Phase 1 for 4
 | 4. Stateful APIs | 5/5 | Complete (verifier: 5/5 must-haves) | 2026-04-26 |
 | 5. Frontend Shell & Design System | 4/4 | Complete (visual quality bar approved by user) | 2026-04-27 |
 | 6. Observability & Activity Panels | 5/5 | Complete (visual quality bar approved by user) | 2026-04-27 |
-| 7. Command Centre Panels | 0/TBD | Not started | - |
+| 7. Command Centre Panels | 4/4 | Complete (verifier: 5/5 must-haves; visual quality bar approved by user) | 2026-04-27 |
 | 8. Mission Control Dispatcher | 0/TBD | Not started | - |
 | 9. Telegram, Setup & Testing | 0/TBD | Not started | - |
