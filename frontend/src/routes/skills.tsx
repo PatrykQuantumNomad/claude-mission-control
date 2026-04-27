@@ -1,32 +1,38 @@
-// Skills page (`/skills`).
+// Skills page (`/skills`) — Phase 7 final form.
 //
-// Phase 5 Plan 04 (Wave 3) shipped a placeholder grid keyed by reqId.
-// Phase 7 Wave 0 (Plan 07-01) retired SKLP-03 and rendered ContextHealthCard
-// below the grid. Phase 7 Wave 1 (Plan 07-02) retired the HPNL family
-// (Decisions/Inbox) + SKLP-01/02/04. Phase 7 Wave 2 part 1 (this plan,
-// Plan 07-03) retires TPNL-01 by rendering TaskBoard alongside the SKLP
-// panels in the cmc-card-grid. The TaskComposer (TPNL-02) is mounted
-// globally at AppShell — opening it via Cmd+K → 'Quick task' is wired in
-// CommandPalette and works from any route.
+// Layout:
+//   - DecisionsCard (HPNL-01, full-width — agent decisions awaiting answer)
+//   - InboxCard    (HPNL-02, full-width — agent-to-user messages)
+//   - .cmc-card-grid containing:
+//       TaskBoard         (TPNL-01)
+//       SchedulesCard     (TPNL-03; opens TPNL-04 ScheduleComposer via "+ New")
+//       SkillsRegistry    (SKLP-04)
+//       McpPanel          (SKLP-01 — Phase 6 component reused with reqId override)
+//       SkillCostCard     (SKLP-02 — v2 placeholder)
+//       ContextHealthCard (SKLP-03)
 //
-// Only TPNL-03 (Schedules) remains in SKILLS_SLOTS — Plan 07-04 retires it
-// and deletes the PlaceholderCardGrid helper file.
+// TPNL-02 TaskComposer is mounted at AppShell (sibling of CommandPalette);
+// accessible via Cmd+K → "Quick task" from any route.
+//
+// TPNL-04 ScheduleComposer is mounted as a sibling of SchedulesCard; opens
+// via the "+ New" button on the card.
+//
+// TPNL-05 EmergencyStopBanner is mounted in NavBar — visible globally.
+//
+// PlaceholderCardGrid was retired in Plan 07-04 along with the helper file;
+// every former placeholder slot now resolves to a real panel.
 
 import { createFileRoute } from '@tanstack/react-router'
-import { PlaceholderCardGrid, type PlaceholderSlot } from '../components/PlaceholderCardGrid'
 import {
   ContextHealthCard,
   DecisionsCard,
   InboxCard,
   McpPanel,
+  SchedulesCard,
   SkillCostCard,
   SkillsRegistry,
   TaskBoard,
 } from '../components/panels'
-
-const SKILLS_SLOTS: PlaceholderSlot[] = [
-  { reqId: 'TPNL-03', title: 'Schedules', dataNoun: 'scheduled task data' },
-]
 
 function SkillsPage() {
   return (
@@ -48,17 +54,15 @@ function SkillsPage() {
       {/* Full-width above-grid panels (LiveSessionsCard pattern — RESEARCH §thing-13). */}
       <DecisionsCard />
       <InboxCard />
-      {/* Live grid for the SKLP-* family + ContextHealthCard from Wave 0 +
-          TaskBoard (TPNL-01) from Plan 07-03. */}
+      {/* Live grid for tasks, schedules, and the SKLP-* family + ContextHealthCard. */}
       <div className="cmc-card-grid">
         <TaskBoard />
+        <SchedulesCard />
         <SkillsRegistry />
         <McpPanel reqId="SKLP-01" />
         <SkillCostCard />
         <ContextHealthCard />
       </div>
-      {/* Last placeholder (TPNL-03) retired in Plan 07-04 along with the helper. */}
-      <PlaceholderCardGrid slots={SKILLS_SLOTS} />
     </section>
   )
 }

@@ -1,25 +1,23 @@
-// End-to-end smoke test for the full Phase 5+6 shell.
+// End-to-end smoke test for the full Phase 5+6+7 shell.
 //
 // Boots the real <RouterProvider> over the generated routeTree (NOT an
 // in-memory createRoute mock — those are reserved for component-level tests
 // in components/ui/__tests__/*). This test exercises the entire mounted app:
 // __root.tsx (QueryClientProvider + ErrorBoundary + AppShell) → routes/index
-// (or activity / skills) → live panels (Phase 6) + PlaceholderCardGrid still
-// on /skills (Phase 7 territory).
+// (or activity / skills) → live panels (Phase 6 + 7).
 //
 // `createMemoryHistory` gives a deterministic test environment without
 // touching the browser history API. The selector `'h1'` discriminates page
 // headings from CommandPalette items that share the same text.
 //
-// Plan 06-05 extension — placeholder-removal regression guard:
-//   - On `/` and `/activity`, every live panel must render real content (no
-//     "Nothing to show yet" placeholder body remains). This is enforced by
-//     a URL-aware fetch mock that returns a non-empty payload for every Phase
-//     6 endpoint. TopSkills (ACTV-04) uses heading "Coming in v2" — distinct
-//     from PlaceholderCardGrid's "Nothing to show yet" — so it does not
-//     trigger the assertion either.
-//   - On `/skills`, PlaceholderCardGrid is still rendered (Phase 7 will
-//     replace those panels), so "Nothing to show yet" IS expected there.
+// Plan 07-04 extension — Phase 7 final close-out guard:
+//   - On `/`, `/activity`, AND `/skills`, every live panel must render real
+//     content (no "Nothing to show yet" placeholder body remains). The
+//     PlaceholderCardGrid helper file was DELETED in Plan 07-04; the only
+//     remaining `lucide-inbox` icons would be from PanelCard EmptyStates
+//     (which now pass NO icon, so 0 inbox icons should appear on every route).
+//   - The assertion guards against accidental regressions where a future
+//     panel might re-introduce the lucide-inbox EmptyState icon.
 //   - OtelPanel mounts an EventSource; tests stub a no-op MockEventSource
 //     so the activity route mounts without throwing.
 
@@ -272,6 +270,9 @@ function makeFetchMock() {
     // Phase 7 Plan 03 — TPNL TaskBoard (TPNL-01)
     if (url.startsWith('/api/tasks'))
       return json({ items: [], total: 0 })
+    // Phase 7 Plan 04 — TPNL SchedulesCard (TPNL-03 / TPNL-04 composer fields)
+    if (url.startsWith('/api/schedules'))
+      return json({ items: [], total: 0 })
     return json({})
   })
 }
@@ -339,32 +340,33 @@ describe('integration: full app', () => {
     expect(container.querySelector('svg.lucide-inbox')).toBeNull()
   })
 
-  it('mounts /skills and shows Skills heading + every retired-slot reqId via live PanelCard kickers', async () => {
+  it('mounts /skills and shows Skills heading + every Phase 7 reqId via live PanelCard kickers', async () => {
     const router = makeRouter('/skills')
     const { findByText, container } = render(<RouterProvider router={router} />)
     expect(await findByText('Skills', { selector: 'h1' })).toBeInTheDocument()
-    // Plan 07-02 + 07-03 retired 6 of the 7 original SKILLS_SLOTS placeholder
-    // slots. Each reqId now appears via the live PanelCard kicker (not the
-    // placeholder grid).
+    // Plan 07-04 final close: every Phase 7 reqId now resolves to a live
+    // PanelCard kicker (TPNL-02 TaskComposer is reachable via Cmd+K; TPNL-04
+    // ScheduleComposer via "+ New" on SchedulesCard; TPNL-05 EmergencyStopBanner
+    // is mounted in NavBar — all three are exercised in dedicated tests).
     expect(await findByText('HPNL-01')).toBeInTheDocument() // DecisionsCard
     expect(await findByText('HPNL-02')).toBeInTheDocument() // InboxCard
     expect(await findByText('SKLP-01')).toBeInTheDocument() // McpPanel reused with reqId override
     expect(await findByText('SKLP-02')).toBeInTheDocument() // SkillCostCard v2 placeholder
     expect(await findByText('SKLP-04')).toBeInTheDocument() // SkillsRegistry
-    // Plan 07-01 retired SKLP-03 — ContextHealthCard renders the live panel.
-    expect(await findByText('SKLP-03')).toBeInTheDocument()
+    expect(await findByText('SKLP-03')).toBeInTheDocument() // ContextHealthCard
     expect(await findByText('Context Health')).toBeInTheDocument()
-    // Plan 07-03 retired TPNL-01 — TaskBoard renders alongside the SKLP grid.
-    expect(await findByText('TPNL-01')).toBeInTheDocument()
+    expect(await findByText('TPNL-01')).toBeInTheDocument() // TaskBoard
     expect(await findByText('Task Board')).toBeInTheDocument()
-    // Last placeholder: only TPNL-03 (Plan 07-04 territory).
+    // Plan 07-04 retires the last placeholder slot — TPNL-03 SchedulesCard
+    // is now a live panel, NOT a PlaceholderCardGrid entry.
     expect(await findByText('TPNL-03')).toBeInTheDocument()
-    // Pitfall 10 mitigation: count lucide-inbox icons (PlaceholderCardGrid's
-    // EmptyState discriminator — STATE.md L247). One slot remains so exactly
-    // 1 placeholder icon; the live PanelCard EmptyStates do NOT use the
-    // lucide-inbox icon (PanelCard's EmptyState passes no icon).
+    expect(await findByText('Schedules')).toBeInTheDocument()
+    // Pitfall 10 final lockdown: PlaceholderCardGrid file was DELETED in
+    // Plan 07-04, so zero lucide-inbox icons remain on /skills (PanelCard's
+    // EmptyState passes no icon). This is the strongest possible structural
+    // guard — typecheck would fail if any consumer still imported the helper.
     const inboxIcons = container.querySelectorAll('svg.lucide-inbox')
-    expect(inboxIcons.length).toBe(1)
+    expect(inboxIcons.length).toBe(0)
   })
 
   it('Cmd+K opens the global CommandPalette from / route', async () => {
