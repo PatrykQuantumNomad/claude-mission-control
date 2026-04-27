@@ -186,7 +186,18 @@ Wave structure (fully serialized — multiple plans share `frontend/src/componen
   3. Stream mode parses DECISION: and INBOX: markers from claude output (skipping fenced code blocks) and blocks on answer poll
   4. Emergency stop flag causes immediate dispatcher return without executing tasks
   5. Dispatcher runs up to 3 concurrent tasks and sweeps stale PID files on each cycle
-**Plans**: TBD
+**Plans**: 4 plans
+
+Wave structure (sequential — each plan extends modules the next plan exercises in heartbeat fan-out + tests):
+- Wave 1: 08-01 (foundation — Settings extension + state/sweep/claim/materialize/heartbeat skeleton; DISP-01 partial, DISP-02, DISP-03, DISP-04 cap)
+- Wave 2: 08-02 (depends_on 08-01) — classic mode + model resolver + plist template + oneshot.py replacement (DISP-05, DISP-10, DISP-12)
+- Wave 3: 08-03 (depends_on 08-01, 08-02) — stream mode + marker parser + answer poll + INBOX post + Wave-2 stdin spike (DISP-06, DISP-07, DISP-08)
+- Wave 4: 08-04 (depends_on 08-01, 08-02, 08-03) — follow-up pump + skill router + autonomy gate + heartbeat fan-out finalize + close-out checkpoint (DISP-04 finalize, DISP-09, DISP-11)
+
+- [ ] 08-01-PLAN.md — Wave 1 foundation: 7 Settings fields + httpx runtime promotion + cmc.dispatcher.{state,sweep,claim,materialize,heartbeat} skeleton (DISP-01 atomic claim + DISP-02 emergency stop + DISP-03 PID sweep + DISP-04 concurrency cap), Phase 8 test scaffold
+- [ ] 08-02-PLAN.md — Wave 2 classic + plist: cmc.dispatcher.{model_resolve,run_classic,plist_render,templates/com.cmc.dispatcher.plist.j2} + oneshot.py replacement (DISP-05 subprocess.Popen claude -p with timeout/stdout/PID + DISP-10 model resolution chain + DISP-12 launchd plist template + render helper)
+- [ ] 08-03-PLAN.md — Wave 3 stream + markers: cmc.dispatcher.{marker_parser,answer_poll,inbox_post,run_stream,_input_format_spike} + fake_claude_stream fixture (DISP-06 bidirectional pipes + DISP-07 fenced-code-aware DECISION/INBOX parser + answer poll + DISP-08 INBOX→/api/inbox + Wave-2 stdin-shape spike for DISP-09)
+- [ ] 08-04-PLAN.md — Wave 4 fan-out + close-out: cmc.dispatcher.{follow_ups,skill_router,autonomy_gate} + heartbeat fan-out finalize + run_stream FollowUpPump wiring + 4 E2E tests (DISP-04 autonomy gate + DISP-09 queue→stdin pump + DISP-11 Haiku skill router) + human-verify close-out checkpoint against ROADMAP success criteria 1-5
 
 ### Phase 9: Telegram, Setup & Testing
 **Goal**: Optional Telegram pager works for notifications and callbacks, one-command installer sets up everything, and Playwright tests verify the critical user flows
