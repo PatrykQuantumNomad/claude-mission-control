@@ -181,14 +181,17 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **DISP-03
 **: Dispatcher sweeps stale PIDs from .tmp/mission-control-queue/pids/
 - [ ] **DISP-04**: Dispatcher runs up to MAX_CONCURRENT (3) tasks with skill autonomy check
-- [ ] **DISP-05**: Classic mode: subprocess.Popen claude -p with timeout, stdout capture, PID tracking
+- [x] **DISP-05
+**: Classic mode: subprocess.Popen claude -p with timeout, stdout capture, PID tracking
 - [ ] **DISP-06**: Stream mode: subprocess.Popen with stdin/stdout pipes, JSON line parsing, PID tracking
 - [ ] **DISP-07**: Stream mode parses DECISION: markers (skipping fenced code blocks) and blocks on answer poll
 - [ ] **DISP-08**: Stream mode parses INBOX: markers and posts to /api/inbox
 - [ ] **DISP-09**: Stream mode polls queue file for user follow-ups and injects to stdin
-- [ ] **DISP-10**: Dispatcher resolves model from task > skill frontmatter > env > CLI default
+- [x] **DISP-10
+**: Dispatcher resolves model from task > skill frontmatter > env > CLI default
 - [ ] **DISP-11**: Skill router uses Haiku to pick best skill for unassigned tasks
-- [ ] **DISP-12**: Launchd plist template with correct Python path (not /usr/bin/python3)
+- [x] **DISP-12
+**: Launchd plist template with correct Python path (not /usr/bin/python3)
 
 ### Frontend Shell
 

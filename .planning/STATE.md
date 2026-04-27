@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 08-01-PLAN.md (Phase 8 Wave 1 — dispatcher foundation landed)
-last_updated: "2026-04-27T21:26:25.873Z"
+stopped_at: Completed 08-02-PLAN.md (Phase 8 Wave 2 — DISP-05 classic runner + DISP-10 model chain + DISP-12 plist landed)
+last_updated: "2026-04-27T21:40:26.022Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 9
   completed_phases: 7
   total_plans: 40
-  completed_plans: 37
-  percent: 93
+  completed_plans: 38
+  percent: 95
 ---
 
 # Project State
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 ## Current Position
 
 Phase: 8 of 9 (Mission Control Dispatcher) — Plan 1 of 4 COMPLETE
-Plan: 1 of 4 complete in Phase 8 (08-01 Wave 1 ✅; 08-02 Wave 2 classic runner pending; 08-03 Wave 2 stream runner pending; 08-04 Wave 3 fan-out + oneshot wire-up pending)
-Status: executing — ready for Plan 08-02
+Plan: 2 of 4 complete in Phase 8 (08-01 Wave 1 ✅; 08-02 Wave 2 classic runner pending; 08-03 Wave 2 stream runner pending; 08-04 Wave 3 fan-out + oneshot wire-up pending)
+Status: Ready to execute
 Last activity: 2026-04-27
 
 Progress (Phase 8): [██░░░░░░░░] 25% (1 of 4 plans)
@@ -94,6 +94,7 @@ Progress (Phase 8): [██░░░░░░░░] 25% (1 of 4 plans)
 | Phase 07-command-centre-panels PP03 | 28 min | 2 tasks (TDD; 4 commits) tasks | 16 files (7 created + 9 modified) files |
 | Phase 07-command-centre-panels P04 | ~28 min | 3 tasks (1 TDD + 1 retire + 1 checkpoint) | 10 files (4 created + 4 modified + 2 deleted) |
 | Phase 08-mission-control-dispatcher P01 | 11 min | 2 (TDD; 4 commits) tasks | 11 files (6 created + 5 modified) files |
+| Phase 08-mission-control-dispatcher PP02 | 9 min | 2 tasks (TDD; 4 commits) tasks | 9 files (7 created + 2 modified) files |
 
 ## Accumulated Context
 
@@ -288,6 +289,10 @@ Recent decisions affecting current work:
 - Plan 08-01 entry contract for Plans 08-02/03/04: cmc.dispatcher.state exports {pid_dir, write_pid_file, unlink_pid_file, list_live_pids, stamp_tick, max_concurrent, MAX_CONCURRENT}; cmc.dispatcher.heartbeat exports {run_one_cycle, MAX_CONCURRENT}; per-task fan-out TODO at heartbeat.py line ~88 — Plan 08-04 wires await asyncio.gather(*runner_tasks) and swaps cmc.dispatcher.oneshot:main from Phase 4 stub to asyncio.run(run_one_cycle()). Test file convention: ALL Plans 02-04 APPEND DISP-05..12 sections to backend/tests/test_phase8_dispatcher.py (single-file Phase test convention; mirrors Phase 4)
 - Plan 08-01 conftest fixture additivity convention LOCKED: NEW fixtures use distinct names (tmp_pid_dir_monkey, make_task_orm, make_schedule_orm) — DO NOT redefine Phase 4 helpers (tmp_pid_dir, make_task_row dict). Phase 4 ESTOP/HITL tests continue to use Phase 4 fixtures unchanged. make_task_row gains optional timeout_s=None kwarg (backward-compat for Plan 02 DISP-05 timeout tests)
 - Plan 08-01 deviation (Rule 1 - Test infra): AsyncEngine.dispose is read-only attr (defined via __slots__/property in SQLAlchemy 2.0); monkeypatch.setattr(engine, 'dispose', ...) raises AttributeError. Pattern: do NOT patch dispose — engine.dispose() calls pool.dispose() which is idempotent; subsequent session-factory calls reacquire connections through the same pool. Tests that pass a manually-constructed engine into run_one_cycle let heartbeat dispose it; the test's own finally: await engine.dispose() is a harmless second call. Reusable for any future test of code that disposes engines internally
+- Plan 08-02: CMC_DEFAULT_MODEL is the env name for DISP-10 tier 3 (NOT CLAUDE_DEFAULT_MODEL — that's the bare-name override of settings.claude_default_model). Only CMC_-prefixed env var in the dispatcher; settings still use bare names per Plan-01 lock.
+- Plan 08-02: string.Template.safe_substitute over Jinja2 for plist rendering — three placeholders (python_path / python_path_dir / repo_root) is below the threshold for adding a runtime dep. .plist.j2 suffix is convention only.
+- Plan 08-02: Sync subprocess.Popen with thread-spawned DB writes (asyncio.run inside thread) for run_classic — Plan 04 fan-out wraps run_classic in threading.Thread; classic mode chose this over asyncio.create_subprocess_exec for simpler error semantics over a 600s subprocess.
+- Plan 08-02: Late import of heartbeat in oneshot.main() (from cmc.dispatcher import heartbeat as _hb) — module-level import would defeat monkeypatch.setattr('cmc.dispatcher.heartbeat.run_one_cycle', ...). Late re-resolution preserves the standard test pattern.
 
 ### Pending Todos
 
@@ -300,8 +305,8 @@ None — Phases 1–7 implementations complete; visual quality bar APPROVED by u
 
 ## Session Continuity
 
-Last session: 2026-04-27T21:25:47.914Z
-Stopped at: Completed 08-01-PLAN.md (Phase 8 Wave 1 — dispatcher foundation landed)
+Last session: 2026-04-27T21:40:26.014Z
+Stopped at: Completed 08-02-PLAN.md (Phase 8 Wave 2 — DISP-05 classic runner + DISP-10 model chain + DISP-12 plist landed)
 Resume file: None
 
 Phase 1 final commit chain:
