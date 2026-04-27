@@ -262,6 +262,13 @@ function makeFetchMock() {
         mcp_server_count: 1,
         hook_count: 0,
       })
+    // Phase 7 Plan 02 — HPNL panels (decisions + inbox) + SKLP panels (skills)
+    if (url.startsWith('/api/decisions'))
+      return json({ items: [], total: 0 })
+    if (url.startsWith('/api/inbox'))
+      return json({ items: [], total: 0 })
+    if (url.startsWith('/api/skills'))
+      return json({ items: [] })
     return json({})
   })
 }
@@ -329,23 +336,29 @@ describe('integration: full app', () => {
     expect(container.querySelector('svg.lucide-inbox')).toBeNull()
   })
 
-  it('mounts /skills and shows Skills heading + HPNL/TPNL/SKLP slots (placeholder still expected, SKLP-03 now live)', async () => {
+  it('mounts /skills and shows Skills heading + every retired-slot reqId via live PanelCard kickers', async () => {
     const router = makeRouter('/skills')
-    const { findByText, findAllByText } = render(<RouterProvider router={router} />)
+    const { findByText, container } = render(<RouterProvider router={router} />)
     expect(await findByText('Skills', { selector: 'h1' })).toBeInTheDocument()
-    expect(await findByText('HPNL-01')).toBeInTheDocument()
-    expect(await findByText('TPNL-01')).toBeInTheDocument()
-    expect(await findByText('SKLP-01')).toBeInTheDocument()
-    // Plan 07-01 retired SKLP-03 — ContextHealthCard now renders below the
-    // placeholder grid. The kicker still appears (in the live panel) but it
-    // no longer carries the placeholder body.
+    // Plan 07-02 retired 5 placeholder slots. Each reqId now appears via the
+    // live PanelCard kicker (not the placeholder grid).
+    expect(await findByText('HPNL-01')).toBeInTheDocument() // DecisionsCard
+    expect(await findByText('HPNL-02')).toBeInTheDocument() // InboxCard
+    expect(await findByText('SKLP-01')).toBeInTheDocument() // McpPanel reused with reqId override
+    expect(await findByText('SKLP-02')).toBeInTheDocument() // SkillCostCard v2 placeholder
+    expect(await findByText('SKLP-04')).toBeInTheDocument() // SkillsRegistry
+    // Plan 07-01 retired SKLP-03 — ContextHealthCard renders the live panel.
     expect(await findByText('SKLP-03')).toBeInTheDocument()
     expect(await findByText('Context Health')).toBeInTheDocument()
-    // Remaining placeholder slots still use PlaceholderCardGrid; "Nothing to
-    // show yet" copy is expected here. Assert multiple such bodies render
-    // (one per HPNL/TPNL/remaining-SKLP slot — 7 slots remain after 07-01).
-    const placeholders = await findAllByText(/Nothing to show yet/)
-    expect(placeholders.length).toBeGreaterThan(1)
+    // Remaining placeholders: only TPNL-01 + TPNL-03 (Plan 07-03/07-04 territory).
+    expect(await findByText('TPNL-01')).toBeInTheDocument()
+    expect(await findByText('TPNL-03')).toBeInTheDocument()
+    // Pitfall 10 mitigation: count lucide-inbox icons (PlaceholderCardGrid's
+    // EmptyState discriminator — STATE.md L247). Two slots remain so exactly
+    // 2 placeholder icons; the live PanelCard EmptyStates do NOT use the
+    // lucide-inbox icon (PanelCard's EmptyState passes no icon).
+    const inboxIcons = container.querySelectorAll('svg.lucide-inbox')
+    expect(inboxIcons.length).toBe(2)
   })
 
   it('Cmd+K opens the global CommandPalette from / route', async () => {

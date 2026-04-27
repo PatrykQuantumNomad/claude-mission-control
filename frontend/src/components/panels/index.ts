@@ -35,3 +35,6 @@ export { ContextHealthCard } from './ContextHealthCard'
 // Phase 7 Plan 02 (Wave 1) — HPNL panels (DecisionsCard + InboxCard)
 export { DecisionsCard } from './DecisionsCard'
 export { InboxCard } from './InboxCard'
+// Phase 7 Plan 02 (Wave 1) — SKLP panels (SkillsRegistry + SkillCostCard v2 placeholder)
+export { SkillsRegistry } from './SkillsRegistry'
+export { SkillCostCard } from './SkillCostCard'

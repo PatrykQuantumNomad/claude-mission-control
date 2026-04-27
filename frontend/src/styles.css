@@ -1555,3 +1555,10 @@ body {
   outline: 2px solid var(--cmc-accent-blue);
   outline-offset: 2px;
 }
+
+/* SkillsRegistry autonomy select — narrows the generic .cmc-input recipe
+ * so a per-row select doesn't fill the entire cell width. */
+.cmc-skills-registry__autonomy {
+  min-width: 100px;
+  width: auto;
+}

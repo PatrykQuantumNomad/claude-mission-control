@@ -17,6 +17,11 @@
 //
 // File location at components/panels/McpPanel.tsx so Phase 7 SKLP-01 can
 // import the same component without moving files.
+//
+// Plan 07-02 deviation (Rule 1): added optional `reqId` prop with default
+// "OPNL-15" so /skills can pass `reqId="SKLP-01"` to surface the SKLP-01
+// kicker in the panel header. Existing callers (routes/index.tsx) continue
+// to work without modification — the default preserves the Phase 6 contract.
 
 import { Badge, CollapsibleSection, DataTable, PanelCard } from '../ui'
 import type { DataTableColumn } from '../ui'
@@ -189,11 +194,15 @@ function McpServerRowItem({ server }: { server: McpServerRow }) {
   )
 }
 
-export function McpPanel() {
+interface McpPanelProps {
+  reqId?: string
+}
+
+export function McpPanel({ reqId = 'OPNL-15' }: McpPanelProps = {}) {
   const query = useMcpServers()
   return (
     <PanelCard<McpServerListResponse>
-      reqId="OPNL-15"
+      reqId={reqId}
       title="MCP Servers"
       query={query}
       empty={{

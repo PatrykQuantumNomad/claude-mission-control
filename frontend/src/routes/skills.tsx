@@ -1,31 +1,36 @@
-// Skills page (`/skills`) — Phase 5 Plan 04 (Wave 3 page grids).
+// Skills page (`/skills`).
 //
-// Per CONTEXT decision: Phase 5 ships named-but-empty placeholders for every
-// Phase-7 HPNL-* / TPNL-* / SKLP-* requirement. Phase 7 fills each Card with
-// the real stateful panel keyed by reqId.
+// Phase 5 Plan 04 (Wave 3) shipped a placeholder grid keyed by reqId.
+// Phase 7 Wave 0 (Plan 07-01) retired SKLP-03 and rendered ContextHealthCard
+// below the grid. Phase 7 Wave 1 (this plan, Plan 07-02) retires the next
+// 5 placeholder slots:
+//   - HPNL-01 → DecisionsCard (full-width above the grid)
+//   - HPNL-02 → InboxCard     (full-width above the grid)
+//   - SKLP-01 → McpPanel      (Phase 6 component reused; reqId override)
+//   - SKLP-02 → SkillCostCard (v2 placeholder; preserves traceability)
+//   - SKLP-04 → SkillsRegistry
 //
-// TPNL-02 (TaskComposer) and TPNL-04 (Inline pass-prompt) and TPNL-05
-// (EmergencyStop banner) are NOT placed as cards — they are full-page or
-// banner UI surfaces, owned by Phase 7 to insert at their canonical positions
-// (banner above the grid, modal over the grid). Phase 7 plan must add these
-// surfaces alongside the placeholder grid.
+// TPNL-02 (TaskComposer slide-out) and TPNL-04 (ScheduleComposer slide-out)
+// and TPNL-05 (EmergencyStop banner) are full-page or banner UI surfaces
+// owned by Phase 7 — TPNL-05 is already mounted globally in NavBar
+// (Plan 07-01); TPNL-02 + TPNL-04 land in Plan 07-03 / 07-04. Two slots
+// remain in SKILLS_SLOTS for Wave 2 to retire (TPNL-01, TPNL-03);
+// Plan 07-04 deletes the PlaceholderCardGrid helper after retiring those.
 
 import { createFileRoute } from '@tanstack/react-router'
 import { PlaceholderCardGrid, type PlaceholderSlot } from '../components/PlaceholderCardGrid'
-import { ContextHealthCard } from '../components/panels'
+import {
+  ContextHealthCard,
+  DecisionsCard,
+  InboxCard,
+  McpPanel,
+  SkillCostCard,
+  SkillsRegistry,
+} from '../components/panels'
 
-// Plan 07-01 (Wave 0) removed SKLP-03 from this list — ContextHealthCard
-// renders the live panel below the placeholder grid. Plans 07-02..07-04
-// retire the remaining slots one-by-one and Plan 07-04 deletes the
-// PlaceholderCardGrid helper entirely.
 const SKILLS_SLOTS: PlaceholderSlot[] = [
-  { reqId: 'HPNL-01', title: 'Decisions', dataNoun: 'pending decisions' },
-  { reqId: 'HPNL-02', title: 'Inbox', dataNoun: 'agent-to-user messages' },
   { reqId: 'TPNL-01', title: 'Task Board', dataNoun: 'task data' },
   { reqId: 'TPNL-03', title: 'Schedules', dataNoun: 'scheduled task data' },
-  { reqId: 'SKLP-01', title: 'MCP Panel', dataNoun: 'MCP server data' },
-  { reqId: 'SKLP-02', title: 'Skill Cost', dataNoun: 'skill cost data' },
-  { reqId: 'SKLP-04', title: 'Skills Registry', dataNoun: 'skill registry entries' },
 ]
 
 function SkillsPage() {
@@ -45,11 +50,18 @@ function SkillsPage() {
           Skills registry, MCP servers, decisions, inbox, tasks, schedules.
         </p>
       </header>
-      <PlaceholderCardGrid slots={SKILLS_SLOTS} />
-      {/* Phase 7 Plan 01 — SKLP-03 live panel rendered below the placeholder grid. */}
+      {/* Full-width above-grid panels (LiveSessionsCard pattern — RESEARCH §thing-13). */}
+      <DecisionsCard />
+      <InboxCard />
+      {/* Live grid for the SKLP-* family + ContextHealthCard from Wave 0. */}
       <div className="cmc-card-grid">
+        <SkillsRegistry />
+        <McpPanel reqId="SKLP-01" />
+        <SkillCostCard />
         <ContextHealthCard />
       </div>
+      {/* Remaining placeholders (TPNL-01, TPNL-03) retired in Plans 07-03/07-04. */}
+      <PlaceholderCardGrid slots={SKILLS_SLOTS} />
     </section>
   )
 }
