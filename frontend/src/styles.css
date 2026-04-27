@@ -89,3 +89,78 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ─────────────────────────────────────────────────────────── */
+/* AppShell + NavBar — Phase 5 Plan 01                          */
+/* ─────────────────────────────────────────────────────────── */
+
+.cmc-shell { display: flex; flex-direction: column; min-height: 100%; }
+
+.cmc-navbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  padding: 0 var(--space-lg);
+  height: 56px;
+  border-bottom: 1px solid var(--cmc-border);
+  background-color: var(--cmc-surface);
+}
+
+.cmc-brand {
+  font-weight: var(--weight-semibold);
+  font-size: var(--size-heading);
+  background: var(--cmc-gradient-hero);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.cmc-navbar__links {
+  display: flex;
+  gap: var(--space-md);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex: 1;
+}
+
+.cmc-navlink {
+  color: var(--cmc-text-dim);
+  text-decoration: none;
+  padding: var(--space-sm) var(--space-xs);
+  font-size: var(--size-body);
+  position: relative;
+}
+
+.cmc-navlink:hover { color: var(--cmc-text); }
+
+.cmc-navlink--active { color: var(--cmc-accent-blue); }
+
+.cmc-navlink--active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 2px;
+  background: var(--cmc-accent-blue);
+}
+
+.cmc-cmdk-trigger {
+  background-color: var(--cmc-surface-2);
+  border: 1px solid var(--cmc-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-xs);
+  color: var(--cmc-text-dim);
+  cursor: pointer;
+}
+
+.cmc-cmdk-trigger:hover {
+  color: var(--cmc-text);
+  border-color: var(--cmc-border-glow);
+}
+
+.cmc-main {
+  padding: var(--space-lg);
+  min-height: calc(100% - 56px);
+}

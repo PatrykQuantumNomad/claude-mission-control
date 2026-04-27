@@ -1,17 +1,17 @@
 import { createFileRoute } from '@tanstack/react-router'
 
-function CommandPage() {
+function SkillsPage() {
   return (
-    <section aria-labelledby="cmd-heading">
+    <section aria-labelledby="skills-heading">
       <h1
-        id="cmd-heading"
+        id="skills-heading"
         style={{
           fontSize: 'var(--size-display)',
           fontWeight: 'var(--weight-semibold)',
           margin: '0 0 var(--space-lg)',
         }}
       >
-        Command
+        Skills
       </h1>
       <p style={{ color: 'var(--cmc-text-dim)' }}>
         Phase 5 placeholder — the panel grid lands in Plan 05-04.
@@ -20,4 +20,4 @@ function CommandPage() {
   )
 }
 
-export const Route = createFileRoute('/')({ component: CommandPage })
+export const Route = createFileRoute('/skills')({ component: SkillsPage })
