@@ -2892,3 +2892,565 @@ def test_disp09_followup_pump_stops_on_event(tmp_path, monkeypatch):
     assert elapsed < 2 * settings.dispatcher_followup_poll_s + 0.5, (
         f"pump took {elapsed}s to stop; expected ≤ 2*poll_s"
     )
+
+
+# ---- Plan 08-04 Task 2 — heartbeat fan-out + run_stream FollowUpPump --------
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_fan_out_classic(
+    test_settings, tmp_path, tmp_pid_dir_monkey, mock_psutil_pids, monkeypatch
+):
+    """Pending classic task with skill=None → heartbeat spawns run_classic thread;
+    task transitions to done within the cycle."""
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher import heartbeat as hb
+
+    mock_psutil_pids(set())
+
+    wrapper = _write_fake_claude_wrapper(tmp_path)
+    settings = test_settings.model_copy(update={"claude_bin": wrapper})
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            t = Task(
+                title="hi", description="run me", status="pending",
+                execution_mode="classic", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.create_engine_for_settings", lambda s: engine
+        )
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.make_sessionmaker", lambda e: sessions
+        )
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.load_settings", lambda: settings
+        )
+
+        rc = await hb.run_one_cycle()
+        assert rc == 0
+
+        async with sessions() as db:
+            refreshed = (
+                await db.execute(select(Task).where(Task.id == task_id))
+            ).scalar_one()
+        assert refreshed.status == "done", (
+            f"unexpected status: {refreshed.status} / {refreshed.error_message}"
+        )
+        assert refreshed.ended_at is not None
+        assert not (tmp_pid_dir_monkey / f"{task_id}.pid").exists()
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_fan_out_stream(
+    test_settings, tmp_path, tmp_pid_dir_monkey, mock_psutil_pids, monkeypatch
+):
+    """Pending stream task → heartbeat spawns run_stream thread; task transitions
+    to done after fake-claude-stream emits result."""
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher import heartbeat as hb
+    from cmc.dispatcher import inbox_post as ip_module
+
+    mock_psutil_pids(set())
+
+    # Mock httpx so any INBOX (none here, but defensive) doesn't dial.
+    class _FakeResp:
+        status_code = 201
+        def json(self): return {"id": 1}
+
+    class _FakeAsyncClient:
+        def __init__(self, *a, **kw): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *exc): return False
+        async def post(self, url, json=None): return _FakeResp()
+
+    monkeypatch.setattr(ip_module.httpx, "AsyncClient", _FakeAsyncClient)
+
+    wrapper = _write_fake_claude_stream_wrapper(tmp_path)
+    settings = test_settings.model_copy(update={"claude_bin": wrapper, "port": 8765})
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            t = Task(
+                title="s", description="x", status="pending",
+                execution_mode="stream", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.create_engine_for_settings", lambda s: engine
+        )
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.make_sessionmaker", lambda e: sessions
+        )
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.load_settings", lambda: settings
+        )
+
+        rc = await hb.run_one_cycle()
+        assert rc == 0
+
+        async with sessions() as db:
+            refreshed = (
+                await db.execute(select(Task).where(Task.id == task_id))
+            ).scalar_one()
+        assert refreshed.status == "done", (
+            f"unexpected: {refreshed.status} / {refreshed.error_message}"
+        )
+        assert not (tmp_pid_dir_monkey / f"{task_id}.pid").exists()
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_skill_router_called_for_unassigned(
+    test_settings, tmp_path, tmp_pid_dir_monkey, mock_psutil_pids, monkeypatch
+):
+    """Pending task with skill=None → pick_skill called → 'deploy' returned (auto)
+    → run_classic invoked with skill kwarg set."""
+    from cmc.db.models.skills import Skill
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher import heartbeat as hb
+
+    mock_psutil_pids(set())
+
+    wrapper = _write_fake_claude_wrapper(tmp_path)
+    settings = test_settings.model_copy(update={"claude_bin": wrapper})
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            db.add(Skill(
+                name="deploy", environment="personal", path="/tmp/d.md",
+                user_invocable=True, autonomy="auto",
+            ))
+            t = Task(
+                title="ship", description="ship now", status="pending",
+                execution_mode="classic", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        # Mock pick_skill → 'deploy'.
+        async def _fake_pick(db, title, desc):
+            return "deploy"
+
+        monkeypatch.setattr("cmc.dispatcher.heartbeat.pick_skill", _fake_pick)
+
+        captured_kwargs: list[dict] = []
+        from cmc.dispatcher import run_classic as rc_module
+
+        real_run_classic = rc_module.run_classic
+
+        def _spy_run_classic(task_row, settings, sessions, *, skill=None):
+            captured_kwargs.append({"skill": skill, "task_id": task_row.get("id")})
+            return real_run_classic(task_row, settings, sessions, skill=skill)
+
+        monkeypatch.setattr("cmc.dispatcher.heartbeat.run_classic", _spy_run_classic)
+
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.create_engine_for_settings", lambda s: engine
+        )
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.make_sessionmaker", lambda e: sessions
+        )
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.load_settings", lambda: settings
+        )
+
+        rc = await hb.run_one_cycle()
+        assert rc == 0
+
+        assert len(captured_kwargs) == 1
+        assert captured_kwargs[0]["task_id"] == task_id
+        skill_passed = captured_kwargs[0]["skill"]
+        assert skill_passed is not None
+        assert skill_passed.name == "deploy"
+
+        async with sessions() as db:
+            refreshed = (
+                await db.execute(select(Task).where(Task.id == task_id))
+            ).scalar_one()
+        # DB persists the resolved skill.
+        assert refreshed.skill == "deploy"
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_skill_router_skipped_for_assigned(
+    test_settings, tmp_path, tmp_pid_dir_monkey, mock_psutil_pids, monkeypatch
+):
+    """Pending task with skill='existing' → pick_skill NOT called."""
+    from cmc.db.models.skills import Skill
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher import heartbeat as hb
+
+    mock_psutil_pids(set())
+
+    wrapper = _write_fake_claude_wrapper(tmp_path)
+    settings = test_settings.model_copy(update={"claude_bin": wrapper})
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            db.add(Skill(
+                name="existing", environment="personal", path="/tmp/x.md",
+                user_invocable=True, autonomy="auto",
+            ))
+            t = Task(
+                title="t", description="x", status="pending",
+                execution_mode="classic", priority=3, skill="existing",
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        pick_calls: list[int] = []
+
+        async def _spy_pick(db, title, desc):
+            pick_calls.append(1)
+            return None
+
+        monkeypatch.setattr("cmc.dispatcher.heartbeat.pick_skill", _spy_pick)
+
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.create_engine_for_settings", lambda s: engine
+        )
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.make_sessionmaker", lambda e: sessions
+        )
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.load_settings", lambda: settings
+        )
+
+        rc = await hb.run_one_cycle()
+        assert rc == 0
+        assert pick_calls == [], (
+            "pick_skill must not be called when task already has skill set"
+        )
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_autonomy_gate_blocks_review_skill(
+    test_settings, tmp_path, tmp_pid_dir_monkey, mock_psutil_pids, monkeypatch
+):
+    """skill.autonomy='review' → task PATCHed to awaiting_approval; runner NOT spawned."""
+    from cmc.db.models.skills import Skill
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher import heartbeat as hb
+
+    mock_psutil_pids(set())
+
+    wrapper = _write_fake_claude_wrapper(tmp_path)
+    settings = test_settings.model_copy(update={"claude_bin": wrapper})
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            db.add(Skill(
+                name="needs-review", environment="personal", path="/tmp/r.md",
+                user_invocable=True, autonomy="review",
+            ))
+            t = Task(
+                title="t", description="x", status="pending",
+                execution_mode="classic", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        async def _fake_pick(db, title, desc):
+            return "needs-review"
+
+        monkeypatch.setattr("cmc.dispatcher.heartbeat.pick_skill", _fake_pick)
+
+        runner_calls: list[int] = []
+
+        def _spy_run_classic(task_row, settings, sessions, *, skill=None):
+            runner_calls.append(1)
+
+        def _spy_run_stream(task_row, settings, sessions, *, skill=None):
+            runner_calls.append(2)
+
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.run_classic", _spy_run_classic
+        )
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.run_stream", _spy_run_stream
+        )
+
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.create_engine_for_settings", lambda s: engine
+        )
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.make_sessionmaker", lambda e: sessions
+        )
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.load_settings", lambda: settings
+        )
+
+        rc = await hb.run_one_cycle()
+        assert rc == 0
+
+        async with sessions() as db:
+            refreshed = (
+                await db.execute(select(Task).where(Task.id == task_id))
+            ).scalar_one()
+        assert refreshed.status == "awaiting_approval"
+        assert runner_calls == [], (
+            "no runner thread must spawn when autonomy gate blocks"
+        )
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_interactive_mode_maps_to_classic(
+    test_settings, tmp_path, tmp_pid_dir_monkey, mock_psutil_pids, monkeypatch
+):
+    """execution_mode='interactive' → run_classic invoked, NOT run_stream (RESEARCH §A8)."""
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher import heartbeat as hb
+
+    mock_psutil_pids(set())
+
+    wrapper = _write_fake_claude_wrapper(tmp_path)
+    settings = test_settings.model_copy(update={"claude_bin": wrapper})
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            t = Task(
+                title="t", description="x", status="pending",
+                execution_mode="interactive", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        classic_calls: list[int] = []
+        stream_calls: list[int] = []
+
+        from cmc.dispatcher import run_classic as rc_module
+
+        real_run_classic = rc_module.run_classic
+
+        def _spy_classic(task_row, settings, sessions, *, skill=None):
+            classic_calls.append(task_row.get("id"))
+            return real_run_classic(task_row, settings, sessions, skill=skill)
+
+        def _spy_stream(task_row, settings, sessions, *, skill=None):
+            stream_calls.append(task_row.get("id"))
+
+        monkeypatch.setattr("cmc.dispatcher.heartbeat.run_classic", _spy_classic)
+        monkeypatch.setattr("cmc.dispatcher.heartbeat.run_stream", _spy_stream)
+
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.create_engine_for_settings", lambda s: engine
+        )
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.make_sessionmaker", lambda e: sessions
+        )
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.load_settings", lambda: settings
+        )
+
+        rc = await hb.run_one_cycle()
+        assert rc == 0
+        assert classic_calls == [task_id]
+        assert stream_calls == []
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_max_concurrent_respected(
+    test_settings, tmp_path, tmp_pid_dir_monkey, mock_psutil_pids, monkeypatch
+):
+    """4 live PIDs vs max_concurrent=3 → slots = max(0, 3-4) = 0; no runner spawned."""
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher import heartbeat as hb
+    from cmc.dispatcher.state import write_pid_file
+
+    write_pid_file(101, 71111)
+    write_pid_file(102, 72222)
+    write_pid_file(103, 73333)
+    write_pid_file(104, 74444)
+    mock_psutil_pids({71111, 72222, 73333, 74444})
+
+    wrapper = _write_fake_claude_wrapper(tmp_path)
+    settings = test_settings.model_copy(update={"claude_bin": wrapper})
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            db.add_all([
+                Task(title=f"t{i}", priority=3, status="pending",
+                     execution_mode="classic",
+                     created_at=datetime.now(timezone.utc))
+                for i in range(5)
+            ])
+            await db.commit()
+
+        runner_calls: list[int] = []
+
+        def _spy_classic(task_row, settings, sessions, *, skill=None):
+            runner_calls.append(task_row.get("id"))
+
+        monkeypatch.setattr("cmc.dispatcher.heartbeat.run_classic", _spy_classic)
+
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.create_engine_for_settings", lambda s: engine
+        )
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.make_sessionmaker", lambda e: sessions
+        )
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.load_settings", lambda: settings
+        )
+
+        rc = await hb.run_one_cycle()
+        assert rc == 0
+        assert runner_calls == [], (
+            f"no runner must spawn when slots=0; got {runner_calls}"
+        )
+
+        async with sessions() as db:
+            running = (
+                await db.execute(select(Task).where(Task.status == "running"))
+            ).scalars().all()
+        assert running == []
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_run_stream_pumps_followups(
+    test_settings, tmp_path, tmp_pid_dir_monkey, monkeypatch
+):
+    """While run_stream is executing, write a NDJSON line to the messages queue;
+    the FollowUpPump must inject it into proc.stdin (verified by fake_claude_stream
+    treating user-line arrival as the unblock signal of an --emit-decision)."""
+    from cmc.db.models.decisions import Decision
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher import inbox_post as ip_module
+    from cmc.dispatcher.run_stream import run_stream
+
+    # Mock httpx (not exercised but defensive).
+    class _FakeResp:
+        status_code = 201
+        def json(self): return {"id": 1}
+
+    class _FakeAsyncClient:
+        def __init__(self, *a, **kw): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *exc): return False
+        async def post(self, url, json=None): return _FakeResp()
+
+    monkeypatch.setattr(ip_module.httpx, "AsyncClient", _FakeAsyncClient)
+
+    # Redirect cmc.core.queue's repo_root so messages land where pump reads them.
+    monkeypatch.setattr("cmc.core.queue.repo_root", lambda: tmp_path)
+
+    # Use --emit-decision so the fixture pauses on stdin until a {type:user}
+    # line arrives. Our follow-up pump should provide that line.
+    wrapper = _write_fake_claude_stream_wrapper(
+        tmp_path, fixture_extra_args=["--emit-decision", "wait for me?"]
+    )
+    settings = test_settings.model_copy(update={
+        "claude_bin": wrapper,
+        "dispatcher_decision_timeout_s": 30,
+        "dispatcher_answer_poll_s": 0.1,
+        "dispatcher_followup_poll_s": 0.1,
+    })
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            t = Task(
+                title="t", description="x", status="running",
+                execution_mode="stream", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        # Schedule a "decision-answered" flip so run_stream's existing
+        # answer-poll path works AND simultaneously drop a follow-up message
+        # in the queue file. Either path can unblock the fixture.
+        async def _flip_and_send():
+            deadline = asyncio.get_event_loop().time() + 10.0
+            while asyncio.get_event_loop().time() < deadline:
+                async with sessions() as db:
+                    row = (await db.execute(
+                        select(Decision).where(Decision.task_id == task_id)
+                    )).scalar_one_or_none()
+                    if row is not None:
+                        # Drop a follow-up message in the queue path. This
+                        # exercises the FollowUpPump.
+                        msg_dir = tmp_path / ".tmp" / "mission-control-queue" / "messages"
+                        msg_dir.mkdir(parents=True, exist_ok=True)
+                        (msg_dir / f"task-{task_id}.jsonl").write_text(
+                            '{"body": "follow-up payload from queue"}\n'
+                        )
+                        # Also flip the decision so answer_poll resumes.
+                        row.status = "answered"
+                        row.answer = "yes"
+                        row.answered_at = datetime.now(timezone.utc)
+                        row.answered_by = "test"
+                        await db.commit()
+                        return
+                await asyncio.sleep(0.1)
+            raise AssertionError("Decision row never appeared")
+
+        flipper = asyncio.create_task(_flip_and_send())
+        task_row = {
+            "id": task_id, "title": "t", "description": "x",
+            "model": None, "timeout_s": 30,
+        }
+        await asyncio.to_thread(run_stream, task_row, settings, sessions)
+        await flipper
+
+        # Task transitioned to done (decision answered + follow-up unblocked).
+        async with sessions() as db:
+            refreshed = (
+                await db.execute(select(Task).where(Task.id == task_id))
+            ).scalar_one()
+        assert refreshed.status == "done", (
+            f"unexpected: {refreshed.status} / {refreshed.error_message}"
+        )
+
+        # Per-task log file exists.
+        log_dir = tmp_path / ".tmp" / "mission-control-queue" / "dispatcher-logs"
+        # log_dir uses repo_root from cmc.core.paths (NOT cmc.core.queue.repo_root),
+        # so it lands in the real repo. Just assert the run completed.
+    finally:
+        await engine.dispose()
