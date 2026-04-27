@@ -2217,3 +2217,86 @@ async def test_disp06_stream_unlinks_pid_on_exception(
         assert not (tmp_pid_dir_monkey / f"{task_id}.pid").exists()
     finally:
         await engine.dispose()
+
+
+# ---- Plan 08-03 Task 3 — Wave-2 stdin-shape spike (RESEARCH §A2 / §Open Q2) -
+
+
+def test_input_format_spike_skips_when_claude_missing(monkeypatch):
+    """No claude binary on PATH → returns ('skipped', detail), never raises."""
+    from cmc.dispatcher import _input_format_spike as spike_module
+
+    monkeypatch.setattr(spike_module.shutil, "which", lambda name: None)
+    outcome, detail = spike_module.probe_stdin_shape()
+    assert outcome == "skipped"
+    assert "claude" in detail.lower()
+
+
+def test_input_format_spike_writes_correct_shape(tmp_path, monkeypatch):
+    """The bytes written to stdin match the symmetric NDJSON shape."""
+    import shlex
+    import stat
+    import sys as _sys
+
+    from cmc.dispatcher import _input_format_spike as spike_module
+
+    # Wrap a recorder shell script that captures stdin to a file then exits.
+    captured = tmp_path / "captured-stdin.txt"
+    recorder = tmp_path / "recorder.sh"
+    recorder.write_text(
+        f"#!/bin/sh\n"
+        f"cat > {shlex.quote(str(captured))}\n"
+        f"# Simulate one assistant event so the spike returns 'accepted'.\n"
+        f'printf \'{{"type":"assistant","message":{{"role":"assistant","content":[{{"type":"text","text":"hi"}}]}}}}\\n\'\n'
+        f"exit 0\n"
+    )
+    recorder.chmod(recorder.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+
+    outcome, detail = spike_module.probe_stdin_shape(claude_bin=str(recorder))
+    # Whatever the outcome (depends on read timing), stdin must have been
+    # written with the symmetric shape.
+    assert captured.exists(), "spike did not write to stdin"
+    text = captured.read_text().strip()
+    assert text  # non-empty
+    import json as _json
+    obj = _json.loads(text)
+    assert obj == {
+        "type": "user",
+        "message": {"role": "user", "content": "hello from spike"},
+    }
+
+
+def test_input_format_spike_returns_accepted_or_rejected(tmp_path):
+    """When claude IS present and emits an assistant event, spike returns 'accepted'."""
+    import shlex
+    import stat
+    import sys as _sys
+
+    from cmc.dispatcher import _input_format_spike as spike_module
+
+    accepted_recorder = tmp_path / "accepted.sh"
+    accepted_recorder.write_text(
+        "#!/bin/sh\n"
+        "# Drain stdin in the background, then emit one assistant event.\n"
+        "cat > /dev/null &\n"
+        'printf \'{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"hi"}]}}\\n\'\n'
+        "wait\n"
+    )
+    accepted_recorder.chmod(
+        accepted_recorder.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH
+    )
+    outcome, detail = spike_module.probe_stdin_shape(claude_bin=str(accepted_recorder))
+    assert outcome == "accepted", f"expected accepted, got {outcome}: {detail}"
+
+    rejected_recorder = tmp_path / "rejected.sh"
+    rejected_recorder.write_text(
+        "#!/bin/sh\n"
+        "cat > /dev/null &\n"
+        'printf \'{"type":"result","subtype":"error","is_error":true}\\n\'\n'
+        "wait\n"
+    )
+    rejected_recorder.chmod(
+        rejected_recorder.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH
+    )
+    outcome2, detail2 = spike_module.probe_stdin_shape(claude_bin=str(rejected_recorder))
+    assert outcome2 == "rejected", f"expected rejected, got {outcome2}: {detail2}"
