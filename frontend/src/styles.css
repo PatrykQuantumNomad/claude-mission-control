@@ -164,3 +164,92 @@ body {
   padding: var(--space-lg);
   min-height: calc(100% - 56px);
 }
+
+/* ─────────────────────────────────────────────────────────── */
+/* Layout primitives — Phase 5 Plan 02                          */
+/* ─────────────────────────────────────────────────────────── */
+
+/* Card family — UI-SPEC FESH-05 + DESG-04 */
+.cmc-card {
+  background-color: var(--cmc-surface);
+  border: 1px solid var(--cmc-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+.cmc-card__header { display: flex; flex-direction: column; gap: var(--space-2xs); }
+.cmc-card__title { margin: 0; font-size: var(--size-heading); font-weight: var(--weight-semibold); color: var(--cmc-text); }
+.cmc-card__description { margin: 0; font-size: var(--size-body); color: var(--cmc-text-dim); }
+.cmc-card__content { flex: 1; }
+.cmc-card__footer { display: flex; gap: var(--space-md); align-items: center; padding-top: var(--space-md); border-top: 1px solid var(--cmc-border); }
+
+/* Button — UI-SPEC FESH-06 + DESG-05 motion contract (hover lift -2px, 150ms) */
+.cmc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  border: 1px solid var(--cmc-border);
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  transition: transform 150ms ease-out, box-shadow 150ms ease-out, background 150ms ease-out, border-color 150ms ease-out;
+  min-height: 32px;
+}
+.cmc-btn--sm { padding: var(--space-xs) var(--space-md); font-size: var(--size-body); }
+.cmc-btn--md { padding: var(--space-sm) var(--space-md); font-size: var(--size-body); }
+.cmc-btn--primary { background: var(--cmc-gradient-hero); border-color: transparent; color: #fff; }
+.cmc-btn--secondary { background: var(--cmc-surface-2); color: var(--cmc-text); }
+.cmc-btn--ghost { background: transparent; border-color: transparent; color: var(--cmc-text-dim); }
+.cmc-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); }
+.cmc-btn:focus-visible { outline: 2px solid var(--cmc-accent-blue); outline-offset: 2px; }
+.cmc-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+/* Badge — UI-SPEC FESH-06 (JetBrains Mono 12px, 8px radius) */
+.cmc-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-2xs) var(--space-xs);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--size-label);
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  border: 1px solid transparent;
+}
+.cmc-badge--neutral { background: var(--cmc-surface-2); color: var(--cmc-text-dim); border-color: var(--cmc-border); }
+.cmc-badge--info    { background: rgba(6, 182, 212, 0.1); color: var(--cmc-status-cyan); border-color: rgba(6, 182, 212, 0.3); }
+.cmc-badge--success { background: rgba(16, 185, 129, 0.1); color: var(--cmc-status-green); border-color: rgba(16, 185, 129, 0.3); }
+.cmc-badge--warning { background: rgba(245, 158, 11, 0.1); color: var(--cmc-status-amber); border-color: rgba(245, 158, 11, 0.3); }
+.cmc-badge--danger  { background: rgba(239, 68, 68, 0.1); color: var(--cmc-status-red); border-color: rgba(239, 68, 68, 0.3); }
+
+/* StatePill — UI-SPEC FESH-06 + Color palette (status colors only, never accent) */
+.cmc-state-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-2xs) var(--space-xs);
+  border-radius: var(--radius-sm);
+  background: var(--cmc-surface-2);
+  font-family: var(--font-mono);
+  font-size: var(--size-label);
+  color: var(--cmc-text);
+}
+.cmc-state-pill__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background-color 300ms ease-in-out; /* DESG-05 — state change tween */
+}
+.cmc-state-pill--ok      .cmc-state-pill__dot { background: var(--cmc-status-green); }
+.cmc-state-pill--running .cmc-state-pill__dot { background: var(--cmc-status-cyan); animation: cmc-pulse 1.5s ease-in-out infinite; }
+.cmc-state-pill--pending .cmc-state-pill__dot { background: var(--cmc-status-amber); }
+.cmc-state-pill--stale   .cmc-state-pill__dot { background: var(--cmc-status-amber); }
+.cmc-state-pill--error   .cmc-state-pill__dot { background: var(--cmc-status-red); }
+@keyframes cmc-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
