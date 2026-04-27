@@ -160,7 +160,6 @@ describe('ScheduleComposer', () => {
   })
 
   it('NL-cron Parse calls useParseNlCron; on success fills the advanced cron field', async () => {
-    const client = makeClient()
     vi.spyOn(globalThis, 'fetch').mockImplementation(
       async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
         const url = String(input)

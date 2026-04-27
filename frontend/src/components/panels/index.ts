@@ -45,3 +45,6 @@ export {
   TaskComposerProvider,
   useTaskComposer,
 } from './TaskComposer'
+// Phase 7 Plan 04 (Wave 4) — TPNL panels (SchedulesCard + ScheduleComposer)
+export { SchedulesCard } from './SchedulesCard'
+export { ScheduleComposer } from './ScheduleComposer'

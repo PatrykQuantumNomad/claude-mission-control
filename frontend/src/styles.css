@@ -1680,3 +1680,123 @@ body {
   justify-content: flex-end;
   gap: var(--space-sm);
 }
+
+/* ============================================================================
+ * Phase 7 Plan 04 (Wave 4) — SchedulesCard + ScheduleComposer
+ * ============================================================================ */
+
+.cmc-schedules-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cmc-schedules-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  background: var(--cmc-surface);
+  border: 1px solid var(--cmc-border);
+  border-radius: var(--radius-sm);
+}
+
+.cmc-schedules-row--stale {
+  border-left: 3px solid var(--cmc-status-warning);
+}
+
+.cmc-schedules-row__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.cmc-schedules-row__name {
+  color: var(--cmc-text);
+  font-weight: 500;
+}
+
+.cmc-schedules-row__preview {
+  flex: 1 1 auto;
+  font-size: var(--size-sm);
+}
+
+.cmc-schedules-row__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--size-sm);
+  color: var(--cmc-text-subtle);
+}
+
+.cmc-schedules-row__times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  font-size: var(--size-sm);
+  color: var(--cmc-text-subtle);
+}
+
+.cmc-schedules-row__history-trigger {
+  align-self: flex-start;
+  padding: var(--space-xs) var(--space-sm);
+  background: transparent;
+  border: 1px solid var(--cmc-border);
+  border-radius: var(--radius-sm);
+  color: var(--cmc-text-subtle);
+  font-size: var(--size-sm);
+  cursor: pointer;
+}
+
+.cmc-schedules-row__history-trigger:hover {
+  background: var(--cmc-surface-subtle);
+}
+
+.cmc-schedules-row__history {
+  margin-top: var(--space-xs);
+}
+
+.cmc-cron-preview {
+  margin: 0;
+  padding: var(--space-sm);
+  background: var(--cmc-surface-subtle);
+  border-radius: var(--radius-sm);
+  font-size: var(--size-md);
+  color: var(--cmc-text);
+}
+
+.cmc-day-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.cmc-day-chip {
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--cmc-surface);
+  color: var(--cmc-text);
+  border: 1px solid var(--cmc-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--size-sm);
+  cursor: pointer;
+}
+
+.cmc-day-chip[aria-pressed='true'],
+.cmc-day-chip--on {
+  background: var(--cmc-accent-blue);
+  color: var(--cmc-bg);
+  border-color: var(--cmc-accent-blue);
+}
+
+.cmc-nl-cron {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  background: var(--cmc-surface-subtle);
+  border-radius: var(--radius-sm);
+}
