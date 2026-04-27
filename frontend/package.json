@@ -23,7 +23,8 @@
     "lucide-react": "^1.11.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "react-error-boundary": "^6.1.1"
+    "react-error-boundary": "^6.1.1",
+    "recharts": "^3.8.1"
   },
   "devDependencies": {
     "@tanstack/react-router-devtools": "^1.166.13",
