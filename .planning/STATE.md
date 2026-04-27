@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in_progress
-stopped_at: Completed 05-02-PLAN.md
-last_updated: "2026-04-27T00:18:36.295Z"
+status: executing
+stopped_at: Completed 05-03-PLAN.md
+last_updated: "2026-04-27T00:27:05.881Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 9
   completed_phases: 4
   total_plans: 27
-  completed_plans: 25
-  percent: 93
+  completed_plans: 26
+  percent: 96
 ---
 
 # Project State
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 ## Current Position
 
 Phase: 5 of 9 IN PROGRESS (Frontend Shell & Design System)
-Plan: 2 of 4 complete in Phase 5 (05-01 Wave 0 + 05-02 Wave 1 layout primitives ✅; 42/42 frontend tests green)
-Status: Wave 1 layout primitives landed — Plan 05-03 (Wave 2 interactive primitives: Sheet/CollapsibleSection/CommandPalette) ready to dispatch
+Plan: 3 of 4 complete in Phase 5 (05-01 Wave 0 + 05-02 Wave 1 layout primitives ✅; 42/42 frontend tests green)
+Status: Ready to execute
 Last activity: 2026-04-27
 
 Progress (Phase 5): [█████░░░░░] 50%
@@ -77,6 +77,7 @@ Progress (Phase 5): [█████░░░░░] 50%
 | Phase 04-stateful-apis P04 | 5 | 2 tasks | 3 files |
 | Phase 05-frontend-shell-design-system P01 | 11 min | 3 tasks tasks | 13 created + 9 modified files files |
 | Phase 05 P02 | 5min | 2 tasks tasks | 11 created + 1 modified files |
+| Phase 05 P03 | 3 min | 2 tasks tasks | 9 files (6 created + 3 modified) files |
 
 ## Accumulated Context
 
@@ -179,6 +180,11 @@ Recent decisions affecting current work:
 - Plan 05-02 pattern: forwardRef + className-passthrough is the locked shape for ALL layout primitives — cmc-<base> class + variant modifier + ...rest spread; Plan 05-03 (Sheet/CollapsibleSection/CommandPalette) MUST follow the same shape so AttentionBar/EmergencyStop in Phase 7 can rely on consistent ref + className escape hatches
 - Plan 05-02 pattern: Tooltip test uses findAllByText + getByRole('tooltip') because Radix renders tooltip content TWICE (visible cmc-tooltip + sr-only role=tooltip span). findByText fails on multiple matches. Reusable for Plan 05-03 Sheet + CommandPalette tests if they portal content with similar duplicate-render shape
 - Plan 05-02 entry contract for Plan 05-04 + Phase 6/7: import { Card, CardHeader, CardTitle, ..., RelativeTime, formatRelative, ShellErrorBoundary } from 'frontend/src/components/ui'. CSS class surface (cmc-card, cmc-btn--<variant>, cmc-state-pill--<state>, etc.) documented in 05-02-SUMMARY for Plan 05-04 to compose against without re-reading the implementation files
+- Plan 05-03 complete: 3 interactive primitives (Sheet/CollapsibleSection/CommandPalette) shipped; CommandPalette mounted globally in AppShell so Cmd+K binding fires on every route (closes Phase 5 success criterion 2); barrel index now exports 12 primitives total; 12 new tests bringing suite from 42 to 54 green
+- Plan 05-03 deviation (Rule 1): Sheet test asserted aria-modal=true initially — Radix Dialog 1.1.x does NOT emit aria-modal; modal semantics delivered via FocusScope + RemoveScroll + DismissableLayer. Test rewritten to verify role=dialog + aria-labelledby + aria-describedby. Pattern reusable for any future Radix Dialog wrapper test
+- Plan 05-03 pattern: Radix+framer-motion exit-animation = forceMount on Portal/Content + AnimatePresence around the conditional render. Apply to any future Radix primitive that needs an exit animation (Phase 7 EmergencyStopModal, etc.)
+- Plan 05-03 pattern: global keydown hotkey = document.addEventListener inside useEffect with explicit cleanup; metaKey || ctrlKey condition; preventDefault on match. Cleanup is mandatory (Pitfall 3 — React 19 StrictMode double-invoke would otherwise register handler twice). Reusable for any future global hotkey
+- Plan 05-03 entry contract for Plan 05-04 + Phase 6/7: 12 primitives import from frontend/src/components/ui barrel. CommandPalette is ALREADY mounted in AppShell — new routes inherit Cmd+K automatically. Sheet description prop ties to fixed cmc-sheet-desc id; if Phase 7 stacks Sheets, swap to useId() at that point
 
 ### Pending Todos
 
@@ -191,8 +197,8 @@ None — Phase 1 + Phase 2 implementations complete; verifier readiness confirme
 
 ## Session Continuity
 
-Last session: 2026-04-27T00:17:59.397Z
-Stopped at: Completed 05-02-PLAN.md
+Last session: 2026-04-27T00:27:05.873Z
+Stopped at: Completed 05-03-PLAN.md
 Resume file: None
 
 Phase 1 final commit chain:

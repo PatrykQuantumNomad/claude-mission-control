@@ -192,11 +192,14 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [ ] **FESH-01**: TanStack Router with three routes: / (Command), /activity, /skills
 - [ ] **FESH-02**: AppShell with navigation bar, page layout, and dark theme matching spec palette
-- [ ] **FESH-03**: CollapsibleSection with localStorage persistence, framer-motion 220ms height animation, aria-expanded/controls
-- [ ] **FESH-04**: Sheet component (right-side drawer) with Esc-to-close, focus trap, aria-modal
+- [x] **FESH-03
+**: CollapsibleSection with localStorage persistence, framer-motion 220ms height animation, aria-expanded/controls
+- [x] **FESH-04
+**: Sheet component (right-side drawer) with Esc-to-close, focus trap, aria-modal
 - [ ] **FESH-05**: Card primitives (Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter)
 - [ ] **FESH-06**: Button (primary gradient/secondary/ghost), Badge, StatePill, Tooltip components
-- [ ] **FESH-07**: CommandPalette via Cmd+K with fuzzy search across pages + quick-task action
+- [x] **FESH-07
+**: CommandPalette via Cmd+K with fuzzy search across pages + quick-task action
 - [ ] **FESH-08**: Loading skeletons on every panel (not spinners)
 - [ ] **FESH-09**: Clear empty states that teach the user what's happening
 - [ ] **FESH-10**: Relative time display with absolute timestamp on hover tooltip
