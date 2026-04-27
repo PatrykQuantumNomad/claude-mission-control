@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Completed 05-01-PLAN.md
-last_updated: "2026-04-27T00:07:10.318Z"
+status: in_progress
+stopped_at: Completed 05-02-PLAN.md
+last_updated: "2026-04-27T00:18:36.295Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 9
   completed_phases: 4
   total_plans: 27
-  completed_plans: 24
-  percent: 89
+  completed_plans: 25
+  percent: 93
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-25)
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, queue and approve tasks, and kill runaway sessions — all from one browser tab.
-**Current focus:** Phase 4: Stateful APIs — Wave 0 foundation landed (Plan 04-01); Wave 1 (04-02 + 04-05) ready to dispatch
+**Current focus:** Phase 5: Frontend Shell & Design System — Wave 0 foundation (05-01) + Wave 1 layout primitives (05-02) landed; Wave 2 interactive primitives (05-03) ready to dispatch
 
 ## Current Position
 
-Phase: 4 of 9 IN PROGRESS (Stateful APIs)
-Plan: 5 of 5 complete in Phase 4 (04-01 + 04-02 + 04-05 ✅; 160/160 tests green)
-Status: Phase complete — ready for verification
+Phase: 5 of 9 IN PROGRESS (Frontend Shell & Design System)
+Plan: 2 of 4 complete in Phase 5 (05-01 Wave 0 + 05-02 Wave 1 layout primitives ✅; 42/42 frontend tests green)
+Status: Wave 1 layout primitives landed — Plan 05-03 (Wave 2 interactive primitives: Sheet/CollapsibleSection/CommandPalette) ready to dispatch
 Last activity: 2026-04-27
 
-Progress (Phase 4): [██████░░░░] 60%
+Progress (Phase 5): [█████░░░░░] 50%
 
 ## Performance Metrics
 
@@ -76,6 +76,7 @@ Progress (Phase 4): [██████░░░░] 60%
 | Phase 04-stateful-apis PP03 | 8 min | 2 tasks (TDD; RED+GREEN) tasks | 3 files files |
 | Phase 04-stateful-apis P04 | 5 | 2 tasks | 3 files |
 | Phase 05-frontend-shell-design-system P01 | 11 min | 3 tasks tasks | 13 created + 9 modified files files |
+| Phase 05 P02 | 5min | 2 tasks tasks | 11 created + 1 modified files |
 
 ## Accumulated Context
 
@@ -174,6 +175,10 @@ Recent decisions affecting current work:
 - Plan 05-01 pattern: component test bootstrap = createMemoryHistory + createRoute + await router.load() BEFORE render + findByText for first assertion. Wave 1+ component tests must follow this shape — getByText immediately after render returns empty body because TanStack Router 1.x bootstrap is async
 - Plan 05-01 entry contract for Wave 1: render helper at frontend/src/test/utils.tsx (wraps MotionConfig reducedMotion='always'); ALL Phase 5 component tests MUST import { render, userEvent } from this module — never directly from @testing-library/react (Pitfall 2)
 - Plan 05-01 entry contract for Phase 6: lib/api.ts exports fetchJson<T> + ApiError + api object covering 40+ Phase 3/4 endpoints; HealthResponse + SessionListResponse have full types (likely first consumers), all other responses typed as unknown for Phase 6 to narrow per-endpoint as it consumes them — avoids speculative typing under tsconfig strict
+- Plan 05-02 complete: 9 layout primitives (Card family + Button + Badge + StatePill + Tooltip + Skeleton + EmptyState + RelativeTime + ShellErrorBoundary) + barrel index re-exporting all + formatRelative pure helper; 30 new tests bringing suite from 12 to 42 green; styles.css appended with one consolidated 'Layout primitives' section (9 class blocks + 3 keyframes)
+- Plan 05-02 pattern: forwardRef + className-passthrough is the locked shape for ALL layout primitives — cmc-<base> class + variant modifier + ...rest spread; Plan 05-03 (Sheet/CollapsibleSection/CommandPalette) MUST follow the same shape so AttentionBar/EmergencyStop in Phase 7 can rely on consistent ref + className escape hatches
+- Plan 05-02 pattern: Tooltip test uses findAllByText + getByRole('tooltip') because Radix renders tooltip content TWICE (visible cmc-tooltip + sr-only role=tooltip span). findByText fails on multiple matches. Reusable for Plan 05-03 Sheet + CommandPalette tests if they portal content with similar duplicate-render shape
+- Plan 05-02 entry contract for Plan 05-04 + Phase 6/7: import { Card, CardHeader, CardTitle, ..., RelativeTime, formatRelative, ShellErrorBoundary } from 'frontend/src/components/ui'. CSS class surface (cmc-card, cmc-btn--<variant>, cmc-state-pill--<state>, etc.) documented in 05-02-SUMMARY for Plan 05-04 to compose against without re-reading the implementation files
 
 ### Pending Todos
 
@@ -186,8 +191,8 @@ None — Phase 1 + Phase 2 implementations complete; verifier readiness confirme
 
 ## Session Continuity
 
-Last session: 2026-04-27T00:06:47.974Z
-Stopped at: Completed 05-01-PLAN.md
+Last session: 2026-04-27T00:17:59.397Z
+Stopped at: Completed 05-02-PLAN.md
 Resume file: None
 
 Phase 1 final commit chain:
