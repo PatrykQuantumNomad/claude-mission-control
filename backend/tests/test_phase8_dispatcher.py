@@ -1523,12 +1523,16 @@ def _write_fake_claude_stream_wrapper(tmp_path, fixture_extra_args=()) -> "Path"
 
     The wrapper PREPENDS test-supplied fixture flags ahead of the Popen-supplied
     argv, so run_stream's cmd construction stays identical between tests and prod.
+
+    Each extra arg is shlex-quoted so flag values containing spaces (e.g.
+    --emit-inbox 'heads up') survive the sh-level word split.
     """
+    import shlex
     import stat
     import sys as _sys
     from pathlib import Path as _Path
 
-    extra = " ".join(fixture_extra_args)
+    extra = " ".join(shlex.quote(a) for a in fixture_extra_args)
     fixture_path = (
         _Path(__file__).resolve().parent / "fixtures" / "fake_claude_stream.py"
     )
