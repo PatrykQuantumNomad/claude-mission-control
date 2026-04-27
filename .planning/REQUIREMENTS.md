@@ -210,17 +210,17 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **OPNL-02**: KpiRow shows today's sessions/tokens/tools/errors as 4 skeleton-loading tiles
 - [x] **OPNL-03**: AttentionBar shows red banner for stuck loops, failed tasks, stale dispatcher (hides when clear)
 - [x] **OPNL-04**: LiveSessionsCard with title, cwd, model, tokens, started-at; drawer with tool timeline and follow-up messaging
-- [ ] **OPNL-05**: TokenUsageCard with today/7d/30d stacked daily bars (input/output/cache_read/cache_create) and totals
-- [ ] **OPNL-06**: CacheEfficiencyCard with hit rate big number, daily sparkline, 70% target line, low-sample badge
-- [ ] **OPNL-07**: SessionOutcomesCard with stacked daily bars (errored/rate_limited/truncated/unfinished/ok summing to day total)
-- [ ] **OPNL-08**: ToolLatencyCard with per-tool p50/p95/max, error rate, call count, red/green flags
-- [ ] **OPNL-09**: HookActivityCard with daily fires and paired-duration estimates (empty state when totalFires=0)
-- [ ] **OPNL-10**: ProjectBreakdownCard with sessions by cwd, effective tokens, % of total (regex home-dir strip)
-- [ ] **OPNL-11**: AgentFanoutCard with sessions that ran Agent tool, fallback to session_id with muted prefix
-- [ ] **OPNL-12**: EditAcceptanceCard with accept/reject rates for Edit/MultiEdit/Write/NotebookEdit, low-sample badge
-- [ ] **OPNL-13**: ProductivityCard with commits, PRs, lines added/removed from OTEL counters (empty state when all zero)
-- [ ] **OPNL-14**: PressurePanel with retry exhaustion, compaction count, last 10 api_errors
-- [ ] **OPNL-15**: MCP panel with server list + expandable per-tool drill-down with p50/p95/max/err-rate/N and slow/fast tags
+- [x] **OPNL-05**: TokenUsageCard with today/7d/30d stacked daily bars (input/output/cache_read/cache_create) and totals
+- [x] **OPNL-06**: CacheEfficiencyCard with hit rate big number, daily sparkline, 70% target line, low-sample badge
+- [x] **OPNL-07**: SessionOutcomesCard with stacked daily bars (errored/rate_limited/truncated/unfinished/ok summing to day total)
+- [x] **OPNL-08**: ToolLatencyCard with per-tool p50/p95/max, error rate, call count, red/green flags
+- [x] **OPNL-09**: HookActivityCard with daily fires and paired-duration estimates (empty state when totalFires=0)
+- [x] **OPNL-10**: ProjectBreakdownCard with sessions by cwd, effective tokens, % of total (backend display_path field; no client regex)
+- [x] **OPNL-11**: AgentFanoutCard with sessions that ran Agent tool, fallback to session_id with muted prefix
+- [x] **OPNL-12**: EditAcceptanceCard with accept/reject rates for Edit/MultiEdit/Write/NotebookEdit, low-sample badge
+- [x] **OPNL-13**: ProductivityCard with commits, PRs, lines added/removed from OTEL counters (empty state when all zero)
+- [x] **OPNL-14**: PressurePanel with retry exhaustion, compaction count, last 10 api_errors
+- [x] **OPNL-15**: MCP panel with server list + expandable per-tool drill-down with p50/p95/max/err-rate/N and slow/fast tags
 
 ### HITL Panels
 
@@ -415,17 +415,17 @@ Requirements for initial release. Each maps to roadmap phases.
 | OPNL-02 | Phase 6 (06-02) | Complete (2026-04-27) |
 | OPNL-03 | Phase 6 (06-02) | Complete (2026-04-27) |
 | OPNL-04 | Phase 6 (06-02) | Complete (2026-04-27) |
-| OPNL-05 | Phase 6 | Pending |
-| OPNL-06 | Phase 6 | Pending |
-| OPNL-07 | Phase 6 | Pending |
-| OPNL-08 | Phase 6 | Pending |
-| OPNL-09 | Phase 6 | Pending |
-| OPNL-10 | Phase 6 | Pending |
-| OPNL-11 | Phase 6 | Pending |
-| OPNL-12 | Phase 6 | Pending |
-| OPNL-13 | Phase 6 | Pending |
-| OPNL-14 | Phase 6 | Pending |
-| OPNL-15 | Phase 6 | Pending |
+| OPNL-05 | Phase 6 (06-03) | Complete (2026-04-27) |
+| OPNL-06 | Phase 6 (06-03) | Complete (2026-04-27) |
+| OPNL-07 | Phase 6 (06-03) | Complete (2026-04-27) |
+| OPNL-08 | Phase 6 (06-03) | Complete (2026-04-27) |
+| OPNL-09 | Phase 6 (06-03) | Complete (2026-04-27) |
+| OPNL-10 | Phase 6 (06-03) | Complete (2026-04-27) |
+| OPNL-11 | Phase 6 (06-03) | Complete (2026-04-27) |
+| OPNL-12 | Phase 6 (06-03) | Complete (2026-04-27) |
+| OPNL-13 | Phase 6 (06-03) | Complete (2026-04-27) |
+| OPNL-14 | Phase 6 (06-03) | Complete (2026-04-27) |
+| OPNL-15 | Phase 6 (06-03) | Complete (2026-04-27) |
 | ACTV-01 | Phase 6 | Pending |
 | ACTV-02 | Phase 6 | Pending |
 | ACTV-03 | Phase 6 | Pending |
