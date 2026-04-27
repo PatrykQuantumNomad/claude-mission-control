@@ -29,3 +29,5 @@ export { StatList } from './StatList'
 export type { StatListItem } from './StatList'
 export { KpiTile } from './KpiTile'
 export { ErrorState } from './ErrorState'
+// Phase 7 Plan 01 — Wave 0 destructive-confirm primitive
+export { AlertDialog } from './AlertDialog'

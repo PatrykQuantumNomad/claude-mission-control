@@ -2,8 +2,10 @@
 // Phase 5 ships infra only; bare header (CONTEXT decision) means no useQuery
 // calls execute in v1. Phase 6 (Plan 06-01) tightens response types for the
 // endpoints downstream waves consume and adds two new fetchers (heatmap +
-// failures). Phase-7-only entries (decisions/inbox/tasks/schedules) stay typed
-// as `unknown` for Phase 7 to narrow when it consumes them.
+// failures). Phase 7 (Plan 07-01) tightens the HITL/Tasks/Schedules/Skills/
+// MCP-write/ESTOP families against backend Pydantic schemas verbatim and
+// adds five new fetchers (contextHealth, emergencyResume, dispatcherTrigger,
+// schedulesParseNl, plus the typed schedules-with-params variant).
 
 // ============================================================================
 // Range type aliases — encoded once, reused across every range-aware endpoint
@@ -58,6 +60,20 @@ export interface AttentionResponse {
   failed_tasks: number
   stale_dispatcher_seconds: number | null
   stuck_sessions: number
+}
+
+// Phase 4 ESTOP — Plan 07-01 narrows from `unknown`. Mirror
+// backend/cmc/api/schemas/system.py EmergencyStopResponse / EmergencyResumeResponse.
+export interface EmergencyStopResponse {
+  emergency_stop: boolean
+  terminated_pids: number[]
+  skipped_pids: number[]
+  missing_pids: number[]
+  failed_running_tasks: number
+}
+
+export interface EmergencyResumeResponse {
+  emergency_stop: boolean
 }
 
 // ============================================================================
@@ -317,7 +333,7 @@ export interface HeatmapResponse {
 }
 
 // ============================================================================
-// MCP (Phase 3 MCP-*)
+// MCP (Phase 3 MCP-*)  — Plan 07-01 narrows mcpSync + mcpMeasure responses
 // ============================================================================
 
 export interface McpServerRow {
@@ -352,6 +368,300 @@ export interface McpToolsResponse {
   items: McpToolRow[]
 }
 
+// MCP-03 / MCP-04 — Plan 07-01 narrows from `unknown`. Mirror
+// backend/cmc/api/schemas/mcp.py.
+export interface McpSyncResponse {
+  status: 'ok' | 'conflict'
+  servers: number
+  tools: number
+  source_counts: Record<string, number>
+  duration_ms: number
+}
+
+export interface McpMeasureResponse {
+  status: string
+  servers_measured: number
+  duration_ms: number
+}
+
+// ============================================================================
+// Skills (Phase 3 SKILL-*)  — Plan 07-01 narrows from `unknown`
+// Mirror backend/cmc/api/schemas/skills.py verbatim.
+// ============================================================================
+
+export interface SkillRow {
+  name: string
+  environment: string
+  user_invocable: boolean
+  autonomy: string
+  description: string | null
+  path: string
+  updated_at: string
+}
+
+export interface SkillListResponse {
+  items: SkillRow[]
+}
+
+export interface SkillSyncResponse {
+  status: string
+  found: number
+  upserted: number
+  unchanged: number
+  errors: number
+  duration_ms: number
+}
+
+export interface SkillAutonomyRequest {
+  autonomy: 'auto' | 'review' | 'manual'
+}
+
+export interface SkillAutonomyResponse {
+  name: string
+  autonomy: string
+  updated_at: string
+}
+
+// ============================================================================
+// HITL (Phase 4 HITL-*) — Plan 07-01 narrows from `unknown`
+// Mirror backend/cmc/api/schemas/hitl.py verbatim.
+// ============================================================================
+
+export interface DecisionListItem {
+  id: number
+  session_id: string | null
+  task_id: number | null
+  dedup_key: string
+  prompt: string
+  options: unknown[]
+  status: string
+  answer: string | null
+  answered_at: string | null
+  answered_by: string | null
+  created_at: string
+}
+
+export interface DecisionListResponse {
+  items: DecisionListItem[]
+  total: number
+}
+
+export interface DecisionAnswerRequest {
+  answer: string
+  answered_by?: 'dashboard' | 'telegram' | 'cli'
+}
+
+export interface DecisionAnswerResponse {
+  answered: boolean
+  decision_id: number
+  queue_path: string
+}
+
+export interface InboxListItem {
+  id: number
+  session_id: string | null
+  task_id: number | null
+  subject: string | null
+  body: string
+  read: boolean
+  read_at: string | null
+  reply: string | null
+  replied_at: string | null
+  created_at: string
+}
+
+export interface InboxListResponse {
+  items: InboxListItem[]
+  total: number
+}
+
+export interface InboxReadResponse {
+  id: number
+  read: boolean
+  read_at: string
+}
+
+export interface InboxReplyRequest {
+  reply: string
+}
+
+export interface InboxReplyResponse {
+  replied: boolean
+  inbox_id: number
+  queue_path: string
+}
+
+// ============================================================================
+// Tasks (Phase 4 TASK-*) — Plan 07-01 narrows from `unknown`
+// Mirror backend/cmc/api/schemas/tasks.py verbatim.
+// ============================================================================
+
+export interface TaskListItem {
+  id: number
+  title: string
+  description: string
+  status: string
+  priority: number
+  quadrant: 'do' | 'plan' | 'delegate' | 'drop' | null
+  approval: 'auto' | 'awaiting_approval'
+  risk: 'low' | 'medium' | 'high' | null
+  dry_run: boolean
+  model: string | null
+  execution_mode: 'interactive' | 'classic' | 'stream'
+  skill: string | null
+  scheduled_for: string | null
+  schedule_id: number | null
+  pid: number | null
+  stdout_path: string | null
+  error_message: string | null
+  created_at: string
+  started_at: string | null
+  ended_at: string | null
+  approved_at: string | null
+}
+
+export interface TaskListResponse {
+  items: TaskListItem[]
+  total: number
+}
+
+export interface TaskCreate {
+  title: string
+  description?: string
+  priority?: number
+  quadrant?: 'do' | 'plan' | 'delegate' | 'drop'
+  approval?: 'auto' | 'awaiting_approval'
+  risk?: 'low' | 'medium' | 'high'
+  dry_run?: boolean
+  model?: string
+  execution_mode?: 'interactive' | 'classic' | 'stream'
+  skill?: string
+  scheduled_for?: string
+  schedule_id?: number
+}
+
+export interface TaskPatch {
+  title?: string
+  description?: string
+  priority?: number
+  quadrant?: 'do' | 'plan' | 'delegate' | 'drop'
+  approval?: 'auto' | 'awaiting_approval'
+  risk?: 'low' | 'medium' | 'high'
+  dry_run?: boolean
+  model?: string
+  execution_mode?: 'interactive' | 'classic' | 'stream'
+  skill?: string
+  scheduled_for?: string
+  schedule_id?: number
+  status?: string
+  error_message?: string
+}
+
+export interface TaskApproveResponse {
+  id: number
+  status: string
+  approved_at: string
+}
+
+export interface TaskRerunResponse {
+  id: number
+  status: string
+}
+
+export interface TaskTriggerResponse {
+  triggered: boolean
+  pid: number
+}
+
+export interface TaskListParams {
+  status?: string
+  quadrant?: string
+  schedule_id?: number
+  limit?: number
+  offset?: number
+}
+
+export interface DecisionListParams {
+  status?: string
+  limit?: number
+}
+
+export interface InboxListParams {
+  unread?: boolean
+  max_age_days?: number
+  limit?: number
+}
+
+// ============================================================================
+// Schedules (Phase 4 SCHD-*) — Plan 07-01 narrows from `unknown`
+// Mirror backend/cmc/api/schemas/schedules.py verbatim.
+// ============================================================================
+
+export interface ScheduleListItem {
+  id: number
+  name: string
+  cron: string
+  enabled: boolean
+  next_run_at: string | null
+  last_run_at: string | null
+  task_template: Record<string, unknown>
+  skill: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ScheduleListResponse {
+  items: ScheduleListItem[]
+  total: number
+}
+
+export interface ScheduleCreate {
+  name: string
+  cron: string
+  enabled?: boolean
+  task_template?: Record<string, unknown>
+  skill?: string
+}
+
+export interface SchedulePatch {
+  name?: string
+  cron?: string
+  enabled?: boolean
+  task_template?: Record<string, unknown>
+  skill?: string
+}
+
+export interface ScheduleRunsResponse {
+  items: TaskListItem[]
+  total: number
+}
+
+export interface NLCronRequest {
+  description: string
+}
+
+export interface NLCronResponse {
+  cron: string
+  description: string
+}
+
+// ============================================================================
+// Context (Phase 7 SKLP-03) — Plan 07-01 NEW
+// Mirror backend/cmc/api/schemas/context.py.
+// Defense in depth: schema deliberately has NO field that carries values.
+// ============================================================================
+
+export interface ContextHealthResponse {
+  settings_path: string
+  settings_exists: boolean
+  claude_md_path: string
+  claude_md_exists: boolean
+  claude_md_lines: number
+  settings_keys: string[]  // key NAMES only — secrets redacted as "<NAME> (redacted)"
+  mcp_server_count: number
+  hook_count: number
+}
+
 // ============================================================================
 // Fetcher infrastructure
 // ============================================================================
@@ -368,6 +678,15 @@ export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T>
   return r.json() as Promise<T>
 }
 
+/** Plan 07-01: 204 No Content endpoints (TASK-04 DELETE, SCHD-04 DELETE).
+ * Calling r.json() on a 204 throws because there is no body. fetchVoid
+ * preserves the ApiError shape on non-2xx and returns void on success. */
+export async function fetchVoid(path: string, init?: RequestInit): Promise<void> {
+  const r = await fetch(path, init)
+  if (!r.ok) throw new ApiError(path, r.status, await r.text())
+  // Don't read body — 204 has none.
+}
+
 const jsonHeaders = { 'Content-Type': 'application/json' } as const
 
 function buildSessionsQs(params: SessionsListParams = {}): string {
@@ -380,9 +699,37 @@ function buildSessionsQs(params: SessionsListParams = {}): string {
   return usp.toString()
 }
 
+function buildTasksQs(params: TaskListParams = {}): string {
+  const usp = new URLSearchParams()
+  if (params.status) usp.set('status', params.status)
+  if (params.quadrant) usp.set('quadrant', params.quadrant)
+  if (typeof params.schedule_id === 'number')
+    usp.set('schedule_id', String(params.schedule_id))
+  if (typeof params.limit === 'number') usp.set('limit', String(params.limit))
+  if (typeof params.offset === 'number') usp.set('offset', String(params.offset))
+  return usp.toString()
+}
+
+function buildDecisionsQs(params: DecisionListParams = {}): string {
+  const usp = new URLSearchParams()
+  if (params.status) usp.set('status', params.status)
+  if (typeof params.limit === 'number') usp.set('limit', String(params.limit))
+  return usp.toString()
+}
+
+function buildInboxQs(params: InboxListParams = {}): string {
+  const usp = new URLSearchParams()
+  if (typeof params.unread === 'boolean') usp.set('unread', String(params.unread))
+  if (typeof params.max_age_days === 'number')
+    usp.set('max_age_days', String(params.max_age_days))
+  if (typeof params.limit === 'number') usp.set('limit', String(params.limit))
+  return usp.toString()
+}
+
 /**
  * Typed fetcher map keyed by endpoint nickname.
- * Phase-6-consumed endpoints are typed; Phase-7-only entries stay `unknown`.
+ * Plan 07-01: HITL/Tasks/Schedules/Skills/MCP-write/ESTOP/Sync families
+ * tightened from `unknown` to backend Pydantic schemas.
  */
 export const api = {
   // System (Phase 1 + 3)
@@ -445,106 +792,202 @@ export const api = {
   activityHeatmap: (range: Range) =>
     fetchJson<HeatmapResponse>(`/api/activity/heatmap?range=${range}`),
 
-  // MCP (Phase 3)
+  // MCP (Phase 3) — Plan 07-01 narrows write paths
   mcp: () => fetchJson<McpServerListResponse>('/api/mcp'),
   mcpServerTools: (server: string) =>
     fetchJson<McpToolsResponse>(`/api/mcp/${encodeURIComponent(server)}/tools`),
-  mcpSync: () => fetchJson<unknown>('/api/mcp/sync', { method: 'POST' }),
-  mcpMeasure: () => fetchJson<unknown>('/api/mcp/measure', { method: 'POST' }),
+  mcpSync: () => fetchJson<McpSyncResponse>('/api/mcp/sync', { method: 'POST' }),
+  mcpMeasure: () =>
+    fetchJson<McpMeasureResponse>('/api/mcp/measure', { method: 'POST' }),
 
-  // Skills (Phase 3) — Phase 7 narrows
-  skills: (qs?: string) => fetchJson<unknown>(`/api/skills${qs ? `?${qs}` : ''}`),
-  skillsSync: () => fetchJson<unknown>('/api/skills/sync', { method: 'POST' }),
-  skillAutonomy: (name: string, body: unknown) =>
-    fetchJson<unknown>(`/api/skills/${encodeURIComponent(name)}/autonomy`, {
-      method: 'PATCH',
-      headers: jsonHeaders,
-      body: JSON.stringify(body),
-    }),
+  // Skills (Phase 3) — Plan 07-01 narrows
+  skills: (qs?: string) =>
+    fetchJson<SkillListResponse>(`/api/skills${qs ? `?${qs}` : ''}`),
+  skillsSync: () =>
+    fetchJson<SkillSyncResponse>('/api/skills/sync', { method: 'POST' }),
+  skillAutonomy: (name: string, body: SkillAutonomyRequest) =>
+    fetchJson<SkillAutonomyResponse>(
+      `/api/skills/${encodeURIComponent(name)}/autonomy`,
+      {
+        method: 'PATCH',
+        headers: jsonHeaders,
+        body: JSON.stringify(body),
+      },
+    ),
 
-  // HITL (Phase 4) — Phase 7 narrows
-  decisions: (qs?: string) => fetchJson<unknown>(`/api/decisions${qs ? `?${qs}` : ''}`),
+  // HITL (Phase 4) — Plan 07-01 narrows
+  decisions: (params: DecisionListParams = {}) => {
+    const qs = buildDecisionsQs(params)
+    return fetchJson<DecisionListResponse>(`/api/decisions${qs ? `?${qs}` : ''}`)
+  },
   createDecision: (body: unknown) =>
-    fetchJson<unknown>('/api/decisions', {
+    fetchJson<DecisionListItem>('/api/decisions', {
       method: 'POST',
       headers: jsonHeaders,
       body: JSON.stringify(body),
     }),
-  answerDecision: (id: number, body: unknown) =>
-    fetchJson<unknown>(`/api/decisions/${id}/answer`, {
+  decisionAnswer: (id: number, body: DecisionAnswerRequest) =>
+    fetchJson<DecisionAnswerResponse>(`/api/decisions/${id}/answer`, {
       method: 'POST',
       headers: jsonHeaders,
       body: JSON.stringify(body),
     }),
-  inbox: (qs?: string) => fetchJson<unknown>(`/api/inbox${qs ? `?${qs}` : ''}`),
+  /** @deprecated Plan 07-01 — use decisionAnswer. Kept as alias to ease migration. */
+  answerDecision: (id: number, body: DecisionAnswerRequest) =>
+    fetchJson<DecisionAnswerResponse>(`/api/decisions/${id}/answer`, {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify(body),
+    }),
+  inbox: (params: InboxListParams = {}) => {
+    const qs = buildInboxQs(params)
+    return fetchJson<InboxListResponse>(`/api/inbox${qs ? `?${qs}` : ''}`)
+  },
   createInbox: (body: unknown) =>
-    fetchJson<unknown>('/api/inbox', {
+    fetchJson<InboxListItem>('/api/inbox', {
       method: 'POST',
       headers: jsonHeaders,
       body: JSON.stringify(body),
     }),
+  inboxRead: (id: number) =>
+    fetchJson<InboxReadResponse>(`/api/inbox/${id}/read`, { method: 'POST' }),
+  /** @deprecated Plan 07-01 — alias of inboxRead. */
   readInbox: (id: number) =>
-    fetchJson<unknown>(`/api/inbox/${id}/read`, { method: 'POST' }),
-  replyInbox: (id: number, body: unknown) =>
-    fetchJson<unknown>(`/api/inbox/${id}/reply`, {
+    fetchJson<InboxReadResponse>(`/api/inbox/${id}/read`, { method: 'POST' }),
+  inboxReply: (id: number, body: InboxReplyRequest) =>
+    fetchJson<InboxReplyResponse>(`/api/inbox/${id}/reply`, {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify(body),
+    }),
+  /** @deprecated Plan 07-01 — alias of inboxReply. */
+  replyInbox: (id: number, body: InboxReplyRequest) =>
+    fetchJson<InboxReplyResponse>(`/api/inbox/${id}/reply`, {
       method: 'POST',
       headers: jsonHeaders,
       body: JSON.stringify(body),
     }),
 
-  // Tasks (Phase 4) — Phase 7 narrows
-  tasks: (qs?: string) => fetchJson<unknown>(`/api/tasks${qs ? `?${qs}` : ''}`),
-  createTask: (body: unknown) =>
-    fetchJson<unknown>('/api/tasks', {
+  // Tasks (Phase 4) — Plan 07-01 narrows. taskDelete uses fetchVoid because
+  // TASK-04 returns 204 No Content (Pitfall: don't call r.json() on 204).
+  tasks: (params: TaskListParams = {}) => {
+    const qs = buildTasksQs(params)
+    return fetchJson<TaskListResponse>(`/api/tasks${qs ? `?${qs}` : ''}`)
+  },
+  taskCreate: (body: TaskCreate) =>
+    fetchJson<TaskListItem>('/api/tasks', {
       method: 'POST',
       headers: jsonHeaders,
       body: JSON.stringify(body),
     }),
-  patchTask: (id: number, body: unknown) =>
-    fetchJson<unknown>(`/api/tasks/${id}`, {
+  /** @deprecated Plan 07-01 — alias of taskCreate. */
+  createTask: (body: TaskCreate) =>
+    fetchJson<TaskListItem>('/api/tasks', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify(body),
+    }),
+  taskPatch: (id: number, body: TaskPatch) =>
+    fetchJson<TaskListItem>(`/api/tasks/${id}`, {
       method: 'PATCH',
       headers: jsonHeaders,
       body: JSON.stringify(body),
     }),
+  /** @deprecated Plan 07-01 — alias of taskPatch. */
+  patchTask: (id: number, body: TaskPatch) =>
+    fetchJson<TaskListItem>(`/api/tasks/${id}`, {
+      method: 'PATCH',
+      headers: jsonHeaders,
+      body: JSON.stringify(body),
+    }),
+  taskDelete: (id: number) =>
+    fetchVoid(`/api/tasks/${id}`, { method: 'DELETE' }),
+  /** @deprecated Plan 07-01 — alias of taskDelete. */
   deleteTask: (id: number) =>
-    fetchJson<unknown>(`/api/tasks/${id}`, { method: 'DELETE' }),
+    fetchVoid(`/api/tasks/${id}`, { method: 'DELETE' }),
+  taskApprove: (id: number) =>
+    fetchJson<TaskApproveResponse>(`/api/tasks/${id}/approve`, { method: 'POST' }),
+  /** @deprecated Plan 07-01 — alias of taskApprove. */
   approveTask: (id: number) =>
-    fetchJson<unknown>(`/api/tasks/${id}/approve`, { method: 'POST' }),
+    fetchJson<TaskApproveResponse>(`/api/tasks/${id}/approve`, { method: 'POST' }),
+  taskRerun: (id: number) =>
+    fetchJson<TaskRerunResponse>(`/api/tasks/${id}/rerun`, { method: 'POST' }),
+  /** @deprecated Plan 07-01 — alias of taskRerun. */
   rerunTask: (id: number) =>
-    fetchJson<unknown>(`/api/tasks/${id}/rerun`, { method: 'POST' }),
+    fetchJson<TaskRerunResponse>(`/api/tasks/${id}/rerun`, { method: 'POST' }),
+  // Plan 07-01 NEW (RESEARCH §Summary correction 3): the dispatcher trigger
+  // is /api/dispatcher/trigger, NOT /api/tasks/{id}/trigger.
+  dispatcherTrigger: () =>
+    fetchJson<TaskTriggerResponse>('/api/dispatcher/trigger', { method: 'POST' }),
+  /** @deprecated Plan 07-01 — alias of dispatcherTrigger. */
   triggerDispatcher: () =>
-    fetchJson<unknown>('/api/dispatcher/trigger', { method: 'POST' }),
+    fetchJson<TaskTriggerResponse>('/api/dispatcher/trigger', { method: 'POST' }),
 
-  // Schedules (Phase 4) — Phase 7 narrows
-  schedules: () => fetchJson<unknown>('/api/schedules'),
-  createSchedule: (body: unknown) =>
-    fetchJson<unknown>('/api/schedules', {
+  // Schedules (Phase 4) — Plan 07-01 narrows
+  schedules: () => fetchJson<ScheduleListResponse>('/api/schedules'),
+  scheduleCreate: (body: ScheduleCreate) =>
+    fetchJson<ScheduleListItem>('/api/schedules', {
       method: 'POST',
       headers: jsonHeaders,
       body: JSON.stringify(body),
     }),
-  patchSchedule: (id: number, body: unknown) =>
-    fetchJson<unknown>(`/api/schedules/${id}`, {
+  /** @deprecated Plan 07-01 — alias of scheduleCreate. */
+  createSchedule: (body: ScheduleCreate) =>
+    fetchJson<ScheduleListItem>('/api/schedules', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify(body),
+    }),
+  schedulePatch: (id: number, body: SchedulePatch) =>
+    fetchJson<ScheduleListItem>(`/api/schedules/${id}`, {
       method: 'PATCH',
       headers: jsonHeaders,
       body: JSON.stringify(body),
     }),
+  /** @deprecated Plan 07-01 — alias of schedulePatch. */
+  patchSchedule: (id: number, body: SchedulePatch) =>
+    fetchJson<ScheduleListItem>(`/api/schedules/${id}`, {
+      method: 'PATCH',
+      headers: jsonHeaders,
+      body: JSON.stringify(body),
+    }),
+  scheduleDelete: (id: number) =>
+    fetchVoid(`/api/schedules/${id}`, { method: 'DELETE' }),
+  /** @deprecated Plan 07-01 — alias of scheduleDelete. */
   deleteSchedule: (id: number) =>
-    fetchJson<unknown>(`/api/schedules/${id}`, { method: 'DELETE' }),
+    fetchVoid(`/api/schedules/${id}`, { method: 'DELETE' }),
   scheduleRuns: (id: number) =>
-    fetchJson<unknown>(`/api/schedules/${id}/runs`),
-  parseNlSchedule: (body: unknown) =>
-    fetchJson<unknown>('/api/schedules/parse-nl', {
+    fetchJson<ScheduleRunsResponse>(`/api/schedules/${id}/runs`),
+  // Plan 07-01 NEW (RESEARCH §Summary correction 1): backend route is
+  // POST /api/schedules/parse-nl, NOT /api/schedules/nl-to-cron.
+  schedulesParseNl: (body: NLCronRequest) =>
+    fetchJson<NLCronResponse>('/api/schedules/parse-nl', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify(body),
+    }),
+  /** @deprecated Plan 07-01 — alias of schedulesParseNl. */
+  parseNlSchedule: (body: NLCronRequest) =>
+    fetchJson<NLCronResponse>('/api/schedules/parse-nl', {
       method: 'POST',
       headers: jsonHeaders,
       body: JSON.stringify(body),
     }),
 
-  // Emergency stop (Phase 4) — Phase 7 narrows
+  // Emergency stop (Phase 4) — Plan 07-01 narrows + adds resume.
+  // RESEARCH §Summary correction 2: resume is its own POST endpoint at
+  // /api/system/emergency-resume; it is NOT a DELETE on /emergency-stop.
   emergencyStop: () =>
-    fetchJson<unknown>('/api/system/emergency-stop', { method: 'POST' }),
+    fetchJson<EmergencyStopResponse>('/api/system/emergency-stop', {
+      method: 'POST',
+    }),
   emergencyResume: () =>
-    fetchJson<unknown>('/api/system/emergency-resume', { method: 'POST' }),
+    fetchJson<EmergencyResumeResponse>('/api/system/emergency-resume', {
+      method: 'POST',
+    }),
+
+  // Context (Phase 7 SKLP-03) — Plan 07-01 NEW
+  contextHealth: () => fetchJson<ContextHealthResponse>('/api/context/health'),
 
   // Sync (Phase 2)
   sync: () => fetchJson<unknown>('/api/sync', { method: 'POST' }),
