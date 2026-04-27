@@ -1513,3 +1513,703 @@ async def test_inbox_post_handles_unexpected_status(monkeypatch):
     monkeypatch.setattr(ip_module.httpx, "AsyncClient", _FakeAsyncClient)
     result = await post_inbox_marker("x", port=8765)
     assert result is None
+
+
+# ---- Plan 08-03 — DISP-06 run_stream (stream-mode runner) ------------------
+
+
+def _write_fake_claude_stream_wrapper(tmp_path, fixture_extra_args=()) -> "Path":
+    """Sibling of _write_fake_claude_wrapper for stream mode.
+
+    The wrapper PREPENDS test-supplied fixture flags ahead of the Popen-supplied
+    argv, so run_stream's cmd construction stays identical between tests and prod.
+    """
+    import stat
+    import sys as _sys
+    from pathlib import Path as _Path
+
+    extra = " ".join(fixture_extra_args)
+    fixture_path = (
+        _Path(__file__).resolve().parent / "fixtures" / "fake_claude_stream.py"
+    )
+    wrapper = tmp_path / "fake_claude_stream.sh"
+    wrapper.write_text(
+        f'#!/bin/sh\n'
+        f'exec "{_sys.executable}" "{fixture_path}" {extra} "$@"\n'
+    )
+    wrapper.chmod(wrapper.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+    return wrapper
+
+
+@pytest.mark.asyncio
+async def test_disp06_stream_happy_path(
+    test_settings, tmp_path, tmp_pid_dir_monkey, monkeypatch
+):
+    """Pending stream-mode task → fixture emits assistant text + INBOX + result;
+    INBOX posted (mocked); task transitions to done; PID file unlinked."""
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher import inbox_post as ip_module
+    from cmc.dispatcher.run_stream import run_stream
+
+    # Mock httpx.AsyncClient so the INBOX POST does not require a live server.
+    posted: list[dict] = []
+
+    class _FakeResp:
+        status_code = 201
+
+        def json(self):
+            return {"id": 1}
+
+    class _FakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def post(self, url, json=None):
+            posted.append({"url": url, "json": json})
+            return _FakeResp()
+
+    monkeypatch.setattr(ip_module.httpx, "AsyncClient", _FakeAsyncClient)
+
+    # Wrapper emits one INBOX marker + result, then exits 0.
+    wrapper = _write_fake_claude_stream_wrapper(
+        tmp_path, fixture_extra_args=["--emit-inbox", "heads up"]
+    )
+    settings = test_settings.model_copy(update={"claude_bin": wrapper, "port": 8765})
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            t = Task(
+                title="s", description="x", status="running",
+                execution_mode="stream", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        task_row = {
+            "id": task_id, "title": "s", "description": "x",
+            "model": None, "timeout_s": 30, "execution_mode": "stream",
+        }
+        await asyncio.to_thread(run_stream, task_row, settings, sessions)
+
+        async with sessions() as db:
+            refreshed = (
+                await db.execute(select(Task).where(Task.id == task_id))
+            ).scalar_one()
+        assert refreshed.status == "done"
+        assert refreshed.ended_at is not None
+        assert not (tmp_pid_dir_monkey / f"{task_id}.pid").exists()
+        # INBOX marker posted exactly once.
+        assert len(posted) == 1
+        assert posted[0]["url"] == "http://127.0.0.1:8765/api/inbox"
+        assert posted[0]["json"] == {"source": "agent_marker", "body": "heads up"}
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_disp06_stream_writes_pid_immediately(
+    test_settings, tmp_path, tmp_pid_dir_monkey, monkeypatch
+):
+    """Pitfall 10 in stream mode too: PID file exists DURING subprocess run."""
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher.run_stream import run_stream
+
+    marker = tmp_path / "child.pid"
+    wrapper = _write_fake_claude_stream_wrapper(
+        tmp_path, fixture_extra_args=["--print-pid-file", str(marker), "--linger", "1.0"]
+    )
+    settings = test_settings.model_copy(update={"claude_bin": wrapper})
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            t = Task(
+                title="x", description="x", status="running",
+                execution_mode="stream", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        task_row = {
+            "id": task_id, "title": "x", "description": "x",
+            "model": None, "timeout_s": 30,
+        }
+
+        async def _run():
+            return await asyncio.to_thread(run_stream, task_row, settings, sessions)
+
+        task_future = asyncio.create_task(_run())
+        deadline = asyncio.get_event_loop().time() + 5.0
+        while asyncio.get_event_loop().time() < deadline:
+            if marker.exists():
+                break
+            await asyncio.sleep(0.05)
+        assert marker.exists(), "child fixture did not start in time"
+
+        pid_file = tmp_pid_dir_monkey / f"{task_id}.pid"
+        assert pid_file.exists(), "PID file must exist while subprocess is alive (Pitfall 10)"
+
+        await task_future
+        assert not pid_file.exists()
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_disp06_stream_scrubs_anthropic_key(
+    test_settings, tmp_path, tmp_pid_dir_monkey, monkeypatch
+):
+    """Pitfall 8 in stream mode: ANTHROPIC_API_KEY is removed from Popen env."""
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher import run_stream as rs_module
+    from cmc.dispatcher.run_stream import run_stream
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "secret-must-not-leak")
+    wrapper = _write_fake_claude_stream_wrapper(tmp_path)
+    settings = test_settings.model_copy(update={"claude_bin": wrapper})
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            t = Task(
+                title="ok", description="x", status="running",
+                execution_mode="stream", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        captured_env: list[dict] = []
+        real_popen = rs_module.subprocess.Popen
+
+        def _spy_popen(cmd, **kwargs):
+            captured_env.append(dict(kwargs.get("env") or {}))
+            return real_popen(cmd, **kwargs)
+
+        monkeypatch.setattr(rs_module.subprocess, "Popen", _spy_popen)
+
+        task_row = {
+            "id": task_id, "title": "ok", "description": "x",
+            "model": None, "timeout_s": 30,
+        }
+        await asyncio.to_thread(run_stream, task_row, settings, sessions)
+
+        assert captured_env, "Popen was not called"
+        assert "ANTHROPIC_API_KEY" not in captured_env[0]
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_disp06_stream_uses_resolved_model(
+    test_settings, tmp_path, tmp_pid_dir_monkey, monkeypatch
+):
+    """task.model='claude-opus-4' → Popen argv contains '--model claude-opus-4'."""
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher import run_stream as rs_module
+    from cmc.dispatcher.run_stream import run_stream
+
+    wrapper = _write_fake_claude_stream_wrapper(tmp_path)
+    settings = test_settings.model_copy(update={"claude_bin": wrapper})
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            t = Task(
+                title="m", description="x", status="running",
+                execution_mode="stream", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        captured_cmd: list[list[str]] = []
+        real_popen = rs_module.subprocess.Popen
+
+        def _spy_popen(cmd, **kwargs):
+            captured_cmd.append(list(cmd))
+            return real_popen(cmd, **kwargs)
+
+        monkeypatch.setattr(rs_module.subprocess, "Popen", _spy_popen)
+
+        task_row = {
+            "id": task_id, "title": "m", "description": "x",
+            "model": "claude-opus-4", "timeout_s": 30,
+        }
+        await asyncio.to_thread(run_stream, task_row, settings, sessions)
+
+        assert captured_cmd, "Popen was not called"
+        argv = captured_cmd[0]
+        idx = argv.index("--model")
+        assert argv[idx + 1] == "claude-opus-4"
+        # Sanity: stream-mode flags present.
+        assert "stream-json" in argv
+        assert "--input-format" in argv
+        assert "--include-partial-messages" in argv
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_disp07_decision_blocks_until_answered(
+    test_settings, tmp_path, tmp_pid_dir_monkey, monkeypatch
+):
+    """DECISION marker → INSERT pending row → run_stream blocks → seed answer
+    after 0.5s → run_stream resumes and completes."""
+    from cmc.db.models.decisions import Decision
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher import inbox_post as ip_module
+    from cmc.dispatcher.run_stream import run_stream
+
+    # Stub httpx (not exercised here but the mock must be in place).
+    class _FakeResp:
+        status_code = 201
+
+        def json(self):
+            return {"id": 1}
+
+    class _FakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def post(self, url, json=None):
+            return _FakeResp()
+
+    monkeypatch.setattr(ip_module.httpx, "AsyncClient", _FakeAsyncClient)
+
+    wrapper = _write_fake_claude_stream_wrapper(
+        tmp_path, fixture_extra_args=["--emit-decision", "should I deploy?"]
+    )
+    settings = test_settings.model_copy(update={
+        "claude_bin": wrapper,
+        "dispatcher_decision_timeout_s": 30,
+        "dispatcher_answer_poll_s": 0.1,
+    })
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            t = Task(
+                title="d", description="x", status="running",
+                execution_mode="stream", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        task_row = {
+            "id": task_id, "title": "d", "description": "x",
+            "model": None, "timeout_s": 30,
+        }
+
+        async def _flip_decision_after():
+            # Wait for the row to appear, then flip it.
+            deadline = asyncio.get_event_loop().time() + 10.0
+            while asyncio.get_event_loop().time() < deadline:
+                async with sessions() as db:
+                    row = (await db.execute(
+                        select(Decision).where(Decision.task_id == task_id)
+                    )).scalar_one_or_none()
+                    if row is not None:
+                        row.status = "answered"
+                        row.answer = "yes"
+                        row.answered_at = datetime.now(timezone.utc)
+                        row.answered_by = "dashboard"
+                        await db.commit()
+                        return
+                await asyncio.sleep(0.1)
+            raise AssertionError("Decision row never appeared")
+
+        flipper = asyncio.create_task(_flip_decision_after())
+        await asyncio.to_thread(run_stream, task_row, settings, sessions)
+        await flipper
+
+        async with sessions() as db:
+            refreshed = (
+                await db.execute(select(Task).where(Task.id == task_id))
+            ).scalar_one()
+        assert refreshed.status == "done", f"unexpected status: {refreshed.status} / {refreshed.error_message}"
+        # Decision row was created with status=answered.
+        async with sessions() as db:
+            d = (await db.execute(
+                select(Decision).where(Decision.task_id == task_id)
+            )).scalar_one()
+        assert d.status == "answered"
+        assert d.answer == "yes"
+        assert "should I deploy?" in d.prompt
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_disp07_fenced_decision_not_inserted(
+    test_settings, tmp_path, tmp_pid_dir_monkey, monkeypatch
+):
+    """DECISION inside ```fenced``` block must NOT create a Decision row."""
+    from cmc.db.models.decisions import Decision
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher import inbox_post as ip_module
+    from cmc.dispatcher.run_stream import run_stream
+
+    class _FakeResp:
+        status_code = 201
+
+        def json(self):
+            return {"id": 1}
+
+    class _FakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def post(self, url, json=None):
+            return _FakeResp()
+
+    monkeypatch.setattr(ip_module.httpx, "AsyncClient", _FakeAsyncClient)
+
+    wrapper = _write_fake_claude_stream_wrapper(
+        tmp_path, fixture_extra_args=["--emit-fenced-decision"]
+    )
+    settings = test_settings.model_copy(update={
+        "claude_bin": wrapper,
+        "dispatcher_decision_timeout_s": 5,
+        "dispatcher_answer_poll_s": 0.1,
+    })
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            t = Task(
+                title="f", description="x", status="running",
+                execution_mode="stream", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        task_row = {"id": task_id, "title": "f", "description": "x",
+                    "model": None, "timeout_s": 30}
+
+        # The fixture emits a fenced DECISION (skipped) AND a real DECISION
+        # outside the fence (which would normally block) → flip it after spawn.
+        async def _flip_after():
+            deadline = asyncio.get_event_loop().time() + 10.0
+            while asyncio.get_event_loop().time() < deadline:
+                async with sessions() as db:
+                    row = (await db.execute(
+                        select(Decision).where(Decision.task_id == task_id)
+                    )).scalar_one_or_none()
+                    if row is not None:
+                        row.status = "answered"
+                        row.answer = "ok"
+                        row.answered_at = datetime.now(timezone.utc)
+                        await db.commit()
+                        return
+                await asyncio.sleep(0.1)
+
+        flipper = asyncio.create_task(_flip_after())
+        await asyncio.to_thread(run_stream, task_row, settings, sessions)
+        await flipper
+
+        # Exactly ONE Decision row — the real one ('real?'), NOT the fenced one ('ignored?').
+        async with sessions() as db:
+            rows = (await db.execute(
+                select(Decision).where(Decision.task_id == task_id)
+            )).scalars().all()
+        assert len(rows) == 1, f"expected 1 decision row, got {len(rows)}: {[r.prompt for r in rows]}"
+        assert "ignored" not in rows[0].prompt.lower()
+        assert "real" in rows[0].prompt.lower()
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_disp07_decision_timeout_marks_failed(
+    test_settings, tmp_path, tmp_pid_dir_monkey, monkeypatch
+):
+    """DECISION never answered → task transitions to failed with 'decision timeout'."""
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher import inbox_post as ip_module
+    from cmc.dispatcher.run_stream import run_stream
+
+    class _FakeResp:
+        status_code = 201
+
+        def json(self):
+            return {"id": 1}
+
+    class _FakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def post(self, url, json=None):
+            return _FakeResp()
+
+    monkeypatch.setattr(ip_module.httpx, "AsyncClient", _FakeAsyncClient)
+
+    wrapper = _write_fake_claude_stream_wrapper(
+        tmp_path, fixture_extra_args=["--emit-decision", "are you sure?"]
+    )
+    settings = test_settings.model_copy(update={
+        "claude_bin": wrapper,
+        "dispatcher_decision_timeout_s": 2,
+        "dispatcher_answer_poll_s": 0.1,
+    })
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            t = Task(
+                title="t", description="x", status="running",
+                execution_mode="stream", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        task_row = {"id": task_id, "title": "t", "description": "x",
+                    "model": None, "timeout_s": 30}
+        await asyncio.to_thread(run_stream, task_row, settings, sessions)
+
+        async with sessions() as db:
+            refreshed = (
+                await db.execute(select(Task).where(Task.id == task_id))
+            ).scalar_one()
+        assert refreshed.status == "failed"
+        assert "decision timeout" in (refreshed.error_message or "")
+        assert not (tmp_pid_dir_monkey / f"{task_id}.pid").exists()
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_disp08_inbox_marker_posts_to_api(
+    test_settings, tmp_path, tmp_pid_dir_monkey, monkeypatch
+):
+    """INBOX marker → httpx POST /api/inbox observed with {source, body}."""
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher import inbox_post as ip_module
+    from cmc.dispatcher.run_stream import run_stream
+
+    posted: list[dict] = []
+
+    class _FakeResp:
+        status_code = 201
+
+        def json(self):
+            return {"id": 99}
+
+    class _FakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def post(self, url, json=None):
+            posted.append({"url": url, "json": json})
+            return _FakeResp()
+
+    monkeypatch.setattr(ip_module.httpx, "AsyncClient", _FakeAsyncClient)
+
+    wrapper = _write_fake_claude_stream_wrapper(
+        tmp_path, fixture_extra_args=["--emit-inbox", "heads up about B"]
+    )
+    settings = test_settings.model_copy(update={"claude_bin": wrapper, "port": 8765})
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            t = Task(
+                title="i", description="x", status="running",
+                execution_mode="stream", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        task_row = {"id": task_id, "title": "i", "description": "x",
+                    "model": None, "timeout_s": 30}
+        await asyncio.to_thread(run_stream, task_row, settings, sessions)
+
+        assert len(posted) == 1
+        assert posted[0]["url"] == "http://127.0.0.1:8765/api/inbox"
+        assert posted[0]["json"] == {"source": "agent_marker", "body": "heads up about B"}
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_disp06_stream_handles_nonzero_exit(
+    test_settings, tmp_path, tmp_pid_dir_monkey, monkeypatch
+):
+    """Subprocess exits with code 1 → status=failed, error contains 'nonzero exit 1'."""
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher import inbox_post as ip_module
+    from cmc.dispatcher.run_stream import run_stream
+
+    class _FakeResp:
+        status_code = 201
+
+        def json(self):
+            return {"id": 1}
+
+    class _FakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def post(self, url, json=None):
+            return _FakeResp()
+
+    monkeypatch.setattr(ip_module.httpx, "AsyncClient", _FakeAsyncClient)
+
+    wrapper = _write_fake_claude_stream_wrapper(
+        tmp_path, fixture_extra_args=["--exit-code", "1"]
+    )
+    settings = test_settings.model_copy(update={"claude_bin": wrapper})
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            t = Task(
+                title="bad", description="x", status="running",
+                execution_mode="stream", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        task_row = {"id": task_id, "title": "bad", "description": "x",
+                    "model": None, "timeout_s": 30}
+        await asyncio.to_thread(run_stream, task_row, settings, sessions)
+
+        async with sessions() as db:
+            refreshed = (
+                await db.execute(select(Task).where(Task.id == task_id))
+            ).scalar_one()
+        assert refreshed.status == "failed"
+        assert "nonzero exit 1" in (refreshed.error_message or "")
+        assert not (tmp_pid_dir_monkey / f"{task_id}.pid").exists()
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_disp06_stream_unlinks_pid_on_exception(
+    test_settings, tmp_path, tmp_pid_dir_monkey, monkeypatch
+):
+    """If the reader thread raises, PID file is still unlinked (finally block)."""
+    from cmc.db.models.tasks import Task
+    from cmc.dispatcher import inbox_post as ip_module
+    from cmc.dispatcher import run_stream as rs_module
+    from cmc.dispatcher.run_stream import run_stream
+
+    class _FakeResp:
+        status_code = 201
+
+        def json(self):
+            return {"id": 1}
+
+    class _FakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def post(self, url, json=None):
+            return _FakeResp()
+
+    monkeypatch.setattr(ip_module.httpx, "AsyncClient", _FakeAsyncClient)
+
+    wrapper = _write_fake_claude_stream_wrapper(tmp_path)
+    settings = test_settings.model_copy(update={"claude_bin": wrapper})
+
+    # Force the MarkerParser to raise inside the reader thread by replacing it
+    # with one whose feed_text is a generator that raises on next().
+    real_parser_cls = rs_module.MarkerParser
+
+    class _ExplodingParser(real_parser_cls):
+        def feed_text(self, text):
+            raise RuntimeError("synthetic reader-thread blow-up")
+
+    monkeypatch.setattr(rs_module, "MarkerParser", _ExplodingParser)
+
+    engine, sessions = await _bootstrap_db(settings)
+    try:
+        async with sessions() as db:
+            t = Task(
+                title="e", description="x", status="running",
+                execution_mode="stream", priority=3,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(t)
+            await db.commit()
+            await db.refresh(t)
+            task_id = t.id
+
+        task_row = {"id": task_id, "title": "e", "description": "x",
+                    "model": None, "timeout_s": 30}
+        # MUST NOT raise — finally block must catch.
+        await asyncio.to_thread(run_stream, task_row, settings, sessions)
+
+        # Whatever final status was set, PID file is unlinked.
+        assert not (tmp_pid_dir_monkey / f"{task_id}.pid").exists()
+    finally:
+        await engine.dispose()
