@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 6 complete; Phase 7 ready to plan
-last_updated: "2026-04-27T13:25:00.000Z"
+stopped_at: Phase 7 Plan 01 (Wave 0 foundation) complete; Plans 07-02..07-04 ready
+last_updated: "2026-04-27T12:08:00.000Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 9
   completed_phases: 6
-  total_plans: 32
-  completed_plans: 32
-  percent: 100
+  total_plans: 36
+  completed_plans: 33
+  percent: 91
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-25)
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, queue and approve tasks, and kill runaway sessions — all from one browser tab.
-**Current focus:** Phase 6 (Observability & Activity Panels) COMPLETE 2026-04-27 — all 21 OPNL/ACTV requirements live; visual quality bar approved by user against ROADMAP success criteria 1-5. Phase 7 (Command Centre Panels) ready to plan.
+**Current focus:** Phase 7 (Command Centre Panels) Wave 0 foundation COMPLETE 2026-04-27 — Plan 07-01 lands every cross-cutting concern (AlertDialog + cron-utils + ESTOP banner mounted in NavBar + SKLP-03 backend route + ContextHealthCard + lib/api.ts narrowed + lib/queries.ts ~22 new hooks/mutations). Plans 07-02..07-04 are pure binding work.
 
 ## Current Position
 
-Phase: 6 of 9 COMPLETE (Observability & Activity Panels) — visual quality bar approved by user 2026-04-27
-Plan: 5 of 5 complete in Phase 6 (06-01 Wave 1 foundation ✅; 06-02 Wave 2 top-strip ✅; 06-03 Wave 3 analytical grid ✅; 06-04 Wave 4 Activity-page core ✅; 06-05 Wave 5 Activity tail + close-out checkpoint ✅; 170/170 frontend tests green; 202/202 backend tests green)
-Status: Phase 6 closed; Phase 7 ready to plan (HPNL-/TPNL-/SKLP- + emergency stop banner)
+Phase: 7 of 9 IN PROGRESS (Command Centre Panels)
+Plan: 1 of 4 complete in Phase 7 (07-01 Wave 0 foundation ✅; 07-02 / 07-03 / 07-04 pending; 188/188 frontend tests green; 208/208 backend tests green)
+Status: Phase 7 Wave 0 closed; Plans 07-02..07-04 ready (HPNL panels + TPNL panels + SKLP retirement)
 Last activity: 2026-04-27
 
-Progress (Phase 6): [██████████] 100% (5 of 5 plans)
+Progress (Phase 7): [██░░░░░░░░] 25% (1 of 4 plans)
 
 ## Performance Metrics
 
@@ -50,11 +50,12 @@ Progress (Phase 6): [██████████] 100% (5 of 5 plans)
 | Phase 4 (Stateful APIs)                      | 5 / 5 | ~62 min                         | ~12 min  |
 | Phase 5 (Frontend Shell & Design System)     | 4 / 4 | ~31 min agent + checkpoint wait | ~8 min   |
 | Phase 6 (Observability & Activity Panels)    | 5 / 5 | ~74 min                         | ~14.8 min|
+| Phase 7 (Command Centre Panels)              | 1 / 4 | ~35 min (continuation run)      | ~35 min  |
 
 **Recent Trend:**
 
-- Last 5 plans: 06-01, 06-02, 06-03, 06-04, 06-05 (Phase 6 COMPLETE — 21 OPNL/ACTV requirements live; PlaceholderCardGrid removed from / and /activity; visual quality bar approved by user against ROADMAP success criteria 1-5; 170/170 frontend tests green; 202/202 backend tests green)
-- Trend: Plan 06-05 landed in 1 atomic feat commit + 1 docs close-out commit with ZERO deviations needed — bespoke OtelPanel Card shell (not PanelCard, useFirehose ≠ UseQueryResult), client-side event_name filter (RESEARCH §SSE strategy 2), newest-at-top render order, ACTV-04 v2 placeholder preserved without backend changes. Integration test extension uses lucide-inbox icon presence as PlaceholderCardGrid discriminator (structural CSS signal preferred over data-testid). Plan landed +12 net tests (5 OtelPanel + 3 UnifiedFailures + 2 TopSkills + 2 integration extension). Phase 6 closed cleanly with no deferred items.
+- Last 5 plans: 06-02, 06-03, 06-04, 06-05, 07-01 (Phase 7 Wave 0 foundation landed; AlertDialog primitive + cron-utils + ESTOP banner globally mounted + SKLP-03 backend route + ContextHealthCard + lib/api.ts narrowed for 7 endpoint families + lib/queries.ts +22 hooks/mutations behind locked cadence policy; 188/188 frontend + 208/208 backend tests green)
+- Trend: Plan 07-01 landed as 6 atomic commits (chore + 2 RED + 3 GREEN) with 4 small auto-fixes (Rule 1 router prefix; Rule 3 fake-timers infinite loop; Rule 3 NavBar/AppShell QueryClientProvider plumbing; Rule 3 integration fetch mock entries). All four were predictable test-environment plumbing tweaks driven by the new globally-mounted ESTOP banner. Plan landed +18 net frontend tests (4 cron-utils + 4 AlertDialog + 5 EmergencyStopBanner + 3 ContextHealthCard + 1 NavBar update + 1 integration update) and +6 backend tests (test_phase7_context.py — empty fs / redaction / line counting / corrupt-JSON degradation / query-param ignore / closed schema). Run was a continuation: deps and RED tests landed in a prior interrupted execution; this run committed deps cleanly and shipped GREEN.
 
 *Updated after each plan completion*
 | Phase 01-foundation-database P02 | 4 min | 3 tasks | 17 files |
@@ -88,6 +89,7 @@ Progress (Phase 6): [██████████] 100% (5 of 5 plans)
 | Phase 06-observability-activity-panels P03 | ~12 min | 2 tasks | 27 files (24 created + 3 modified) |
 | Phase 06-observability-activity-panels P04 | ~13 min | 2 tasks | 11 files (8 created + 3 modified) |
 | Phase 06-observability-activity-panels P05 | ~16 min agent + checkpoint wait | 2 tasks (1 auto + 1 checkpoint) | 10 files (6 created + 4 modified) |
+| Phase 07-command-centre-panels P01 | ~35 min (continuation run) | 3 tasks (TDD; 6 commits) | 24 files (11 created + 13 modified) |
 
 ## Accumulated Context
 
@@ -249,6 +251,15 @@ Recent decisions affecting current work:
 - 2026-04-27: Phase 6 visual quality bar APPROVED by user — every ROADMAP success criterion 1-5 + Wave-5 panel-specific spot checks (OtelPanel SSE reconnect, TopSkills v2 has no /api/skills/usage call in DevTools, UnifiedFailures EmptyState branch, etc.) passed against the running dev server. Phase 6 closes ready for verifier handoff with 21/21 OPNL+ACTV requirements live, 170/170 frontend tests green, 202/202 backend tests green, no deferred items
 - Phase 6 close decision: McpPanel lives at frontend/src/components/panels/McpPanel.tsx — Phase 7 SKLP-01 imports it directly OR extends it (do not duplicate). 12 ui primitives + 7 wave-1 panel primitives + lib/queries + useFirehose all reusable for HPNL-/TPNL-/SKLP- panels. PlaceholderCardGrid still imported on /skills only — Phase 7 SKLP-* plans will retire it from there per the Plan 05-04 contract
 - Phase 6 close decision: PlaceholderCardGrid retired from / (Plan 06-03) and /activity (Plan 06-05). Last consumer is /skills route (Phase 7 territory). Helper itself remains in frontend/src/components/PlaceholderCardGrid.tsx (NOT in components/ui — Phase 5 design choice signals deletion intent) until Phase 7 retires the final consumer
+- Plan 07-01 complete: Phase 7 Wave 0 foundation landed — cronstrue@3.14.0 + @radix-ui/react-alert-dialog@1.1.15 deps + AlertDialog primitive (20 ui primitives total: 12 Phase-5 + 7 Phase-6 + 1 Phase-7) + lib/cron-utils (partsToCron/prettyCron pure helpers) + EmergencyStopBanner globally mounted in NavBar (idle/armed/firing/engaged with 5_000ms re-disarm timer + StrictMode-safe cleanup) + ContextHealthCard rendered on /skills (replacing SKLP-03 placeholder) + GET /api/context/health backend route + ContextHealthResponse schema (closed at 8 fields — defense-in-depth) + lib/api.ts narrowed for HITL/Tasks/Schedules/Skills/MCP-write/ESTOP/Sync families + 5 new fetchers (3 RESEARCH §Summary corrections wired: parse-nl, emergency-resume, dispatcher/trigger) + fetchVoid helper for 204 No Content (TASK-04 / SCHD-04 DELETE) + lib/queries.ts +22 hooks/mutations behind locked cadence policy; 188/188 frontend + 208/208 backend tests green
+- Plan 07-01 cadence policy LOCKED in lib/queries.ts (Phase 7 hooks; never inlined in panels): 5_000ms useDecisions+useTasks+useSystemState; 10_000ms useInbox; 30_000ms useSchedules+useScheduleRuns(lazy via enabled prop — Pitfall 9); 60_000ms useSkills+useContextHealth. Optimistic policy: useReadInbox + usePatchTask(status only) + usePatchSchedule(enabled toggle only) + usePatchSkillAutonomy = optimistic with rollback; useAnswerDecision + useCreateTask + useCreateSchedule + useReplyInbox + ESTOP mutations = NOT optimistic (preserves user input on validation/conflict errors)
+- Plan 07-01 EmergencyStopBanner pattern LOCKED: state machine `'idle' | 'armed' | 'firing'` with engaged-path overlay driven by useSystemState('emergency_stop')==='1'. Server flag is source of truth — remote toggle (e.g. CLI POST /api/system/emergency-stop) flips banner to engaged within one 5_000ms polling tick. armTimerRef + cleanup useEffect always clears the ref on unmount (React 19 StrictMode-safe; double-mount in dev would otherwise leak the prior timer). Reusable shape for any future "click-to-confirm with auto-disarm" UI affordance
+- Plan 07-01 fetchVoid helper LOCKED for 204 No Content endpoints — never call r.json() on 204 (TASK-04 / SCHD-04 DELETE). Pattern: `await fetch(...); if (!r.ok) throw new ApiError(...); // don't read body — 204 has none`. Reusable for any future void mutation
+- Plan 07-01 defense-in-depth schema rule LOCKED: backend Pydantic responses MUST NOT include any field that carries the underlying secret value. ContextHealthResponse has 8 fields covering paths/exists flags/counts/key NAMES — values have nowhere to land even if `_redact_keys` regresses. Reusable for any future endpoint that scans secret-adjacent state
+- Plan 07-01 deviation (Rule 1 — Bug): plan §Task 3 specified APIRouter prefix='/api/context' but factory.create_app already mounts every router under '/api'. Double-prefix produced /api/api/context/health which fell through to the SPA static handler returning index.html; all 6 RED tests failed with JSONDecodeError on HTML. Fixed to prefix='/context' matching skills_router/hitl_router/tasks_router/schedules_router convention
+- Plan 07-01 deviation (Rule 3 — Blocking): TanStack Query + vi.useFakeTimers() + 5_000ms refetchInterval on useSystemState caused vi.runAllTimersAsync() to spin Query's internal setInterval indefinitely (test runner aborted at 10_000-timer guard rail). Fix: replace runAllTimersAsync() with `await vi.advanceTimersByTimeAsync(0)` inside act() — flushes microtasks (mutation promise resolves; Query onSettled runs) without unwinding the polling interval. Pattern reusable for any test that mounts both fake timers and TanStack Query
+- Plan 07-01 deviation (Rule 3 — Blocking): NavBar test (and AppShell test transitively) now requires QueryClientProvider because EmergencyStopBanner is mounted globally. Fix: wrap render in <QueryClientProvider client={makeClient()}> + spy `globalThis.fetch` to return a benign idle systemState response. Reusable shape for any future component test where a sibling/descendant mounts a TanStack Query hook
+- Plan 07-01 entry contract for Plans 07-02..07-04: every panel imports `from '../ui'` (now includes AlertDialog) and `from '../../lib/queries'` (~22 new hooks/mutations). No panel re-implements polling cadence or ESTOP state machine. ScheduleComposer (Wave 2) imports partsToCron + prettyCron from '../../lib/cron-utils'. TaskBoard delete-confirm (Wave 2) uses AlertDialog primitive directly. /skills SKILLS_SLOTS still has 7 entries (HPNL-01/02 + TPNL-01/03 + SKLP-01/02/04); Plan 07-04 deletes the helper after retiring the final SKLP-04 slot
 
 ### Pending Todos
 
@@ -257,12 +268,12 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-None — Phases 1–6 implementations complete. Verifier readiness confirmed via 202 backend tests + 170 frontend tests; all 15 OPNL-01..15 panels live on / route + all 6 ACTV-01..06 panels live on /activity; PlaceholderCardGrid removed from / and /activity (still rendering on /skills pending Phase 7). Phase 6 visual quality bar APPROVED by user 2026-04-27 against ROADMAP success criteria 1-5. Phase 7 (Command Centre Panels) ready to plan.
+None — Phases 1–6 implementations complete + Phase 7 Wave 0 foundation landed. Verifier readiness confirmed via 208 backend tests + 188 frontend tests; all 15 OPNL-01..15 panels live on / + all 6 ACTV-01..06 panels live on /activity + SKLP-03 ContextHealthCard live on /skills (Phase 7 first slot retirement); PlaceholderCardGrid still mounts on /skills (7 remaining slots; Plan 07-04 retires the helper). Plans 07-02..07-04 are pure binding work over the queries.ts/api.ts/AlertDialog/cron-utils foundation Plan 07-01 shipped.
 
 ## Session Continuity
 
-Last session: 2026-04-27T13:25:00.000Z
-Stopped at: Phase 6 complete; Phase 7 ready to plan
+Last session: 2026-04-27T12:08:00.000Z
+Stopped at: Phase 7 Plan 01 (Wave 0 foundation) complete
 Resume file: None
 
 Phase 1 final commit chain:
@@ -296,4 +307,8 @@ Phase 6 final commit chain:
 - 06-02: 6ab49cc + 5114efb + 934aa48 (SystemHealthStrip + KpiRow + AttentionBar 3 panels + barrel + CSS + 12 tests / LiveSessionsCard with Sheet drawer + follow-up + routes wiring + 4 tests / plan close)
 - 06-03: 365c9d8 + 50d14f7 + e3cad39 (TokenUsage + Cache + Outcomes + Hooks + ProjectBreakdown 5 cards + 15 tests / ToolLatency + Fanout + Edit + Productivity + Pressure + McpPanel 6 cards + 16 tests + routes/index.tsx live grid wiring + Wave 3 CSS section / plan close)
 - 06-04: 993d98c + 05032a3 + a768a31 (ActivityHeatmap + ChartsStrip + SessionsTable stub + Wave-4 barrel + Wave-4 styles.css section + 8 tests / SessionsTable full body + routes/activity.tsx wires Wave-4 panels above remaining PlaceholderCardGrid + 6 tests / plan close)
-- 06-05: 02fa534 + (this closing commit) (OtelPanel ACTV-03 SSE + UnifiedFailures ACTV-05 + TopSkills ACTV-04 v2 placeholder + routes/activity.tsx DELETES PlaceholderCardGrid + integration test extension + Wave-5 styles.css + 12 tests / Phase 6 close-out: SUMMARY + STATE + ROADMAP + REQUIREMENTS — visual quality bar APPROVED by user against ROADMAP success criteria 1-5)
+- 06-05: 02fa534 + 14b9fb6 + c966167 (OtelPanel ACTV-03 SSE + UnifiedFailures ACTV-05 + TopSkills ACTV-04 v2 placeholder + routes/activity.tsx DELETES PlaceholderCardGrid + integration test extension + Wave-5 styles.css + 12 tests / Phase 6 close-out: SUMMARY + STATE + ROADMAP + REQUIREMENTS — visual quality bar APPROVED by user against ROADMAP success criteria 1-5)
+
+Phase 7 commit chain (in progress):
+
+- 07-01: 1b23395 + 576b981 + 5ab9ffa + 7c3fe4f + 255b076 + d69b773 + (this closing commit) (chore deps install / RED frontend tests cron-utils + AlertDialog / GREEN AlertDialog primitive + cron-utils + lib/api.ts narrowing + Phase 7 Wave 0 styles.css section / GREEN queries.ts +22 hooks + EmergencyStopBanner mounted in NavBar + ContextHealthCard on /skills + NavBar/AppShell test plumbing + integration test fetch-mock entries / RED backend tests test_phase7_context.py / GREEN backend SKLP-03 GET /api/context/health route + ContextHealthResponse schema + router registration / Phase 7 Plan 01 close-out SUMMARY + STATE)
