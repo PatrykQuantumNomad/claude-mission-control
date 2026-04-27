@@ -1,5 +1,5 @@
 // Command page (`/`) — Phase 5 Plan 04 (Wave 3 page grids) +
-// Phase 6 Plan 02 (Wave 2 top-strip panels).
+// Phase 6 Plans 02 (Wave 2 top-strip) and 03 (Wave 3 analytical grid).
 //
 // Layout:
 //   1. Page header (gradient title)
@@ -7,34 +7,28 @@
 //   3. KpiRow            (OPNL-02)  ├ Top strip — full-width above grid
 //   4. AttentionBar      (OPNL-03)  │  (AttentionBar disappears via
 //   5. LiveSessionsCard  (OPNL-04)  ┘   PanelCard hiddenWhenEmpty)
-//   6. PlaceholderCardGrid — remaining OPNL-05..15 slots; Plan 06-03 (Wave 3)
-//      replaces these with the real analytical panels.
-//
-// OPNL-01/03/04 are explicitly REMOVED from COMMAND_SLOTS so they don't
-// double-render alongside the live components above the grid.
+//   6. .cmc-card-grid containing OPNL-05..15 live analytical panels
+//      (the Plan 05-04 placeholder helper is no longer used here — its last
+//       consumer for / was the OPNL-05..15 slot list, now superseded.)
 
 import { createFileRoute } from '@tanstack/react-router'
 import {
+  AgentFanoutCard,
   AttentionBar,
+  CacheEfficiencyCard,
+  EditAcceptanceCard,
+  HookActivityCard,
   KpiRow,
   LiveSessionsCard,
+  McpPanel,
+  PressurePanel,
+  ProductivityCard,
+  ProjectBreakdownCard,
+  SessionOutcomesCard,
   SystemHealthStrip,
+  TokenUsageCard,
+  ToolLatencyCard,
 } from '../components/panels'
-import { PlaceholderCardGrid, type PlaceholderSlot } from '../components/PlaceholderCardGrid'
-
-const COMMAND_SLOTS: PlaceholderSlot[] = [
-  { reqId: 'OPNL-05', title: 'Token Usage', dataNoun: 'token usage data' },
-  { reqId: 'OPNL-06', title: 'Cache Efficiency', dataNoun: 'cache hit rate data' },
-  { reqId: 'OPNL-07', title: 'Session Outcomes', dataNoun: 'session outcome data' },
-  { reqId: 'OPNL-08', title: 'Tool Latency', dataNoun: 'tool latency data' },
-  { reqId: 'OPNL-09', title: 'Hook Activity', dataNoun: 'hook fires' },
-  { reqId: 'OPNL-10', title: 'Project Breakdown', dataNoun: 'project session data' },
-  { reqId: 'OPNL-11', title: 'Agent Fanout', dataNoun: 'agent invocations' },
-  { reqId: 'OPNL-12', title: 'Edit Acceptance', dataNoun: 'edit decision data' },
-  { reqId: 'OPNL-13', title: 'Productivity', dataNoun: 'productivity metrics' },
-  { reqId: 'OPNL-14', title: 'Pressure Panel', dataNoun: 'system pressure data' },
-  { reqId: 'OPNL-15', title: 'MCP Servers', dataNoun: 'MCP server data' },
-]
 
 function CommandPage() {
   return (
@@ -57,7 +51,19 @@ function CommandPage() {
       <KpiRow />
       <AttentionBar />
       <LiveSessionsCard />
-      <PlaceholderCardGrid slots={COMMAND_SLOTS} />
+      <div className="cmc-card-grid">
+        <TokenUsageCard />
+        <CacheEfficiencyCard />
+        <SessionOutcomesCard />
+        <ToolLatencyCard />
+        <HookActivityCard />
+        <ProjectBreakdownCard />
+        <AgentFanoutCard />
+        <EditAcceptanceCard />
+        <ProductivityCard />
+        <PressurePanel />
+        <McpPanel />
+      </div>
     </section>
   )
 }
