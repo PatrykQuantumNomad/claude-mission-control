@@ -517,14 +517,18 @@ async def test_disp01_one_cycle_smoke(
         monkeypatch.setattr(
             "cmc.dispatcher.heartbeat.make_sessionmaker", lambda e: sessions
         )
-        # heartbeat's `await engine.dispose()` runs at end of run_one_cycle;
-        # we let it run — AsyncEngine.dispose is idempotent. Subsequent
-        # session-factory calls via the (patched) sessions = sessionmaker
-        # still work because async_sessionmaker holds its own engine ref and
-        # dispose only closes the connection pool (a fresh connection is
-        # acquired on next session() use). We confirmed by reading the
-        # SQLAlchemy 2.0 source: `engine.dispose()` calls `pool.dispose()`
-        # which is safe to call multiple times.
+        # Plan-04 finalized the fan-out — without mocking the runner, the
+        # actual /opt/homebrew/bin/claude would be invoked. Stub run_classic
+        # to keep this smoke test focused on its original Plan-01 invariants
+        # (materialize + claim + tick stamp).
+        runner_calls: list[int] = []
+
+        def _stub_run_classic(task_row, settings, sessions, *, skill=None):
+            runner_calls.append(task_row.get("id"))
+
+        monkeypatch.setattr(
+            "cmc.dispatcher.heartbeat.run_classic", _stub_run_classic
+        )
 
         rc = await hb.run_one_cycle()
         assert rc == 0
@@ -540,9 +544,13 @@ async def test_disp01_one_cycle_smoke(
             ).scalar_one_or_none()
         assert len(tasks) == 1
         assert tasks[0].title == "auto-from-sched"
-        # Plan-01 contract: claim flips status to 'running'; per-task fan-out is TODO.
+        # Plan-04 contract: claim flips status to 'running'; the stubbed
+        # runner does NOT mark done/failed, so 'running' is the terminal
+        # state observed in this stubbed cycle.
         assert tasks[0].status == "running"
         assert tick is not None
+        # Plan-04: fan-out fired exactly once for the single claimed task.
+        assert runner_calls == [tasks[0].id]
     finally:
         await engine.dispose()
 

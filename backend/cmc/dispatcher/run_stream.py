@@ -54,6 +54,7 @@ from cmc.core.paths import repo_root
 from cmc.db.models.decisions import Decision
 from cmc.db.models.tasks import Task
 from cmc.dispatcher.answer_poll import wait_for_answer
+from cmc.dispatcher.follow_ups import FollowUpPump
 from cmc.dispatcher.inbox_post import post_inbox_marker
 from cmc.dispatcher.marker_parser import Marker, MarkerParser
 from cmc.dispatcher.model_resolve import resolve_model
@@ -117,6 +118,8 @@ def run_stream(
 
     proc: Optional[subprocess.Popen] = None
     reader: Optional[threading.Thread] = None
+    pump: Optional[FollowUpPump] = None
+    pump_thread: Optional[threading.Thread] = None
     decision_timed_out = {"v": False}
 
     def handle_marker(m: Marker) -> None:
@@ -248,6 +251,17 @@ def run_stream(
         # Pitfall 10: PID file IMMEDIATELY after Popen returns.
         write_pid_file(task_id, proc.pid)
 
+        # DISP-09 FollowUpPump — drains queue_path('messages', f'task-{id}')
+        # into proc.stdin while the subprocess runs. Daemon=True because the
+        # locked teardown sequence below explicitly stops + joins the pump.
+        pump = FollowUpPump(dict(task_row), proc, settings)
+        pump_thread = threading.Thread(
+            target=pump.run,
+            daemon=True,
+            name=f"run_stream-pump-{task_id}",
+        )
+        pump_thread.start()
+
         reader = threading.Thread(
             target=_reader, daemon=False, name=f"run_stream-reader-{task_id}"
         )
@@ -267,15 +281,24 @@ def run_stream(
         else:
             _mark_status_via_loop(task_id, "done", None, sessions, loop)
     finally:
-        # LOCKED teardown order (Plan 04 will layer FollowUpPump.stop() at step 1):
-        #   1. Close proc.stdin (signals EOF to claude; reader unblocks).
-        #   2. Reader join (returns once stdout drains).
-        #   3. Stop the asyncio loop + join the loop thread + close the loop.
-        #   4. Close log file + unlink_pid_file (idempotent).
-        # Justification: stdin closes BEFORE loop teardown so any in-flight
+        # LOCKED teardown order (Plan 04 inserts FollowUpPump.stop() at step 1):
+        #   1. pump.stop() — pump must STOP writing to stdin BEFORE we close it
+        #      (otherwise it could log a false "stdin closed" warning).
+        #   2. Close proc.stdin (signals EOF to claude; reader unblocks).
+        #   3. Reader join (returns once stdout drains).
+        #   4. Pump thread join (exits within poll_s of stop()).
+        #   5. Stop the asyncio loop + join the loop thread + close the loop.
+        #   6. Close log file + unlink_pid_file (idempotent).
+        # Justification: pump first so it never writes to a closed stdin.
+        # stdin closes BEFORE reader/loop teardown so any in-flight
         # answer_poll coroutines submitted via run_coroutine_threadsafe complete
         # cleanly. unlink_pid_file is LAST so a forensic operator can correlate
         # the .pid file with the still-open log during the final commit.
+        try:
+            if pump is not None:
+                pump.stop()
+        except Exception:
+            pass
         try:
             if proc is not None and proc.stdin and not proc.stdin.closed:
                 proc.stdin.close()
@@ -284,6 +307,11 @@ def run_stream(
         if reader is not None:
             try:
                 reader.join(timeout=10)
+            except Exception:
+                pass
+        if pump_thread is not None:
+            try:
+                pump_thread.join(timeout=2)
             except Exception:
                 pass
         try:
