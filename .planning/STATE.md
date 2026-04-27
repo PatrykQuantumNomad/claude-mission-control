@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 05-03-PLAN.md
-last_updated: "2026-04-27T00:27:05.881Z"
+stopped_at: Phase 5 complete; Phase 6 ready to plan
+last_updated: "2026-04-27T06:25:00.000Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 9
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 27
-  completed_plans: 26
-  percent: 96
+  completed_plans: 27
+  percent: 100
 ---
 
 # Project State
@@ -21,16 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-25)
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, queue and approve tasks, and kill runaway sessions — all from one browser tab.
-**Current focus:** Phase 5: Frontend Shell & Design System — Wave 0 foundation (05-01) + Wave 1 layout primitives (05-02) landed; Wave 2 interactive primitives (05-03) ready to dispatch
+**Current focus:** Phase 5 (Frontend Shell & Design System) COMPLETE — visual quality bar approved by user 2026-04-27; Phase 6 (Observability & Activity Panels) is next.
 
 ## Current Position
 
-Phase: 5 of 9 IN PROGRESS (Frontend Shell & Design System)
-Plan: 3 of 4 complete in Phase 5 (05-01 Wave 0 + 05-02 Wave 1 layout primitives ✅; 42/42 frontend tests green)
-Status: Ready to execute
+Phase: 5 of 9 COMPLETE (Frontend Shell & Design System) — visual quality bar APPROVED by user 2026-04-27
+Next phase: 6 of 9 (Observability & Activity Panels) — ready to plan
+Plan: 4 of 4 complete in Phase 5 (05-01 Wave 0 + 05-02 Wave 1 layout primitives + 05-03 Wave 2 interactive primitives + 05-04 Wave 3 placeholder grids ✅; 62/62 frontend tests green)
+Status: Phase 5 ready for verifier
 Last activity: 2026-04-27
 
-Progress (Phase 5): [█████░░░░░] 50%
+Progress (Phase 5): [██████████] 100%
 
 ## Performance Metrics
 
@@ -42,15 +43,18 @@ Progress (Phase 5): [█████░░░░░] 50%
 
 **By Phase:**
 
-| Phase                       | Plans | Total    | Avg/Plan |
-|-----------------------------|-------|----------|----------|
-| Phase 1 (Foundation & DB)   | 7 / 7 | ~110 min | ~16 min  |
-| Phase 2 (Data Ingestion)    | 6 / 6 | ~51 min  | ~9 min   |
+| Phase                                        | Plans | Total                           | Avg/Plan |
+|----------------------------------------------|-------|---------------------------------|----------|
+| Phase 1 (Foundation & DB)                    | 7 / 7 | ~110 min                        | ~16 min  |
+| Phase 2 (Data Ingestion)                     | 6 / 6 | ~51 min                         | ~9 min   |
+| Phase 3 (Read-Only APIs)                     | 5 / 5 | ~158 min                        | ~32 min  |
+| Phase 4 (Stateful APIs)                      | 5 / 5 | ~62 min                         | ~12 min  |
+| Phase 5 (Frontend Shell & Design System)     | 4 / 4 | ~31 min agent + checkpoint wait | ~8 min   |
 
 **Recent Trend:**
 
-- Last 6 plans: 02-01, 02-02, 02-03, 02-04, 02-05, 02-06 (Phase 2 implementation complete; 61 tests passing; real ~/.claude/projects ingested at boot via lifespan; POST /api/sync wired; user-approved manual smoke against real data)
-- Trend: Stable; ingestion stack landed without architectural deviations (only Rule 3 test-scaffolding fixes when lifespan extension blocked pre-existing tests). Phase 2 closes ready for verifier.
+- Last 4 plans: 05-01, 05-02, 05-03, 05-04 (Phase 5 implementation complete; 62/62 frontend tests green; 12 design-system primitives + 3 placeholder card grids on /, /activity, /skills; Cmd+K wired globally via AppShell; visual quality bar approved by user 2026-04-27)
+- Trend: Phase 5 closed without architectural deviations beyond a Sheet aria-modal test correction (Rule 1) and the Phase-2-era Node 25.x experimental-webstorage flag mitigation. Phase 5 ready for verifier; Phase 6/7 can plan in parallel.
 
 *Updated after each plan completion*
 | Phase 01-foundation-database P02 | 4 min | 3 tasks | 17 files |
@@ -78,6 +82,7 @@ Progress (Phase 5): [█████░░░░░] 50%
 | Phase 05-frontend-shell-design-system P01 | 11 min | 3 tasks tasks | 13 created + 9 modified files files |
 | Phase 05 P02 | 5min | 2 tasks tasks | 11 created + 1 modified files |
 | Phase 05 P03 | 3 min | 2 tasks tasks | 9 files (6 created + 3 modified) files |
+| Phase 05-frontend-shell-design-system P04 | ~12 min agent + human-verify wait | 1 task auto + 1 checkpoint | 7 files (3 created + 4 modified) |
 
 ## Accumulated Context
 
@@ -185,6 +190,18 @@ Recent decisions affecting current work:
 - Plan 05-03 pattern: Radix+framer-motion exit-animation = forceMount on Portal/Content + AnimatePresence around the conditional render. Apply to any future Radix primitive that needs an exit animation (Phase 7 EmergencyStopModal, etc.)
 - Plan 05-03 pattern: global keydown hotkey = document.addEventListener inside useEffect with explicit cleanup; metaKey || ctrlKey condition; preventDefault on match. Cleanup is mandatory (Pitfall 3 — React 19 StrictMode double-invoke would otherwise register handler twice). Reusable for any future global hotkey
 - Plan 05-03 entry contract for Plan 05-04 + Phase 6/7: 12 primitives import from frontend/src/components/ui barrel. CommandPalette is ALREADY mounted in AppShell — new routes inherit Cmd+K automatically. Sheet description prop ties to fixed cmc-sheet-desc id; if Phase 7 stacks Sheets, swap to useId() at that point
+- Plan 05-04 complete: 3 placeholder card grids (14 OPNL on /, 6 ACTV on /activity, 8 HPNL/TPNL/SKLP on /skills) + integration smoke test booting real RouterProvider; 62/62 frontend tests green; visual quality bar APPROVED by user 2026-04-27
+- Phase 5 decision: Design tokens locked at UI-SPEC values (Plan 05-01 styles.css :root) — every Phase 6/7 component MUST reference var(--cmc-*) / var(--space-*) / var(--size-*) / var(--weight-*); never inline color literals
+- Phase 5 decision: lib/storage cmc.* prefix is the canonical persistence carrier (CollapsibleSection uses cmc.collapsible.{id}; Phase 6/7 reuse the pattern: cmc.filter.{name}, cmc.composer.draft, etc.)
+- Phase 5 decision: CommandPalette mounted in AppShell as a sibling of <main> so Cmd+K is global on every route — Phase 6/7 add a new route and inherit Cmd+K binding automatically
+- Phase 5 decision: 12-primitive ui barrel established at frontend/src/components/ui/index.ts (Card family + Button + Badge + StatePill + Tooltip + Skeleton + EmptyState + RelativeTime + ShellErrorBoundary + Sheet + CollapsibleSection + CommandPalette + formatRelative); single import path locked
+- Plan 05-04 pattern: PlaceholderCardGrid at frontend/src/components/PlaceholderCardGrid.tsx (NOT in components/ui — signals deletion intent) is the Phase 6/7 entry contract — replace each Card by reqId, keep kicker as traceability anchor; helper deletes when last placeholder is replaced
+- Plan 05-04 pattern: DESG-04 grid recipe = repeat(auto-fit, minmax(320px, 1fr)) + grid-auto-rows: 1fr — no media-query breakpoints; reusable for any Phase 6/7 multi-panel responsive layout
+- Plan 05-04 pattern: Page-level entrance = .cmc-page wrapper runs cmc-page-in (opacity 0→1 + translateY 8px→0, 300ms ease-out) on mount; @media (prefers-reduced-motion: reduce) zeroes it; do NOT stagger per-card (UI-SPEC restraint)
+- Plan 05-04 pattern: Integration smoke pattern = real RouterProvider + createMemoryHistory + routeTree.gen at src/__tests__/integration.test.tsx; reserves in-memory createRoute scaffolding for component-level tests in components/ui/__tests__/*
+- Plan 05-04 pattern: Selector discrimination via { selector: 'h1' } when same text appears in nav, palette, and content — scope assertions to role-bearing element
+- Plan 05-04 deferral: OPNL-02 (KpiRow) intentionally NOT placed in / placeholder grid — Phase 6 plan inserts the slot ABOVE PlaceholderCardGrid and ships KpiRow component in same plan; TPNL-02 (Task composer slide-out) lives in Sheet not Card; TPNL-04/05 (filter+search) live in page header chrome not grid Cards
+- 2026-04-27: Phase 5 visual quality bar APPROVED by user — every UI-SPEC checklist item passed against running dev server (radial-gradient backdrop, Inter + JetBrains Mono fonts, gradient brand text, accent-blue active-nav underline, Cmd+K chip, palette open + fuzzy match + Esc, 14px card radius, EmptyState icon at 48px, prefers-reduced-motion respected, zero console warnings); Phase 5 closes ready for verifier
 
 ### Pending Todos
 
@@ -193,12 +210,12 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-None — Phase 1 + Phase 2 implementations complete; verifier readiness confirmed via 61 passing tests (25 Phase 1 + 36 Phase 2) + human browser smoke (Phase 1) + human end-to-end smoke against real `~/.claude/projects/` data and OTLP samples (Phase 2).
+None — Phases 1–5 implementations complete. Verifier readiness confirmed via 61 backend tests (25 Phase 1 + 36 Phase 2) + 62 frontend tests (Phase 5) + human browser smoke (Phase 1) + human end-to-end smoke against real `~/.claude/projects/` data and OTLP samples (Phase 2) + human-verify visual quality bar approved against running dev server (Phase 5, 2026-04-27).
 
 ## Session Continuity
 
-Last session: 2026-04-27T00:27:05.873Z
-Stopped at: Completed 05-03-PLAN.md
+Last session: 2026-04-27T06:25:00.000Z
+Stopped at: Phase 5 complete; Phase 6 ready to plan
 Resume file: None
 
 Phase 1 final commit chain:
@@ -218,3 +235,10 @@ Phase 2 final commit chain:
 - 02-04: 0ef404f + eca22ba + ... + f7405a6 (TDD repository + scheduler — INGST-04/05)
 - 02-05: 13e0e08 + 0c13d27 + ccd8296 + 8afb885 + c2f7951 (lifespan boot sync + POST /api/sync — INGST-01/10)
 - 02-06: 4215761 + (this closing commit) (SMOKE.md scaffold + user-approved Phase 2 manual smoke)
+
+Phase 5 final commit chain:
+
+- 05-01: 0e7076f + 10e6c44 + 4e46078 + 3e6aa91 (deps/Vitest harness + tokens/fonts/lib/api/lib/storage + AppShell/NavBar/3 routes + plan close)
+- 05-02: c384c84 + ceb1a5f + 93594ee (Card/Button/Badge/StatePill + Tooltip/Skeleton/EmptyState/RelativeTime/ErrorBoundary + barrel + plan close)
+- 05-03: ea1314f + 499fd06 + f9e5ea9 (Sheet/CollapsibleSection + CommandPalette + global Cmd+K via AppShell + plan close)
+- 05-04: 40dbe80 + (this closing commit) (PlaceholderCardGrid + 3 routes wired + integration smoke + .cmc-card-grid CSS + user-approved visual quality bar)

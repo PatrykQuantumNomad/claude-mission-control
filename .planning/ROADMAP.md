@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Data Ingestion** - JSONL scraper, OTEL log/metric endpoints, manual sync
 - [x] **Phase 3: Read-Only APIs** - System health, sessions, observability metrics, MCP, and skills endpoints
 - [x] **Phase 4: Stateful APIs** - HITL decisions/inbox, tasks, schedules, emergency stop CRUD
-- [ ] **Phase 5: Frontend Shell & Design System** - TanStack Router, app shell, components, dark theme, visual polish
+- [x] **Phase 5: Frontend Shell & Design System** - TanStack Router, app shell, components, dark theme, visual polish
 - [ ] **Phase 6: Observability & Activity Panels** - All 15 observability panels plus the 6 activity page panels
 - [ ] **Phase 7: Command Centre Panels** - HITL decision/inbox panels, task board, schedule composer, skills page, emergency stop
 - [ ] **Phase 8: Mission Control Dispatcher** - Heartbeat, task execution (classic + stream), DECISION/INBOX parsing, skill routing
@@ -123,7 +123,7 @@ Wave structure (serialized — 05-02 and 05-03 both append to styles.css and com
 - [x] 05-01-PLAN.md — Wave 0 foundation: deps + design tokens (replace Phase 1 styles.css stub) + Google Fonts + lib/storage + lib/api scaffolding + AppShell + NavBar + 3 TanStack Router routes + Vitest 4 / RTL 16 / happy-dom test infra with all 5 RESEARCH pitfalls pre-mitigated ✅ 2026-04-26
 - [x] 05-02-PLAN.md — Layout primitives (Wave 1): Card family, Button, Badge, StatePill, Tooltip (Radix), Skeleton, EmptyState, RelativeTime, ErrorBoundary + barrel index ✅ 2026-04-27
 - [x] 05-03-PLAN.md — Interactive primitives (Wave 1, parallel with 05-02): Sheet (Radix Dialog + framer-motion), CollapsibleSection (Radix Collapsible + framer-motion + lib/storage), CommandPalette (cmdk + global Cmd+K binding) + AppShell wiring ✅ 2026-04-27
-- [ ] 05-04-PLAN.md — Pre-domain placeholder card grids on /, /activity, /skills (one Card per Phase-6/7 requirement ID) + integration smoke test + human-verify visual quality bar checkpoint
+- [x] 05-04-PLAN.md — Pre-domain placeholder card grids on /, /activity, /skills (one Card per Phase-6/7 requirement ID) + integration smoke test + human-verify visual quality bar checkpoint ✅ 2026-04-27
 **UI hint**: yes
 
 ### Phase 6: Observability & Activity Panels
@@ -189,7 +189,7 @@ Note: Phases 3, 4, and 5 can execute in parallel after Phase 2 (or Phase 1 for 4
 | 2. Data Ingestion | 6/6 | Complete (verifier: 5/5 must-haves) | 2026-04-26 |
 | 3. Read-Only APIs | 5/5 | Complete (verifier: 5/5 must-haves) | 2026-04-26 |
 | 4. Stateful APIs | 5/5 | Complete (verifier: 5/5 must-haves) | 2026-04-26 |
-| 5. Frontend Shell & Design System | 1/4 | In progress (Wave 0 complete) | - |
+| 5. Frontend Shell & Design System | 4/4 | Complete (visual quality bar approved by user) | 2026-04-27 |
 | 6. Observability & Activity Panels | 0/TBD | Not started | - |
 | 7. Command Centre Panels | 0/TBD | Not started | - |
 | 8. Mission Control Dispatcher | 0/TBD | Not started | - |
