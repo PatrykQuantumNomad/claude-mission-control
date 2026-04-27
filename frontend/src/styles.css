@@ -465,3 +465,63 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .cmc-cmdk, .cmc-cmdk__content { animation: none; }
 }
+
+/* ─────────────────────────────────────────────────────────── */
+/* Page grid — Phase 5 Plan 04 (Wave 3)                          */
+/* ─────────────────────────────────────────────────────────── */
+
+/* Card grid — DESG-04 — auto-rows-fr matched heights, breakpoint-free responsive */
+.cmc-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-auto-rows: 1fr;
+  gap: var(--space-lg);
+}
+
+/* Page-level container — UI-SPEC focal-point hierarchy */
+.cmc-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  max-width: 1440px;
+  margin: 0 auto;
+  /* Page-level fade-in — UI-SPEC §Motion Contract "Panel/card mount: opacity 0→1, translateY 8px→0, 300ms ease-out" */
+  animation: cmc-page-in 300ms ease-out;
+}
+
+.cmc-page__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.cmc-page__heading {
+  margin: 0;
+  font-size: var(--size-display);
+  font-weight: var(--weight-semibold);
+  color: var(--cmc-text);
+  line-height: 1.2;
+}
+
+.cmc-page__subheading {
+  margin: 0;
+  color: var(--cmc-text-dim);
+  font-size: var(--size-body);
+}
+
+/* Branded heading gradient on hero/title only — UI-SPEC §Color "Accent reserved for #5" */
+.cmc-page__heading--gradient {
+  background: var(--cmc-gradient-hero);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+@keyframes cmc-page-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cmc-page { animation: none; }
+}
