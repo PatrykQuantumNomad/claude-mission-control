@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 6 Plan 01 (Wave 1 foundation) complete; Plan 06-02 ready
-last_updated: "2026-04-27T07:50:00.000Z"
+stopped_at: Phase 6 Plan 02 (Wave 2 top-strip panels) complete; Plan 06-03 ready
+last_updated: "2026-04-27T12:05:03.000Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 31
-  completed_plans: 28
-  percent: 90
+  completed_plans: 29
+  percent: 93
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 
 ## Current Position
 
-Phase: 6 of 9 IN PROGRESS (Observability & Activity Panels) — Wave 1 foundation complete
-Plan: 1 of 5 complete in Phase 6 (06-01 Wave 1 foundation: 7 ui primitives + lib/queries.ts + useFirehose + 2 backend routes ✅; 97/97 frontend tests green; 202/202 backend tests green)
-Status: Plan 06-02 (token usage + cache + outcomes panels) ready to execute
+Phase: 6 of 9 IN PROGRESS (Observability & Activity Panels) — Wave 2 top-strip panels complete
+Plan: 2 of 5 complete in Phase 6 (06-01 Wave 1 foundation ✅; 06-02 Wave 2 top-strip: SystemHealthStrip + KpiRow + AttentionBar + LiveSessionsCard ✅; 113/113 frontend tests green; 202/202 backend tests green)
+Status: Plan 06-03 (Wave 3 analytical-grid panels — replaces OPNL-05..15 placeholders) ready to execute
 Last activity: 2026-04-27
 
-Progress (Phase 6): [██░░░░░░░░] 20% (1 of 5 plans)
+Progress (Phase 6): [████░░░░░░] 40% (2 of 5 plans)
 
 ## Performance Metrics
 
@@ -49,12 +49,12 @@ Progress (Phase 6): [██░░░░░░░░] 20% (1 of 5 plans)
 | Phase 3 (Read-Only APIs)                     | 5 / 5 | ~158 min                        | ~32 min  |
 | Phase 4 (Stateful APIs)                      | 5 / 5 | ~62 min                         | ~12 min  |
 | Phase 5 (Frontend Shell & Design System)     | 4 / 4 | ~31 min agent + checkpoint wait | ~8 min   |
-| Phase 6 (Observability & Activity Panels)    | 1 / 5 | ~16 min                         | ~16 min  |
+| Phase 6 (Observability & Activity Panels)    | 2 / 5 | ~33 min                         | ~16 min  |
 
 **Recent Trend:**
 
-- Last 5 plans: 05-01, 05-02, 05-03, 05-04, 06-01 (Phase 6 Wave 1 foundation complete; 97/97 frontend + 202/202 backend tests green; 7 new ui primitives behind components/ui barrel; lib/queries.ts is single source of truth for cadence; useFirehose SSE hook with ring buffer; 2 new backend routes ACTV-01 + ACTV-05; ACTV-04 punted to v2)
-- Trend: Plan 06-01 landed in 4 atomic commits with one Rule 1 inline auto-fix (vi.fn signature inference for HeatmapGrid colorScale test). No architectural deviations.
+- Last 5 plans: 05-02, 05-03, 05-04, 06-01, 06-02 (Phase 6 Wave 2 top-strip complete: 4 panels [SystemHealthStrip / KpiRow / AttentionBar / LiveSessionsCard] above PlaceholderCardGrid on /; AttentionBar honors hiddenWhenEmpty; LiveSessionsCard has full Sheet drawer + tool timeline + follow-up form; routes/index.tsx COMMAND_SLOTS now 11 entries — Plan 06-03 replaces OPNL-05..15 next wave; 113/113 frontend tests green; 202/202 backend tests green)
+- Trend: Plan 06-02 landed in 2 atomic commits with three Rule-1/Rule-3 auto-fixes (LiveSessionsCard test fetch-mock URL-awareness, Radix Portal querying via document.body, panels barrel forward-reference stub). All test-infrastructure adjustments — no architectural deviations.
 
 *Updated after each plan completion*
 | Phase 01-foundation-database P02 | 4 min | 3 tasks | 17 files |
@@ -84,6 +84,7 @@ Progress (Phase 6): [██░░░░░░░░] 20% (1 of 5 plans)
 | Phase 05 P03 | 3 min | 2 tasks tasks | 9 files (6 created + 3 modified) files |
 | Phase 05-frontend-shell-design-system P04 | ~12 min agent + human-verify wait | 1 task auto + 1 checkpoint | 7 files (3 created + 4 modified) |
 | Phase 06-observability-activity-panels P01 | ~16 min | 3 tasks (1a/1b/2/3) | 22 files (19 created + 3 modified by edit) |
+| Phase 06-observability-activity-panels P02 | ~17 min | 2 tasks | 11 files (9 created + 2 modified) |
 
 ## Accumulated Context
 
@@ -213,6 +214,14 @@ Recent decisions affecting current work:
 - Plan 06-01 entry contract for plans 06-02..05: every panel imports from exactly two modules — `import { PanelCard, RangeToggle, ... } from '../ui'` and `import { useTokens, ... } from '../../lib/queries'`. Panels NEVER inline refetchInterval/staleTime; panels NEVER re-implement loading/empty/error JSX
 - Plan 06-01 Phase-7 entries left as `unknown` in api.ts: HITL/Tasks/Schedules/Skills/EmergencyStop/Sync/MCP-write — Phase 7 narrows when it consumes them (avoids speculative typing under tsconfig strict)
 - Plan 06-01 deviation (Rule 1): vi.fn() type inference in HeatmapGrid.test.tsx required explicit signature `(_v: number, _max: number) => string` so colorScale.mock.calls[i][1] passes tsc strict tuple-index check. One-line fix; pattern reusable for any future test that calls vi.fn().mock.calls[*][n] where n > 0
+- Plan 06-02 complete: Phase 6 Wave 2 top-strip landed — 4 panels (SystemHealthStrip OPNL-01 + KpiRow OPNL-02 + AttentionBar OPNL-03 + LiveSessionsCard OPNL-04) ship above PlaceholderCardGrid on /; AttentionBar disappears (returns null) when no items + no stuck + null staleness via PanelCard hiddenWhenEmpty; LiveSessionsCard has full Sheet drawer with tool timeline + follow-up textarea/Send (mutation invalidates liveSessions on success); 16 new tests bring frontend suite to 113/113; backend 202/202 unchanged
+- Plan 06-02 entry contract for Plan 06-03 (Wave 3): panels barrel exports 4 names; routes/index.tsx COMMAND_SLOTS holds OPNL-05..15 (11 entries) for Plan 06-03 to replace; styles.css has a new `/* Phase 6 Plan 02 (Wave 2) */` section — Plan 06-03 appends its own Wave-3 section after; PlaceholderCardGrid usage on / remains until Plan 06-03 fills the last slot, at which point the helper deletes per Plan 05-04's contract
+- Plan 06-02 pattern LOCKED: bare-array `/api/sessions/live` shape preserved end-to-end via PanelCard custom empty.when override `(d) => Array.isArray(d) && d.length === 0`; no envelope adaptation in panels or api.ts. Reusable for any future bare-array endpoint
+- Plan 06-02 pattern LOCKED (Sheet/Dialog tests): Radix Dialog Portal mounts to document.body (NOT the test render container ref); Sheet content tests use `document.body.querySelectorAll(...)` + `waitFor` for hooks that activate after state-change-triggered drawer open. Phase 6/7 modal tests follow the same shape
+- Plan 06-02 pattern LOCKED (multi-hook fetch mocks): URL-aware `vi.fn` fetch implementation that branches on URL+method is the locked test pattern when a panel mounts multiple TanStack Query hooks against overlapping URLs (LiveSessionsCard mounts useLiveSessions + useSessionDetails + useFollowUpMessage). Single-shape mocks corrupt cache when staleTime: 0 hooks auto-refetch
+- Plan 06-02 pattern (barrel forward-reference): when a plan's first task creates a barrel that re-exports a name landing in a subsequent task, ship a typed-but-empty stub of the deferred file in the earlier commit (`function X() { return null }`); Task 2 overwrites it with the full body. Keeps each task's commit boundary clean without forcing two barrel edits
+- Plan 06-02 routes contract: OPNL-01..04 reqIds still appear at runtime via PanelCard's CardDescription kicker (rendered inside SystemHealthStrip/KpiRow/AttentionBar/LiveSessionsCard) — integration smoke test's existing `findByText('OPNL-01')` assertion passes without modification; no integration test edits required
+- Plan 06-02 AttentionBar v1 boundary: `pending_decisions` and `failed_tasks` are intentionally NOT rendered (stable zero today; Phase 7 territory). Inline comment in AttentionBar.tsx flags this — extend (or use the items[] feed) once Phase 7 lands tasks/decisions tables
 
 ### Pending Todos
 
@@ -221,12 +230,12 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-None — Phases 1–5 implementations complete + Plan 06-01 (Phase 6 Wave 1 foundation) complete. Verifier readiness confirmed via 202 backend tests + 97 frontend tests; foundation primitives + queries layer + 2 new backend routes ready for plans 06-02..05 to bind against.
+None — Phases 1–5 implementations complete + Plan 06-01 (Phase 6 Wave 1 foundation) complete + Plan 06-02 (Phase 6 Wave 2 top-strip panels) complete. Verifier readiness confirmed via 202 backend tests + 113 frontend tests; 4 of 4 OPNL-01..04 panels live above PlaceholderCardGrid on /; remaining 11 OPNL-05..15 placeholders ready for Plan 06-03 (Wave 3) to replace.
 
 ## Session Continuity
 
-Last session: 2026-04-27T07:50:00.000Z
-Stopped at: Phase 6 Plan 01 (Wave 1 foundation) complete; Plan 06-02 ready
+Last session: 2026-04-27T12:05:03.000Z
+Stopped at: Phase 6 Plan 02 (Wave 2 top-strip panels) complete; Plan 06-03 ready
 Resume file: None
 
 Phase 1 final commit chain:
@@ -256,4 +265,5 @@ Phase 5 final commit chain:
 
 Phase 6 commit chain (in progress):
 
-- 06-01: c27a2b5 + 99d1d8c + d108fec + 303bfb7 + (this closing commit) (Recharts 3.8.1 + tightened api.ts + Phase 6 primitive CSS / 7 ui primitives + barrel + 24 component tests / lib/queries.ts qk + 20 hooks + useFollowUpMessage + useFirehose + 11 lib tests / ACTV-01 heatmap + ACTV-05 failures backend routes + 4 Pydantic models + 9 backend tests)
+- 06-01: c27a2b5 + 99d1d8c + d108fec + 303bfb7 + 1e856a7 (Recharts 3.8.1 + tightened api.ts + Phase 6 primitive CSS / 7 ui primitives + barrel + 24 component tests / lib/queries.ts qk + 20 hooks + useFollowUpMessage + useFirehose + 11 lib tests / ACTV-01 heatmap + ACTV-05 failures backend routes + 4 Pydantic models + 9 backend tests)
+- 06-02: 6ab49cc + 5114efb + (this closing commit) (SystemHealthStrip + KpiRow + AttentionBar 3 panels + barrel + CSS + 12 tests / LiveSessionsCard with Sheet drawer + follow-up + routes wiring + 4 tests)

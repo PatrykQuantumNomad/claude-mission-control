@@ -206,10 +206,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Observability Panels
 
-- [ ] **OPNL-01**: SystemHealthStrip shows server uptime, memory, OTEL age, daemon ages with health-colored pills
-- [ ] **OPNL-02**: KpiRow shows today's sessions/tokens/tools/errors as 4 skeleton-loading tiles
-- [ ] **OPNL-03**: AttentionBar shows red banner for stuck loops, failed tasks, stale dispatcher (hides when clear)
-- [ ] **OPNL-04**: LiveSessionsCard with title, cwd, model, tokens, started-at; drawer with tool timeline and follow-up messaging
+- [x] **OPNL-01**: SystemHealthStrip shows server uptime, memory, OTEL age, daemon ages with health-colored pills
+- [x] **OPNL-02**: KpiRow shows today's sessions/tokens/tools/errors as 4 skeleton-loading tiles
+- [x] **OPNL-03**: AttentionBar shows red banner for stuck loops, failed tasks, stale dispatcher (hides when clear)
+- [x] **OPNL-04**: LiveSessionsCard with title, cwd, model, tokens, started-at; drawer with tool timeline and follow-up messaging
 - [ ] **OPNL-05**: TokenUsageCard with today/7d/30d stacked daily bars (input/output/cache_read/cache_create) and totals
 - [ ] **OPNL-06**: CacheEfficiencyCard with hit rate big number, daily sparkline, 70% target line, low-sample badge
 - [ ] **OPNL-07**: SessionOutcomesCard with stacked daily bars (errored/rate_limited/truncated/unfinished/ok summing to day total)
@@ -411,10 +411,10 @@ Requirements for initial release. Each maps to roadmap phases.
 | DESG-04 | Phase 5 | Pending |
 | DESG-05 | Phase 5 | Pending |
 | DESG-06 | Phase 5 | Pending |
-| OPNL-01 | Phase 6 | Pending |
-| OPNL-02 | Phase 6 | Pending |
-| OPNL-03 | Phase 6 | Pending |
-| OPNL-04 | Phase 6 | Pending |
+| OPNL-01 | Phase 6 (06-02) | Complete (2026-04-27) |
+| OPNL-02 | Phase 6 (06-02) | Complete (2026-04-27) |
+| OPNL-03 | Phase 6 (06-02) | Complete (2026-04-27) |
+| OPNL-04 | Phase 6 (06-02) | Complete (2026-04-27) |
 | OPNL-05 | Phase 6 | Pending |
 | OPNL-06 | Phase 6 | Pending |
 | OPNL-07 | Phase 6 | Pending |
