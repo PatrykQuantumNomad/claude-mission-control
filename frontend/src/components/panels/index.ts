@@ -26,3 +26,7 @@ export { McpPanel } from './McpPanel'
 export { ActivityHeatmap } from './ActivityHeatmap'
 export { ChartsStrip } from './ChartsStrip'
 export { SessionsTable } from './SessionsTable'
+// Phase 6 Plan 05 (Wave 5) — Activity page tail (SSE + failures + v2 placeholder)
+export { OtelPanel } from './OtelPanel'
+export { UnifiedFailures } from './UnifiedFailures'
+export { TopSkills } from './TopSkills'

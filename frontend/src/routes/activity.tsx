@@ -1,19 +1,26 @@
-// Activity page (`/activity`) — Phase 6 Plan 04 (Wave 4) replaces three of the
-// six Phase-5 placeholder slots with real panels: ActivityHeatmap (ACTV-01),
-// ChartsStrip (ACTV-02), SessionsTable (ACTV-06). The remaining three slots
-// (ACTV-03 OTEL Firehose, ACTV-04 Top Skills, ACTV-05 Unified Failures) stay
-// in the placeholder grid; Plan 06-05 lands those panels and removes
-// PlaceholderCardGrid usage from this route entirely.
+// Activity page (`/activity`) — Phase 6 Plan 05 (Wave 5) closes out Phase 6 by
+// landing the last 3 ACTV-* slots: ACTV-03 OtelPanel (SSE firehose),
+// ACTV-04 TopSkills (v2 placeholder per Plan 06-01 decision), and
+// ACTV-05 UnifiedFailures (failed sessions w/ last error). PlaceholderCardGrid
+// is now removed from this route entirely — every ACTV-* slot is filled by a
+// real (or v2-placeholder) panel.
+//
+// Render order (top → bottom):
+//   1. Page header
+//   2. ActivityHeatmap (ACTV-01)
+//   3. ChartsStrip (ACTV-02)
+//   4. .cmc-card-grid containing OtelPanel + UnifiedFailures + TopSkills
+//   5. SessionsTable (ACTV-06, full width)
 
 import { createFileRoute } from '@tanstack/react-router'
-import { PlaceholderCardGrid, type PlaceholderSlot } from '../components/PlaceholderCardGrid'
-import { ActivityHeatmap, ChartsStrip, SessionsTable } from '../components/panels'
-
-const ACTIVITY_SLOTS: PlaceholderSlot[] = [
-  { reqId: 'ACTV-03', title: 'OTEL Firehose', dataNoun: 'OTEL events' },
-  { reqId: 'ACTV-04', title: 'Top Skills', dataNoun: 'skill usage data' },
-  { reqId: 'ACTV-05', title: 'Unified Failures', dataNoun: 'crashed session data' },
-]
+import {
+  ActivityHeatmap,
+  ChartsStrip,
+  OtelPanel,
+  SessionsTable,
+  TopSkills,
+  UnifiedFailures,
+} from '../components/panels'
 
 function ActivityPage() {
   return (
@@ -34,8 +41,12 @@ function ActivityPage() {
       </header>
       <ActivityHeatmap />
       <ChartsStrip />
+      <div className="cmc-card-grid">
+        <OtelPanel />
+        <UnifiedFailures />
+        <TopSkills />
+      </div>
       <SessionsTable />
-      <PlaceholderCardGrid slots={ACTIVITY_SLOTS} />
     </section>
   )
 }

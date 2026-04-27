@@ -1185,3 +1185,107 @@ body {
   outline: 2px solid var(--cmc-accent-blue);
   outline-offset: 2px;
 }
+
+/* ============================================================================
+ * Phase 6 Plan 05 (Wave 5) — Activity page tail panels (OTEL feed + failures
+ * list + TopSkills v2 placeholder). TopSkills uses the EmptyState primitive
+ * directly so no panel-specific class is needed for it.
+ * ============================================================================
+ */
+
+/* OtelPanel — controls + scrolling event feed */
+.cmc-otel-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.cmc-otel-controls__input {
+  background: var(--cmc-surface-2);
+  border: 1px solid var(--cmc-border);
+  border-radius: 6px;
+  color: var(--cmc-text);
+  padding: var(--space-2xs) var(--space-xs);
+  font-family: var(--font-mono);
+  font-size: var(--size-body);
+  min-width: 18ch;
+}
+.cmc-otel-controls__input:focus-visible {
+  outline: 2px solid var(--cmc-accent-blue);
+  outline-offset: 2px;
+}
+.cmc-otel-feed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: var(--space-2xs);
+}
+.cmc-otel-feed__empty {
+  margin: 0;
+  color: var(--cmc-text-dim);
+  font-size: var(--size-body);
+}
+.cmc-otel-row {
+  display: grid;
+  grid-template-columns: 9ch 1fr 12ch;
+  gap: var(--space-sm);
+  align-items: baseline;
+  padding: var(--space-2xs) 0;
+  font-size: var(--size-label);
+  border-bottom: 1px solid var(--cmc-border);
+}
+.cmc-otel-row:last-child {
+  border-bottom: none;
+}
+.cmc-otel-row__ts {
+  color: var(--cmc-text-subtle);
+}
+.cmc-otel-row__name {
+  color: var(--cmc-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cmc-otel-row__sid {
+  color: var(--cmc-text-dim);
+  text-align: right;
+}
+
+/* UnifiedFailures — list of failed sessions */
+.cmc-failures-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+.cmc-failures-row {
+  display: grid;
+  grid-template-columns: auto 10ch auto 1fr;
+  gap: var(--space-sm);
+  align-items: baseline;
+  padding: var(--space-2xs) 0;
+  font-size: var(--size-label);
+  border-bottom: 1px solid var(--cmc-border);
+}
+.cmc-failures-row:last-child {
+  border-bottom: none;
+}
+.cmc-failures-row__sid {
+  color: var(--cmc-text);
+}
+.cmc-failures-row__msg {
+  color: var(--cmc-text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Generic mono helper used by Wave 5 panel rows. Keeps inline-mono uses out
+   of bespoke per-panel classes. Tokens only. */
+.cmc-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
