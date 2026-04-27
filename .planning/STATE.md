@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 6 Plan 04 (Wave 4 Activity-page core panels) complete; Plan 06-05 ready
-last_updated: "2026-04-27T12:37:16.000Z"
+stopped_at: Phase 6 complete; Phase 7 ready to plan
+last_updated: "2026-04-27T13:25:00.000Z"
 last_activity: 2026-04-27
 progress:
   total_phases: 9
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 32
-  completed_plans: 31
-  percent: 97
+  completed_plans: 32
+  percent: 100
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-25)
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, queue and approve tasks, and kill runaway sessions — all from one browser tab.
-**Current focus:** Phase 6 (Observability & Activity Panels) IN PROGRESS — Wave 4 Activity-page core panels (Plan 06-04) complete 2026-04-27; Wave 5 (06-05 Activity tail + close-out checkpoint) ready to start.
+**Current focus:** Phase 6 (Observability & Activity Panels) COMPLETE 2026-04-27 — all 21 OPNL/ACTV requirements live; visual quality bar approved by user against ROADMAP success criteria 1-5. Phase 7 (Command Centre Panels) ready to plan.
 
 ## Current Position
 
-Phase: 6 of 9 IN PROGRESS (Observability & Activity Panels) — Wave 4 Activity-page core panels complete
-Plan: 4 of 5 complete in Phase 6 (06-01 Wave 1 foundation ✅; 06-02 Wave 2 top-strip ✅; 06-03 Wave 3 analytical grid ✅; 06-04 Wave 4 Activity-page core — ACTV-01 ActivityHeatmap + ACTV-02 ChartsStrip + ACTV-06 SessionsTable live on /activity, ACTV-03/04/05 still placeholders ✅; 158/158 frontend tests green; 202/202 backend tests green)
-Status: Plan 06-05 (Wave 5 Activity-page tail — ACTV-03 OtelPanel + ACTV-04 TopSkills v2 + ACTV-05 UnifiedFailures + close-out checkpoint) ready to execute
+Phase: 6 of 9 COMPLETE (Observability & Activity Panels) — visual quality bar approved by user 2026-04-27
+Plan: 5 of 5 complete in Phase 6 (06-01 Wave 1 foundation ✅; 06-02 Wave 2 top-strip ✅; 06-03 Wave 3 analytical grid ✅; 06-04 Wave 4 Activity-page core ✅; 06-05 Wave 5 Activity tail + close-out checkpoint ✅; 170/170 frontend tests green; 202/202 backend tests green)
+Status: Phase 6 closed; Phase 7 ready to plan (HPNL-/TPNL-/SKLP- + emergency stop banner)
 Last activity: 2026-04-27
 
-Progress (Phase 6): [████████░░] 80% (4 of 5 plans)
+Progress (Phase 6): [██████████] 100% (5 of 5 plans)
 
 ## Performance Metrics
 
@@ -49,12 +49,12 @@ Progress (Phase 6): [████████░░] 80% (4 of 5 plans)
 | Phase 3 (Read-Only APIs)                     | 5 / 5 | ~158 min                        | ~32 min  |
 | Phase 4 (Stateful APIs)                      | 5 / 5 | ~62 min                         | ~12 min  |
 | Phase 5 (Frontend Shell & Design System)     | 4 / 4 | ~31 min agent + checkpoint wait | ~8 min   |
-| Phase 6 (Observability & Activity Panels)    | 4 / 5 | ~58 min                         | ~14.5 min|
+| Phase 6 (Observability & Activity Panels)    | 5 / 5 | ~74 min                         | ~14.8 min|
 
 **Recent Trend:**
 
-- Last 5 plans: 05-04, 06-01, 06-02, 06-03, 06-04 (Phase 6 Wave 4 Activity-page core panels complete: ActivityHeatmap (ACTV-01) + ChartsStrip (ACTV-02) + SessionsTable (ACTV-06) live on /activity above 3 remaining placeholders for ACTV-03/04/05; 158/158 frontend tests green; 202/202 backend tests green)
-- Trend: Plan 06-04 landed in 2 atomic commits with two Rule-1 auto-fixes (SessionsTable column field names corrected `id`/`project` → `session_id`/`cwd` to match backend SESS-01 surface; SessionsTable test text matcher reads textContent.slice(0,8) instead of literal getByText because React renders slice + ellipsis as 2 text nodes). All deviations were schema-binding + test infra; no architectural changes. Plan landed +14 net tests (8 ActivityHeatmap+ChartsStrip + 6 SessionsTable).
+- Last 5 plans: 06-01, 06-02, 06-03, 06-04, 06-05 (Phase 6 COMPLETE — 21 OPNL/ACTV requirements live; PlaceholderCardGrid removed from / and /activity; visual quality bar approved by user against ROADMAP success criteria 1-5; 170/170 frontend tests green; 202/202 backend tests green)
+- Trend: Plan 06-05 landed in 1 atomic feat commit + 1 docs close-out commit with ZERO deviations needed — bespoke OtelPanel Card shell (not PanelCard, useFirehose ≠ UseQueryResult), client-side event_name filter (RESEARCH §SSE strategy 2), newest-at-top render order, ACTV-04 v2 placeholder preserved without backend changes. Integration test extension uses lucide-inbox icon presence as PlaceholderCardGrid discriminator (structural CSS signal preferred over data-testid). Plan landed +12 net tests (5 OtelPanel + 3 UnifiedFailures + 2 TopSkills + 2 integration extension). Phase 6 closed cleanly with no deferred items.
 
 *Updated after each plan completion*
 | Phase 01-foundation-database P02 | 4 min | 3 tasks | 17 files |
@@ -87,6 +87,7 @@ Progress (Phase 6): [████████░░] 80% (4 of 5 plans)
 | Phase 06-observability-activity-panels P02 | ~17 min | 2 tasks | 11 files (9 created + 2 modified) |
 | Phase 06-observability-activity-panels P03 | ~12 min | 2 tasks | 27 files (24 created + 3 modified) |
 | Phase 06-observability-activity-panels P04 | ~13 min | 2 tasks | 11 files (8 created + 3 modified) |
+| Phase 06-observability-activity-panels P05 | ~16 min agent + checkpoint wait | 2 tasks (1 auto + 1 checkpoint) | 10 files (6 created + 4 modified) |
 
 ## Accumulated Context
 
@@ -240,6 +241,14 @@ Recent decisions affecting current work:
 - Plan 06-04 deviation (Rule 1 - Bug): SessionsTable plan §Step 1 referenced field names `id` + `project` but backend SESS-01 / SessionListItemFull surface uses `session_id` + `cwd`. Columns + searchKeys + cell renders bind the real shape. Pre-existing latent contract drift between plan shorthand and api.ts types
 - Plan 06-04 deviation (Rule 1 - Test infra): React renders `{r.session_id.slice(0, 8)}` and `{'\u2026'}` as 2 separate text nodes in the same span; literal `getByText('abc12345')` fails because RTL needs the full normalized text content. Test reads `.textContent.slice(0, 8)` from each first-column .cmc-mono span and compares the array to expected prefixes. Pattern reusable for any future test asserting on a sliced string + sigil (ellipsis, em-dash) cell render
 - Plan 06-04 entry contract for Plan 06-05 (Wave 5): panels barrel exports 18 names total (4 Wave 2 + 11 Wave 3 + 3 Wave 4 — ActivityHeatmap / ChartsStrip / SessionsTable); routes/activity.tsx still imports PlaceholderCardGrid + ACTIVITY_SLOTS containing only ACTV-03/04/05 entries; Plan 06-05 lands the last 3 panels and DELETES the PlaceholderCardGrid import + usage on /activity (mirrors what Plan 06-03 did to routes/index.tsx); styles.css ends with Wave-4 section, Plan 06-05 appends its Wave-5 section after
+- Plan 06-05 complete: Phase 6 Wave 5 Activity-tail landed — OtelPanel (ACTV-03) bespoke Card shell wraps useFirehose with newest-at-top scrolling feed + client-side event_name filter via useMemo (RESEARCH §SSE filter strategy 2 — avoids reconnect-per-keystroke) + StatePill mapping connecting/open/closed → pending/ok/stale; UnifiedFailures (ACTV-05) PanelCard composes useFailures('30d') with outcome Badge variants (errored→danger, rate_limited→warning) + last_error_message in --cmc-text-dim mono; TopSkills (ACTV-04 v2) static EmptyState card preserves reqId traceability without backend changes (Plan 06-01 v2 deferral honored); routes/activity.tsx DELETES PlaceholderCardGrid import + ACTIVITY_SLOTS entirely; integration smoke extended with URL-aware fetch mock + MockEventSource and asserts no `.lucide-inbox` icons on / or /activity (PlaceholderCardGrid discriminator); 12 new tests bring frontend suite from 158 to 170/170 green; backend 202/202 unchanged
+- Plan 06-05 pattern LOCKED (bespoke Card shell for non-TanStack-Query panels): when a hook returns a shape ≠ UseQueryResult (e.g., useFirehose's `{events, status}`), compose Card + CardHeader + CardTitle + CardDescription + CardContent directly mirroring PanelCard's visual contract instead of forcing the data through PanelCard's 4-branch loading/empty/error/data matrix. Inline comment cites the reason. Reusable for any future panel consuming a raw EventSource / WebSocket / IntersectionObserver
+- Plan 06-05 pattern LOCKED (v2-deferral placeholder card convention): static EmptyState card with reqId kicker + heading "Coming in v2" + body explaining the unblocking work. Preserves requirement-ID traceability in the UI without speculative data fetch. Reusable for any future requirement the planner defers without removing from the UI map
+- Plan 06-05 pattern LOCKED (integration test PlaceholderCardGrid discriminator): structural CSS-class signal (`[aria-hidden] svg.lucide-inbox` icon presence) preferred over `data-testid` attribute since lucide-inbox icon is unique to PlaceholderCardGrid's default EmptyState. Tests assert count==0 on / and /activity (live panels and TopSkills don't use that icon — TopSkills uses Sparkles) vs >0 on /skills (Phase 7 territory). Keeps the production DOM clean
+- Plan 06-05 pattern LOCKED (newest-at-top SSE feed render): `[...filtered].reverse().map(...)` on a ring-buffered array. Buffer stays oldest-first internally (LIFO eviction via shift); render reverses for display matching operator's "new things appear at the top" mental model. Reusable for any live-monitoring scrolling feed
+- 2026-04-27: Phase 6 visual quality bar APPROVED by user — every ROADMAP success criterion 1-5 + Wave-5 panel-specific spot checks (OtelPanel SSE reconnect, TopSkills v2 has no /api/skills/usage call in DevTools, UnifiedFailures EmptyState branch, etc.) passed against the running dev server. Phase 6 closes ready for verifier handoff with 21/21 OPNL+ACTV requirements live, 170/170 frontend tests green, 202/202 backend tests green, no deferred items
+- Phase 6 close decision: McpPanel lives at frontend/src/components/panels/McpPanel.tsx — Phase 7 SKLP-01 imports it directly OR extends it (do not duplicate). 12 ui primitives + 7 wave-1 panel primitives + lib/queries + useFirehose all reusable for HPNL-/TPNL-/SKLP- panels. PlaceholderCardGrid still imported on /skills only — Phase 7 SKLP-* plans will retire it from there per the Plan 05-04 contract
+- Phase 6 close decision: PlaceholderCardGrid retired from / (Plan 06-03) and /activity (Plan 06-05). Last consumer is /skills route (Phase 7 territory). Helper itself remains in frontend/src/components/PlaceholderCardGrid.tsx (NOT in components/ui — Phase 5 design choice signals deletion intent) until Phase 7 retires the final consumer
 
 ### Pending Todos
 
@@ -248,12 +257,12 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-None — Phases 1–5 implementations complete + Plan 06-01 (Wave 1 foundation) complete + Plan 06-02 (Wave 2 top-strip panels) complete + Plan 06-03 (Wave 3 analytical grid) complete + Plan 06-04 (Wave 4 Activity-page core panels) complete. Verifier readiness confirmed via 202 backend tests + 158 frontend tests; all 15 OPNL-01..15 panels live on / route + 3 of 6 ACTV-* panels (ACTV-01/02/06) live on /activity; PlaceholderCardGrid removed from / but still rendering ACTV-03/04/05 on /activity (Plan 06-05 closes those); skills route still uses placeholder cards pending Phase 7.
+None — Phases 1–6 implementations complete. Verifier readiness confirmed via 202 backend tests + 170 frontend tests; all 15 OPNL-01..15 panels live on / route + all 6 ACTV-01..06 panels live on /activity; PlaceholderCardGrid removed from / and /activity (still rendering on /skills pending Phase 7). Phase 6 visual quality bar APPROVED by user 2026-04-27 against ROADMAP success criteria 1-5. Phase 7 (Command Centre Panels) ready to plan.
 
 ## Session Continuity
 
-Last session: 2026-04-27T12:37:16.000Z
-Stopped at: Phase 6 Plan 04 (Wave 4 Activity-page core panels) complete; Plan 06-05 ready
+Last session: 2026-04-27T13:25:00.000Z
+Stopped at: Phase 6 complete; Phase 7 ready to plan
 Resume file: None
 
 Phase 1 final commit chain:
@@ -281,9 +290,10 @@ Phase 5 final commit chain:
 - 05-03: ea1314f + 499fd06 + f9e5ea9 (Sheet/CollapsibleSection + CommandPalette + global Cmd+K via AppShell + plan close)
 - 05-04: 40dbe80 + (this closing commit) (PlaceholderCardGrid + 3 routes wired + integration smoke + .cmc-card-grid CSS + user-approved visual quality bar)
 
-Phase 6 commit chain (in progress):
+Phase 6 final commit chain:
 
 - 06-01: c27a2b5 + 99d1d8c + d108fec + 303bfb7 + 1e856a7 (Recharts 3.8.1 + tightened api.ts + Phase 6 primitive CSS / 7 ui primitives + barrel + 24 component tests / lib/queries.ts qk + 20 hooks + useFollowUpMessage + useFirehose + 11 lib tests / ACTV-01 heatmap + ACTV-05 failures backend routes + 4 Pydantic models + 9 backend tests)
-- 06-02: 6ab49cc + 5114efb + 934aa48 (SystemHealthStrip + KpiRow + AttentionBar 3 panels + barrel + CSS + 12 tests / LiveSessionsCard with Sheet drawer + follow-up + routes wiring + 4 tests)
-- 06-03: 365c9d8 + 50d14f7 + (this closing commit) (TokenUsage + Cache + Outcomes + Hooks + ProjectBreakdown 5 cards + 15 tests / ToolLatency + Fanout + Edit + Productivity + Pressure + McpPanel 6 cards + 16 tests + routes/index.tsx live grid wiring + Wave 3 CSS section)
-- 06-04: 993d98c + 05032a3 + (this closing commit) (ActivityHeatmap + ActivityHeatmap.utils + ChartsStrip + ChartsStrip.utils + SessionsTable stub + Wave-4 barrel + Wave-4 styles.css section + 8 tests / SessionsTable full body + routes/activity.tsx wires ActivityHeatmap → ChartsStrip → SessionsTable above PlaceholderCardGrid for ACTV-03/04/05 + 6 tests)
+- 06-02: 6ab49cc + 5114efb + 934aa48 (SystemHealthStrip + KpiRow + AttentionBar 3 panels + barrel + CSS + 12 tests / LiveSessionsCard with Sheet drawer + follow-up + routes wiring + 4 tests / plan close)
+- 06-03: 365c9d8 + 50d14f7 + e3cad39 (TokenUsage + Cache + Outcomes + Hooks + ProjectBreakdown 5 cards + 15 tests / ToolLatency + Fanout + Edit + Productivity + Pressure + McpPanel 6 cards + 16 tests + routes/index.tsx live grid wiring + Wave 3 CSS section / plan close)
+- 06-04: 993d98c + 05032a3 + a768a31 (ActivityHeatmap + ChartsStrip + SessionsTable stub + Wave-4 barrel + Wave-4 styles.css section + 8 tests / SessionsTable full body + routes/activity.tsx wires Wave-4 panels above remaining PlaceholderCardGrid + 6 tests / plan close)
+- 06-05: 02fa534 + (this closing commit) (OtelPanel ACTV-03 SSE + UnifiedFailures ACTV-05 + TopSkills ACTV-04 v2 placeholder + routes/activity.tsx DELETES PlaceholderCardGrid + integration test extension + Wave-5 styles.css + 12 tests / Phase 6 close-out: SUMMARY + STATE + ROADMAP + REQUIREMENTS — visual quality bar APPROVED by user against ROADMAP success criteria 1-5)

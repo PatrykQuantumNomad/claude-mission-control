@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Read-Only APIs** - System health, sessions, observability metrics, MCP, and skills endpoints
 - [x] **Phase 4: Stateful APIs** - HITL decisions/inbox, tasks, schedules, emergency stop CRUD
 - [x] **Phase 5: Frontend Shell & Design System** - TanStack Router, app shell, components, dark theme, visual polish
-- [ ] **Phase 6: Observability & Activity Panels** - All 15 observability panels plus the 6 activity page panels
+- [x] **Phase 6: Observability & Activity Panels** - All 15 observability panels plus the 6 activity page panels
 - [ ] **Phase 7: Command Centre Panels** - HITL decision/inbox panels, task board, schedule composer, skills page, emergency stop
 - [ ] **Phase 8: Mission Control Dispatcher** - Heartbeat, task execution (classic + stream), DECISION/INBOX parsing, skill routing
 - [ ] **Phase 9: Telegram, Setup & Testing** - Telegram bridge, install.sh, cc CLI, doctor.py, Playwright e2e tests
@@ -149,7 +149,7 @@ Wave structure (fully serialized — multiple plans share `frontend/src/componen
 - [x] 06-02-PLAN.md — Wave 2 Command top strip: OPNL-01 SystemHealthStrip + OPNL-02 KpiRow + OPNL-03 AttentionBar (hiddenWhenEmpty) + OPNL-04 LiveSessionsCard (Sheet drawer + follow-up mutation) ✅ 2026-04-27 (113/113 frontend + 202/202 backend tests green)
 - [x] 06-03-PLAN.md — Wave 3 Command analytical grid: OPNL-05..15 (11 cards: TokenUsage/CacheEfficiency/SessionOutcomes/ToolLatency/HookActivity/ProjectBreakdown/AgentFanout/EditAcceptance/Productivity/Pressure/Mcp); deletes PlaceholderCardGrid usage on / ✅ 2026-04-27 (144/144 frontend + 202/202 backend tests green)
 - [x] 06-04-PLAN.md — Wave 4 Activity page core: ACTV-01 ActivityHeatmap + ACTV-02 ChartsStrip (client-side 14-day slice of 30d response) + ACTV-06 SessionsTable (DataTable + filters + client-side search) ✅ 2026-04-27 (158/158 frontend + 202/202 backend tests green)
-- [ ] 06-05-PLAN.md — Wave 5 Activity page tail + close: ACTV-03 OtelPanel (SSE firehose + client-side filter) + ACTV-04 TopSkills v2 placeholder + ACTV-05 UnifiedFailures; deletes PlaceholderCardGrid usage on /activity; integration test extension; human-verify checkpoint against ROADMAP success criteria 1-5
+- [x] 06-05-PLAN.md — Wave 5 Activity page tail + close: ACTV-03 OtelPanel (SSE firehose + client-side filter) + ACTV-04 TopSkills v2 placeholder + ACTV-05 UnifiedFailures; deletes PlaceholderCardGrid usage on /activity; integration test extension; human-verify checkpoint against ROADMAP success criteria 1-5 ✅ 2026-04-27 (170/170 frontend + 202/202 backend tests green; visual quality bar approved by user)
 **UI hint**: yes
 
 ### Phase 7: Command Centre Panels
@@ -203,7 +203,7 @@ Note: Phases 3, 4, and 5 can execute in parallel after Phase 2 (or Phase 1 for 4
 | 3. Read-Only APIs | 5/5 | Complete (verifier: 5/5 must-haves) | 2026-04-26 |
 | 4. Stateful APIs | 5/5 | Complete (verifier: 5/5 must-haves) | 2026-04-26 |
 | 5. Frontend Shell & Design System | 4/4 | Complete (visual quality bar approved by user) | 2026-04-27 |
-| 6. Observability & Activity Panels | 2/5 | In progress (Wave 1 foundation + Wave 2 top-strip complete) | - |
+| 6. Observability & Activity Panels | 5/5 | Complete (visual quality bar approved by user) | 2026-04-27 |
 | 7. Command Centre Panels | 0/TBD | Not started | - |
 | 8. Mission Control Dispatcher | 0/TBD | Not started | - |
 | 9. Telegram, Setup & Testing | 0/TBD | Not started | - |

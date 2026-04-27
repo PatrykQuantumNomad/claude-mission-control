@@ -239,9 +239,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **ACTV-01**: HeatmapGrid showing 30-day GitHub-style daily activity grid
 - [x] **ACTV-02**: ChartsStrip showing 14-day stacked token charts by model
-- [ ] **ACTV-03**: OtelPanel with SSE firehose subscription, scrolling event feed, event_name filter
-- [ ] **ACTV-04**: TopSkills showing most-used skills with token cost
-- [ ] **ACTV-05**: UnifiedFailures showing crashed sessions with error messages
+- [x] **ACTV-03**: OtelPanel with SSE firehose subscription, scrolling event feed, event_name filter
+- [x] **ACTV-04**: TopSkills showing most-used skills with token cost
+- [x] **ACTV-05**: UnifiedFailures showing crashed sessions with error messages
 - [x] **ACTV-06**: SessionsTable with search, pagination, range/source/model filters
 
 ### Skills Page
@@ -428,9 +428,9 @@ Requirements for initial release. Each maps to roadmap phases.
 | OPNL-15 | Phase 6 (06-03) | Complete (2026-04-27) |
 | ACTV-01 | Phase 6 (06-04) | Complete (2026-04-27) |
 | ACTV-02 | Phase 6 (06-04) | Complete (2026-04-27) |
-| ACTV-03 | Phase 6 | Pending |
-| ACTV-04 | Phase 6 | Pending |
-| ACTV-05 | Phase 6 | Pending |
+| ACTV-03 | Phase 6 (06-05) | Complete (2026-04-27) |
+| ACTV-04 | Phase 6 (06-05) | Complete (2026-04-27) |
+| ACTV-05 | Phase 6 (06-05) | Complete (2026-04-27) |
 | ACTV-06 | Phase 6 (06-04) | Complete (2026-04-27) |
 | HPNL-01 | Phase 7 | Pending |
 | HPNL-02 | Phase 7 | Pending |
