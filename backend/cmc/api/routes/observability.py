@@ -41,6 +41,10 @@ from cmc.api.schemas.observability import (
     CacheTrendRow,
     EditDecisionRow,
     EditDecisionsResponse,
+    FailureRow,
+    FailuresResponse,
+    HeatmapDayRow,
+    HeatmapResponse,
     HookActivityResponse,
     HookActivityRow,
     OutcomeDailyRow,
@@ -669,3 +673,111 @@ async def system_pressure(db: AsyncSession = Depends(get_session)):
         compaction_count=c_map.get("claude_code.compaction", 0),
         recent_api_errors=recent,
     )
+
+
+# ---- Phase 6 Plan 01 — ACTV-01: 30-day session-activity heatmap ------------
+
+_HEATMAP_SQL = text("""
+    SELECT
+      STRFTIME('%Y-%m-%d', started_at, 'localtime') AS day,
+      COUNT(*) AS sessions,
+      COALESCE(SUM(COALESCE(tokens_input, 0) + COALESCE(tokens_output, 0)
+                   + COALESCE(tokens_cache_read, 0) + COALESCE(tokens_cache_create, 0)), 0)
+        AS tokens_effective
+    FROM sessions
+    WHERE started_at >= datetime('now', :since_clause)
+    GROUP BY day
+    ORDER BY day ASC
+""")
+
+
+@router.get("/activity/heatmap", response_model=HeatmapResponse)
+async def activity_heatmap(
+    db: AsyncSession = Depends(get_session),
+    range_: Literal["today", "7d", "30d"] = Query("30d", alias="range"),
+) -> HeatmapResponse:
+    """ACTV-01: per-day session activity rollup for the heatmap card."""
+    since = _RANGE_TO_SINCE[range_]
+    rows = (await db.execute(_HEATMAP_SQL, {"since_clause": since})).mappings().all()
+    items = [
+        HeatmapDayRow(
+            day=r["day"],
+            sessions=int(r["sessions"]),
+            tokens_effective=int(r["tokens_effective"]),
+        )
+        for r in rows
+    ]
+    return HeatmapResponse(items=items, range=range_)
+
+
+# ---- Phase 6 Plan 01 — ACTV-05: unified failures ---------------------------
+
+# Outcome is computed inline matching OBSV-03's read-time CASE so we don't
+# depend on Phase 2 ingest populating sessions.outcome (Pitfall 9 fallback).
+# The outer query joins to a subquery that pulls the latest api_error message
+# per session.
+_FAILURES_SQL = text("""
+    WITH classified AS (
+      SELECT
+        s.session_id,
+        s.started_at,
+        CASE
+          WHEN EXISTS (SELECT 1 FROM otel_events e WHERE e.session_id = s.session_id
+                       AND e.event_name = 'claude_code.api_error') THEN 'errored'
+          WHEN EXISTS (SELECT 1 FROM otel_events e WHERE e.session_id = s.session_id
+                       AND e.event_name = 'claude_code.api_retries_exhausted') THEN 'rate_limited'
+          ELSE NULL
+        END AS outcome
+      FROM sessions s
+      WHERE s.started_at >= datetime('now', :since_clause)
+    )
+    SELECT
+      c.session_id,
+      c.started_at,
+      c.outcome,
+      (SELECT json_extract(e.body, '$.message')
+         FROM otel_events e
+         WHERE e.session_id = c.session_id
+           AND e.event_name = 'claude_code.api_error'
+         ORDER BY e.ts DESC
+         LIMIT 1) AS last_error_message
+    FROM classified c
+    WHERE c.outcome IS NOT NULL
+    ORDER BY c.started_at DESC
+""")
+
+
+def _coerce_started_at(value) -> datetime:
+    """Normalize started_at to a tz-aware UTC datetime.
+
+    SQLite strips tzinfo on round-trip when the column type uses Python's
+    `datetime` adapter; the route promises a tz-aware ISO string in the
+    response, so re-attach UTC when missing.
+    """
+    if isinstance(value, datetime):
+        dt = value
+    else:
+        dt = datetime.fromisoformat(str(value))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+@router.get("/sessions/failures", response_model=FailuresResponse)
+async def sessions_failures(
+    db: AsyncSession = Depends(get_session),
+    range_: Literal["today", "7d", "30d"] = Query("30d", alias="range"),
+) -> FailuresResponse:
+    """ACTV-05: failed sessions in the window with most-recent api_error message."""
+    since = _RANGE_TO_SINCE[range_]
+    rows = (await db.execute(_FAILURES_SQL, {"since_clause": since})).mappings().all()
+    items = [
+        FailureRow(
+            session_id=r["session_id"],
+            started_at=_coerce_started_at(r["started_at"]),
+            outcome=r["outcome"],
+            last_error_message=r["last_error_message"],
+        )
+        for r in rows
+    ]
+    return FailuresResponse(items=items, range=range_)

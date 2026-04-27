@@ -172,3 +172,44 @@ class PressureResponse(BaseModel):
     api_retries_exhausted: int
     compaction_count: int
     recent_api_errors: list[ApiErrorEntry]
+
+
+# ---- Phase 6 Plan 01 — ACTV-01 heatmap + ACTV-05 unified failures ----------
+
+
+class HeatmapDayRow(BaseModel):
+    """ACTV-01: one day in the 30-day session-activity heatmap.
+
+    `tokens_effective` matches the OBSV-06 by-project columnsum
+    (input + output + cache_read + cache_create) so the panel can claim
+    consistent token semantics across cards.
+    """
+
+    day: str  # YYYY-MM-DD (local-time bucket)
+    sessions: int
+    tokens_effective: int
+
+
+class HeatmapResponse(BaseModel):
+    items: list[HeatmapDayRow]
+    range: str  # echoed back so the UI can verify what window was computed
+
+
+class FailureRow(BaseModel):
+    """ACTV-05 row: one failed session with its most-recent api_error message.
+
+    `outcome` is one of {'errored', 'rate_limited'}. `last_error_message` is
+    None when an api_error event hasn't been ingested yet for this session
+    (the row may have been classified as rate_limited via api_retries_exhausted
+    rather than api_error).
+    """
+
+    session_id: str
+    started_at: datetime
+    outcome: str  # 'errored' | 'rate_limited'
+    last_error_message: Optional[str] = None
+
+
+class FailuresResponse(BaseModel):
+    items: list[FailureRow]
+    range: str
