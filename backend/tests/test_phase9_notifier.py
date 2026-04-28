@@ -461,3 +461,105 @@ def test_oneshot_notifier_module_imports_clean():
 
     assert hasattr(oneshot_notifier, "main")
     assert hasattr(oneshot_notifier, "_amain")
+
+
+# =========================================================================
+# Phase 11 — SC5 (interp A): HTTP-symmetric inbox discovery
+# =========================================================================
+
+
+def _inbox_http_transport(payload_items, captured_paths: list[str]):
+    """MockTransport that satisfies GET /api/inbox?unread=true and 200s
+    everything else. payload_items is either a list of dicts (200 reply)
+    or an Exception instance (raised when the GET arrives).
+    """
+
+    def handler(req: httpx.Request) -> Response:
+        captured_paths.append(f"{req.method} {req.url.path}?{req.url.query}")
+        if req.url.path == "/api/inbox" and req.method == "GET":
+            if isinstance(payload_items, Exception):
+                raise payload_items
+            return Response(
+                200,
+                json={"items": payload_items, "total": len(payload_items)},
+            )
+        # Telegram send + everything else: stub OK
+        return Response(
+            200, json={"ok": True, "result": {"message_id": 1, "chat": {"id": 1}}}
+        )
+
+    return MockTransport(handler)
+
+
+@pytest.mark.asyncio
+async def test_notifier_inbox_via_http_get(test_settings):
+    """SC5 (interpretation A): notifier fetches the unread inbox via
+    GET /api/inbox?unread=true rather than `select(InboxMessage).where(read==False)`.
+
+    Verifies HTTP symmetry: notifier becomes a pure HTTP consumer of inbox state.
+    """
+    engine, sessions = await _bootstrap_db(test_settings)
+    try:
+        captured: list[str] = []
+        payload = [
+            {
+                "id": 7, "title": "from-claude-1", "body": "msg one",
+                "read": False, "created_at": "2026-04-28T10:00:00+00:00",
+                "session_id": None, "task_id": None, "kind": "info",
+                "read_at": None, "replied_at": None, "actions": [],
+            },
+            {
+                "id": 8, "title": "from-claude-2", "body": "msg two",
+                "read": False, "created_at": "2026-04-28T10:01:00+00:00",
+                "session_id": None, "task_id": None, "kind": "info",
+                "read_at": None, "replied_at": None, "actions": [],
+            },
+        ]
+        s = Settings(
+            _env_file=None,
+            telegram_bot_token="TKN",
+            telegram_chat_id="999",
+        )
+        async with httpx.AsyncClient(
+            transport=_inbox_http_transport(payload, captured)
+        ) as client:
+            sent = await notifier.run_one_cycle(sessions, s, http_client=client)
+
+        # The HTTP transport saw a GET /api/inbox with unread=true.
+        assert any(
+            "GET /api/inbox" in p and "unread=true" in p for p in captured
+        ), f"expected GET /api/inbox?unread=true; saw {captured!r}"
+        # The 2 inbox items above were processed (no other unread items in seeded DB).
+        assert isinstance(sent, int)
+        assert sent >= 2
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_notifier_inbox_handles_server_down(test_settings):
+    """SC5 graceful degrade: when the cmc server is down (httpx.ConnectError on
+    the inbox GET), run_one_cycle does NOT crash; inbox sends are zero but the
+    cycle completes and other kinds (none here) would still process."""
+    engine, sessions = await _bootstrap_db(test_settings)
+    try:
+        captured: list[str] = []
+        err = httpx.ConnectError("server down")
+        s = Settings(
+            _env_file=None,
+            telegram_bot_token="TKN",
+            telegram_chat_id="999",
+        )
+        async with httpx.AsyncClient(
+            transport=_inbox_http_transport(err, captured)
+        ) as client:
+            # Should NOT raise — the existing try/except in _gather_candidates
+            # is preserved for HTTP failures.
+            sent = await notifier.run_one_cycle(sessions, s, http_client=client)
+        # Non-inbox kinds may have sent (but DB is empty); the assertion is
+        # "no crash + completed".
+        assert isinstance(sent, int)
+        # The inbox GET WAS attempted (proves the code path executed before failing).
+        assert any("GET /api/inbox" in p for p in captured)
+    finally:
+        await engine.dispose()
