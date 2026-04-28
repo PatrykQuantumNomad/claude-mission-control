@@ -57,3 +57,27 @@ def render_plist(python_path: str | Path, repo_root_path: str | Path) -> str:
         python_path_dir=str(py.parent),
         repo_root=str(rr),
     )
+
+
+def main() -> None:
+    """CLI entry: `python -m cmc.dispatcher.plist_render <python> <root>`.
+
+    Phase-9 deviation against Plan 08-02 (additive, non-behavior-breaking):
+    existing `from cmc.dispatcher.plist_render import render_plist` callers
+    are unaffected. The retrofit gives Phase 9 install.sh a uniform
+    `python -m cmc.<x>.plist_render` CLI surface across all four renderers
+    (server, dispatcher, telegram-notifier, telegram-handler).
+    """
+    import sys
+
+    if len(sys.argv) != 3:
+        print(
+            "usage: python -m cmc.dispatcher.plist_render <python_path> <repo_root>",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    sys.stdout.write(render_plist(sys.argv[1], sys.argv[2]))
+
+
+if __name__ == "__main__":
+    main()

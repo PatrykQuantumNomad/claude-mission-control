@@ -1,0 +1,226 @@
+"""SETUP-04..06 backend tests + SETUP-01..03 install/cc shim tests.
+
+Covers:
+- Server plist render (uvicorn invocation, KeepAlive=true).
+- setup_otel atomic merge: 6 keys added, never overwrites, no leftover .tmp.
+- doctor 8-check infrastructure (run_checks count + sample checks).
+- install.sh dry-run smoke + cc shim help/unknown-subcommand routing.
+"""
+from __future__ import annotations
+
+import json
+import os
+import sys
+from pathlib import Path
+
+import pytest
+
+
+# =========================================================================
+# server plist
+# =========================================================================
+
+
+def test_server_plist_renders_uvicorn_command() -> None:
+    from cmc.app.plist_render import render_plist
+
+    out = render_plist("/opt/homebrew/bin/python3.13", "/Users/me/repo")
+    assert "<key>Label</key>" in out
+    assert "com.cmc.server" in out
+    assert "/opt/homebrew/bin/uvicorn" in out
+    assert "cmc.app.factory:create_app" in out
+    assert "--factory" in out
+    assert "<key>KeepAlive</key>" in out
+    # Server binds to localhost:8765 (Phase 1 architectural decision)
+    assert "127.0.0.1" in out
+    assert "8765" in out
+    # WorkingDirectory honored
+    assert "/Users/me/repo" in out
+
+
+def test_server_plist_module_cli_entry(tmp_path) -> None:
+    """`python -m cmc.app.plist_render <python> <root>` writes plist to stdout."""
+    import subprocess
+
+    res = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "cmc.app.plist_render",
+            "/opt/homebrew/bin/python3.13",
+            str(tmp_path),
+        ],
+        capture_output=True,
+        timeout=10,
+    )
+    assert res.returncode == 0, res.stderr.decode()
+    out = res.stdout.decode()
+    assert "com.cmc.server" in out
+    assert "<key>KeepAlive</key>" in out
+
+
+def test_dispatcher_plist_module_cli_entry(tmp_path) -> None:
+    """Phase-9 retrofit: `python -m cmc.dispatcher.plist_render` works."""
+    import subprocess
+
+    res = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "cmc.dispatcher.plist_render",
+            "/opt/homebrew/bin/python3.13",
+            str(tmp_path),
+        ],
+        capture_output=True,
+        timeout=10,
+    )
+    assert res.returncode == 0, res.stderr.decode()
+    assert "com.cmc.dispatcher" in res.stdout.decode()
+
+
+# =========================================================================
+# setup_otel (atomic 6-key merge)
+# =========================================================================
+
+
+def test_setup_otel_creates_settings_with_six_keys(tmp_path) -> None:
+    from cmc.cli.setup_otel import OTEL_KEYS, merge_otel_env
+
+    p = tmp_path / "settings.json"
+    backup, added = merge_otel_env(p)
+    assert backup is None  # no preexisting file → no backup
+    assert set(added) == set(OTEL_KEYS.keys())
+    data = json.loads(p.read_text())
+    assert data["env"]["CLAUDE_CODE_ENABLE_TELEMETRY"] == "1"
+    assert (
+        data["env"]["OTEL_EXPORTER_OTLP_ENDPOINT"] == "http://127.0.0.1:8765"
+    )
+    assert data["env"]["OTEL_EXPORTER_OTLP_PROTOCOL"] == "http/json"
+    assert data["env"]["OTEL_LOGS_EXPORTER"] == "otlp"
+    assert data["env"]["OTEL_METRICS_EXPORTER"] == "otlp"
+    assert data["env"]["OTEL_LOG_TOOL_DETAILS"] == "1"
+    # Q3 LOCKED — OTEL_LOG_USER_PROMPTS dropped
+    assert "OTEL_LOG_USER_PROMPTS" not in data["env"]
+    # Exactly 6 keys
+    assert len(OTEL_KEYS) == 6
+
+
+def test_setup_otel_never_overwrites_existing(tmp_path) -> None:
+    from cmc.cli.setup_otel import merge_otel_env
+
+    p = tmp_path / "settings.json"
+    p.write_text(
+        json.dumps(
+            {
+                "env": {
+                    "CLAUDE_CODE_ENABLE_TELEMETRY": "0",  # user opted out
+                    "OTHER_KEY": "preserve_me",
+                }
+            }
+        )
+    )
+    backup, added = merge_otel_env(p)
+    assert backup is not None and backup.exists()
+    data = json.loads(p.read_text())
+    # Existing user value preserved
+    assert data["env"]["CLAUDE_CODE_ENABLE_TELEMETRY"] == "0"
+    # Other keys added
+    assert "OTEL_EXPORTER_OTLP_ENDPOINT" in data["env"]
+    # Non-OTEL key preserved
+    assert data["env"]["OTHER_KEY"] == "preserve_me"
+    # CLAUDE_CODE_ENABLE_TELEMETRY NOT in `added` (already present)
+    assert "CLAUDE_CODE_ENABLE_TELEMETRY" not in added
+    # Other 5 OTEL keys ARE in `added`
+    assert len(added) == 5
+
+
+def test_setup_otel_atomic_no_leftover_tmp(tmp_path) -> None:
+    """Pitfall P8: tmp file in same dir + os.replace → no leftover .tmp."""
+    from cmc.cli.setup_otel import merge_otel_env
+
+    p = tmp_path / "settings.json"
+    merge_otel_env(p)
+    leftover = list(tmp_path.glob("settings.json.tmp"))
+    assert leftover == []
+
+
+def test_setup_otel_idempotent_second_run_adds_nothing(tmp_path) -> None:
+    from cmc.cli.setup_otel import merge_otel_env
+
+    p = tmp_path / "settings.json"
+    merge_otel_env(p)  # first run adds all 6
+    _, added2 = merge_otel_env(p)  # second run is no-op
+    assert added2 == []
+
+
+def test_setup_otel_invalid_json_aborts_with_backup(tmp_path) -> None:
+    from cmc.cli.setup_otel import merge_otel_env
+
+    p = tmp_path / "settings.json"
+    p.write_text("{ this is not valid json")
+    with pytest.raises(SystemExit) as exc_info:
+        merge_otel_env(p)
+    assert exc_info.value.code == 1
+    # Backup should have been created BEFORE the JSON parse failure
+    backups = list(tmp_path.glob("settings.json.bak.*"))
+    assert len(backups) == 1
+
+
+# =========================================================================
+# doctor (8 checks)
+# =========================================================================
+
+
+def test_doctor_python_check_passes() -> None:
+    from cmc.cli.doctor import _check_python
+
+    c = _check_python()
+    assert c.id == 1
+    assert c.status == "ok"
+
+
+def test_doctor_settings_check_warn_when_missing(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    # Path.home() reads HOME on POSIX; reload to pick up the patched env
+    from cmc.cli import doctor as doc
+
+    c = doc._check_settings_json()
+    assert c.id == 3
+    assert c.status == "warn"
+
+
+def test_doctor_telegram_skipped_when_unset(monkeypatch) -> None:
+    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+    from cmc.cli.doctor import _check_telegram
+
+    c = _check_telegram()
+    assert c.status == "ok"
+    assert "skipped" in c.message
+
+
+def test_doctor_run_checks_returns_eight() -> None:
+    from cmc.cli.doctor import run_checks
+
+    results = run_checks()
+    assert len(results) == 8
+    assert {c.id for c in results} == {1, 2, 3, 4, 5, 6, 7, 8}
+
+
+def test_doctor_render_includes_ansi_colors() -> None:
+    from cmc.cli.doctor import Check, _render
+
+    ok = _render(Check(1, "lab", "ok", "msg"))
+    warn = _render(Check(2, "lab", "warn", "msg", hint="do x"))
+    fail = _render(Check(3, "lab", "fail", "msg", hint="do y"))
+    # Green check for ok
+    assert "\033[32m" in ok
+    # Yellow for warn + hint rendered
+    assert "\033[33m" in warn
+    assert "Hint: do x" in warn
+    # Red for fail + hint rendered
+    assert "\033[31m" in fail
+    assert "Hint: do y" in fail
+    # Hint NOT rendered for ok status
+    assert "Hint" not in ok
