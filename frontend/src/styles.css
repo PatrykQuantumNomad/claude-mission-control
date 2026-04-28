@@ -50,6 +50,27 @@
   --weight-semibold: 600;
 }
 
+/* ─────────────────────────────────────────────────────────── */
+/* Phase 9 Plan 05 (Q1=A locked) — light theme override.        */
+/* Minimal palette flip: only the core surface/text/border       */
+/* tokens are inverted. Visual polish (shadow tuning, gradient    */
+/* recolour, accent contrast) is deliberately deferred to v2 —    */
+/* the TEST-04 contract is "theme toggle persists", not          */
+/* "light theme is pixel-polished".                              */
+/* ─────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --cmc-bg: #ffffff;
+  --cmc-surface: #f4f4f8;
+  --cmc-surface-2: #e9e9f0;
+  --cmc-surface-3: #dcdce4;
+  --cmc-border: #cfcfd8;
+  --cmc-border-glow: #b8b8c4;
+
+  --cmc-text: #111118;
+  --cmc-text-dim: #4a4a58;
+  --cmc-text-subtle: #6b6b78;
+}
+
 html, body, #root { height: 100%; margin: 0; }
 
 body {
@@ -158,6 +179,30 @@ body {
 .cmc-cmdk-trigger:hover {
   color: var(--cmc-text);
   border-color: var(--cmc-border-glow);
+}
+
+/* Phase 9 Plan 05 — ThemeToggle button (compact icon button next to Cmd+K). */
+.cmc-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background-color: var(--cmc-surface-2);
+  border: 1px solid var(--cmc-border);
+  border-radius: var(--radius-sm);
+  color: var(--cmc-text-dim);
+  cursor: pointer;
+  padding: 0;
+  transition: color 150ms ease-out, border-color 150ms ease-out;
+}
+.cmc-theme-toggle:hover {
+  color: var(--cmc-text);
+  border-color: var(--cmc-border-glow);
+}
+.cmc-theme-toggle:focus-visible {
+  outline: 2px solid var(--cmc-accent-blue);
+  outline-offset: 2px;
 }
 
 .cmc-main {

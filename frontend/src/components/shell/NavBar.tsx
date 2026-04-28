@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { EmergencyStopBanner } from './EmergencyStopBanner'
+import { ThemeToggle } from './ThemeToggle'
 
 const routes = [
   { to: '/', label: 'Command' },
@@ -35,6 +36,9 @@ export function NavBar() {
       >
         <span aria-hidden>Cmd+K</span>
       </button>
+      {/* Phase 9 Plan 05 — TEST-04 / Q1=A. ThemeToggle ships at far right of
+          NavBar's action area. Persists via localStorage `cmc.theme`. */}
+      <ThemeToggle />
     </nav>
   )
 }
