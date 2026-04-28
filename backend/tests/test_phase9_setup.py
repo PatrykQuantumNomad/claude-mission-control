@@ -224,3 +224,111 @@ def test_doctor_render_includes_ansi_colors() -> None:
     assert "Hint: do y" in fail
     # Hint NOT rendered for ok status
     assert "Hint" not in ok
+
+
+# =========================================================================
+# install.sh + cc shim
+# =========================================================================
+
+
+def _repo_root() -> Path:
+    """backend/tests/test_phase9_setup.py → repo root (parents[2])."""
+    return Path(__file__).resolve().parents[2]
+
+
+def test_install_sh_dry_run_succeeds(tmp_path) -> None:
+    import subprocess
+
+    script = _repo_root() / "scripts" / "install.sh"
+    assert script.exists()
+    assert os.access(script, os.X_OK)
+    res = subprocess.run(
+        ["bash", str(script), "--dry-run", f"--prefix={tmp_path}/cc"],
+        capture_output=True,
+        timeout=60,
+    )
+    assert res.returncode == 0, res.stderr.decode()
+    out = res.stdout.decode()
+    assert "DRY-RUN" in out
+    assert "Python:" in out
+    # No actual files written under tmp_path/cc
+    assert not (tmp_path / "cc").exists()
+
+
+def test_install_sh_unknown_arg_exits_2(tmp_path) -> None:
+    import subprocess
+
+    script = _repo_root() / "scripts" / "install.sh"
+    res = subprocess.run(
+        ["bash", str(script), "--bogus-flag"],
+        capture_output=True,
+        timeout=10,
+    )
+    assert res.returncode == 2
+
+
+def test_cc_shim_help_lists_subcommands() -> None:
+    import subprocess
+
+    cc = _repo_root() / "scripts" / "cc"
+    assert cc.exists()
+    assert os.access(cc, os.X_OK)
+    # CMC_HOME points at repo so shim doesn't try to find the install dir
+    env = {**os.environ, "CMC_HOME": str(_repo_root())}
+    res = subprocess.run(
+        [str(cc), "help"], capture_output=True, env=env, timeout=10
+    )
+    assert res.returncode == 0, res.stderr.decode()
+    out = res.stdout.decode()
+    for sub in (
+        "start",
+        "stop",
+        "restart",
+        "status",
+        "doctor",
+        "logs",
+        "sync",
+        "setup",
+    ):
+        assert sub in out, f"subcommand {sub!r} missing from help"
+
+
+def test_cc_shim_unknown_subcommand_exits_2() -> None:
+    import subprocess
+
+    cc = _repo_root() / "scripts" / "cc"
+    env = {**os.environ, "CMC_HOME": str(_repo_root())}
+    res = subprocess.run(
+        [str(cc), "nonsense"], capture_output=True, env=env, timeout=5
+    )
+    assert res.returncode == 2
+
+
+def test_cc_shim_setup_without_arg_exits_2() -> None:
+    """`cc setup` with no sub-arg should print Usage + exit 2."""
+    import subprocess
+
+    cc = _repo_root() / "scripts" / "cc"
+    env = {**os.environ, "CMC_HOME": str(_repo_root())}
+    res = subprocess.run(
+        [str(cc), "setup"], capture_output=True, env=env, timeout=10
+    )
+    assert res.returncode == 2
+    assert "otel" in res.stderr.decode() or "otel" in res.stdout.decode()
+
+
+def test_start_sh_and_stop_sh_executable() -> None:
+    """SETUP-03 artifact contract: start.sh + stop.sh exist and are +x."""
+    for name in ("start.sh", "stop.sh"):
+        p = _repo_root() / "scripts" / name
+        assert p.exists(), f"{name} missing"
+        assert os.access(p, os.X_OK), f"{name} not executable"
+        text = p.read_text()
+        # All 4 daemon labels must appear in both scripts
+        for label in (
+            "com.cmc.server",
+            "com.cmc.dispatcher",
+            "com.cmc.telegram-notifier",
+            "com.cmc.telegram-handler",
+        ):
+            assert label in text, f"{name} missing label {label}"
