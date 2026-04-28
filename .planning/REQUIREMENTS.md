@@ -284,13 +284,20 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Setup & Operations
 
-- [ ] **SETUP-01**: install.sh handles Python detection (prefer homebrew 3.12+), venv creation, dependency install
-- [ ] **SETUP-02**: install.sh copies scripts, ui/dist, skills, creates layout under ~/.command-centre/
-- [ ] **SETUP-03**: install.sh writes launcher scripts (start.sh, stop.sh) and cc CLI shim
-- [ ] **SETUP-04**: install.sh renders and loads launchd plists from templates
-- [ ] **SETUP-05**: setup_otel.py backs up settings.json and merges 6 OTEL env keys (never overwrites existing)
-- [ ] **SETUP-06**: doctor.py runs zero-LLM deterministic health check with colored output (Python version, claude CLI, settings.json, projects dir, port, health API, launchd, Telegram)
-- [ ] **SETUP-07**: cc CLI shim supports start/stop/restart/doctor/setup otel/setup telegram/sync/logs subcommands
+- [x] **SETUP-01
+**: install.sh handles Python detection (prefer homebrew 3.12+), venv creation, dependency install
+- [x] **SETUP-02
+**: install.sh copies scripts, ui/dist, skills, creates layout under ~/.command-centre/
+- [x] **SETUP-03
+**: install.sh writes launcher scripts (start.sh, stop.sh) and cc CLI shim
+- [x] **SETUP-04
+**: install.sh renders and loads launchd plists from templates
+- [x] **SETUP-05
+**: setup_otel.py backs up settings.json and merges 6 OTEL env keys (never overwrites existing)
+- [x] **SETUP-06
+**: doctor.py runs zero-LLM deterministic health check with colored output (Python version, claude CLI, settings.json, projects dir, port, health API, launchd, Telegram)
+- [x] **SETUP-07
+**: cc CLI shim supports start/stop/restart/doctor/setup otel/setup telegram/sync/logs subcommands
 
 ### Visual Design
 
