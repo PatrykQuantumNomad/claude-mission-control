@@ -421,6 +421,125 @@ async def test_handler_text_relays_to_claude_with_env_scrub(
 
 
 @pytest.mark.asyncio
+async def test_handler_surfaces_anthropic_api_key_from_settings(
+    seeded_app, monkeypatch
+):
+    """SC4 (Phase 11): when settings.anthropic_api_key is set, the handler
+    injects it into the env dict passed to `claude -p` AFTER scrubbing any
+    shell-inherited (untrusted) value. Trust boundary = Settings, not shell."""
+    app, cm = seeded_app
+    captured_calls = []
+
+    def fake_run(cmd, **kwargs):
+        env = kwargs.get("env") or {}
+        captured_calls.append({
+            "cmd": cmd,
+            "env_anthropic": env.get("ANTHROPIC_API_KEY"),
+        })
+
+        class R:
+            returncode = 0
+            stdout = b"stub reply"
+            stderr = b""
+
+        return R()
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+    # Shell-inherited (untrusted) value should be scrubbed BEFORE Settings injects.
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-shell-leak-attempt")
+
+    update = {
+        "update_id": 1,
+        "message": {"from": {"id": 1}, "chat": {"id": 1}, "text": "hello"},
+    }
+    ans, ed, sent = [], [], []
+    tg = httpx.AsyncClient(
+        transport=_telegram_transport([[update], []], ans, ed, send_calls=sent)
+    )
+    local = httpx.AsyncClient(transport=_local_api_transport([]))
+    s = Settings(
+        _env_file=None,
+        anthropic_api_key="sk-from-settings",
+        telegram_bot_token="TKN",
+        telegram_chat_id="1",
+    )
+    async with cm:
+        sessions = app.state.sessions
+        try:
+            await handler.run_handler_loop(
+                sessions, s,
+                http_client=local,
+                telegram_client=tg,
+                max_iterations=2,
+            )
+        finally:
+            await tg.aclose()
+            await local.aclose()
+    assert captured_calls, "claude subprocess never invoked"
+    # Shell-inherited 'sk-shell-leak-attempt' was scrubbed; Settings value injected.
+    assert captured_calls[0]["env_anthropic"] == "sk-from-settings"
+
+
+@pytest.mark.asyncio
+async def test_handler_no_api_key_in_settings_keeps_env_clean(
+    seeded_app, monkeypatch
+):
+    """When settings.anthropic_api_key is None, env passed to subprocess MUST
+    NOT contain ANTHROPIC_API_KEY even if the shell exported one (existing
+    Pitfall P12 behavior preserved)."""
+    app, cm = seeded_app
+    captured_calls = []
+
+    def fake_run(cmd, **kwargs):
+        env = kwargs.get("env") or {}
+        captured_calls.append({
+            "cmd": cmd,
+            "has_anthropic": "ANTHROPIC_API_KEY" in env,
+        })
+
+        class R:
+            returncode = 0
+            stdout = b"stub reply"
+            stderr = b""
+
+        return R()
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-shell-leak")
+
+    update = {
+        "update_id": 1,
+        "message": {"from": {"id": 1}, "chat": {"id": 1}, "text": "hello"},
+    }
+    ans, ed, sent = [], [], []
+    tg = httpx.AsyncClient(
+        transport=_telegram_transport([[update], []], ans, ed, send_calls=sent)
+    )
+    local = httpx.AsyncClient(transport=_local_api_transport([]))
+    s = Settings(
+        _env_file=None,
+        anthropic_api_key=None,            # explicit
+        telegram_bot_token="TKN",
+        telegram_chat_id="1",
+    )
+    async with cm:
+        sessions = app.state.sessions
+        try:
+            await handler.run_handler_loop(
+                sessions, s,
+                http_client=local,
+                telegram_client=tg,
+                max_iterations=2,
+            )
+        finally:
+            await tg.aclose()
+            await local.aclose()
+    assert captured_calls, "claude subprocess never invoked"
+    # No Settings value → env stays scrubbed.
+    assert captured_calls[0]["has_anthropic"] is False
+
+
+@pytest.mark.asyncio
 async def test_handler_no_op_without_token():
     """When token/chat_id unset, run_handler_loop returns immediately."""
     s = Settings(_env_file=None)  # both unset → disabled
