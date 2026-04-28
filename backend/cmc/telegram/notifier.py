@@ -1,0 +1,311 @@
+"""TELE-02 + TELE-04: 30s notifier loop.
+
+Pitfall P6: dedup uses INSERT ON CONFLICT DO NOTHING (atomic) — never
+SELECT-then-INSERT (races would double-send).
+Pitfall P3: messages.py only produces plain text; api.send_message has
+no parse_mode arg.
+Pitfall P5: stamp_tick wrapped in try/finally so SAPI-04 sees liveness.
+"""
+from __future__ import annotations
+
+import logging
+from datetime import datetime, timedelta, timezone
+from typing import Any, Optional
+
+import httpx
+from sqlalchemy import and_, delete, or_, select
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from cmc.config import Settings
+from cmc.db.models.decisions import Decision
+from cmc.db.models.inbox import InboxMessage
+from cmc.db.models.notification_log import NotificationLog
+from cmc.db.models.schedules import Schedule
+from cmc.db.models.system_state import SystemState
+from cmc.db.models.tasks import Task
+from cmc.telegram import api, messages
+
+log = logging.getLogger(__name__)
+
+OVERDUE_GRACE_MINUTES = 5
+DECISION_LOOKBACK_HOURS = 24
+
+
+async def stamp_tick(sessions) -> None:
+    """Upsert system_state.telegram_last_tick_at = now isoformat (Pitfall P5)."""
+    now = datetime.now(timezone.utc)
+    async with sessions() as db:
+        await db.execute(
+            sqlite_insert(SystemState)
+            .values(
+                key="telegram_last_tick_at",
+                value=now.isoformat(),
+                updated_at=now,
+            )
+            .on_conflict_do_update(
+                index_elements=["key"],
+                set_={"value": now.isoformat(), "updated_at": now},
+            )
+        )
+        await db.commit()
+
+
+async def cleanup_rerun_failures(db: AsyncSession) -> int:
+    """Delete kind=failure rows for tasks that have left 'failed' state (rerun started).
+
+    Without this, a SECOND failure for the same task id collides with the
+    existing UNIQUE row and gets dropped → no re-notify. RESEARCH §D3 edge case.
+    Notifier-side housekeeping (NOT in tasks router) so the design lives next to
+    the code that observes the staleness.
+    """
+    rows = (
+        await db.execute(
+            select(NotificationLog.id, NotificationLog.entity_id)
+            .where(NotificationLog.kind == "failure")
+            .where(NotificationLog.status == "sent")
+        )
+    ).all()
+    stale: list[int] = []
+    for nid, entity_id in rows:
+        try:
+            tid = int(entity_id)
+        except (TypeError, ValueError):
+            continue
+        task = (
+            await db.execute(select(Task).where(Task.id == tid))
+        ).scalar_one_or_none()
+        # Only delete if task currently NOT in failed state (rerun started or done).
+        if task and task.status in ("running", "pending", "done"):
+            stale.append(nid)
+    if stale:
+        await db.execute(
+            delete(NotificationLog).where(NotificationLog.id.in_(stale))
+        )
+        await db.commit()
+    return len(stale)
+
+
+async def _gather_candidates(
+    db: AsyncSession, now: datetime
+) -> dict[str, list[Any]]:
+    """Returns {kind: [rows]} dict. No filtering against notification_log yet."""
+    decisions = (
+        await db.execute(
+            select(Decision)
+            .where(Decision.status == "pending")
+            .where(
+                Decision.created_at
+                >= now - timedelta(hours=DECISION_LOOKBACK_HOURS)
+            )
+        )
+    ).scalars().all()
+
+    approvals = (
+        await db.execute(select(Task).where(Task.status == "awaiting_approval"))
+    ).scalars().all()
+
+    failures = (
+        await db.execute(select(Task).where(Task.status == "failed"))
+    ).scalars().all()
+
+    overdue = (
+        await db.execute(
+            select(Schedule)
+            .where(Schedule.enabled == True)  # noqa: E712
+            .where(
+                Schedule.next_run_at
+                < now - timedelta(minutes=OVERDUE_GRACE_MINUTES)
+            )
+        )
+    ).scalars().all()
+
+    # InboxMessage uses `read: bool` (NOT a status column). Phase 4 schema:
+    # read=False means "unread / not yet picked up by the user". Tolerate
+    # AttributeError for forward compatibility with future schemas.
+    try:
+        inbox = (
+            await db.execute(
+                select(InboxMessage).where(InboxMessage.read == False)  # noqa: E712
+            )
+        ).scalars().all()
+    except Exception:  # pragma: no cover — defensive
+        inbox = []
+
+    return {
+        "decision": list(decisions),
+        "approval": list(approvals),
+        "failure": list(failures),
+        "overdue_schedule": list(overdue),
+        "inbox": list(inbox),
+    }
+
+
+async def _filter_blocked(
+    db: AsyncSession,
+    kind: str,
+    entity_ids: list[str],
+    chat_id: str,
+    now: datetime,
+) -> set[str]:
+    """Return entity_ids that already have an ACTIVE notif row (blocks re-send).
+
+    Active = status='sent' (always blocks) OR (status='snoozed' AND
+    snoozed_until > now). A snoozed-and-expired row does NOT block — that lets
+    re-notification fire after the snooze window closes.
+    """
+    if not entity_ids:
+        return set()
+    rows = (
+        await db.execute(
+            select(NotificationLog.entity_id)
+            .where(NotificationLog.kind == kind)
+            .where(NotificationLog.chat_id == chat_id)
+            .where(NotificationLog.entity_id.in_(entity_ids))
+            .where(
+                or_(
+                    NotificationLog.status == "sent",
+                    and_(
+                        NotificationLog.status == "snoozed",
+                        NotificationLog.snoozed_until > now,
+                    ),
+                )
+            )
+        )
+    ).scalars().all()
+    return {str(r) for r in rows}
+
+
+_FORMATTER = {
+    "decision": messages.format_decision,
+    "approval": messages.format_approval,
+    "failure": messages.format_failure,
+    "overdue_schedule": messages.format_overdue,
+    "inbox": messages.format_inbox,
+}
+
+
+async def _claim_and_send(
+    db: AsyncSession,
+    kind: str,
+    candidate,
+    chat_id: str,
+    token: str,
+    now: datetime,
+    http_client: Optional[httpx.AsyncClient],
+) -> bool:
+    """Atomic INSERT-OR-IGNORE → send → status writeback. Returns True if sent.
+
+    Pitfall P6: rowcount==0 means another concurrent tick won the slot
+    (shouldn't happen in a single-process oneshot, but the contract is the
+    same so we honor it).
+    """
+    entity_id = str(candidate.id)
+    stmt = (
+        sqlite_insert(NotificationLog)
+        .values(
+            kind=kind,
+            entity_id=entity_id,
+            chat_id=chat_id,
+            sent_at=now,
+            status="pending",
+        )
+        .on_conflict_do_nothing(
+            index_elements=["kind", "entity_id", "chat_id"]
+        )
+    )
+    result = await db.execute(stmt)
+    await db.commit()
+    if (result.rowcount or 0) == 0:
+        return False  # raced; another tick won the slot
+    # We own the slot. Format + send.
+    text, kb = _FORMATTER[kind](candidate)
+    try:
+        sent = await api.send_message(
+            token, chat_id, text, reply_markup=kb, client=http_client
+        )
+    except Exception as exc:
+        log.error(
+            "notifier.send_failed",
+            extra={"kind": kind, "entity_id": entity_id, "err": str(exc)},
+        )
+        await db.execute(
+            NotificationLog.__table__.update()
+            .where(
+                (NotificationLog.kind == kind)
+                & (NotificationLog.entity_id == entity_id)
+                & (NotificationLog.chat_id == chat_id)
+            )
+            .values(status="failed")
+        )
+        await db.commit()
+        return False
+    await db.execute(
+        NotificationLog.__table__.update()
+        .where(
+            (NotificationLog.kind == kind)
+            & (NotificationLog.entity_id == entity_id)
+            & (NotificationLog.chat_id == chat_id)
+        )
+        .values(
+            status="sent",
+            message_id=str(sent.get("message_id") or ""),
+        )
+    )
+    await db.commit()
+    return True
+
+
+async def run_one_cycle(
+    sessions,
+    settings: Settings,
+    *,
+    http_client: Optional[httpx.AsyncClient] = None,
+) -> int:
+    """One launchd-driven notifier tick. Returns count of notifications sent.
+
+    Pitfall P5: stamp_tick runs BEFORE the no-op early return so liveness
+    is observable even when telegram is disabled.
+    """
+    # Pitfall P5: stamp tick first so SAPI-04 sees liveness even on early return.
+    await stamp_tick(sessions)
+
+    if not settings.telegram_bot_token or not settings.telegram_chat_id:
+        log.info(
+            "notifier.disabled — telegram_bot_token or telegram_chat_id unset"
+        )
+        return 0
+
+    token = settings.telegram_bot_token
+    chat_id = settings.telegram_chat_id
+
+    sent_count = 0
+    now = datetime.now(timezone.utc)
+    async with sessions() as db:
+        # Rerun cleanup BEFORE candidate scan — RESEARCH §D3 edge case.
+        await cleanup_rerun_failures(db)
+
+        candidates = await _gather_candidates(db, now)
+        for kind in (
+            "decision",
+            "approval",
+            "failure",
+            "overdue_schedule",
+            "inbox",
+        ):
+            rows = candidates[kind]
+            if not rows:
+                continue
+            blocked = await _filter_blocked(
+                db, kind, [str(r.id) for r in rows], chat_id, now
+            )
+            for r in rows:
+                if str(r.id) in blocked:
+                    continue
+                ok = await _claim_and_send(
+                    db, kind, r, chat_id, token, now, http_client
+                )
+                if ok:
+                    sent_count += 1
+    log.info("notifier.cycle_complete", extra={"sent": sent_count})
+    return sent_count
