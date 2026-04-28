@@ -332,6 +332,48 @@ async def test_task06_rerun_illegal(client) -> None:
     assert "not in failed state" in r.json()["error"].lower()
 
 
+# ---------- TASK-08 (Phase 10): POST /api/tasks/{id}/reject ----------
+
+
+@pytest.mark.asyncio
+async def test_task_reject_legal(client) -> None:
+    """awaiting_approval -> cancelled, returns 200 with {id, status='cancelled'}."""
+    task_id = await _seed_task(client, title="t-rej", status="awaiting_approval")
+    r = await client.post(f"/api/tasks/{task_id}/reject")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["id"] == task_id
+    assert body["status"] == "cancelled"
+
+    sessionmaker = client._transport.app.state.sessions
+    from sqlalchemy import select as _sel
+    async with sessionmaker() as db:
+        row = (await db.execute(_sel(Task).where(Task.id == task_id))).scalar_one()
+        assert row.status == "cancelled"
+
+
+@pytest.mark.asyncio
+async def test_task_reject_illegal(client) -> None:
+    """Source state must be awaiting_approval; pending -> 400, no change."""
+    task_id = await _seed_task(client, title="t-rej-bad", status="pending")
+    r = await client.post(f"/api/tasks/{task_id}/reject")
+    assert r.status_code == 400, r.text
+    assert "not awaiting approval" in r.json()["error"].lower()
+
+    sessionmaker = client._transport.app.state.sessions
+    from sqlalchemy import select as _sel
+    async with sessionmaker() as db:
+        row = (await db.execute(_sel(Task).where(Task.id == task_id))).scalar_one()
+        assert row.status == "pending"  # unchanged
+
+
+@pytest.mark.asyncio
+async def test_task_reject_404(client) -> None:
+    r = await client.post("/api/tasks/999999/reject")
+    assert r.status_code == 404
+    assert r.json()["error"] == "task not found"
+
+
 # ---------- TASK-07: POST /api/dispatcher/trigger ----------
 
 
