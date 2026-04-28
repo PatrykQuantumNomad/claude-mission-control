@@ -979,47 +979,55 @@ async def emergency_stop(db: AsyncSession = Depends(get_session)):
 **If this table is empty:** All claims in this research were verified or cited — no user confirmation needed.
 *This table is non-empty. The 7 assumptions above are non-blocking for planning but worth surfacing in /gsd-discuss-phase before locking task scope.*
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Queue file format & path for HITL-03 + HITL-07**
    - What we know: SESS-06 (Plan 03-03) uses `repo_root() / .tmp/mission-control-queue/messages/{sid}.jsonl` with one JSON record per line `{ts, session_id, message}`. The dispatcher (Phase 8) tails this directory.
    - What's unclear: HITL-03 / HITL-07 file naming and record shape are not pre-specified in the requirements text.
    - Recommendation: extend the established pattern verbatim — `decisions/{id}.jsonl` with `{ts, decision_id, answer, answered_by}`; `inbox/{id}.jsonl` with `{ts, inbox_id, reply}`. Lock this in Plan 04-01 (Wave 0) so the four router plans share the writer.
+   - **RESOLVED:** repo_root() / .tmp/mission-control-queue/{decisions,inbox}/{id}.jsonl per Plan 04-01 cmc.core.queue
 
 2. **TASK-03 status transition matrix**
    - What we know: REQUIREMENTS.md TASK-03 says "status transition validation" but does not enumerate legal transitions.
    - What's unclear: Is `running → awaiting_approval` ever legal? (e.g., dispatcher escalates mid-task to require approval). Is `done → pending` legal (manual rerun of a successful task)?
    - Recommendation: Lock the §6 Pattern 4 matrix in research as the v1 contract; add an explicit "v2 may extend" comment. Phase 8 dispatcher will discover whether the matrix is too tight; we can extend in Phase 8 plan.
+   - **RESOLVED:** Locked matrix in cmc.tasks.transitions per Plan 04-01 (research §6 Pattern 4)
 
 3. **ESTOP-04 resume: clear flag value or DELETE row?**
    - What we know: SAPI-03 whitelists `emergency_stop`. Phase 3 patterns set explicit values.
    - What's unclear: Whether SAPI-03 should return `null` (absent) or `'0'` for the cleared state.
    - Recommendation: UPDATE the row to `value='0'` (don't DELETE). Avoids the "absent vs explicitly cleared" ambiguity in the dashboard. The cost is one extra row, which is fine.
+   - **RESOLVED:** UPDATE value='0', do not delete row (Plan 04-05)
 
 4. **SCHD-03 cron-change: clear next_run_at AND recompute, or recompute only?**
    - What we know: REQUIREMENTS.md says "clears next_run_at on cron change". The dispatcher will recompute on its next heartbeat anyway (DISP-01 materializes schedules).
    - What's unclear: Whether the API should pre-compute the new `next_run_at` immediately for the dashboard's countdown widget.
    - Recommendation: do BOTH — clear, then recompute via `next_run(new_cron, now)`. This makes the SCHD-02 and SCHD-03 paths produce the same outcome and keeps the dashboard countdown immediately accurate. Document as the locked behavior.
+   - **RESOLVED:** Clear AND recompute next_run_at when cron changes (Plan 04-04)
 
 5. **TASK-07 dispatcher binary location**
    - What we know: REQUIREMENTS.md TASK-07 says "spawns one-shot dispatcher run via subprocess.Popen". The actual dispatcher script is a Phase 8 deliverable.
    - What's unclear: What does Phase 4 launch? A no-op stub? An imported module that doesn't exist yet?
    - Recommendation: Add a Settings field `dispatcher_oneshot_cmd: list[str]` defaulting to `["python", "-m", "cmc.dispatcher.oneshot"]`. Phase 4 ships the trigger endpoint + a stub `cmc.dispatcher.oneshot:main()` that just exits 0 with a logged "stub". Phase 8 replaces the stub with the real implementation. Tests mock subprocess.Popen.
+   - **RESOLVED:** Settings.dispatcher_oneshot_cmd defaults to [sys.executable, '-m', 'cmc.dispatcher.oneshot']; stub in 04-01, real in Phase 8
 
 6. **Phase 8 PID file format and lifecycle**
    - What we know: REQUIREMENTS.md DISP-03 says PIDs live at `.tmp/mission-control-queue/pids/`.
    - What's unclear: file naming convention (`{task_id}.pid`? `{pid}.pid`? `{session_id}.pid`?), file content (`PID\n` only? PID + claude argv?), cleanup (sweep on exit? sweep stale files on start?).
    - Recommendation: Phase 4 ESTOP-01 just iterates `*.pid` files and reads the first integer line. Phase 8 owns the format. Phase 4 must be tolerant of garbage files (skip non-int + log).
+   - **RESOLVED:** Phase 4 tolerates malformed/garbage PID files (try/except per file); format finalized in Phase 8
 
 7. **Inbox INSERT idempotency**
    - What we know: `inbox` table has no partial unique index (verified inbox.py L44–48).
    - What's unclear: Should HITL-05 dedup on (session_id, subject)? (It currently doesn't.)
    - Recommendation: No dedup in v1. The dispatcher (Phase 8 DISP-08) will need to be careful not to spam the inbox, but that's a producer-side problem, not an API-side problem.
+   - **RESOLVED:** No dedup in v1; inserts always succeed (Plan 04-02). Phase 8 producer side enforces if needed
 
 8. **Anthropic SDK availability in the test environment**
    - What we know: anthropic 0.97.0 is on PyPI; we can install it.
    - What's unclear: Whether the test environment has network access to Anthropic's API. (Almost certainly NO during CI.)
    - Recommendation: Mock `AsyncAnthropic.messages.create` in tests via `unittest.mock.AsyncMock`. The real-network path is verified manually during the plan checkpoint (or never — the live call is rare).
+   - **RESOLVED:** Test fixture mocks anthropic.AsyncAnthropic in conftest.py per Plan 04-01 Task 3
 
 ## Environment Availability
 

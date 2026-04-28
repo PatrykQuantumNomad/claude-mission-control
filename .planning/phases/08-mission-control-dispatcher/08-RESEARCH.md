@@ -1202,7 +1202,7 @@ def test_marker_parser_inline_backtick_no_match():
 | A9 | Materializer's `Task(**s.task_template, ...)` is safe — task_template only contains valid Task field names | Pattern 2 / Pitfall 7 | MEDIUM. SCHD-02 doesn't strictly validate task_template against TaskCreate — Pydantic schema is loose dict[str, Any]. Plan must wrap in try/except and log+continue on TypeError. Optionally tighten SCHD-02 retroactively (out of scope for Phase 8). |
 | A10 | `claude --bare` is the right flag for scripted hermeticity | Pattern 4 / Example 2 | LOW. [CITED: code.claude.com/docs/en/headless — "Bare mode is useful for CI and scripts where you need the same result on every machine"]. v1 dispatcher is a CI-like context — use bare. Operator who wants project CLAUDE.md context can ship that via task description. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **DISP-08 — direct DB INSERT vs httpx POST to /api/inbox**
    - What we know: REQUIREMENTS.md DISP-08 says "posts to /api/inbox" verbatim. Direct DB write is faster and avoids the dep promotion of httpx → runtime.
