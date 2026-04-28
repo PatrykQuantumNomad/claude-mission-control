@@ -24,6 +24,7 @@ from cmc.api.routes.health import router as health_router
 from cmc.api.routes.hitl import router as hitl_router
 from cmc.api.routes.ingest import router as ingest_router
 from cmc.api.routes.mcp import router as mcp_router
+from cmc.api.routes.notifications import router as notifications_router
 from cmc.api.routes.observability import router as observability_router
 from cmc.api.routes.schedules import router as schedules_router
 from cmc.api.routes.sessions import router as sessions_router
@@ -58,6 +59,7 @@ def all_routers() -> list[APIRouter]:
         hitl_router,
         tasks_router,
         schedules_router,
+        notifications_router,
     ]
 
 

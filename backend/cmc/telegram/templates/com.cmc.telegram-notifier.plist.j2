@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.cmc.telegram-notifier</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>${python_path}</string>
+        <string>-m</string>
+        <string>cmc.telegram.oneshot_notifier</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>${repo_root}</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+        <key>PATH</key>
+        <string>${python_path_dir}:/usr/bin:/bin</string>
+    </dict>
+
+    <key>StartInterval</key>
+    <integer>30</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>${repo_root}/.tmp/mission-control-queue/dispatcher-logs/telegram-notifier.out</string>
+
+    <key>StandardErrorPath</key>
+    <string>${repo_root}/.tmp/mission-control-queue/dispatcher-logs/telegram-notifier.err</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>
