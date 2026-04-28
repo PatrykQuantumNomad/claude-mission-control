@@ -400,7 +400,17 @@ async def test_handler_text_relays_to_claude_with_env_scrub(
         transport=_telegram_transport([[update], []], ans, ed, send_calls=sent)
     )
     local = httpx.AsyncClient(transport=_local_api_transport([]))
-    s = Settings(_env_file=None, telegram_bot_token="TKN", telegram_chat_id="1")
+    # Phase 11: explicit anthropic_api_key=None keeps the scrub-only path —
+    # without this, pydantic-settings would pick up the monkeypatched env var
+    # at Settings construction time and Settings would consider that the
+    # trusted value. This test specifically asserts the no-Settings-value
+    # scrub-only path.
+    s = Settings(
+        _env_file=None,
+        anthropic_api_key=None,
+        telegram_bot_token="TKN",
+        telegram_chat_id="1",
+    )
     async with cm:
         sessions = app.state.sessions
         try:

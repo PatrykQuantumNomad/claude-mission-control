@@ -6,8 +6,9 @@ Pitfall P2: persist telegram_offset BEFORE processing batch (crash safety
 already-processed updates because Telegram's getUpdates contract is "give
 me everything with update_id >= offset").
 
-Pitfall P12: scrub ANTHROPIC_API_KEY from the env passed to subprocess
-when relaying text to `claude -p` (mirrors cmc.dispatcher.run_classic).
+Pitfall P12 (Phase 11 update): shell-inherited ANTHROPIC_API_KEY is
+scrubbed (untrusted); Settings-sourced ANTHROPIC_API_KEY is re-injected
+(trusted). Trust boundary is Settings, not os.environ.
 
 Pitfall P3: reply text is sent via api.send_message which deliberately
 does NOT accept a parse_mode parameter (plain text only). Do not bypass
@@ -99,16 +100,21 @@ def is_user_allowed(from_id: int | str, settings: Settings) -> bool:
 def relay_text_to_claude(text: str, settings: Settings) -> str:
     """Spawn `claude -p TEXT --bare --output-format text` synchronously.
 
-    Pitfall P12: ANTHROPIC_API_KEY is popped from the env BEFORE spawn so
-    a malicious prompt cannot exfiltrate the operator's key via a rogue
-    MCP server (mirrors cmc.dispatcher.run_classic).
+    Pitfall P12 (Phase 11 trust-boundary refinement): shell-inherited
+    ANTHROPIC_API_KEY values are scrubbed (untrusted source). Settings-sourced
+    values (loaded from ~/.command-centre/.env via Settings.env_file tuple)
+    are then re-injected because Settings IS the trust boundary. Dispatcher
+    run_classic.py intentionally does NOT do this re-inject — it uses
+    subscription auth via ~/.claude/, not API key.
 
     Returns the stdout text (or a friendly error string on
     timeout/non-zero exit). Always returns a string — never raises —
     because the caller sends the result back to Telegram regardless.
     """
     env = os.environ.copy()
-    env.pop("ANTHROPIC_API_KEY", None)
+    env.pop("ANTHROPIC_API_KEY", None)            # scrub shell-inherited (untrusted)
+    if settings.anthropic_api_key:                # surface from Settings (trusted)
+        env["ANTHROPIC_API_KEY"] = settings.anthropic_api_key
     cmd = [
         str(settings.claude_bin), "-p", text, "--bare",
         "--output-format", "text",
