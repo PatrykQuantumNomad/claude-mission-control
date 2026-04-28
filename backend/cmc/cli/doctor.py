@@ -223,10 +223,26 @@ def _check_health_endpoint() -> Check:
 
 
 def _check_launchd_jobs() -> Check:
+    """Check that all 4 daemons are loaded; long-running ones must also be running.
+
+    com.cmc.server         → KeepAlive=true   → expect state=running
+    com.cmc.telegram-handler → KeepAlive=true → expect state=running
+    com.cmc.dispatcher     → StartInterval=120 → expect loaded (oneshot)
+    com.cmc.telegram-notifier → StartInterval=30 → expect loaded (oneshot)
+
+    Telegram daemons are skipped silently if telegram_bot_token is unset.
+    """
     uid = os.getuid()
     all_ok = True
     details: list[str] = []
-    for label in ("com.cmc.server", "com.cmc.dispatcher"):
+    long_running = {"com.cmc.server", "com.cmc.telegram-handler"}
+    oneshots = {"com.cmc.dispatcher", "com.cmc.telegram-notifier"}
+    telegram_labels = {"com.cmc.telegram-handler", "com.cmc.telegram-notifier"}
+    telegram_configured = bool(os.environ.get("TELEGRAM_BOT_TOKEN"))
+
+    for label in long_running | oneshots:
+        if label in telegram_labels and not telegram_configured:
+            continue
         try:
             res = subprocess.run(
                 ["launchctl", "print", f"gui/{uid}/{label}"],
@@ -237,11 +253,20 @@ def _check_launchd_jobs() -> Check:
             if res.returncode != 0:
                 all_ok = False
                 details.append(f"{label}=missing")
-            elif "state = running" in out:
-                details.append(f"{label}=running")
+                continue
+            running = "state = running" in out
+            if label in long_running:
+                if running:
+                    details.append(f"{label}=running")
+                else:
+                    all_ok = False
+                    details.append(f"{label}=loaded-but-not-running")
             else:
-                all_ok = False
-                details.append(f"{label}=loaded-but-not-running")
+                # Oneshot: loaded is the expected resting state between ticks
+                if running:
+                    details.append(f"{label}=running (mid-tick)")
+                else:
+                    details.append(f"{label}=loaded")
         except Exception as exc:
             all_ok = False
             details.append(f"{label}={exc}")

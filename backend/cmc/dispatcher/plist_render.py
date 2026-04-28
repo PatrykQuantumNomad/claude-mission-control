@@ -44,11 +44,12 @@ def render_plist(python_path: str | Path, repo_root_path: str | Path) -> str:
           raise; they pass through as literals. In practice all three vars
           are always provided, but defensive substitution avoids brittle
           installer scripts.
-        - Path.resolve() is called on inputs so relative paths from the
-          installer become absolute before substitution.
+        - Path.absolute() is used (NOT resolve()) so we keep the user-supplied
+          venv bin directory. resolve() follows symlinks into homebrew's Cellar,
+          which then defeats the venv's `cmc` import path.
     """
-    py = Path(python_path).resolve()
-    rr = Path(repo_root_path).resolve()
+    py = Path(python_path).absolute()
+    rr = Path(repo_root_path).absolute()
     tmpl_text = (
         files("cmc.dispatcher.templates") / "com.cmc.dispatcher.plist.j2"
     ).read_text()

@@ -56,8 +56,10 @@ def render_plist(
         raise ValueError(
             f"unknown variant {variant!r}; expected one of {list(_VARIANTS)}"
         )
-    py = Path(python_path).resolve()
-    rr = Path(repo_root_path).resolve()
+    # absolute() (NOT resolve()) — resolve() follows the venv python symlink
+    # into homebrew's Cellar, which has no `cmc` module. See app/plist_render.py.
+    py = Path(python_path).absolute()
+    rr = Path(repo_root_path).absolute()
     tmpl_text = (
         files("cmc.telegram.templates") / _VARIANTS[variant]
     ).read_text()

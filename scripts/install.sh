@@ -130,8 +130,11 @@ if [[ "$INSTALL_MODE" -eq 1 ]]; then
         "$REPO_ROOT/backend/" "$DEST/backend/"
 
     if [[ -d "$REPO_ROOT/frontend/dist" ]]; then
-        echo "→ rsync $REPO_ROOT/frontend/dist → $DEST/ui/dist"
-        rsync -a --delete "$REPO_ROOT/frontend/dist/" "$DEST/ui/dist/"
+        # NB: rsync into $DEST/frontend/dist (NOT ui/dist) so cmc.core.paths.repo_root()
+        # finds both `backend/` and `frontend/` siblings under the install root and
+        # resolves alembic_ini_path / static_dir correctly.
+        echo "→ rsync $REPO_ROOT/frontend/dist → $DEST/frontend/dist"
+        rsync -a --delete "$REPO_ROOT/frontend/dist/" "$DEST/frontend/dist/"
     fi
 
     if [[ -d "$REPO_ROOT/skills" ]]; then
