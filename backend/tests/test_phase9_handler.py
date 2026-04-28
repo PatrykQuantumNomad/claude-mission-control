@@ -66,7 +66,12 @@ def _local_api_transport(captured, *, resolve_status=200):
 
     def h(req: httpx.Request) -> Response:
         url_path = str(req.url).replace("http://127.0.0.1:8765", "")
-        captured.append({"method": req.method, "url": str(req.url), "path": url_path})
+        captured.append({
+            "method": req.method,
+            "url": str(req.url),
+            "path": url_path,
+            "body": req.read().decode() if req.method in ("POST", "PATCH", "PUT") else "",
+        })
         if "/_resolve/" in url_path:
             if resolve_status != 200:
                 return Response(resolve_status, json={"detail": "no match"})
@@ -192,6 +197,94 @@ async def test_handler_callback_approve_task_dispatches_post(seeded_app):
     )
     assert len(ans) >= 1
     assert len(ed) >= 1  # buttons stripped on success
+
+
+@pytest.mark.asyncio
+async def test_handler_callback_reject_task_dispatches_post(seeded_app):
+    """SC2: reject_task:42 → POST /api/tasks/42/reject, ack, edit-strip buttons.
+
+    Closes v1.0 audit gap: 🛑 Reject button on Telegram approval-card was 404'ing
+    because the backend route did not exist (Plan 10-01 Task 1 added it).
+    """
+    app, cm = seeded_app
+    update = {
+        "update_id": 1,
+        "callback_query": {
+            "id": "cb1",
+            "from": {"id": 1},
+            "message": {"message_id": 7, "chat": {"id": 1}},
+            "data": "reject_task:42",
+        },
+    }
+    ans, ed = [], []
+    tg = httpx.AsyncClient(transport=_telegram_transport([[update], []], ans, ed))
+    local_calls = []
+    local = httpx.AsyncClient(transport=_local_api_transport(local_calls))
+    s = Settings(telegram_bot_token="TKN", telegram_chat_id="1")
+    async with cm:
+        sessions = app.state.sessions
+        try:
+            await handler.run_handler_loop(
+                sessions, s,
+                http_client=local,
+                telegram_client=tg,
+                max_iterations=2,
+            )
+        finally:
+            await tg.aclose()
+            await local.aclose()
+    assert any(
+        c["method"] == "POST" and "/api/tasks/42/reject" in c["url"]
+        for c in local_calls
+    )
+    assert len(ans) >= 1            # callback acknowledged
+    assert len(ed) >= 1             # buttons stripped on success (handler.py:241-252)
+
+
+@pytest.mark.asyncio
+async def test_handler_callback_answer_decision_tags_telegram_provenance(seeded_app):
+    """SC3 wired: callback answer_decision:7:yes → POST body includes answered_by=telegram.
+
+    Pure-function coverage in test_phase9_telegram_unit.py guards dash_router.route();
+    this test guards the handler→http_client wiring (the body must actually be
+    sent over the wire, not just constructed).
+    """
+    app, cm = seeded_app
+    update = {
+        "update_id": 1,
+        "callback_query": {
+            "id": "cb1",
+            "from": {"id": 1},
+            "message": {"message_id": 7, "chat": {"id": 1}},
+            "data": "answer_decision:7:yes",
+        },
+    }
+    ans, ed = [], []
+    tg = httpx.AsyncClient(transport=_telegram_transport([[update], []], ans, ed))
+    local_calls = []
+    local = httpx.AsyncClient(transport=_local_api_transport(local_calls))
+    s = Settings(telegram_bot_token="TKN", telegram_chat_id="1")
+    async with cm:
+        sessions = app.state.sessions
+        try:
+            await handler.run_handler_loop(
+                sessions, s,
+                http_client=local,
+                telegram_client=tg,
+                max_iterations=2,
+            )
+        finally:
+            await tg.aclose()
+            await local.aclose()
+
+    post_call = next(
+        c for c in local_calls
+        if c["method"] == "POST" and "/api/decisions/7/answer" in c["url"]
+    )
+    import json as _json
+    body = _json.loads(post_call["body"])
+    assert body == {"answer": "yes", "answered_by": "telegram"}
+    assert len(ans) >= 1
 
 
 @pytest.mark.asyncio
