@@ -8,6 +8,8 @@ Plan 07 (smoke): FOUND-06 (SPA root + deep link + /api/health not shadowed)
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from sqlalchemy import text
 
@@ -99,39 +101,65 @@ def test_settings_anthropic_api_key_default_none():
     assert s.anthropic_api_key is None
 
 
-def test_settings_loads_command_centre_env(tmp_path, monkeypatch):
-    """SC3+SC4 root (Phase 11): env_file tuple includes ~/.command-centre/.env.
+def test_settings_model_config_includes_command_centre_env():
+    """SC3+SC4 root (Phase 11): Settings.model_config.env_file is a tuple
+    containing both the repo `.env` AND a string ending in
+    `.command-centre/.env` resolved against the operator's actual home.
 
-    A launchd-spawned daemon (which does not inherit the operator's shell env)
-    must still be able to read ANTHROPIC_API_KEY out of the install-mode
-    config file. This test simulates that by:
-      - pointing Path.home() at a tmp dir,
-      - writing a fake ~/.command-centre/.env with ANTHROPIC_API_KEY=sk-from-cmd,
-      - cwd into a sibling dir so the repo-mode `.env` does NOT shadow.
+    Why a structural test, not a behavioral file-load test? The env_file
+    tuple is computed at CLASS-definition time (using Path.home() at import
+    time), so monkeypatching Path.home in a test cannot shift the tuple.
+    The behavioral guarantee — that pydantic-settings loads multiple env
+    files in order with rightmost-wins precedence — is provided BY
+    pydantic-settings itself (documented contract). What WE need to verify
+    is that we built the tuple correctly.
     """
-    fake_home = tmp_path / "home"
-    cmd_env = fake_home / ".command-centre" / ".env"
+    env_files = Settings.model_config.get("env_file")
+    assert isinstance(env_files, tuple), (
+        f"env_file must be a tuple for multi-file load, got {type(env_files)!r}"
+    )
+    assert len(env_files) == 2, f"expected (.env, ~/.command-centre/.env); got {env_files!r}"
+    assert env_files[0] == ".env", f"leftmost must be repo .env; got {env_files[0]!r}"
+    assert env_files[1].endswith(".command-centre/.env"), (
+        f"rightmost must be ~/.command-centre/.env; got {env_files[1]!r}"
+    )
+    # And the resolved string must be an absolute path under home — not a tilde.
+    assert env_files[1].startswith(str(Path.home())), (
+        f"rightmost must be tilde-expanded against Path.home(); got {env_files[1]!r}"
+    )
+
+
+def test_settings_loads_explicit_command_centre_env(tmp_path, monkeypatch):
+    """SC3+SC4 root: when an explicit env_file path pointing at a fake
+    ~/.command-centre/.env is supplied via the _env_file kwarg, Settings
+    surfaces ANTHROPIC_API_KEY from it.
+
+    This proves the FIELD wiring is correct (pydantic-settings will pick up
+    ANTHROPIC_API_KEY from any env file we point it at). Combined with the
+    structural test above (model_config tuple is shaped correctly), the
+    SC3+SC4 root behavior is fully covered.
+    """
+    cmd_env = tmp_path / ".command-centre" / ".env"
     _write_env(cmd_env, "ANTHROPIC_API_KEY=sk-from-cmd\n")
-    monkeypatch.setattr(Path, "home", lambda: fake_home)
-    monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    s = Settings()
+    s = Settings(_env_file=str(cmd_env))
     assert s.anthropic_api_key == "sk-from-cmd"
 
 
 def test_settings_env_file_tuple_rightmost_wins(tmp_path, monkeypatch):
-    """env_file tuple precedence: ~/.command-centre/.env (rightmost) overrides repo .env."""
-    fake_home = tmp_path / "home"
-    repo = tmp_path / "repo"
-    cmd_env = fake_home / ".command-centre" / ".env"
-    repo_env = repo / ".env"
-    _write_env(cmd_env, "ANTHROPIC_API_KEY=sk-from-install\n")
+    """env_file tuple precedence: rightmost file overrides leftmost.
+
+    Verified directly by passing the pair as the `_env_file` kwarg (which
+    overrides the class-level tuple). This bypasses the Path.home()
+    resolution timing issue above and proves pydantic-settings honors
+    rightmost-wins on the tuple shape we use.
+    """
+    repo_env = tmp_path / "repo" / ".env"
+    cmd_env = tmp_path / "home" / ".command-centre" / ".env"
     _write_env(repo_env, "ANTHROPIC_API_KEY=sk-from-repo\n")
-    monkeypatch.setattr(Path, "home", lambda: fake_home)
-    monkeypatch.chdir(repo)
-    # Also clear any inherited env var that would shadow file loading.
+    _write_env(cmd_env, "ANTHROPIC_API_KEY=sk-from-install\n")
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    s = Settings()
+    s = Settings(_env_file=(str(repo_env), str(cmd_env)))
     assert s.anthropic_api_key == "sk-from-install"
 
 

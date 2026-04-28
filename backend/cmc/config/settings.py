@@ -28,7 +28,15 @@ from cmc.core.paths import resolve_under_repo_root
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        # env_file is a TUPLE so BOTH the repo-mode `.env` AND the install-mode
+        # `~/.command-centre/.env` resolve. pydantic-settings loads files
+        # left-to-right with rightmost-wins precedence — install env overrides
+        # repo env when both define the same var (mirrors
+        # cmc.cli.setup_telegram._resolve_env_path precedence).
+        # NOTE: pydantic-settings does NOT auto-expand `~`; pass an already-
+        # resolved Path. Path.home() is process-bound; tests can override via
+        # monkeypatch.setattr(Path, "home", ...).
+        env_file=(".env", str(Path.home() / ".command-centre" / ".env")),
         env_file_encoding="utf-8",
         extra="ignore",          # don't error on unknown vars
         case_sensitive=False,
@@ -128,6 +136,20 @@ class Settings(BaseSettings):
     telegram_notifier_interval_s: int = Field(
         default=30,
         description="Notifier oneshot StartInterval; matches plist template",
+    )
+
+    # Phase 11 — TELE-05 ANTHROPIC_API_KEY surface for the Telegram handler relay.
+    # Loaded via Settings (env_file tuple) so launchd-spawned daemons can read it
+    # without the operator's shell env. Dispatcher run_classic.py INTENTIONALLY
+    # does NOT use this — it scrubs the key for Pitfall 8 (subscription-auth path).
+    anthropic_api_key: Optional[str] = Field(
+        default=None,
+        description=(
+            "Read from ~/.command-centre/.env via Settings (NOT bare os.environ). "
+            "Surfaced into the env dict passed to `claude -p` by the Telegram "
+            "handler (TELE-05). Dispatcher classic-runner does NOT use this — it "
+            "scrubs the key for Pitfall 8 (subscription-auth)."
+        ),
     )
 
     @field_validator("telegram_allowed_user_ids", mode="before")
