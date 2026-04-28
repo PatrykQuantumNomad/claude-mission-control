@@ -58,9 +58,22 @@ async def _bootstrap_db(test_settings):
 
 
 def _mock_client(captured: list):
-    """httpx.AsyncClient backed by MockTransport that captures every request."""
+    """httpx.AsyncClient backed by MockTransport.
+
+    Captures Telegram /sendMessage calls into `captured` (the test contract
+    pre-Phase-11). Phase 11 SC5 added a GET /api/inbox?unread=true probe
+    inside notifier._gather_candidates — that probe is answered with an
+    empty {items: []} payload here so it is invisible to tests that count
+    Telegram sends. Fall-through 200 OK for everything else preserves the
+    catch-all behavior pre-Phase-11 tests rely on.
+    """
 
     def handler(req: httpx.Request) -> Response:
+        # Phase 11 SC5: serve the notifier's inbox probe with an empty
+        # response so existing dedup/snooze/full-cycle tests that don't
+        # exercise the inbox path stay deterministic.
+        if req.url.path == "/api/inbox" and req.method == "GET":
+            return Response(200, json={"items": [], "total": 0})
         body = req.content.decode("utf-8") if req.content else ""
         captured.append({"url": str(req.url), "json": body})
         return Response(

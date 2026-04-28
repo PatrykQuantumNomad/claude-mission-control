@@ -19,7 +19,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from cmc.config import Settings
 from cmc.db.models.decisions import Decision
-from cmc.db.models.inbox import InboxMessage
 from cmc.db.models.notification_log import NotificationLog
 from cmc.db.models.schedules import Schedule
 from cmc.db.models.system_state import SystemState
@@ -30,6 +29,9 @@ log = logging.getLogger(__name__)
 
 OVERDUE_GRACE_MINUTES = 5
 DECISION_LOOKBACK_HOURS = 24
+
+# Phase 11 SC5: HTTP-symmetric inbox discovery — mirrors handler.py:54.
+LOCAL_API = "http://127.0.0.1:8765"
 
 
 async def stamp_tick(sessions) -> None:
@@ -86,10 +88,56 @@ async def cleanup_rerun_failures(db: AsyncSession) -> int:
     return len(stale)
 
 
+async def _fetch_unread_inbox(
+    http_client: Optional[httpx.AsyncClient],
+) -> list[Any]:
+    """SC5 (Phase 11): GET /api/inbox?unread=true. Replaces the direct
+    InboxMessage SELECT for HTTP symmetry — the notifier becomes a pure
+    HTTP consumer of inbox state, mirroring the dispatcher's "API state
+    via API, never direct DB" pattern.
+
+    Returns a list of attribute-accessible objects (SimpleNamespace) shaped
+    like InboxListItem dicts, consumable by _FORMATTER['inbox']
+    (messages.format_inbox uses getattr/.id/.body/etc).
+
+    Empty list on HTTP failure (server down, network blip, non-2xx) —
+    graceful degrade preserves the pre-Phase-11 try/except invariant.
+    """
+    if http_client is None:
+        # Notifier must always have a client for HTTP discovery in production
+        # (run_one_cycle constructs one when caller doesn't pass it). Returning
+        # [] mirrors the pre-Phase-11 try/except graceful-degrade contract.
+        return []
+    try:
+        r = await http_client.get(
+            f"{LOCAL_API}/api/inbox",
+            params={"unread": "true", "limit": 200},
+        )
+        r.raise_for_status()
+        items = r.json().get("items", [])
+        # Wrap dicts in SimpleNamespace so _FORMATTER['inbox'] can attribute-
+        # access them (format_inbox uses .id / .body / getattr fallbacks).
+        from types import SimpleNamespace
+        return [SimpleNamespace(**item) for item in items]
+    except Exception as exc:
+        log.warning(
+            "notifier.inbox_fetch_failed",
+            extra={"err": str(exc)},
+        )
+        return []
+
+
 async def _gather_candidates(
-    db: AsyncSession, now: datetime
+    db: AsyncSession,
+    now: datetime,
+    http_client: Optional[httpx.AsyncClient] = None,
 ) -> dict[str, list[Any]]:
-    """Returns {kind: [rows]} dict. No filtering against notification_log yet."""
+    """Returns {kind: [rows]} dict. No filtering against notification_log yet.
+
+    Phase 11 SC5: inbox kind is fetched via HTTP (GET /api/inbox?unread=true)
+    instead of a direct ORM SELECT. http_client is passed through from
+    run_one_cycle.
+    """
     decisions = (
         await db.execute(
             select(Decision)
@@ -120,17 +168,10 @@ async def _gather_candidates(
         )
     ).scalars().all()
 
-    # InboxMessage uses `read: bool` (NOT a status column). Phase 4 schema:
-    # read=False means "unread / not yet picked up by the user". Tolerate
-    # AttributeError for forward compatibility with future schemas.
-    try:
-        inbox = (
-            await db.execute(
-                select(InboxMessage).where(InboxMessage.read == False)  # noqa: E712
-            )
-        ).scalars().all()
-    except Exception:  # pragma: no cover — defensive
-        inbox = []
+    # Phase 11 SC5 (interp A): inbox via HTTP, not direct ORM SELECT.
+    # Mirrors the dispatcher pattern of "API state via API". Graceful
+    # degrade on server-down preserved by _fetch_unread_inbox.
+    inbox = await _fetch_unread_inbox(http_client)
 
     return {
         "decision": list(decisions),
@@ -285,7 +326,7 @@ async def run_one_cycle(
         # Rerun cleanup BEFORE candidate scan — RESEARCH §D3 edge case.
         await cleanup_rerun_failures(db)
 
-        candidates = await _gather_candidates(db, now)
+        candidates = await _gather_candidates(db, now, http_client=http_client)
         for kind in (
             "decision",
             "approval",
