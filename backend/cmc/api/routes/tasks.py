@@ -49,6 +49,7 @@ from cmc.api.schemas.tasks import (
     TaskCreate,
     TaskListItem,
     TaskListResponse,
+    TaskRejectResponse,
     TaskRerunResponse,
     TaskTriggerResponse,
     TaskUpdate,
@@ -210,6 +211,34 @@ async def approve_task(
     row.approved_at = now
     await db.commit()
     return TaskApproveResponse(id=task_id, status="pending", approved_at=now)
+
+
+# ---------- TASK-08 (Phase 10): POST /api/tasks/{id}/reject ----------
+
+
+@router.post("/tasks/{task_id}/reject", response_model=TaskRejectResponse)
+async def reject_task(
+    task_id: int,
+    db: AsyncSession = Depends(get_session),
+) -> TaskRejectResponse:
+    """Phase 10: cancel an awaiting_approval task — used by Telegram approval-card 🛑 Reject.
+
+    400 when the source state is not 'awaiting_approval' — the dashboard / Telegram
+    should never offer Reject outside that state, but the server enforces defensively.
+    Bypasses validate_transition (matches approve_task / rerun_task convention; see
+    Phase 10 RESEARCH §"Audit Correction").
+    """
+    row = (
+        await db.execute(select(Task).where(Task.id == task_id))
+    ).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail="task not found")
+    if row.status != "awaiting_approval":
+        raise HTTPException(status_code=400, detail="task is not awaiting approval")
+
+    row.status = "cancelled"
+    await db.commit()
+    return TaskRejectResponse(id=task_id, status="cancelled")
 
 
 # ---------- TASK-06: POST /api/tasks/{id}/rerun ----------

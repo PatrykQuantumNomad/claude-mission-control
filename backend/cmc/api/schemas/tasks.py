@@ -95,6 +95,11 @@ class TaskRerunResponse(BaseModel):
     status: str
 
 
+class TaskRejectResponse(BaseModel):
+    id: int
+    status: str
+
+
 class TaskTriggerResponse(BaseModel):
     triggered: bool
     pid: int
