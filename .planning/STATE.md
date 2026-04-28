@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: Documentation & Env Polish
 status: verifying
 stopped_at: Completed 10-01-PLAN.md (Phase 10 telegram-wiring-fixes gap closure)
-last_updated: "2026-04-28T15:18:07.855Z"
+last_updated: "2026-04-28T17:18:43.441Z"
 last_activity: 2026-04-28
 progress:
-  total_phases: 9
-  completed_phases: 9
-  total_plans: 45
-  completed_plans: 45
+  total_phases: 1
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
   percent: 100
 ---
 
@@ -104,6 +104,7 @@ Progress (Phase 10): [██████████] 100% (1 of 1 plan)
 | Phase Phase 09-telegram-setup-testing P05 P16 min | 2 tasks | 14 files tasks | - files |
 | Phase 10-telegram-wiring-fixes P01 | ~8 min | 3 tasks (TDD; 5 commits: RED+GREEN×2 + 1 single) | 6 files (3 source + 3 tests; +189/-4 lines) |
 | Phase 10-telegram-wiring-fixes P01 | 8 min | 3 tasks | 6 files |
+| Phase 11 P01 | 22 | 6 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -333,6 +334,9 @@ Recent decisions affecting current work:
 - [Phase ?]: Phase 10-01 audit correction: validate_transition matrix NOT extended for awaiting_approval->cancelled — used explicit source-state check + direct row.status assignment per approve_task / rerun_task convention
 - [Phase ?]: Phase 10-01: dash_router stamps answered_by='telegram' on every answer_decision body — locks Telegram-origin provenance into HITL audit trail with zero schema change (schemas/hitl.py Literal already accepted 'telegram')
 - [Phase ?]: Phase 10-01: two-level coverage pattern for Telegram callback body shape — pure-function dash_router test + wired-handler body-capture test via _local_api_transport additive 'body' key. Reusable template for future callback verbs
+- [Phase 11]: Settings env_file 2-tuple includes ~/.command-centre/.env (SC3+SC4 root) — Single root-cause fix: launchd-spawned daemons read TELEGRAM_BOT_TOKEN and ANTHROPIC_API_KEY from ~/.command-centre/.env via Settings's broadened env_file tuple instead of bare os.environ. Applies to both Telegram doctor checks (SC3) and the Telegram handler's claude relay (SC4).
+- [Phase 11]: SC5 implemented as interpretation A (HTTP-symmetric inbox replace, not POST mark-read add) — Zero functional delta vs interp B's UX-visible auto-mark-read on Telegram ping. Audit evidence pointed at ORM SELECT replacement, not new POST endpoint. Notifier becomes pure HTTP consumer of inbox state.
+- [Phase 11]: Trust boundary refined: Settings is trusted; shell env is untrusted — handler.relay_text_to_claude scrubs shell-inherited ANTHROPIC_API_KEY (Pitfall P12) then re-injects from settings.anthropic_api_key (loaded from ~/.command-centre/.env). Dispatcher run_classic.py UNCHANGED — its scrub is correct for the subscription-auth path.
 
 ### Pending Todos
 
@@ -345,7 +349,7 @@ None — Phases 1–8 implementations complete; visual quality bar APPROVED by u
 
 ## Session Continuity
 
-Last session: 2026-04-28T15:18:07.845Z
+Last session: 2026-04-28T17:18:27.211Z
 Stopped at: Completed 10-01-PLAN.md (Phase 10 telegram-wiring-fixes gap closure)
 Resume file: None
 

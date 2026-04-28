@@ -22,7 +22,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 8: Mission Control Dispatcher** - Heartbeat, task execution (classic + stream), DECISION/INBOX parsing, skill routing
 - [x] **Phase 9: Telegram, Setup & Testing** - Telegram bridge, install.sh, cmc CLI, doctor.py, Playwright e2e tests
 - [x] **Phase 10: Telegram Wiring Fixes** - Implement /reject route, fix answered_by provenance, callback parity smoke test (gap closure) (completed 2026-04-28)
-- [ ] **Phase 11: v1.0 Documentation & Env Polish** - REQUIREMENTS/ROADMAP traceability sync, .env-aware doctor + handler, notifier HTTP symmetry (tech debt)
+- [x] **Phase 11: v1.0 Documentation & Env Polish** - REQUIREMENTS/ROADMAP traceability sync, .env-aware doctor + handler, notifier HTTP symmetry (tech debt) (completed 2026-04-28)
 
 ## Phase Details
 
@@ -249,7 +249,7 @@ Wave structure (sequential — each plan extends modules the next plan exercises
   5. Notifier inbox loop calls /api/inbox/{id}/read instead of querying InboxMessage directly (HTTP symmetry)
 **Plans**: 1 plan
 
-- [ ] 11-01-PLAN.md — Sync REQUIREMENTS.md traceability for INGST + 04-04 checkbox, .env loader for doctor.py + telegram handler env surface, notifier→HTTP refactor for inbox-read symmetry
+- [x] 11-01-PLAN.md — Sync REQUIREMENTS.md traceability for INGST + 04-04 checkbox, .env loader for doctor.py + telegram handler env surface, notifier→HTTP refactor for inbox-read symmetry
 
 ## Progress
 
@@ -270,6 +270,6 @@ Note: Phases 3, 4, and 5 can execute in parallel after Phase 2 (or Phase 1 for 4
 | 8. Mission Control Dispatcher | 4/4 | Complete (verifier: 5/5 must-haves) | 2026-04-27 |
 | 9. Telegram, Setup & Testing | 5/5 | Complete (verifier: 5/5 must-haves; human-verify APPROVED by user against SC1-5) | 2026-04-28 |
 | 10. Telegram Wiring Fixes | 1/1 | Complete (verifier: 5/5 must-haves) | 2026-04-28 |
-| 11. v1.0 Documentation & Env Polish | 0/1 | Pending (tech debt from v1.0-MILESTONE-AUDIT.md) | — |
+| 11. v1.0 Documentation & Env Polish | 1/1 | Complete   | 2026-04-28 |
 
 **v1.0 milestone reached: 45/45 plans, 9/9 phases complete. Gap closure pending in Phase 10–11.**

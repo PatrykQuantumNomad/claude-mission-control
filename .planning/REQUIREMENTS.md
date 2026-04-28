@@ -32,7 +32,7 @@ Requirements for initial release. Each maps to roadmap phases.
 **: JSONL parser pairs tool_use and tool_result by tool_use_id, computing duration (capped at 10 min)
 - [x] **INGST-04
 **: JSONL parser upserts sessions row with totals on session end; re-parses if ended_at IS NULL or mtime > synced_at
-- [ ] **INGST-05**: JSONL parser writes daily token_usage rollups with local-time day bucketing
+- [x] **INGST-05**: JSONL parser writes daily token_usage rollups with local-time day bucketing
 - [x] **INGST-06
 **: JSONL parser handles corrupted lines gracefully (skip + log, never crash sync cycle)
 - [x] **INGST-07
@@ -491,7 +491,7 @@ Requirements for initial release. Each maps to roadmap phases.
 | TELE-02 | Phase 9 | Pending |
 | TELE-03 | Phase 9 | Pending |
 | TELE-04 | Phase 9 | Pending |
-| TELE-05 | Phase 9 | Pending |
+| TELE-05 | Phase 9 | Complete |
 | TELE-06 | Phase 9 | Pending |
 | TELE-07 | Phase 9 | Pending |
 | SETUP-01 | Phase 9 | Pending |
