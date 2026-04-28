@@ -1,10 +1,10 @@
-"""SETUP-04..06 backend tests + SETUP-01..03 install/cc shim tests.
+"""SETUP-04..06 backend tests + SETUP-01..03 install/cmc shim tests.
 
 Covers:
 - Server plist render (uvicorn invocation, KeepAlive=true).
 - setup_otel atomic merge: 6 keys added, never overwrites, no leftover .tmp.
 - doctor 8-check infrastructure (run_checks count + sample checks).
-- install.sh dry-run smoke + cc shim help/unknown-subcommand routing.
+- install.sh dry-run smoke + cmc shim help/unknown-subcommand routing.
 """
 from __future__ import annotations
 
@@ -227,7 +227,7 @@ def test_doctor_render_includes_ansi_colors() -> None:
 
 
 # =========================================================================
-# install.sh + cc shim
+# install.sh + cmc shim
 # =========================================================================
 
 
@@ -270,7 +270,7 @@ def test_install_sh_unknown_arg_exits_2(tmp_path) -> None:
 def test_cc_shim_help_lists_subcommands() -> None:
     import subprocess
 
-    cc = _repo_root() / "scripts" / "cc"
+    cc = _repo_root() / "scripts" / "cmc"
     assert cc.exists()
     assert os.access(cc, os.X_OK)
     # CMC_HOME points at repo so shim doesn't try to find the install dir
@@ -296,7 +296,7 @@ def test_cc_shim_help_lists_subcommands() -> None:
 def test_cc_shim_unknown_subcommand_exits_2() -> None:
     import subprocess
 
-    cc = _repo_root() / "scripts" / "cc"
+    cc = _repo_root() / "scripts" / "cmc"
     env = {**os.environ, "CMC_HOME": str(_repo_root())}
     res = subprocess.run(
         [str(cc), "nonsense"], capture_output=True, env=env, timeout=5
@@ -305,10 +305,10 @@ def test_cc_shim_unknown_subcommand_exits_2() -> None:
 
 
 def test_cc_shim_setup_without_arg_exits_2() -> None:
-    """`cc setup` with no sub-arg should print Usage + exit 2."""
+    """`cmc setup` with no sub-arg should print Usage + exit 2."""
     import subprocess
 
-    cc = _repo_root() / "scripts" / "cc"
+    cc = _repo_root() / "scripts" / "cmc"
     env = {**os.environ, "CMC_HOME": str(_repo_root())}
     res = subprocess.run(
         [str(cc), "setup"], capture_output=True, env=env, timeout=10

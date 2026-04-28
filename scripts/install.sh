@@ -11,7 +11,7 @@
 #   7. rsync source files into DEST (install mode only) with Q4 LOCKED excludes
 #      (never blow away data/cmc.db on re-install)
 #   8. Render 4 launchd plists into ~/Library/LaunchAgents/
-#   9. Write the cc shim (~/.local/bin or /usr/local/bin)
+#   9. Write the cmc shim (~/.local/bin or /usr/local/bin)
 #  10. Copy start.sh + stop.sh into DEST/bin/
 #  11. Print next-steps
 #
@@ -93,7 +93,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
     echo "DRY-RUN: would create venv at $VENV"
     echo "DRY-RUN: would copy to $DEST"
     echo "DRY-RUN: would render 4 plists in $LAUNCH_AGENTS"
-    echo "DRY-RUN: would write cc shim"
+    echo "DRY-RUN: would write cmc shim (and remove any stale cc shim)"
     exit 0
 fi
 
@@ -147,7 +147,7 @@ if [[ "$INSTALL_MODE" -eq 1 ]]; then
     # .env stub — only created if absent (preserve user-edited .env on re-install)
     if [[ ! -f "$DEST/.env" ]]; then
         cat > "$DEST/.env" <<EOF
-# Mission Control config — fill in TELEGRAM_* via \`cc setup telegram\`
+# Mission Control config — fill in TELEGRAM_* via \`cmc setup telegram\`
 EOF
         echo "✓ Wrote $DEST/.env stub"
     else
@@ -168,26 +168,32 @@ echo "→ Rendering 4 launchd plists into $LAUNCH_AGENTS"
 "$VENV/bin/python" -m cmc.telegram.plist_render --variant handler \
     "$VENV/bin/python" "$DEST" > "$LAUNCH_AGENTS/com.cmc.telegram-handler.plist"
 
-# ---------- cc shim ----------
+# ---------- cmc shim ----------
+# Renamed from `cc` because /usr/bin/cc (clang) shadows it on macOS.
+# Clean up any stale `cc` shim from older installs to avoid confusion.
+for stale in "$HOME/.local/bin/cc" "/usr/local/bin/cc"; do
+    [[ -f "$stale" ]] && rm -f "$stale" 2>/dev/null && echo "→ removed stale shim $stale"
+done
+
 SHIM_TARGET=""
 if mkdir -p "$HOME/.local/bin" 2>/dev/null && [[ -w "$HOME/.local/bin" ]]; then
-    SHIM_TARGET="$HOME/.local/bin/cc"
+    SHIM_TARGET="$HOME/.local/bin/cmc"
 elif [[ -w "/usr/local/bin" ]]; then
-    SHIM_TARGET="/usr/local/bin/cc"
+    SHIM_TARGET="/usr/local/bin/cmc"
 fi
 if [[ -n "$SHIM_TARGET" ]]; then
-    cp "$REPO_ROOT/scripts/cc" "$SHIM_TARGET"
+    cp "$REPO_ROOT/scripts/cmc" "$SHIM_TARGET"
     chmod +x "$SHIM_TARGET"
-    echo "✓ cc shim installed at $SHIM_TARGET"
+    echo "✓ cmc shim installed at $SHIM_TARGET"
     # Pitfall P7 hint: warn if ~/.local/bin not on PATH
-    if [[ "$SHIM_TARGET" == "$HOME/.local/bin/cc" ]]; then
+    if [[ "$SHIM_TARGET" == "$HOME/.local/bin/cmc" ]]; then
         case ":$PATH:" in
             *":$HOME/.local/bin:"*) ;;
             *) echo "⚠ $HOME/.local/bin is not on \$PATH; add it to your shell rc"; ;;
         esac
     fi
 else
-    echo "⚠ Could not write cc shim — manually run $REPO_ROOT/scripts/cc" >&2
+    echo "⚠ Could not write cmc shim — manually run $REPO_ROOT/scripts/cmc" >&2
 fi
 
 # ---------- start.sh / stop.sh into DEST/bin ----------
@@ -198,7 +204,7 @@ chmod +x "$DEST/bin/start.sh" "$DEST/bin/stop.sh"
 # ---------- next steps ----------
 echo
 echo "Next:"
-echo "  cc doctor              # 8-check health report"
-echo "  cc setup otel          # add OTEL env to ~/.claude/settings.json"
-echo "  cc setup telegram      # optional Telegram pager"
-echo "  cc start               # bring up server + dispatcher (+ telegram if configured)"
+echo "  cmc doctor             # 8-check health report"
+echo "  cmc setup otel         # add OTEL env to ~/.claude/settings.json"
+echo "  cmc setup telegram     # optional Telegram pager"
+echo "  cmc start              # bring up server + dispatcher (+ telegram if configured)"

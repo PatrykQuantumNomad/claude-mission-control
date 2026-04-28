@@ -16,7 +16,7 @@ timestamped `.bak.<unix-ts>` sibling BEFORE writing, so the user has a
 restore point if the merge produces unexpected output.
 
 Exposed as `python -m cmc.cli.setup_otel` and via the scripts/setup_otel.py
-shim. The `cc setup otel` subcommand routes here.
+shim. The `cmc setup otel` subcommand routes here.
 """
 from __future__ import annotations
 

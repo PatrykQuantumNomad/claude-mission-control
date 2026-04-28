@@ -19,7 +19,7 @@ The 8 checks (locked by Plan 09-04 frontmatter / RESEARCH §D6):
 Exit code: 0 iff zero checks have status 'fail'. Warns do NOT trigger 1.
 
 Exposed as `python -m cmc.cli.doctor` and via the scripts/doctor.py shim.
-The `cc doctor` subcommand routes here.
+The `cmc doctor` subcommand routes here.
 """
 from __future__ import annotations
 
@@ -110,7 +110,7 @@ def _check_settings_json() -> Check:
             "~/.claude/settings.json",
             "warn",
             "missing",
-            "Run `cc setup otel`",
+            "Run `cmc setup otel`",
         )
     try:
         json.loads(p.read_text())
@@ -211,11 +211,11 @@ def _check_health_endpoint() -> Check:
 
         r = httpx.get("http://127.0.0.1:8765/api/health", timeout=2)
     except Exception as exc:
-        return Check(6, "GET /api/health", "fail", str(exc), "Run `cc start`")
+        return Check(6, "GET /api/health", "fail", str(exc), "Run `cmc start`")
     if r.status_code == 200:
         return Check(6, "GET /api/health", "ok", "200 OK")
     return Check(
-        6, "GET /api/health", "fail", f"status {r.status_code}", "Run `cc start`"
+        6, "GET /api/health", "fail", f"status {r.status_code}", "Run `cmc start`"
     )
 
 
@@ -248,7 +248,7 @@ def _check_launchd_jobs() -> Check:
     if all_ok:
         return Check(7, "launchd jobs running", "ok", ", ".join(details))
     return Check(
-        7, "launchd jobs running", "fail", ", ".join(details), "Run `cc start`"
+        7, "launchd jobs running", "fail", ", ".join(details), "Run `cmc start`"
     )
 
 
@@ -273,7 +273,7 @@ def _check_telegram() -> Check:
             "Telegram (optional)",
             "fail",
             str(exc),
-            "Re-run `cc setup telegram`",
+            "Re-run `cmc setup telegram`",
         )
     if r.status_code == 200:
         res = r.json().get("result", {})
@@ -288,7 +288,7 @@ def _check_telegram() -> Check:
         "Telegram (optional)",
         "fail",
         f"status {r.status_code}",
-        "Re-run `cc setup telegram`",
+        "Re-run `cmc setup telegram`",
     )
 
 

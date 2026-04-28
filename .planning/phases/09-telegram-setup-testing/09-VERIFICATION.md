@@ -8,7 +8,7 @@ overrides_applied: 0
 
 # Phase 9: Telegram, Setup & Testing — Verification Report
 
-**Phase Goal:** A solo Claude Code developer can install Mission Control on a fresh Mac, link Telegram for ambient notifications + decisions, manage the stack with a single `cc` shim, and rely on a four-spec Playwright suite as the user-facing acceptance gate.
+**Phase Goal:** A solo Claude Code developer can install Mission Control on a fresh Mac, link Telegram for ambient notifications + decisions, manage the stack with a single `cmc` shim, and rely on a four-spec Playwright suite as the user-facing acceptance gate.
 **Verified:** pending — awaiting `09-05` close-out human-verify
 **Status:** AWAITING HUMAN VERIFY
 **Re-verification:** No — initial verification
@@ -17,7 +17,7 @@ overrides_applied: 0
 
 ### SC1 — install.sh end-to-end
 
-**Truth:** `bash scripts/install.sh` on a fresh Mac (or `--install` after `--dry-run`) detects Python ≥ 3.12, creates a venv at `~/.command-centre/venv`, installs the backend deps, copies the application files into `~/.command-centre/`, renders all 4 launchd plists (`com.cmc.{server,dispatcher,telegram-notifier,telegram-handler}`), and produces a working `cc` CLI shim on PATH.
+**Truth:** `bash scripts/install.sh` on a fresh Mac (or `--install` after `--dry-run`) detects Python ≥ 3.12, creates a venv at `~/.command-centre/venv`, installs the backend deps, copies the application files into `~/.command-centre/`, renders all 4 launchd plists (`com.cmc.{server,dispatcher,telegram-notifier,telegram-handler}`), and produces a working `cmc` CLI shim on PATH.
 
 | Step | Manual command | Expected | Result |
 |------|----------------|----------|--------|
@@ -26,39 +26,39 @@ overrides_applied: 0
 | 1.3 | `~/.command-centre/venv/bin/python --version` | Python 3.12.x or higher | _pending_ |
 | 1.4 | `ls ~/.command-centre/bin/{start,stop}.sh` | Both files exist; both `+x` | _pending_ |
 | 1.5 | `ls ~/Library/LaunchAgents/com.cmc.{server,dispatcher,telegram-notifier,telegram-handler}.plist` | 4/4 present | _pending_ |
-| 1.6 | `which cc` | Shim path on PATH (`~/.local/bin/cc` or `/usr/local/bin/cc`) | _pending_ |
+| 1.6 | `which cmc` | Shim path on PATH (`~/.local/bin/cmc` or `/usr/local/bin/cmc`) | _pending_ |
 
 **Pass/Fail:** _pending_
 
-### SC2 — `cc` subcommands
+### SC2 — `cmc` subcommands
 
-**Truth:** `cc start`, `cc stop`, `cc restart`, `cc doctor`, and `cc logs` all dispatch correctly to the underlying launchd / scripts and return appropriate exit codes.
+**Truth:** `cmc start`, `cmc stop`, `cmc restart`, `cmc doctor`, and `cmc logs` all dispatch correctly to the underlying launchd / scripts and return appropriate exit codes.
 
 | Step | Manual command | Expected | Result |
 |------|----------------|----------|--------|
-| 2.1 | `cc start` | No errors; exit 0 | _pending_ |
+| 2.1 | `cmc start` | No errors; exit 0 | _pending_ |
 | 2.2 | `launchctl print gui/$UID/com.cmc.server` | state = running | _pending_ |
 | 2.3 | `curl -s http://127.0.0.1:8765/api/health` | `{"status":"ok"}` | _pending_ |
-| 2.4 | `cc doctor` | All checks ✓ or warn (no fail); exit 0 | _pending_ |
-| 2.5 | `cc logs` | Tails launchd files (Ctrl-C stops cleanly) | _pending_ |
-| 2.6 | `cc stop` | state = not running | _pending_ |
-| 2.7 | `cc restart` | stop + start both succeed | _pending_ |
+| 2.4 | `cmc doctor` | All checks ✓ or warn (no fail); exit 0 | _pending_ |
+| 2.5 | `cmc logs` | Tails launchd files (Ctrl-C stops cleanly) | _pending_ |
+| 2.6 | `cmc stop` | state = not running | _pending_ |
+| 2.7 | `cmc restart` | stop + start both succeed | _pending_ |
 
 **Pass/Fail:** _pending_
 
 ### SC3 — `setup_telegram` wizard
 
-**Truth:** `cc setup telegram` walks through BotFather token + chat_id capture, validates the token via `getMe`, persists `~/.command-centre/.env` (or `./env` in dev), and sends a "Mission Control connected" test message to the configured chat.
+**Truth:** `cmc setup telegram` walks through BotFather token + chat_id capture, validates the token via `getMe`, persists `~/.command-centre/.env` (or `./env` in dev), and sends a "Mission Control connected" test message to the configured chat.
 
 | Step | Manual command | Expected | Result |
 |------|----------------|----------|--------|
 | 3.1 | Create bot via @BotFather; copy token | Token format `\d+:[A-Za-z0-9_-]{30,}` | _pending_ |
 | 3.2 | Send any message to bot; visit `https://api.telegram.org/bot<TOKEN>/getUpdates` | chat_id captured | _pending_ |
-| 3.3 | `cc setup telegram` (interactive) | Prompts token + chat_id; validates via getMe | _pending_ |
+| 3.3 | `cmc setup telegram` (interactive) | Prompts token + chat_id; validates via getMe | _pending_ |
 | 3.4 | Wizard final stdout | "✓ test message sent (message_id=…)" | _pending_ |
 | 3.5 | Check Telegram client | "👋 Mission Control connected" message visible | _pending_ |
 | 3.6 | `grep TELEGRAM ~/.command-centre/.env` | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_ALLOWED_USER_IDS` present | _pending_ |
-| 3.7 | `cc restart` | Loads telegram daemons | _pending_ |
+| 3.7 | `cmc restart` | Loads telegram daemons | _pending_ |
 
 **Pass/Fail:** _pending_
 
@@ -88,7 +88,7 @@ overrides_applied: 0
 | 5.5 | `tests/e2e/schedule-composer.spec.ts` | TEST-03 — composer creates `e2e-test-schedule-{ts}`; afterEach DELETE cleanup | VERIFIED |
 | 5.6 | `tests/e2e/theme-toggle.spec.ts` | TEST-04 — ThemeToggle flips data-theme; localStorage `cmc.theme=light` persists across reload | VERIFIED |
 
-**Pass/Fail:** VERIFIED (5/6 individual checks confirmed; SC5 fully VERIFIED in agent run; SC1-4 are user-facing manual gates that depend on a fresh Telegram bot + `cc start` lifecycle, marked pending until human-verify).
+**Pass/Fail:** VERIFIED (5/6 individual checks confirmed; SC5 fully VERIFIED in agent run; SC1-4 are user-facing manual gates that depend on a fresh Telegram bot + `cmc start` lifecycle, marked pending until human-verify).
 
 ## Test Counts
 

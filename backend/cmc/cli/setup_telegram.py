@@ -149,7 +149,7 @@ async def _amain() -> int:
     env_path = _resolve_env_path()
     _write_env(env_path, token, chat_id, [chat_id])
     print(f"wrote {env_path}.")
-    print("Next: `cc restart` to load the telegram daemons.")
+    print("Next: `cmc restart` to load the telegram daemons.")
     return 0
 
 

@@ -2,7 +2,7 @@
 # SETUP-03 (start): bootstrap all 4 Mission Control daemons under launchd.
 # Falls back to launchctl load -w when bootstrap fails (Pitfall P1).
 #
-# Invoked by cc start when present at $ROOT/bin/start.sh.
+# Invoked by cmc start when present at $ROOT/bin/start.sh.
 set -euo pipefail
 
 LAUNCH_AGENTS="$HOME/Library/LaunchAgents"

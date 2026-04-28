@@ -2,7 +2,7 @@
 # SETUP-03 (stop): bootout all 4 Mission Control daemons under launchd.
 # Falls back to launchctl unload when bootout fails (Pitfall P1).
 #
-# Invoked by cc stop when present at $ROOT/bin/stop.sh.
+# Invoked by cmc stop when present at $ROOT/bin/stop.sh.
 set -euo pipefail
 
 LAUNCH_AGENTS="$HOME/Library/LaunchAgents"
