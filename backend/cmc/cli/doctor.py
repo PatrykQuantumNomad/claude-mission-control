@@ -23,6 +23,7 @@ The `cmc doctor` subcommand routes here.
 """
 from __future__ import annotations
 
+import inspect
 import json
 import os
 import subprocess
@@ -30,6 +31,9 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
+
+from cmc.config import load_settings
+from cmc.config.settings import Settings
 
 GREEN = "\033[32m"
 RED = "\033[31m"
@@ -222,7 +226,7 @@ def _check_health_endpoint() -> Check:
 # ---------------------------------------------------------------- 7. launchd
 
 
-def _check_launchd_jobs() -> Check:
+def _check_launchd_jobs(*, settings: Optional[Settings] = None) -> Check:
     """Check that all 4 daemons are loaded; long-running ones must also be running.
 
     com.cmc.server         → KeepAlive=true   → expect state=running
@@ -231,14 +235,21 @@ def _check_launchd_jobs() -> Check:
     com.cmc.telegram-notifier → StartInterval=30 → expect loaded (oneshot)
 
     Telegram daemons are skipped silently if telegram_bot_token is unset.
+
+    SC3 (Phase 11): telegram_configured is read from Settings (which honors
+    ~/.command-centre/.env via the env_file tuple), NOT bare os.environ —
+    so launchd-spawned `cmc doctor` invocations behave consistently with
+    interactive shell invocations.
     """
+    if settings is None:
+        settings = load_settings()
     uid = os.getuid()
     all_ok = True
     details: list[str] = []
     long_running = {"com.cmc.server", "com.cmc.telegram-handler"}
     oneshots = {"com.cmc.dispatcher", "com.cmc.telegram-notifier"}
     telegram_labels = {"com.cmc.telegram-handler", "com.cmc.telegram-notifier"}
-    telegram_configured = bool(os.environ.get("TELEGRAM_BOT_TOKEN"))
+    telegram_configured = bool(settings.telegram_bot_token)
 
     for label in long_running | oneshots:
         if label in telegram_labels and not telegram_configured:
@@ -280,8 +291,13 @@ def _check_launchd_jobs() -> Check:
 # ---------------------------------------------------------------- 8. telegram
 
 
-def _check_telegram() -> Check:
-    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+def _check_telegram(*, settings: Optional[Settings] = None) -> Check:
+    """SC3 (Phase 11): read TELEGRAM_BOT_TOKEN via Settings so launchd-spawned
+    daemons (which don't inherit shell env) and `cmc doctor` invocations from
+    arbitrary cwds both honor ~/.command-centre/.env."""
+    if settings is None:
+        settings = load_settings()
+    token = settings.telegram_bot_token
     if not token:
         return Check(
             8, "Telegram (optional)", "ok", "not configured (skipped)"
@@ -317,7 +333,7 @@ def _check_telegram() -> Check:
     )
 
 
-CHECKS: list[Callable[[], Check]] = [
+CHECKS: list[Callable[..., Check]] = [
     _check_python,
     _check_claude_bin,
     _check_settings_json,
@@ -330,8 +346,26 @@ CHECKS: list[Callable[[], Check]] = [
 
 
 def run_checks() -> list[Check]:
-    """Run all 8 checks sequentially. Returns the resulting Check list."""
-    return [fn() for fn in CHECKS]
+    """Run all 8 checks sequentially. Returns the resulting Check list.
+
+    SC3 (Phase 11): Settings is loaded ONCE at the top and threaded into any
+    check whose signature accepts a `settings` kwarg. Legacy checks that
+    take no parameters are called without modification.
+    """
+    settings = load_settings()
+    out: list[Check] = []
+    for check_fn in CHECKS:
+        try:
+            sig = inspect.signature(check_fn)
+            if "settings" in sig.parameters:
+                out.append(check_fn(settings=settings))
+            else:
+                out.append(check_fn())
+        except Exception as exc:
+            out.append(
+                Check(0, getattr(check_fn, "__name__", "<unknown>"), "fail", str(exc))
+            )
+    return out
 
 
 def _render(check: Check) -> str:
