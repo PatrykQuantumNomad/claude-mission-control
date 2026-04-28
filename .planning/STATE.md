@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 09-04-PLAN.md (Wave 3 — install.sh + cc dispatcher + 4-daemon launchd plists; doctor + setup_otel + server plist)
-last_updated: "2026-04-28T01:45:08.444Z"
+stopped_at: Completed 09-05-PLAN.md (Wave 4 close-out — theme toggle Q1=A + Playwright e2e TEST-01..04). PAUSED at close-out human-verify checkpoint covering all 5 ROADMAP success criteria.
+last_updated: "2026-04-28T02:06:01.314Z"
 last_activity: 2026-04-28
 progress:
   total_phases: 9
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 45
-  completed_plans: 44
-  percent: 98
+  completed_plans: 45
+  percent: 100
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 ## Current Position
 
 Phase: 9 of 9 IN PROGRESS (Telegram, Setup & Testing) — 1 of 5 plans complete
-Plan: 4 of 5 complete in Phase 9 (09-01 Wave 1 telegram foundation ✅; 09-02 + 09-03 ready to parallelize next; 09-04 install.sh; 09-05 close-out E2E)
+Plan: 5 of 5 complete in Phase 9 (09-01 Wave 1 telegram foundation ✅; 09-02 + 09-03 ready to parallelize next; 09-04 install.sh; 09-05 close-out E2E)
 Status: Ready to execute
 Last activity: 2026-04-28
 
@@ -101,6 +101,7 @@ Progress (Phase 9): [██░░░░░░░░] 20% (1 of 5 plans)
 | Phase 09-telegram-setup-testing P03 | 12 min | 2 tasks tasks | 6 files files |
 | Phase 09-telegram-setup-testing PP02 | ~25 min | 2 tasks (2 commits) tasks | 4 files (3 created + 1 deferred-items.md) files |
 | Phase 09-telegram-setup-testing PP04 | ~25 min | 2 tasks tasks | 13 files (12 created + 1 modified) files |
+| Phase Phase 09-telegram-setup-testing P05 P16 min | 2 tasks | 14 files tasks | - files |
 
 ## Accumulated Context
 
@@ -325,6 +326,8 @@ Recent decisions affecting current work:
 - Phase 9 P04: 6 LOCKED OTEL keys in setup_otel — OTEL_LOG_USER_PROMPTS dropped (defaults to 0); never overwrite existing keys; timestamped .bak before write (Pitfall P8)
 - Phase 9 P04: server plist invokes uvicorn console-script (${python_path_dir}/uvicorn) NOT python -m uvicorn — stable executable target for launchd KeepAlive
 - Phase 9 P04: cc shim resolves install root via CMC_HOME → ~/.command-centre → repo root (dev mode); resolves venv via $ROOT/venv → $ROOT/backend/.venv (production vs dev layout)
+- Plan 09-05 — Theme toggle Q1=A LOCKED: ~50 LOC frontend (lib/theme.ts + ThemeToggle.tsx + [data-theme='light'] CSS overrides + NavBar mount + main.tsx applyTheme()). No provider, no CSS-in-JS — data-attribute on <html> + CSS variable override. Light theme functional, polish deferred to v2.
+- Plan 09-05 — Playwright Q6 LOCKED: chromium-only, vite preview (NEVER vite dev — Pitfall P9), webServer launches uvicorn + vite preview with reuseExistingServer=true. Manual gate (npm run test:e2e); no CI in v1. 4 specs / 6 tests passing locally.
 
 ### Pending Todos
 
@@ -337,9 +340,9 @@ None — Phases 1–8 implementations complete; visual quality bar APPROVED by u
 
 ## Session Continuity
 
-Last session: 2026-04-28T01:45:08.434Z
-Stopped at: Completed 09-04-PLAN.md (Wave 3 — install.sh + cc dispatcher + 4-daemon launchd plists; doctor + setup_otel + server plist)
-Resume file: None
+Last session: 2026-04-28T02:06:01.304Z
+Stopped at: Completed 09-05-PLAN.md (Wave 4 close-out — theme toggle Q1=A + Playwright e2e TEST-01..04). PAUSED at close-out human-verify checkpoint covering all 5 ROADMAP success criteria.
+Resume file: Awaiting user run-through of SC1-SC4 manual walkthrough (install.sh, cc subcommands, setup_telegram wizard, Telegram notifier real messages). SC5 Playwright e2e already VERIFIED via executor run.
 
 Phase 1 final commit chain:
 

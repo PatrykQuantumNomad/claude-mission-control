@@ -310,10 +310,14 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Testing
 
-- [ ] **TEST-01**: Playwright e2e tests verify all three routes render
-- [ ] **TEST-02**: Playwright e2e tests verify command palette opens via Cmd+K
-- [ ] **TEST-03**: Playwright e2e tests verify schedule composer creates a schedule
-- [ ] **TEST-04**: Playwright e2e tests verify theme toggle persists
+- [x] **TEST-01
+**: Playwright e2e tests verify all three routes render
+- [x] **TEST-02
+**: Playwright e2e tests verify command palette opens via Cmd+K
+- [x] **TEST-03
+**: Playwright e2e tests verify schedule composer creates a schedule
+- [x] **TEST-04
+**: Playwright e2e tests verify theme toggle persists
 
 ## v2 Requirements
 

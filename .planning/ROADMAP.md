@@ -216,10 +216,10 @@ Wave structure (sequential — each plan extends modules the next plan exercises
 - Wave 4: 09-05 (sequential — Playwright e2e + close-out human-verify checkpoint)
 
 - [x] 09-01-PLAN.md — Wave 1 foundation: cmc.telegram.{api,messages,dash_router,plist_render} + 2 plist templates (notifier oneshot, handler KeepAlive) + /api/notifications router (GET/PATCH/snooze + /_resolve) + 5 Settings telegram_* fields + 33 unit tests (TELE-03 partial + TELE-04 partial + TELE-06 + TELE-07) ✅ 2026-04-27 (331/331 backend tests green; api.send_message has NO parse_mode parameter — Pitfall P3 enforced by inspect.signature() grep test; dash_router covers 7 verbs incl. RESOLVE_THEN_PATCH for snooze)
-- [ ] 09-02-PLAN.md — Wave 2 notifier oneshot (TELE-01 + TELE-02 + TELE-04 fan-out + TELE-05 partial; depends on 09-01 only — Wave-2-parallel with 09-03)
-- [ ] 09-03-PLAN.md — Wave 2 handler long-poll + setup_telegram wizard (TELE-03 finalize + TELE-04 callback dispatch + TELE-05 finalize + SETUP-06 wizard; depends on 09-01 only — Wave-2-parallel with 09-02)
-- [ ] 09-04-PLAN.md — Wave 3 install.sh + cc CLI + 4 launchd plists (SETUP-01..05 + SETUP-07; depends on 09-01 + 09-02 + 09-03)
-- [ ] 09-05-PLAN.md — Wave 4 Playwright e2e + close-out human-verify (TEST-01..04 + close-out checkpoint against ROADMAP SC1-5; depends on 09-04)
+- [x] 09-02-PLAN.md — Wave 2 notifier oneshot (TELE-01 + TELE-02 + TELE-04 fan-out + TELE-05 partial) ✅ 2026-04-28
+- [x] 09-03-PLAN.md — Wave 2 handler long-poll + setup_telegram wizard (TELE-03 finalize + TELE-04 callback dispatch + TELE-05 finalize + SETUP-06 wizard) ✅ 2026-04-28
+- [x] 09-04-PLAN.md — Wave 3 install.sh + cc CLI + 4 launchd plists (SETUP-01..05 + SETUP-07) + doctor + setup_otel + server plist ✅ 2026-04-28
+- [x] 09-05-PLAN.md — Wave 4 close-out: theme toggle (Q1=A LOCKED) + Playwright e2e suite (TEST-01..04, chromium-only, vite preview, 6/6 passing) + 09-VERIFICATION.md draft ✅ 2026-04-28 (paused at close-out human-verify checkpoint covering ROADMAP SC1-5)
 
 ## Progress
 
@@ -238,4 +238,4 @@ Note: Phases 3, 4, and 5 can execute in parallel after Phase 2 (or Phase 1 for 4
 | 6. Observability & Activity Panels | 5/5 | Complete (visual quality bar approved by user) | 2026-04-27 |
 | 7. Command Centre Panels | 4/4 | Complete (verifier: 5/5 must-haves; visual quality bar approved by user) | 2026-04-27 |
 | 8. Mission Control Dispatcher | 4/4 | Complete (verifier: 5/5 must-haves) | 2026-04-27 |
-| 9. Telegram, Setup & Testing | 1/5 | In progress (Wave 1 foundation done; Wave 2 09-02 + 09-03 ready to parallelize) | - |
+| 9. Telegram, Setup & Testing | 5/5 | Awaiting human-verify (Plan 09-05 paused at close-out checkpoint covering SC1-5) | 2026-04-28 |
