@@ -10,7 +10,7 @@ Verb table (must stay under Telegram's 64-byte callback_data cap):
   approve_task:<id>             -> POST /api/tasks/{id}/approve
   reject_task:<id>              -> POST /api/tasks/{id}/reject
   rerun_task:<id>               -> POST /api/tasks/{id}/rerun
-  answer_decision:<id>:<yes|no> -> POST /api/decisions/{id}/answer  body={"answer": ...}
+  answer_decision:<id>:<yes|no> -> POST /api/decisions/{id}/answer  body={"answer": ..., "answered_by": "telegram"}
   reply_inbox:<id>              -> NOOP at routing layer; handler enters reply state
   snooze:<kind>:<entity>:<dur>  -> RESOLVE_THEN_PATCH (handler resolves notif_id first)
   estop                         -> POST /api/system/emergency-stop body={"reason": "telegram"}
@@ -56,7 +56,11 @@ def route(verb: str, args: list[str]) -> tuple[str, str, dict[str, Any]]:
     if verb == "rerun_task" and len(args) == 1:
         return ("POST", f"/api/tasks/{args[0]}/rerun", {})
     if verb == "answer_decision" and len(args) == 2:
-        return ("POST", f"/api/decisions/{args[0]}/answer", {"answer": args[1]})
+        return (
+            "POST",
+            f"/api/decisions/{args[0]}/answer",
+            {"answer": args[1], "answered_by": "telegram"},
+        )
     if verb == "reply_inbox" and len(args) == 1:
         # handler.py captures the next text message from this user; not a route call
         return ("NOOP", f"/api/inbox/{args[0]}", {})
