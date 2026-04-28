@@ -1,10 +1,10 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.0
-milestone_name: milestone
-status: complete
-stopped_at: "v1.0 milestone reached: 9/9 phases, 45/45 plans, all 5 ROADMAP SCs human-verified by user 2026-04-28."
-last_updated: "2026-04-28T14:30:00.000Z"
+milestone_name: Documentation & Env Polish
+status: verifying
+stopped_at: Completed 10-01-PLAN.md (Phase 10 telegram-wiring-fixes gap closure)
+last_updated: "2026-04-28T15:18:07.855Z"
 last_activity: 2026-04-28
 progress:
   total_phases: 9
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-25)
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, queue and approve tasks, and kill runaway sessions — all from one browser tab.
-**Current focus:** Phase 9 of 9 (Telegram, Setup & Testing) — Plan 09-01 ✅ Wave 1 telegram foundation landed (cmc.telegram primitives + 2 plist templates + notifications router + 5 Settings fields). 331/331 backend tests green (298 baseline + 33 new). Plans 09-02 (notifier oneshot) + 09-03 (handler long-poll wizard) can now execute in parallel against this foundation; 09-04 (install.sh) and 09-05 (close-out E2E) follow sequentially.
+**Current focus:** Phase 10 of 11 (Telegram Wiring Fixes — gap closure for v1.0) — Plan 10-01 ✅ COMPLETE. Two v1.0-audit Telegram-callback gaps closed: (a) added the missing POST /api/tasks/{id}/reject route + TaskRejectResponse DTO so the approval-card 🛑 Reject button no longer 404s end-to-end (mirrors approve_task / rerun_task convention; bypasses validate_transition matrix because the target state is fixed); (b) one-line dash_router fix stamping `answered_by="telegram"` on every answer_decision body so HITL audit trail reflects Telegram-origin answers (was defaulting to "dashboard" via schemas/hitl.py Literal default). 379/379 backend tests green (was 373; +6 new = 3 reject route + 1 dash_router unit + 2 wired-handler parity). validate_transition matrix, Task model, frontend, telegram/messages.py, telegram/handler.py all UNTOUCHED. Phase 11 (next gap-closure phase per `3e6012d`) can be picked up immediately.
 
 ## Current Position
 
-Phase: 9 of 9 IN PROGRESS (Telegram, Setup & Testing) — 1 of 5 plans complete
-Plan: 5 of 5 complete in Phase 9 (09-01 Wave 1 telegram foundation ✅; 09-02 + 09-03 ready to parallelize next; 09-04 install.sh; 09-05 close-out E2E)
-Status: Ready to execute
+Phase: 10 of 11 (Telegram Wiring Fixes — v1.0 gap closure) — 1 of 1 plan complete
+Plan: 1 of 1 complete in Phase 10 (10-01 reject route + answered_by provenance ✅)
+Status: Phase complete — ready for verification
 Last activity: 2026-04-28
 
-Progress (Phase 9): [██░░░░░░░░] 20% (1 of 5 plans)
+Progress (Phase 10): [██████████] 100% (1 of 1 plan)
 
 ## Performance Metrics
 
@@ -102,6 +102,8 @@ Progress (Phase 9): [██░░░░░░░░] 20% (1 of 5 plans)
 | Phase 09-telegram-setup-testing PP02 | ~25 min | 2 tasks (2 commits) tasks | 4 files (3 created + 1 deferred-items.md) files |
 | Phase 09-telegram-setup-testing PP04 | ~25 min | 2 tasks tasks | 13 files (12 created + 1 modified) files |
 | Phase Phase 09-telegram-setup-testing P05 P16 min | 2 tasks | 14 files tasks | - files |
+| Phase 10-telegram-wiring-fixes P01 | ~8 min | 3 tasks (TDD; 5 commits: RED+GREEN×2 + 1 single) | 6 files (3 source + 3 tests; +189/-4 lines) |
+| Phase 10-telegram-wiring-fixes P01 | 8 min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -328,6 +330,9 @@ Recent decisions affecting current work:
 - Phase 9 P04: cc shim resolves install root via CMC_HOME → ~/.command-centre → repo root (dev mode); resolves venv via $ROOT/venv → $ROOT/backend/.venv (production vs dev layout)
 - Plan 09-05 — Theme toggle Q1=A LOCKED: ~50 LOC frontend (lib/theme.ts + ThemeToggle.tsx + [data-theme='light'] CSS overrides + NavBar mount + main.tsx applyTheme()). No provider, no CSS-in-JS — data-attribute on <html> + CSS variable override. Light theme functional, polish deferred to v2.
 - Plan 09-05 — Playwright Q6 LOCKED: chromium-only, vite preview (NEVER vite dev — Pitfall P9), webServer launches uvicorn + vite preview with reuseExistingServer=true. Manual gate (npm run test:e2e); no CI in v1. 4 specs / 6 tests passing locally.
+- [Phase ?]: Phase 10-01 audit correction: validate_transition matrix NOT extended for awaiting_approval->cancelled — used explicit source-state check + direct row.status assignment per approve_task / rerun_task convention
+- [Phase ?]: Phase 10-01: dash_router stamps answered_by='telegram' on every answer_decision body — locks Telegram-origin provenance into HITL audit trail with zero schema change (schemas/hitl.py Literal already accepted 'telegram')
+- [Phase ?]: Phase 10-01: two-level coverage pattern for Telegram callback body shape — pure-function dash_router test + wired-handler body-capture test via _local_api_transport additive 'body' key. Reusable template for future callback verbs
 
 ### Pending Todos
 
@@ -340,9 +345,9 @@ None — Phases 1–8 implementations complete; visual quality bar APPROVED by u
 
 ## Session Continuity
 
-Last session: 2026-04-28T02:06:01.304Z
-Stopped at: Completed 09-05-PLAN.md (Wave 4 close-out — theme toggle Q1=A + Playwright e2e TEST-01..04). PAUSED at close-out human-verify checkpoint covering all 5 ROADMAP success criteria.
-Resume file: Awaiting user run-through of SC1-SC4 manual walkthrough (install.sh, cc subcommands, setup_telegram wizard, Telegram notifier real messages). SC5 Playwright e2e already VERIFIED via executor run.
+Last session: 2026-04-28T15:18:07.845Z
+Stopped at: Completed 10-01-PLAN.md (Phase 10 telegram-wiring-fixes gap closure)
+Resume file: None
 
 Phase 1 final commit chain:
 

@@ -21,7 +21,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 7: Command Centre Panels** - HITL decision/inbox panels, task board, schedule composer, skills page, emergency stop
 - [x] **Phase 8: Mission Control Dispatcher** - Heartbeat, task execution (classic + stream), DECISION/INBOX parsing, skill routing
 - [x] **Phase 9: Telegram, Setup & Testing** - Telegram bridge, install.sh, cmc CLI, doctor.py, Playwright e2e tests
-- [ ] **Phase 10: Telegram Wiring Fixes** - Implement /reject route, fix answered_by provenance, callback parity smoke test (gap closure)
+- [x] **Phase 10: Telegram Wiring Fixes** - Implement /reject route, fix answered_by provenance, callback parity smoke test (gap closure) (completed 2026-04-28)
 - [ ] **Phase 11: v1.0 Documentation & Env Polish** - REQUIREMENTS/ROADMAP traceability sync, .env-aware doctor + handler, notifier HTTP symmetry (tech debt)
 
 ## Phase Details
@@ -235,7 +235,7 @@ Wave structure (sequential — each plan extends modules the next plan exercises
   5. Backend test suite remains green (≥373 tests)
 **Plans**: 1 plan
 
-- [ ] 10-01-PLAN.md — Add POST /api/tasks/{id}/reject route (transition awaiting_approval → cancelled), set answered_by="telegram" in dash_router.py:59 decision-answer body, add Telegram callback parity smoke tests covering Approve/Reject/Snooze
+- [x] 10-01-PLAN.md — Add POST /api/tasks/{id}/reject route (transition awaiting_approval → cancelled), set answered_by="telegram" in dash_router.py:59 decision-answer body, add Telegram callback parity smoke tests covering Approve/Reject/Snooze
 
 ### Phase 11: v1.0 Documentation & Env Polish
 **Goal**: Documentation hygiene and environment-loading polish so doctor/handler behave correctly in installed locations
@@ -269,7 +269,7 @@ Note: Phases 3, 4, and 5 can execute in parallel after Phase 2 (or Phase 1 for 4
 | 7. Command Centre Panels | 4/4 | Complete (verifier: 5/5 must-haves; visual quality bar approved by user) | 2026-04-27 |
 | 8. Mission Control Dispatcher | 4/4 | Complete (verifier: 5/5 must-haves) | 2026-04-27 |
 | 9. Telegram, Setup & Testing | 5/5 | Complete (verifier: 5/5 must-haves; human-verify APPROVED by user against SC1-5) | 2026-04-28 |
-| 10. Telegram Wiring Fixes | 0/1 | Pending (gap closure from v1.0-MILESTONE-AUDIT.md) | — |
+| 10. Telegram Wiring Fixes | 1/1 | Complete   | 2026-04-28 |
 | 11. v1.0 Documentation & Env Polish | 0/1 | Pending (tech debt from v1.0-MILESTONE-AUDIT.md) | — |
 
 **v1.0 milestone reached: 45/45 plans, 9/9 phases complete. Gap closure pending in Phase 10–11.**
