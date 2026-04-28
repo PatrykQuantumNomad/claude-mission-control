@@ -85,6 +85,56 @@ def test_settings_absolute_db_path_preserved(clean_env, monkeypatch, tmp_path):
     assert s.db_path == abs_db
 
 
+# ---- Phase 11 (Plan 11-01): SC3+SC4 root — env_file tuple + anthropic_api_key ----
+
+
+def _write_env(p: Path, content: str) -> None:
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(content, encoding="utf-8")
+
+
+def test_settings_anthropic_api_key_default_none():
+    """SC4 (Phase 11): anthropic_api_key field exists with default None when no env file loads."""
+    s = Settings(_env_file=None)
+    assert s.anthropic_api_key is None
+
+
+def test_settings_loads_command_centre_env(tmp_path, monkeypatch):
+    """SC3+SC4 root (Phase 11): env_file tuple includes ~/.command-centre/.env.
+
+    A launchd-spawned daemon (which does not inherit the operator's shell env)
+    must still be able to read ANTHROPIC_API_KEY out of the install-mode
+    config file. This test simulates that by:
+      - pointing Path.home() at a tmp dir,
+      - writing a fake ~/.command-centre/.env with ANTHROPIC_API_KEY=sk-from-cmd,
+      - cwd into a sibling dir so the repo-mode `.env` does NOT shadow.
+    """
+    fake_home = tmp_path / "home"
+    cmd_env = fake_home / ".command-centre" / ".env"
+    _write_env(cmd_env, "ANTHROPIC_API_KEY=sk-from-cmd\n")
+    monkeypatch.setattr(Path, "home", lambda: fake_home)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    s = Settings()
+    assert s.anthropic_api_key == "sk-from-cmd"
+
+
+def test_settings_env_file_tuple_rightmost_wins(tmp_path, monkeypatch):
+    """env_file tuple precedence: ~/.command-centre/.env (rightmost) overrides repo .env."""
+    fake_home = tmp_path / "home"
+    repo = tmp_path / "repo"
+    cmd_env = fake_home / ".command-centre" / ".env"
+    repo_env = repo / ".env"
+    _write_env(cmd_env, "ANTHROPIC_API_KEY=sk-from-install\n")
+    _write_env(repo_env, "ANTHROPIC_API_KEY=sk-from-repo\n")
+    monkeypatch.setattr(Path, "home", lambda: fake_home)
+    monkeypatch.chdir(repo)
+    # Also clear any inherited env var that would shadow file loading.
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    s = Settings()
+    assert s.anthropic_api_key == "sk-from-install"
+
+
 # ---- FOUND-02 (Plan 04): engine + pragmas ----
 
 
