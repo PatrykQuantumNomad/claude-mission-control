@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 08-04-PLAN.md (Phase 8 close-out — human-verify APPROVED)
-last_updated: "2026-04-27T23:00:00.000Z"
-last_activity: 2026-04-27
+status: verifying
+stopped_at: Completed 09-01-PLAN.md (Wave 1 telegram foundation — primitives + plists + notifications router)
+last_updated: "2026-04-28T00:46:20.632Z"
+last_activity: 2026-04-28
 progress:
   total_phases: 9
   completed_phases: 8
-  total_plans: 40
-  completed_plans: 40
-  percent: 100
+  total_plans: 45
+  completed_plans: 41
+  percent: 91
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-25)
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, queue and approve tasks, and kill runaway sessions — all from one browser tab.
-**Current focus:** Phase 8 of 9 COMPLETE (Mission Control Dispatcher) — Plan 08-04 Wave 4 close-out APPROVED by user 2026-04-27 against ROADMAP success criteria 1-5. Heartbeat fan-out TODO from Plan 01 finalized (skill_router → autonomy_gate → threading.Thread spawn for run_classic/run_stream); FollowUpPump (DISP-09) wired into run_stream alongside the reader thread; skill_router (DISP-11) Haiku 4.5 routing for unassigned tasks; autonomy_gate (DISP-04 second half) with Pitfall-12 unknown→manual default; 4 E2E integration tests cover ROADMAP SC1-5 in-process. 298/298 backend tests green (271 baseline + 27 new across 5 commits = 2 RED + 2 GREEN + 1 E2E). All 12 DISP-* requirements covered by passing tests. Stdin NDJSON spike RESOLVED in Plan 08-03 (claude 2.1.112 accepts symmetric NDJSON on stdin) — FollowUpPump payload shape locked by spike. Phase 9 (Telegram, Setup & Testing) is the final phase; no plans drafted yet.
+**Current focus:** Phase 9 of 9 (Telegram, Setup & Testing) — Plan 09-01 ✅ Wave 1 telegram foundation landed (cmc.telegram primitives + 2 plist templates + notifications router + 5 Settings fields). 331/331 backend tests green (298 baseline + 33 new). Plans 09-02 (notifier oneshot) + 09-03 (handler long-poll wizard) can now execute in parallel against this foundation; 09-04 (install.sh) and 09-05 (close-out E2E) follow sequentially.
 
 ## Current Position
 
-Phase: 8 of 9 COMPLETE (Mission Control Dispatcher) — all 4 plans landed, human-verify APPROVED
-Plan: 4 of 4 complete in Phase 8 (08-01 Wave 1 ✅; 08-02 Wave 2 classic runner ✅; 08-03 Wave 3 stream runner ✅; 08-04 Wave 4 fan-out + follow-up pump + skill router + autonomy gate ✅)
-Status: Ready for verifier handoff; Phase 9 (Telegram, Setup & Testing) is the next phase to plan
-Last activity: 2026-04-27
+Phase: 9 of 9 IN PROGRESS (Telegram, Setup & Testing) — 1 of 5 plans complete
+Plan: 1 of 5 complete in Phase 9 (09-01 Wave 1 telegram foundation ✅; 09-02 + 09-03 ready to parallelize next; 09-04 install.sh; 09-05 close-out E2E)
+Status: Plan 09-01 complete; ready for Wave 2 (09-02 + 09-03 parallel)
+Last activity: 2026-04-28
 
-Progress (Phase 8): [██████████] 100% (4 of 4 plans)
+Progress (Phase 9): [██░░░░░░░░] 20% (1 of 5 plans)
 
 ## Performance Metrics
 
@@ -97,6 +97,7 @@ Progress (Phase 8): [██████████] 100% (4 of 4 plans)
 | Phase 08-mission-control-dispatcher PP02 | 9 min | 2 tasks (TDD; 4 commits) tasks | 9 files (7 created + 2 modified) files |
 | Phase 08 P03 | 30min | 3 tasks | 7 files |
 | Phase 08-mission-control-dispatcher P04 | ~25 min | 4 tasks (2 TDD + 1 E2E + 1 close-out checkpoint; 5 commits) | 6 files (3 created + 3 modified) |
+| Phase 09-telegram-setup-testing P01 | 17min | 2 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -310,6 +311,10 @@ Recent decisions affecting current work:
 - Plan 08-04: 4 in-process E2E tests + 1 cross-process E2E test (slow-marked) cover ROADMAP Phase 8 success criteria 1-5. The cross-process test (test_e2e_two_processes_no_double_claim) seeds 5 pending tasks in a tmp DB and spawns TWO `python -m cmc.dispatcher.oneshot` subprocesses against the same DB URL via CMC_DATABASE_URL — confirms the SQLite WAL + BEGIN IMMEDIATE atomic-claim contract holds across OS-level processes (not just asyncio coroutines in one process). Test partitions: union of claimed task IDs covers all 5; intersection is empty.
 - 2026-04-27: Phase 8 close-out APPROVED by user — manual SC1-SC4 verification against running system; SC5 (concurrency cap) covered by automated E2E. Steps 19-21 (launchd plist registration via launchctl bootstrap/kickstart) deliberately deferred to Phase 9 install.sh per the plan's checkpoint guidance. 298/298 backend tests green; 12 of 12 DISP-* requirements complete; heartbeat fan-out finalized; FollowUpPump live; skill router + autonomy gate live. Phase 8 closes ready for verifier handoff.
 - Phase 8 close: 13 dispatcher modules under cmc/dispatcher/ (state, sweep, claim, materialize, heartbeat, run_classic, run_stream, model_resolve, plist_render, marker_parser, answer_poll, inbox_post, follow_ups, skill_router, autonomy_gate, _input_format_spike) + 1 plist template + 2 fake-claude test fixtures. 12 DISP-* requirements: DISP-01 (atomic claim + materialize) Plan 01 + 04; DISP-02 (emergency stop early return) Plan 01; DISP-03 (PID sweep) Plan 01; DISP-04 (concurrency cap + autonomy gate) Plan 01 + 04; DISP-05 (classic runner) Plan 02; DISP-06 (stream runner) Plan 03; DISP-07 (DECISION + answer poll) Plan 03; DISP-08 (INBOX → /api/inbox) Plan 03; DISP-09 (FollowUpPump) Plan 04; DISP-10 (model resolution) Plan 02; DISP-11 (skill router) Plan 04; DISP-12 (plist + render) Plan 02. Outstanding items punted to Phase 9: install.sh launchd plist registration; doctor.py dispatcher health check; Telegram fan-out from inbox writes (TELE-02).
+- Plan 09-01 LOCKED: cmc.telegram.api.send_message has NO parse_mode parameter (Pitfall P3); enforced by test_api_no_parse_mode_argument grep gate using inspect.signature()
+- Plan 09-01 dash_router contract LOCKED: snooze callbacks emit RESOLVE_THEN_PATCH (handler GETs /api/notifications/_resolve/{kind}/{entity_id}, then PATCHes /snooze) — keeps callback_data under Telegram's 64-byte cap. 7 verbs total: approve_task, reject_task, rerun_task, answer_decision, reply_inbox (NOOP), snooze (RESOLVE_THEN_PATCH), estop
+- Plan 09-01 plist_render LOCKED to string.Template (NOT Jinja2) mirroring cmc.dispatcher.plist_render; 3 substitutions ($python_path, $python_path_dir, $repo_root); CLI entry python -m cmc.telegram.plist_render --variant {notifier|handler} <python> <repo>
+- Plan 09-01 api.py client= shape LOCKED: when caller provides client (test MockTransport), api functions use client.post/get directly without re-entering its async with context. The plan's literal 'async with (client or AsyncClient(...)) as c:' would close caller-provided client mid-test — bug pattern avoided
 
 ### Pending Todos
 
@@ -322,8 +327,8 @@ None — Phases 1–8 implementations complete; visual quality bar APPROVED by u
 
 ## Session Continuity
 
-Last session: 2026-04-27T23:00:00.000Z
-Stopped at: Completed 08-04-PLAN.md (Phase 8 close-out — human-verify APPROVED)
+Last session: 2026-04-28T00:46:06.430Z
+Stopped at: Completed 09-01-PLAN.md (Wave 1 telegram foundation — primitives + plists + notifications router)
 Resume file: None
 
 Phase 1 final commit chain:
