@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import Optional
 
 from pydantic import Field, ValidationError, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -93,6 +94,35 @@ class Settings(BaseSettings):
     dispatcher_answer_poll_s: float = Field(
         default=2.0,
         description="DISP-07 cadence for polling decision-status changes (seconds)",
+    )
+
+    # Phase 9 — Telegram (TELE-01..07). All optional; bot disabled when
+    # telegram_bot_token is None.
+    telegram_bot_token: Optional[str] = Field(
+        default=None,
+        description="BotFather token; when None telegram daemons no-op",
+    )
+    telegram_chat_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "Single-user chat_id from setup_telegram wizard. Stored as string to preserve "
+            "negative integers for group chats (Pitfall P10)"
+        ),
+    )
+    telegram_allowed_user_ids: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Comma-separated user_ids whose text messages can route to claude (TELE-05). "
+            "Pydantic-Settings parses CMC_TELEGRAM_ALLOWED_USER_IDS=123,456 into list[str]"
+        ),
+    )
+    telegram_poll_timeout_s: int = Field(
+        default=25,
+        description="getUpdates long-poll timeout (must be < 30s launchd cycle)",
+    )
+    telegram_notifier_interval_s: int = Field(
+        default=30,
+        description="Notifier oneshot StartInterval; matches plist template",
     )
 
     @model_validator(mode="after")
