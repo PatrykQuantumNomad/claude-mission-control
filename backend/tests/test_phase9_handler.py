@@ -403,3 +403,91 @@ async def test_handler_get_updates_exception_sleeps_then_retries(
         await handler.run_handler_loop(sessions, s, max_iterations=3)
     # First call raised; loop retried at least once more.
     assert calls["n"] >= 2
+
+
+# ---------- setup_telegram wizard (TELE-01) ----------
+
+
+def _patch_async_client(monkeypatch, transport_handler):
+    """Force every `httpx.AsyncClient(...)` constructor inside the wizard
+    to use a MockTransport with the supplied request handler. We capture
+    the real constructor BEFORE patching so the factory doesn't recurse
+    into its own replacement."""
+    real_ctor = httpx.AsyncClient
+
+    def _factory(*a, **kw):
+        kw["transport"] = MockTransport(transport_handler)
+        return real_ctor(*a, **kw)
+
+    monkeypatch.setattr("httpx.AsyncClient", _factory)
+
+
+@pytest.mark.asyncio
+async def test_setup_telegram_state_machine(monkeypatch, tmp_path):
+    """Happy path: token validates → chat_id accepted → test message sent
+    → .env written with all three TELEGRAM_* keys."""
+    from cmc.cli import setup_telegram as wiz
+
+    responses = iter(["TKN_OK", "12345"])
+    monkeypatch.setattr("builtins.input", lambda *a, **kw: next(responses))
+
+    def transport_handler(req: httpx.Request) -> Response:
+        url = str(req.url)
+        if "/getMe" in url:
+            return Response(
+                200, json={"ok": True, "result": {"username": "test_bot"}}
+            )
+        if "/sendMessage" in url:
+            return Response(
+                200,
+                json={
+                    "ok": True,
+                    "result": {"message_id": 42, "chat": {"id": 12345}},
+                },
+            )
+        return Response(404, json={"ok": False})
+
+    _patch_async_client(monkeypatch, transport_handler)
+    # Redirect both env path candidates into tmp.
+    monkeypatch.setattr(wiz, "INSTALL_ENV", tmp_path / "install" / ".env")
+    monkeypatch.setattr(wiz, "DEV_ENV", tmp_path / ".env")
+
+    rc = await wiz._amain()
+    assert rc == 0
+    env = (tmp_path / ".env").read_text()
+    assert "TELEGRAM_BOT_TOKEN=TKN_OK" in env
+    assert "TELEGRAM_CHAT_ID=12345" in env
+    assert "TELEGRAM_ALLOWED_USER_IDS=12345" in env
+
+
+@pytest.mark.asyncio
+async def test_setup_telegram_bad_token_exits_1(monkeypatch):
+    """getMe 401 → wizard prints friendly error and exits 1."""
+    from cmc.cli import setup_telegram as wiz
+
+    responses = iter(["BAD_TOKEN"])
+    monkeypatch.setattr("builtins.input", lambda *a, **kw: next(responses))
+
+    def transport_handler(req: httpx.Request) -> Response:
+        return Response(401, json={"ok": False, "description": "Unauthorized"})
+
+    _patch_async_client(monkeypatch, transport_handler)
+    rc = await wiz._amain()
+    assert rc == 1
+
+
+def test_write_env_atomic_merge(tmp_path):
+    """Pitfall P8: existing keys preserved, TELEGRAM_* upserted, atomic
+    rename via tmp-in-same-dir."""
+    from cmc.cli.setup_telegram import _write_env
+
+    p = tmp_path / ".env"
+    p.write_text("FOO=bar\nTELEGRAM_BOT_TOKEN=old\n")
+    _write_env(p, "newtoken", "999", ["999", "1234"])
+    body = p.read_text()
+    assert "FOO=bar" in body  # preserved (not in TELEGRAM_*)
+    assert "TELEGRAM_BOT_TOKEN=newtoken" in body
+    assert "TELEGRAM_CHAT_ID=999" in body
+    assert "TELEGRAM_ALLOWED_USER_IDS=999,1234" in body
+    # Tmp file should not linger.
+    assert not (tmp_path / ".env.tmp").exists()
