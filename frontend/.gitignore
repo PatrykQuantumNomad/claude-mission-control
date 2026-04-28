@@ -6,3 +6,8 @@ dist/
 # Compiled vite.config (tsc -b emits these alongside the .ts source)
 vite.config.d.ts
 vite.config.js
+
+# Playwright artifacts (Phase 9 Plan 05) — runtime output, never commit
+test-results/
+playwright-report/
+playwright/.cache/
