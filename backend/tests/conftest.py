@@ -15,7 +15,13 @@ from cmc.config import Settings
 
 @pytest.fixture
 def clean_env(monkeypatch):
-    """Strip CMC-related env vars so Settings() falls back to defaults."""
+    """Strip CMC-related env vars so Settings() falls back to defaults.
+
+    Phase 11 (Pitfall A): also strip ANTHROPIC_API_KEY and TELEGRAM_* so
+    tests don't pick up developer-machine values via Settings's broadened
+    env_file tuple. Belt-and-suspenders alongside the per-call-site
+    `_env_file=None` audit.
+    """
     for k in list(os.environ.keys()):
         if k.upper() in {
             "HOST",
@@ -25,6 +31,10 @@ def clean_env(monkeypatch):
             "LOG_LEVEL",
             "STATIC_DIR",
             "ALEMBIC_INI_PATH",
+            "ANTHROPIC_API_KEY",
+            "TELEGRAM_BOT_TOKEN",
+            "TELEGRAM_CHAT_ID",
+            "TELEGRAM_ALLOWED_USER_IDS",
         }:
             monkeypatch.delenv(k, raising=False)
 
@@ -40,8 +50,12 @@ def test_settings(clean_env, tmp_db_path) -> Settings:
     """Settings instance with a tmp DB path. Plans 04-06 use this.
 
     Note: tmp_db_path is absolute, so Settings' repo-root resolver leaves it untouched.
+
+    Phase 11 (Pitfall A): pass `_env_file=None` so the broadened env_file tuple
+    in Settings.model_config (which now includes ~/.command-centre/.env) cannot
+    leak the developer's real install env into test runs.
     """
-    return Settings(db_path=tmp_db_path)
+    return Settings(_env_file=None, db_path=tmp_db_path)
 
 
 @pytest.fixture

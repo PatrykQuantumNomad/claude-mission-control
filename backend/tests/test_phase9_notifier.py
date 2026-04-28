@@ -112,7 +112,7 @@ async def test_notifier_full_cycle_sends_three(test_settings):
             await db.commit()
 
         captured: list = []
-        s = Settings(telegram_bot_token="TKN", telegram_chat_id="999")
+        s = Settings(_env_file=None, telegram_bot_token="TKN", telegram_chat_id="999")
         async with _mock_client(captured) as client:
             sent = await notifier.run_one_cycle(
                 sessions, s, http_client=client
@@ -148,7 +148,7 @@ async def test_notifier_dedup_no_resend(test_settings):
             )
             await db.commit()
 
-        s = Settings(telegram_bot_token="TKN", telegram_chat_id="999")
+        s = Settings(_env_file=None, telegram_bot_token="TKN", telegram_chat_id="999")
         cap1: list = []
         async with _mock_client(cap1) as c:
             await notifier.run_one_cycle(sessions, s, http_client=c)
@@ -193,7 +193,7 @@ async def test_notifier_snooze_blocks_resend(test_settings):
             )
             await db.commit()
 
-        s = Settings(telegram_bot_token="TKN", telegram_chat_id="999")
+        s = Settings(_env_file=None, telegram_bot_token="TKN", telegram_chat_id="999")
         cap: list = []
         async with _mock_client(cap) as c:
             sent = await notifier.run_one_cycle(sessions, s, http_client=c)
@@ -244,7 +244,7 @@ async def test_notifier_rerun_cleanup_allows_resend(test_settings):
             )
             await db.commit()
 
-        s = Settings(telegram_bot_token="TKN", telegram_chat_id="999")
+        s = Settings(_env_file=None, telegram_bot_token="TKN", telegram_chat_id="999")
 
         # Step 3: cycle A — cleanup_rerun_failures deletes the stale row
         # because task.status='running'. No candidates yet, so 0 sends.
@@ -294,7 +294,7 @@ async def test_notifier_no_op_without_token(test_settings):
     """settings.telegram_bot_token is None → returns 0, no sendMessage calls."""
     engine, sessions = await _bootstrap_db(test_settings)
     try:
-        s = Settings()  # all telegram_* default → None / empty
+        s = Settings(_env_file=None)  # all telegram_* default → None / empty
         cap: list = []
         async with _mock_client(cap) as c:
             sent = await notifier.run_one_cycle(sessions, s, http_client=c)
@@ -309,7 +309,7 @@ async def test_notifier_stamps_tick_on_no_op(test_settings):
     """Pitfall P5: tick stamp fires even when telegram is disabled."""
     engine, sessions = await _bootstrap_db(test_settings)
     try:
-        s = Settings()
+        s = Settings(_env_file=None)
         async with _mock_client([]) as c:
             await notifier.run_one_cycle(sessions, s, http_client=c)
         async with sessions() as db:
@@ -352,7 +352,7 @@ async def test_notifier_send_failure_marks_status_failed(test_settings):
                 500, json={"ok": False, "description": "boom"}
             )
 
-        s = Settings(telegram_bot_token="TKN", telegram_chat_id="999")
+        s = Settings(_env_file=None, telegram_bot_token="TKN", telegram_chat_id="999")
         async with httpx.AsyncClient(transport=MockTransport(handler)) as c:
             sent = await notifier.run_one_cycle(sessions, s, http_client=c)
         assert sent == 0
@@ -391,7 +391,7 @@ async def test_notifier_inline_keyboard_shape(test_settings):
             decision_id = d.id
 
         captured: list = []
-        s = Settings(telegram_bot_token="TKN", telegram_chat_id="999")
+        s = Settings(_env_file=None, telegram_bot_token="TKN", telegram_chat_id="999")
         async with _mock_client(captured) as c:
             await notifier.run_one_cycle(sessions, s, http_client=c)
         assert len(captured) == 1
@@ -418,7 +418,7 @@ async def test_oneshot_notifier_amain_runs_clean(monkeypatch, tmp_path):
 
     # Force the no-op telegram path (no token) and a tmp DB so engine.dispose
     # has nothing to write back to a shared file.
-    fake_settings = Settings(db_path=tmp_path / "smoke.db")
+    fake_settings = Settings(_env_file=None, db_path=tmp_path / "smoke.db")
     monkeypatch.setattr(
         "cmc.telegram.oneshot_notifier.load_settings",
         lambda: fake_settings,
@@ -439,7 +439,7 @@ async def test_oneshot_notifier_amain_returns_1_on_crash(monkeypatch, tmp_path):
     """Uncaught exception in run_one_cycle → rc=1 and engine.dispose still runs."""
     from cmc.telegram import oneshot_notifier
 
-    fake_settings = Settings(db_path=tmp_path / "smoke.db")
+    fake_settings = Settings(_env_file=None, db_path=tmp_path / "smoke.db")
     monkeypatch.setattr(
         "cmc.telegram.oneshot_notifier.load_settings",
         lambda: fake_settings,

@@ -28,7 +28,7 @@ def test_settings_dispatcher_fields_present(clean_env):
     """All 7 new dispatcher fields land with documented defaults."""
     from cmc.config import Settings
 
-    s = Settings()
+    s = Settings(_env_file=None)
     assert s.claude_bin == Path("/opt/homebrew/bin/claude")
     assert s.claude_default_model == "sonnet"
     assert s.dispatcher_max_concurrent == 3
@@ -45,7 +45,7 @@ def test_settings_env_overrides(clean_env, monkeypatch):
 
     monkeypatch.setenv("CLAUDE_BIN", "/usr/local/bin/claude")
     monkeypatch.setenv("DISPATCHER_MAX_CONCURRENT", "5")
-    s = Settings()
+    s = Settings(_env_file=None)
     assert s.claude_bin == Path("/usr/local/bin/claude")
     assert s.dispatcher_max_concurrent == 5
 
@@ -2757,7 +2757,7 @@ def test_disp09_followup_pump_reads_messages_file(tmp_path, monkeypatch):
     class _FakeProc:
         stdin = _FakeStdin()
 
-    settings = Settings(dispatcher_followup_poll_s=0.05)
+    settings = Settings(_env_file=None, dispatcher_followup_poll_s=0.05)
     task_row = {"id": 42}
     pump = FollowUpPump(task_row, _FakeProc(), settings)
 
@@ -2802,7 +2802,7 @@ def test_disp09_followup_pump_handles_missing_file(tmp_path, monkeypatch):
     class _FakeProc:
         stdin = _FakeStdin()
 
-    settings = Settings(dispatcher_followup_poll_s=0.05)
+    settings = Settings(_env_file=None, dispatcher_followup_poll_s=0.05)
     pump = FollowUpPump({"id": 99}, _FakeProc(), settings)
 
     th = threading.Thread(target=pump.run, daemon=True)
@@ -2844,7 +2844,7 @@ def test_disp09_followup_pump_atomic_truncate(tmp_path, monkeypatch):
     class _FakeProc:
         stdin = _FakeStdin()
 
-    settings = Settings(dispatcher_followup_poll_s=0.1)
+    settings = Settings(_env_file=None, dispatcher_followup_poll_s=0.1)
     pump = FollowUpPump({"id": 7}, _FakeProc(), settings)
     th = threading.Thread(target=pump.run, daemon=True)
     th.start()
@@ -2885,7 +2885,7 @@ def test_disp09_followup_pump_stops_on_event(tmp_path, monkeypatch):
     class _FakeProc:
         stdin = _FakeStdin()
 
-    settings = Settings(dispatcher_followup_poll_s=0.2)
+    settings = Settings(_env_file=None, dispatcher_followup_poll_s=0.2)
     pump = FollowUpPump({"id": 1}, _FakeProc(), settings)
 
     th = threading.Thread(target=pump.run, daemon=True)

@@ -105,7 +105,7 @@ async def test_handler_persists_offset_before_processing(seeded_app, monkeypatch
     ans, ed = [], []
     tg = httpx.AsyncClient(transport=_telegram_transport([[update], []], ans, ed))
     local = httpx.AsyncClient(transport=_local_api_transport([]))
-    s = Settings(telegram_bot_token="TKN", telegram_chat_id="1")
+    s = Settings(_env_file=None, telegram_bot_token="TKN", telegram_chat_id="1")
     # Stub claude relay so subprocess never actually runs.
     monkeypatch.setattr(handler, "relay_text_to_claude", lambda *a, **k: "stub reply")
     async with cm:
@@ -140,6 +140,7 @@ async def test_handler_drops_unauthorized_user(seeded_app):
     local_calls = []
     local = httpx.AsyncClient(transport=_local_api_transport(local_calls))
     s = Settings(
+        _env_file=None,
         telegram_bot_token="TKN",
         telegram_chat_id="1",
         telegram_allowed_user_ids=["1"],
@@ -178,7 +179,7 @@ async def test_handler_callback_approve_task_dispatches_post(seeded_app):
     tg = httpx.AsyncClient(transport=_telegram_transport([[update], []], ans, ed))
     local_calls = []
     local = httpx.AsyncClient(transport=_local_api_transport(local_calls))
-    s = Settings(telegram_bot_token="TKN", telegram_chat_id="1")
+    s = Settings(_env_file=None, telegram_bot_token="TKN", telegram_chat_id="1")
     async with cm:
         sessions = app.state.sessions
         try:
@@ -220,7 +221,7 @@ async def test_handler_callback_reject_task_dispatches_post(seeded_app):
     tg = httpx.AsyncClient(transport=_telegram_transport([[update], []], ans, ed))
     local_calls = []
     local = httpx.AsyncClient(transport=_local_api_transport(local_calls))
-    s = Settings(telegram_bot_token="TKN", telegram_chat_id="1")
+    s = Settings(_env_file=None, telegram_bot_token="TKN", telegram_chat_id="1")
     async with cm:
         sessions = app.state.sessions
         try:
@@ -263,7 +264,7 @@ async def test_handler_callback_answer_decision_tags_telegram_provenance(seeded_
     tg = httpx.AsyncClient(transport=_telegram_transport([[update], []], ans, ed))
     local_calls = []
     local = httpx.AsyncClient(transport=_local_api_transport(local_calls))
-    s = Settings(telegram_bot_token="TKN", telegram_chat_id="1")
+    s = Settings(_env_file=None, telegram_bot_token="TKN", telegram_chat_id="1")
     async with cm:
         sessions = app.state.sessions
         try:
@@ -304,7 +305,7 @@ async def test_handler_callback_estop_dispatches_post(seeded_app):
     tg = httpx.AsyncClient(transport=_telegram_transport([[update], []], ans, ed))
     local_calls = []
     local = httpx.AsyncClient(transport=_local_api_transport(local_calls))
-    s = Settings(telegram_bot_token="TKN", telegram_chat_id="1")
+    s = Settings(_env_file=None, telegram_bot_token="TKN", telegram_chat_id="1")
     async with cm:
         sessions = app.state.sessions
         try:
@@ -340,7 +341,7 @@ async def test_handler_callback_snooze_resolves_then_patches(seeded_app):
     tg = httpx.AsyncClient(transport=_telegram_transport([[update], []], ans, ed))
     local_calls = []
     local = httpx.AsyncClient(transport=_local_api_transport(local_calls))
-    s = Settings(telegram_bot_token="TKN", telegram_chat_id="1")
+    s = Settings(_env_file=None, telegram_bot_token="TKN", telegram_chat_id="1")
     async with cm:
         sessions = app.state.sessions
         try:
@@ -399,7 +400,7 @@ async def test_handler_text_relays_to_claude_with_env_scrub(
         transport=_telegram_transport([[update], []], ans, ed, send_calls=sent)
     )
     local = httpx.AsyncClient(transport=_local_api_transport([]))
-    s = Settings(telegram_bot_token="TKN", telegram_chat_id="1")
+    s = Settings(_env_file=None, telegram_bot_token="TKN", telegram_chat_id="1")
     async with cm:
         sessions = app.state.sessions
         try:
@@ -422,7 +423,7 @@ async def test_handler_text_relays_to_claude_with_env_scrub(
 @pytest.mark.asyncio
 async def test_handler_no_op_without_token():
     """When token/chat_id unset, run_handler_loop returns immediately."""
-    s = Settings()  # both unset → disabled
+    s = Settings(_env_file=None)  # both unset → disabled
 
     def _no_sessions():
         raise AssertionError("sessions() should not be called when disabled")
@@ -448,7 +449,7 @@ async def test_handler_invalid_callback_data_logs_and_acks(seeded_app):
     tg = httpx.AsyncClient(transport=_telegram_transport([[update], []], ans, ed))
     local_calls = []
     local = httpx.AsyncClient(transport=_local_api_transport(local_calls))
-    s = Settings(telegram_bot_token="TKN", telegram_chat_id="1")
+    s = Settings(_env_file=None, telegram_bot_token="TKN", telegram_chat_id="1")
     async with cm:
         sessions = app.state.sessions
         try:
@@ -490,7 +491,7 @@ async def test_handler_get_updates_exception_sleeps_then_retries(
         await real_sleep(0)
 
     monkeypatch.setattr("cmc.telegram.handler.asyncio.sleep", fake_sleep)
-    s = Settings(telegram_bot_token="TKN", telegram_chat_id="1")
+    s = Settings(_env_file=None, telegram_bot_token="TKN", telegram_chat_id="1")
     async with cm:
         sessions = app.state.sessions
         await handler.run_handler_loop(sessions, s, max_iterations=3)

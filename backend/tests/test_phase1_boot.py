@@ -23,7 +23,7 @@ from cmc.db import create_engine_for_settings, make_sessionmaker
 
 def test_settings_defaults_with_no_env(clean_env):
     """FOUND-04: Settings loads sensible defaults when no env/.env present."""
-    s = Settings()
+    s = Settings(_env_file=None)
     assert s.host == "127.0.0.1"
     assert s.port == 8765
     assert s.log_level == "INFO"
@@ -36,10 +36,10 @@ def test_settings_db_path_is_repo_root_anchored(clean_env, monkeypatch, tmp_path
     process cwd is the repo root or somewhere else (like backend/).
     """
     # First, capture the default from the actual repo root context
-    s1 = Settings()
+    s1 = Settings(_env_file=None)
     # Now chdir into a tmp dir and re-instantiate — must produce IDENTICAL absolute path
     monkeypatch.chdir(tmp_path)
-    s2 = Settings()
+    s2 = Settings(_env_file=None)
     assert s1.db_path == s2.db_path, f"db_path drifted with cwd: {s1.db_path} vs {s2.db_path}"
     assert s1.db_path.is_absolute()
     assert str(s1.db_path).endswith("data/cmc.db")
@@ -47,9 +47,9 @@ def test_settings_db_path_is_repo_root_anchored(clean_env, monkeypatch, tmp_path
 
 def test_settings_alembic_ini_path_is_repo_root_anchored(clean_env, monkeypatch, tmp_path):
     """FOUND-04 + BLOCKER 1 fix: alembic_ini_path is cwd-independent."""
-    s1 = Settings()
+    s1 = Settings(_env_file=None)
     monkeypatch.chdir(tmp_path)
-    s2 = Settings()
+    s2 = Settings(_env_file=None)
     assert s1.alembic_ini_path == s2.alembic_ini_path
     assert s1.alembic_ini_path.is_absolute()
     assert str(s1.alembic_ini_path).endswith("backend/alembic.ini")
@@ -74,7 +74,7 @@ def test_settings_env_var_override(clean_env, monkeypatch):
     """FOUND-04: Env vars override defaults."""
     monkeypatch.setenv("PORT", "9000")
     monkeypatch.setenv("LOG_LEVEL", "DEBUG")
-    s = Settings()
+    s = Settings(_env_file=None)
     assert s.port == 9000
     assert s.log_level == "DEBUG"
 
@@ -83,7 +83,7 @@ def test_settings_absolute_db_path_preserved(clean_env, monkeypatch, tmp_path):
     """FOUND-04: User-supplied absolute DB_PATH is NOT clobbered by the repo-root resolver."""
     abs_db = tmp_path / "user.db"
     monkeypatch.setenv("DB_PATH", str(abs_db))
-    s = Settings()
+    s = Settings(_env_file=None)
     assert s.db_path == abs_db
 
 
