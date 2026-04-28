@@ -270,6 +270,6 @@ Note: Phases 3, 4, and 5 can execute in parallel after Phase 2 (or Phase 1 for 4
 | 8. Mission Control Dispatcher | 4/4 | Complete (verifier: 5/5 must-haves) | 2026-04-27 |
 | 9. Telegram, Setup & Testing | 5/5 | Complete (verifier: 5/5 must-haves; human-verify APPROVED by user against SC1-5) | 2026-04-28 |
 | 10. Telegram Wiring Fixes | 1/1 | Complete (verifier: 5/5 must-haves) | 2026-04-28 |
-| 11. v1.0 Documentation & Env Polish | 1/1 | Complete   | 2026-04-28 |
+| 11. v1.0 Documentation & Env Polish | 1/1 | Complete (verifier: 9/9 must-haves) | 2026-04-28 |
 
-**v1.0 milestone reached: 45/45 plans, 9/9 phases complete. Gap closure pending in Phase 10–11.**
+**v1.0 milestone complete: 47/47 plans, 11/11 phases verified (9 base + 2 gap closure).**
