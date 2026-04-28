@@ -20,7 +20,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 6: Observability & Activity Panels** - All 15 observability panels plus the 6 activity page panels
 - [x] **Phase 7: Command Centre Panels** - HITL decision/inbox panels, task board, schedule composer, skills page, emergency stop
 - [x] **Phase 8: Mission Control Dispatcher** - Heartbeat, task execution (classic + stream), DECISION/INBOX parsing, skill routing
-- [ ] **Phase 9: Telegram, Setup & Testing** - Telegram bridge, install.sh, cc CLI, doctor.py, Playwright e2e tests
+- [x] **Phase 9: Telegram, Setup & Testing** - Telegram bridge, install.sh, cmc CLI, doctor.py, Playwright e2e tests
 
 ## Phase Details
 
@@ -204,8 +204,8 @@ Wave structure (sequential — each plan extends modules the next plan exercises
 **Depends on**: Phase 6, Phase 7, Phase 8
 **Requirements**: TELE-01, TELE-02, TELE-03, TELE-04, TELE-05, TELE-06, TELE-07, SETUP-01, SETUP-02, SETUP-03, SETUP-04, SETUP-05, SETUP-06, SETUP-07, TEST-01, TEST-02, TEST-03, TEST-04
 **Success Criteria** (what must be TRUE):
-  1. install.sh detects Python, creates venv, installs deps, copies files, renders launchd plists, and produces a working cc CLI shim
-  2. cc start / cc stop / cc restart / cc doctor / cc logs all work correctly
+  1. install.sh detects Python, creates venv, installs deps, copies files, renders launchd plists, and produces a working cmc CLI shim
+  2. cmc start / cmc stop / cmc restart / cmc doctor / cmc logs all work correctly
   3. setup_telegram.py wizard walks through BotFather setup and sends a test message
   4. Telegram notifier sends plain-text notifications for decisions, failures, and overdue schedules with working inline buttons
   5. Playwright e2e tests pass: all three routes render, Cmd+K opens palette, schedule composer works, theme toggle persists
@@ -238,4 +238,6 @@ Note: Phases 3, 4, and 5 can execute in parallel after Phase 2 (or Phase 1 for 4
 | 6. Observability & Activity Panels | 5/5 | Complete (visual quality bar approved by user) | 2026-04-27 |
 | 7. Command Centre Panels | 4/4 | Complete (verifier: 5/5 must-haves; visual quality bar approved by user) | 2026-04-27 |
 | 8. Mission Control Dispatcher | 4/4 | Complete (verifier: 5/5 must-haves) | 2026-04-27 |
-| 9. Telegram, Setup & Testing | 5/5 | Awaiting human-verify (Plan 09-05 paused at close-out checkpoint covering SC1-5) | 2026-04-28 |
+| 9. Telegram, Setup & Testing | 5/5 | Complete (verifier: 5/5 must-haves; human-verify APPROVED by user against SC1-5) | 2026-04-28 |
+
+**v1.0 milestone reached: 45/45 plans, 9/9 phases complete.**
