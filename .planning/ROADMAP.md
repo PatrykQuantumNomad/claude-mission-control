@@ -2,7 +2,7 @@
 
 ## Overview
 
-This roadmap builds a production-grade local dashboard and command centre for Claude Code in 9 phases. It starts with the FastAPI server foundation and SQLite database, layers on data ingestion (JSONL + OTEL), then builds out the full API surface in two phases (read-only observability, then stateful CRUD). The frontend shell and design system provide the container, followed by two panel phases (observability/activity, then command centre). The dispatcher brings autonomous task execution, and the final phase adds Telegram integration, installer, CLI tooling, and end-to-end tests.
+This roadmap builds a production-grade local dashboard and command centre for Claude Code in 9 phases (plus 2 post-audit gap-closure phases). It starts with the FastAPI server foundation and SQLite database, layers on data ingestion (JSONL + OTEL), then builds out the full API surface in two phases (read-only observability, then stateful CRUD). The frontend shell and design system provide the container, followed by two panel phases (observability/activity, then command centre). The dispatcher brings autonomous task execution, and the final phase adds Telegram integration, installer, CLI tooling, and end-to-end tests. Phases 10–11 close gaps surfaced by the v1.0 milestone audit (Telegram Reject route + provenance tagging; documentation + env-loading polish).
 
 ## Phases
 
@@ -21,6 +21,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 7: Command Centre Panels** - HITL decision/inbox panels, task board, schedule composer, skills page, emergency stop
 - [x] **Phase 8: Mission Control Dispatcher** - Heartbeat, task execution (classic + stream), DECISION/INBOX parsing, skill routing
 - [x] **Phase 9: Telegram, Setup & Testing** - Telegram bridge, install.sh, cmc CLI, doctor.py, Playwright e2e tests
+- [ ] **Phase 10: Telegram Wiring Fixes** - Implement /reject route, fix answered_by provenance, callback parity smoke test (gap closure)
+- [ ] **Phase 11: v1.0 Documentation & Env Polish** - REQUIREMENTS/ROADMAP traceability sync, .env-aware doctor + handler, notifier HTTP symmetry (tech debt)
 
 ## Phase Details
 
@@ -221,6 +223,34 @@ Wave structure (sequential — each plan extends modules the next plan exercises
 - [x] 09-04-PLAN.md — Wave 3 install.sh + cc CLI + 4 launchd plists (SETUP-01..05 + SETUP-07) + doctor + setup_otel + server plist ✅ 2026-04-28
 - [x] 09-05-PLAN.md — Wave 4 close-out: theme toggle (Q1=A LOCKED) + Playwright e2e suite (TEST-01..04, chromium-only, vite preview, 6/6 passing) + 09-VERIFICATION.md draft ✅ 2026-04-28 (paused at close-out human-verify checkpoint covering ROADMAP SC1-5)
 
+### Phase 10: Telegram Wiring Fixes
+**Goal**: Telegram approval-card buttons all resolve correctly and audit trails accurately reflect answer provenance
+**Depends on**: Phase 4, Phase 9
+**Gap Closure**: Closes integration + flow gaps from v1.0-MILESTONE-AUDIT.md (reject_task → 404; answered_by mis-tag)
+**Success Criteria** (what must be TRUE):
+  1. POST /api/tasks/{id}/reject exists, transitions awaiting_approval → cancelled, returns 200
+  2. Pressing 🛑 Reject on a Telegram approval-card cancels the task end-to-end (no 404)
+  3. dash_router posts decision answers with answered_by="telegram"; HITL audit trail reflects origin correctly
+  4. New backend test suite covers Approve / Reject / Snooze callback parity end-to-end
+  5. Backend test suite remains green (≥373 tests)
+**Plans**: 1 plan
+
+- [ ] 10-01-PLAN.md — Add POST /api/tasks/{id}/reject route (transition awaiting_approval → cancelled), set answered_by="telegram" in dash_router.py:59 decision-answer body, add Telegram callback parity smoke tests covering Approve/Reject/Snooze
+
+### Phase 11: v1.0 Documentation & Env Polish
+**Goal**: Documentation hygiene and environment-loading polish so doctor/handler behave correctly in installed locations
+**Depends on**: Phase 10
+**Gap Closure**: Closes tech-debt items from v1.0-MILESTONE-AUDIT.md (REQUIREMENTS/ROADMAP traceability sync, .env-aware doctor, TELE-05 env path, notifier HTTP symmetry)
+**Success Criteria** (what must be TRUE):
+  1. REQUIREMENTS.md traceability table flips INGST-02/03/05/06/08 to Complete (with phase + date)
+  2. ROADMAP.md plan 04-04 checkbox reflects actual completion
+  3. doctor.py check 8 loads ~/.command-centre/.env and stops false-skipping the Telegram check
+  4. TELE-05 inbound text → claude relay surfaces ANTHROPIC_API_KEY via Settings (not bare os.environ)
+  5. Notifier inbox loop calls /api/inbox/{id}/read instead of querying InboxMessage directly (HTTP symmetry)
+**Plans**: 1 plan
+
+- [ ] 11-01-PLAN.md — Sync REQUIREMENTS.md traceability for INGST + 04-04 checkbox, .env loader for doctor.py + telegram handler env surface, notifier→HTTP refactor for inbox-read symmetry
+
 ## Progress
 
 **Execution Order:**
@@ -239,5 +269,7 @@ Note: Phases 3, 4, and 5 can execute in parallel after Phase 2 (or Phase 1 for 4
 | 7. Command Centre Panels | 4/4 | Complete (verifier: 5/5 must-haves; visual quality bar approved by user) | 2026-04-27 |
 | 8. Mission Control Dispatcher | 4/4 | Complete (verifier: 5/5 must-haves) | 2026-04-27 |
 | 9. Telegram, Setup & Testing | 5/5 | Complete (verifier: 5/5 must-haves; human-verify APPROVED by user against SC1-5) | 2026-04-28 |
+| 10. Telegram Wiring Fixes | 0/1 | Pending (gap closure from v1.0-MILESTONE-AUDIT.md) | — |
+| 11. v1.0 Documentation & Env Polish | 0/1 | Pending (tech debt from v1.0-MILESTONE-AUDIT.md) | — |
 
-**v1.0 milestone reached: 45/45 plans, 9/9 phases complete.**
+**v1.0 milestone reached: 45/45 plans, 9/9 phases complete. Gap closure pending in Phase 10–11.**
