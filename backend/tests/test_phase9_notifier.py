@@ -401,3 +401,63 @@ async def test_notifier_inline_keyboard_shape(test_settings):
         assert f"snooze:decision:{decision_id}:30m" in body
     finally:
         await engine.dispose()
+
+
+# ---- oneshot_notifier launchd entry point smoke test ----
+
+
+@pytest.mark.asyncio
+async def test_oneshot_notifier_amain_runs_clean(monkeypatch, tmp_path):
+    """`python -m cmc.telegram.oneshot_notifier` exits 0 when run_one_cycle returns cleanly.
+
+    Patches the inner load_settings + run_one_cycle to avoid touching the
+    real DB / network — the smoke test verifies the wiring and crash-safety
+    of _amain (engine.dispose() in finally, exception → 1, success → 0).
+    """
+    from cmc.telegram import oneshot_notifier
+
+    # Force the no-op telegram path (no token) and a tmp DB so engine.dispose
+    # has nothing to write back to a shared file.
+    fake_settings = Settings(db_path=tmp_path / "smoke.db")
+    monkeypatch.setattr(
+        "cmc.telegram.oneshot_notifier.load_settings",
+        lambda: fake_settings,
+    )
+
+    async def fake_run(_sessions, _settings, *, http_client=None) -> int:
+        return 0
+
+    monkeypatch.setattr(
+        "cmc.telegram.oneshot_notifier.run_one_cycle", fake_run
+    )
+    rc = await oneshot_notifier._amain()
+    assert rc == 0
+
+
+@pytest.mark.asyncio
+async def test_oneshot_notifier_amain_returns_1_on_crash(monkeypatch, tmp_path):
+    """Uncaught exception in run_one_cycle → rc=1 and engine.dispose still runs."""
+    from cmc.telegram import oneshot_notifier
+
+    fake_settings = Settings(db_path=tmp_path / "smoke.db")
+    monkeypatch.setattr(
+        "cmc.telegram.oneshot_notifier.load_settings",
+        lambda: fake_settings,
+    )
+
+    async def fake_run(_sessions, _settings, *, http_client=None) -> int:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(
+        "cmc.telegram.oneshot_notifier.run_one_cycle", fake_run
+    )
+    rc = await oneshot_notifier._amain()
+    assert rc == 1
+
+
+def test_oneshot_notifier_module_imports_clean():
+    """Sanity: the launchd entry point module imports without side effects."""
+    from cmc.telegram import oneshot_notifier  # noqa: F401
+
+    assert hasattr(oneshot_notifier, "main")
+    assert hasattr(oneshot_notifier, "_amain")
