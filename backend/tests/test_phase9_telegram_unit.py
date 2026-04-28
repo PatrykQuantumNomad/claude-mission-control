@@ -202,7 +202,19 @@ def test_route_approve_task():
 def test_route_answer_decision():
     method, path, body = dash_router.route("answer_decision", ["7", "yes"])
     assert (method, path) == ("POST", "/api/decisions/7/answer")
-    assert body == {"answer": "yes"}
+    assert body == {"answer": "yes", "answered_by": "telegram"}
+
+
+def test_route_answer_decision_includes_telegram_provenance():
+    """SC3: dash_router stamps Telegram-sourced answers with answered_by='telegram'.
+
+    Without this, the HITL audit trail records every Telegram answer as if it
+    came from the dashboard (schemas/hitl.py defaults answered_by='dashboard').
+    """
+    method, path, body = dash_router.route("answer_decision", ["7", "yes"])
+    assert method == "POST"
+    assert path == "/api/decisions/7/answer"
+    assert body == {"answer": "yes", "answered_by": "telegram"}
 
 
 def test_route_estop():
