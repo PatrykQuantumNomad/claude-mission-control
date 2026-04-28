@@ -191,13 +191,76 @@ def test_doctor_settings_check_warn_when_missing(
     assert c.status == "warn"
 
 
-def test_doctor_telegram_skipped_when_unset(monkeypatch) -> None:
-    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
-    from cmc.cli.doctor import _check_telegram
+def test_doctor_telegram_skipped_when_unset() -> None:
+    """SC3 (Phase 11): doctor reads token via Settings, not bare os.environ.
 
-    c = _check_telegram()
+    Pre-Phase-11 this test used monkeypatch.delenv — that only insulates
+    from os.environ, not from a real ~/.command-centre/.env on disk. Now
+    that Settings loads that file, the test injects an explicit Settings
+    instance with `_env_file=None` (no file load) and `telegram_bot_token=None`.
+    """
+    from cmc.cli.doctor import _check_telegram
+    from cmc.config.settings import Settings
+
+    s = Settings(_env_file=None, telegram_bot_token=None)
+    c = _check_telegram(settings=s)
+    assert c.id == 8
     assert c.status == "ok"
     assert "skipped" in c.message
+
+
+def test_doctor_telegram_via_settings_present():
+    """SC3: when telegram_bot_token IS set in Settings, doctor proceeds to call
+    Telegram (httpx.get patched to avoid real network)."""
+    import httpx
+    from cmc.cli.doctor import _check_telegram
+    from cmc.config.settings import Settings
+
+    real_get = httpx.get
+
+    def fake_get(url, timeout=None):
+        class R:
+            status_code = 200
+
+            def json(self_inner):
+                return {"result": {"username": "test_bot"}}
+
+        return R()
+
+    httpx.get = fake_get  # type: ignore[assignment]
+    try:
+        s = Settings(_env_file=None, telegram_bot_token="TEST-TOKEN")
+        c = _check_telegram(settings=s)
+        assert c.id == 8
+        assert c.status == "ok"
+        assert "test_bot" in c.message
+    finally:
+        httpx.get = real_get  # type: ignore[assignment]
+
+
+def test_doctor_launchd_telegram_gating_via_settings(monkeypatch):
+    """SC3: _check_launchd_jobs's telegram_configured flag reads from Settings."""
+    import subprocess as _sp
+
+    def fake_run(*a, **kw):
+        class R:
+            returncode = 0
+            stdout = b"state = running"
+
+        return R()
+
+    monkeypatch.setattr(_sp, "run", fake_run)
+
+    from cmc.cli.doctor import _check_launchd_jobs
+    from cmc.config.settings import Settings
+
+    # Token unset → telegram daemons skipped silently
+    s = Settings(_env_file=None, telegram_bot_token=None)
+    c = _check_launchd_jobs(settings=s)
+    assert c.id == 7
+    # com.cmc.telegram-* labels should NOT appear in c.message when telegram disabled
+    assert "telegram-handler" not in c.message
+    assert "telegram-notifier" not in c.message
 
 
 def test_doctor_run_checks_returns_eight() -> None:
