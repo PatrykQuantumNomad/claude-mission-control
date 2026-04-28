@@ -267,13 +267,15 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Telegram
 
-- [ ] **TELE-01**: setup_telegram.py wizard (BotFather instructions, token input, chat_id input, test message, env write)
+- [x] **TELE-01
+**: setup_telegram.py wizard (BotFather instructions, token input, chat_id input, test message, env write)
 - [ ] **TELE-02**: Notifier 30s loop checks decisions, approvals, failures, overdue schedules, unread inbox
 - [x] **TELE-03
 **: Notifier sends plain text (no parse_mode) with inline buttons for each notification type
 - [x] **TELE-04
 **: Notification deduplication via notification_log UNIQUE constraint with snooze support
-- [ ] **TELE-05**: Telegram handler polls getUpdates, whitelists users, routes text to Claude CLI and callbacks to dash_router
+- [x] **TELE-05
+**: Telegram handler polls getUpdates, whitelists users, routes text to Claude CLI and callbacks to dash_router
 - [x] **TELE-06
 **: dash_router routes inline button callbacks to dashboard API endpoints
 - [x] **TELE-07

@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Completed 09-01-PLAN.md (Wave 1 telegram foundation — primitives + plists + notifications router)
-last_updated: "2026-04-28T00:46:20.632Z"
+status: executing
+stopped_at: Completed 09-03-PLAN.md (Wave 2 telegram handler long-poll + setup wizard); Wave 2 complete since 09-02 also landed in parallel
+last_updated: "2026-04-28T01:03:48.761Z"
 last_activity: 2026-04-28
 progress:
   total_phases: 9
   completed_phases: 8
   total_plans: 45
-  completed_plans: 41
-  percent: 91
+  completed_plans: 42
+  percent: 93
 ---
 
 # Project State
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-04-25)
 ## Current Position
 
 Phase: 9 of 9 IN PROGRESS (Telegram, Setup & Testing) — 1 of 5 plans complete
-Plan: 1 of 5 complete in Phase 9 (09-01 Wave 1 telegram foundation ✅; 09-02 + 09-03 ready to parallelize next; 09-04 install.sh; 09-05 close-out E2E)
-Status: Plan 09-01 complete; ready for Wave 2 (09-02 + 09-03 parallel)
+Plan: 2 of 5 complete in Phase 9 (09-01 Wave 1 telegram foundation ✅; 09-02 + 09-03 ready to parallelize next; 09-04 install.sh; 09-05 close-out E2E)
+Status: Ready to execute
 Last activity: 2026-04-28
 
 Progress (Phase 9): [██░░░░░░░░] 20% (1 of 5 plans)
@@ -98,6 +98,7 @@ Progress (Phase 9): [██░░░░░░░░] 20% (1 of 5 plans)
 | Phase 08 P03 | 30min | 3 tasks | 7 files |
 | Phase 08-mission-control-dispatcher P04 | ~25 min | 4 tasks (2 TDD + 1 E2E + 1 close-out checkpoint; 5 commits) | 6 files (3 created + 3 modified) |
 | Phase 09-telegram-setup-testing P01 | 17min | 2 tasks | 12 files |
+| Phase 09-telegram-setup-testing P03 | 12 min | 2 tasks tasks | 6 files files |
 
 ## Accumulated Context
 
@@ -315,6 +316,7 @@ Recent decisions affecting current work:
 - Plan 09-01 dash_router contract LOCKED: snooze callbacks emit RESOLVE_THEN_PATCH (handler GETs /api/notifications/_resolve/{kind}/{entity_id}, then PATCHes /snooze) — keeps callback_data under Telegram's 64-byte cap. 7 verbs total: approve_task, reject_task, rerun_task, answer_decision, reply_inbox (NOOP), snooze (RESOLVE_THEN_PATCH), estop
 - Plan 09-01 plist_render LOCKED to string.Template (NOT Jinja2) mirroring cmc.dispatcher.plist_render; 3 substitutions ($python_path, $python_path_dir, $repo_root); CLI entry python -m cmc.telegram.plist_render --variant {notifier|handler} <python> <repo>
 - Plan 09-01 api.py client= shape LOCKED: when caller provides client (test MockTransport), api functions use client.post/get directly without re-entering its async with context. The plan's literal 'async with (client or AsyncClient(...)) as c:' would close caller-provided client mid-test — bug pattern avoided
+- Plan 09-03: handler offset UPSERTed BEFORE batch dispatch (Pitfall P2 crash safety); ANTHROPIC_API_KEY scrubbed from claude-relay subprocess env (Pitfall P12); RESOLVE_THEN_PATCH two-step snooze keeps callback_data <64B; setup_telegram wizard atomic .env write via tmp-in-same-dir + os.replace (Pitfall P8); 12 new tests bring backend suite to 351
 
 ### Pending Todos
 
@@ -327,8 +329,8 @@ None — Phases 1–8 implementations complete; visual quality bar APPROVED by u
 
 ## Session Continuity
 
-Last session: 2026-04-28T00:46:06.430Z
-Stopped at: Completed 09-01-PLAN.md (Wave 1 telegram foundation — primitives + plists + notifications router)
+Last session: 2026-04-28T01:03:48.753Z
+Stopped at: Completed 09-03-PLAN.md (Wave 2 telegram handler long-poll + setup wizard); Wave 2 complete since 09-02 also landed in parallel
 Resume file: None
 
 Phase 1 final commit chain:
