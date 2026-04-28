@@ -25,8 +25,8 @@ function ShellErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
     <div role="alert" style={{ padding: 24 }}>
       <h2>Couldn't reach the dashboard server.</h2>
       <p>
-        Check that <code>cc start</code> is running, then refresh. If this keeps
-        happening, run <code>cc doctor</code> from your terminal.
+        Check that <code>cmc start</code> is running, then refresh. If this keeps
+        happening, run <code>cmc doctor</code> from your terminal.
       </p>
       <p style={{ color: 'var(--cmc-text-subtle)' }}>{message}</p>
       <button type="button" onClick={resetErrorBoundary}>

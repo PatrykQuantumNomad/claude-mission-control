@@ -4,7 +4,7 @@
 // dashboard to ShellErrorBoundary.
 //
 // Copy follows UI-SPEC §Copywriting voice: "Couldn't load {dataNoun}.
-// Refresh or check `cc doctor`." — concrete noun, actionable hint.
+// Refresh or check `cmc doctor`." — concrete noun, actionable hint.
 
 import { Button } from './Button'
 
@@ -18,7 +18,7 @@ export function ErrorState({ message, dataNoun = 'data', onRetry }: ErrorStatePr
   return (
     <div className="cmc-error-state" role="alert">
       <p className="cmc-error-state__msg">
-        Couldn{'\u2019'}t load {dataNoun}. Refresh or check <code>cc doctor</code>.
+        Couldn{'\u2019'}t load {dataNoun}. Refresh or check <code>cmc doctor</code>.
       </p>
       <p className="cmc-error-state__hint">{message}</p>
       {onRetry ? (

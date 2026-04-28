@@ -16,10 +16,10 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Annotated, Optional
 
-from pydantic import Field, ValidationError, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, ValidationError, field_validator, model_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 
@@ -109,11 +109,16 @@ class Settings(BaseSettings):
             "negative integers for group chats (Pitfall P10)"
         ),
     )
-    telegram_allowed_user_ids: list[str] = Field(
+    # NoDecode tells pydantic-settings NOT to JSON-decode this env var — the
+    # _parse_telegram_allowed_user_ids field_validator below handles both CSV
+    # (`1,2,3`) and JSON-array (`["1","2"]`) forms. Without NoDecode, pydantic-
+    # settings rejects bare CSVs as "Input should be a valid list" before the
+    # validator runs.
+    telegram_allowed_user_ids: Annotated[list[str], NoDecode] = Field(
         default_factory=list,
         description=(
             "Comma-separated user_ids whose text messages can route to claude (TELE-05). "
-            "Pydantic-Settings parses CMC_TELEGRAM_ALLOWED_USER_IDS=123,456 into list[str]"
+            "TELEGRAM_ALLOWED_USER_IDS=123,456 in .env is parsed into list[str]"
         ),
     )
     telegram_poll_timeout_s: int = Field(
@@ -124,6 +129,35 @@ class Settings(BaseSettings):
         default=30,
         description="Notifier oneshot StartInterval; matches plist template",
     )
+
+    @field_validator("telegram_allowed_user_ids", mode="before")
+    @classmethod
+    def _parse_telegram_allowed_user_ids(cls, v):
+        """Accept env vars as comma-separated strings or JSON arrays.
+
+        Pydantic-Settings v2 does NOT auto-split list[str] from a bare CSV value.
+        The wizard (cmc setup telegram) writes `TELEGRAM_ALLOWED_USER_IDS=1,2,3`
+        as plain text into .env, so we split here. Also tolerates an already-
+        decoded list (e.g. tests passing list directly).
+        """
+        if v is None or v == "":
+            return []
+        if isinstance(v, list):
+            return [str(x).strip() for x in v if str(x).strip()]
+        if isinstance(v, str):
+            s = v.strip()
+            # JSON array form: ["1","2"]
+            if s.startswith("[") and s.endswith("]"):
+                import json
+                try:
+                    arr = json.loads(s)
+                    if isinstance(arr, list):
+                        return [str(x).strip() for x in arr if str(x).strip()]
+                except json.JSONDecodeError:
+                    pass
+            # CSV form: 1,2,3
+            return [p.strip() for p in s.split(",") if p.strip()]
+        return v
 
     @model_validator(mode="after")
     def _resolve_repo_root_paths(self) -> "Settings":

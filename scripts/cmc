@@ -19,7 +19,7 @@ if [[ -n "${CMC_HOME:-}" ]]; then
 elif [[ -d "$HOME/.command-centre" && -x "$HOME/.command-centre/venv/bin/python" ]]; then
     ROOT="$HOME/.command-centre"
 else
-    # Dev mode — follow symlinks to locate the repo root (handles ~/.local/bin/cc symlink)
+    # Dev mode — follow symlinks to locate the repo root (handles ~/.local/bin/cmc symlink)
     SCRIPT_PATH="${BASH_SOURCE[0]}"
     if [[ -L "$SCRIPT_PATH" ]]; then
         SCRIPT_PATH="$(readlink "$SCRIPT_PATH")"
@@ -54,8 +54,11 @@ require_venv() {
 
 # ---------- subcommands ----------
 cmd_start() {
+    # NB: NOT exec — exec replaces the shell, breaking cmd_restart's
+    # cmd_stop → cmd_start sequence (cmd_stop would never return).
     if [[ -x "$ROOT/bin/start.sh" ]]; then
-        exec "$ROOT/bin/start.sh"
+        "$ROOT/bin/start.sh"
+        return $?
     fi
     for L in "${LABELS[@]}"; do
         P="$LAUNCH_AGENTS/$L.plist"
@@ -69,8 +72,10 @@ cmd_start() {
 }
 
 cmd_stop() {
+    # NB: NOT exec — see cmd_start above.
     if [[ -x "$ROOT/bin/stop.sh" ]]; then
-        exec "$ROOT/bin/stop.sh"
+        "$ROOT/bin/stop.sh"
+        return $?
     fi
     for L in "${LABELS[@]}"; do
         launchctl bootout "gui/$UID/$L" 2>/dev/null \
@@ -129,13 +134,13 @@ cmd_setup() {
     case "$sub" in
         otel)     exec "$VENV_PY" -m cmc.cli.setup_otel ;;
         telegram) exec "$VENV_PY" -m cmc.cli.setup_telegram ;;
-        *) echo "Usage: cc setup {otel|telegram}" >&2; exit 2 ;;
+        *) echo "Usage: cmc setup {otel|telegram}" >&2; exit 2 ;;
     esac
 }
 
 cmd_help() {
     cat <<EOF
-cc <subcommand>  — Mission Control CLI
+cmc <subcommand>  — Mission Control CLI
 
 Subcommands:
   start              Bootstrap server + dispatcher + telegram daemons under launchd

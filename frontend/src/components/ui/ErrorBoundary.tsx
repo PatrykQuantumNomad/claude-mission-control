@@ -29,8 +29,8 @@ export function ShellErrorFallback({ error, resetErrorBoundary }: FallbackProps)
     <div role="alert" className="cmc-error-fallback">
       <h2 className="cmc-error-fallback__heading">Couldn&apos;t reach the dashboard server.</h2>
       <p className="cmc-error-fallback__body">
-        Check that <code>cc start</code> is running, then refresh. If this keeps happening,
-        run <code>cc doctor</code> from your terminal.
+        Check that <code>cmc start</code> is running, then refresh. If this keeps happening,
+        run <code>cmc doctor</code> from your terminal.
       </p>
       <p className="cmc-error-fallback__detail">{asMessage(error)}</p>
       <button

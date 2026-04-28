@@ -150,7 +150,7 @@ function RunHistory({
   if (runs.isError) {
     return (
       <p className="cmc-text-subtle" role="alert">
-        Couldn’t load run history. Refresh or check `cc doctor`.
+        Couldn’t load run history. Refresh or check `cmc doctor`.
       </p>
     )
   }

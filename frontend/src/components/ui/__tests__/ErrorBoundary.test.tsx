@@ -29,8 +29,8 @@ describe('ShellErrorBoundary', () => {
     expect(
       screen.getByRole('heading', { level: 2, name: /Couldn't reach the dashboard server\./ }),
     ).toBeInTheDocument()
-    expect(screen.getByText(/cc start/)).toBeInTheDocument()
-    expect(screen.getByText(/cc doctor/)).toBeInTheDocument()
+    expect(screen.getByText(/cmc start/)).toBeInTheDocument()
+    expect(screen.getByText(/cmc doctor/)).toBeInTheDocument()
     expect(screen.getByText('ECONNREFUSED')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
   })
