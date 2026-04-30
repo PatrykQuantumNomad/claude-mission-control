@@ -10,9 +10,8 @@ The local _seed_rows helper is duplicated from test_phase3_observability.py
 (self-contained module so future Phase-6 plans can extend it without coupling
 back to the Phase-3 file).
 """
-from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import insert
 
@@ -46,7 +45,7 @@ async def _seed_rows(app, table_name: str, rows: list[dict]) -> None:
                     )
                 ).scalars().all()
                 missing = needed - set(existing)
-                base_ts = datetime.now(timezone.utc) - timedelta(minutes=5)
+                base_ts = datetime.now(UTC) - timedelta(minutes=5)
                 for sid in missing:
                     await conn.execute(
                         insert(sessions_table).values(
@@ -75,12 +74,27 @@ async def test_actv_01_heatmap_empty_db(client) -> None:
 async def test_actv_01_heatmap_groups_and_orders_ascending(client) -> None:
     """ACTV-01: 3 sessions across 2 days -> 2 rows, day ASC, sessions counted."""
     app = client._transport.app  # type: ignore[attr-defined]
-    base = datetime.now(timezone.utc) - timedelta(hours=1)
+    base = datetime.now(UTC) - timedelta(hours=1)
     yesterday = base - timedelta(days=1)
     rows = [
-        make_session_row(session_id="s-today-1", started_at=base, tokens_input=100, tokens_output=50),
-        make_session_row(session_id="s-today-2", started_at=base, tokens_input=200, tokens_output=80),
-        make_session_row(session_id="s-yest-1", started_at=yesterday, tokens_input=10, tokens_output=5),
+        make_session_row(
+            session_id="s-today-1",
+            started_at=base,
+            tokens_input=100,
+            tokens_output=50,
+        ),
+        make_session_row(
+            session_id="s-today-2",
+            started_at=base,
+            tokens_input=200,
+            tokens_output=80,
+        ),
+        make_session_row(
+            session_id="s-yest-1",
+            started_at=yesterday,
+            tokens_input=10,
+            tokens_output=5,
+        ),
     ]
     await _seed_rows(app, "sessions", rows)
 
@@ -105,7 +119,7 @@ async def test_actv_01_heatmap_invalid_range_422(client) -> None:
 async def test_actv_01_heatmap_tokens_effective_is_full_sum(client) -> None:
     """ACTV-01: tokens_effective = input + output + cache_read + cache_create."""
     app = client._transport.app  # type: ignore[attr-defined]
-    base = datetime.now(timezone.utc) - timedelta(hours=1)
+    base = datetime.now(UTC) - timedelta(hours=1)
     await _seed_rows(
         app,
         "sessions",
@@ -143,7 +157,7 @@ async def test_actv_05_failures_empty(client) -> None:
 async def test_actv_05_failures_filters_to_errored_and_rate_limited(client) -> None:
     """ACTV-05: only errored + rate_limited sessions surface; healthy session skipped."""
     app = client._transport.app  # type: ignore[attr-defined]
-    base = datetime.now(timezone.utc) - timedelta(minutes=30)
+    base = datetime.now(UTC) - timedelta(minutes=30)
     earlier = base - timedelta(minutes=10)
     sessions = [
         make_session_row(session_id="s-err", started_at=base),
@@ -173,7 +187,7 @@ async def test_actv_05_failures_filters_to_errored_and_rate_limited(client) -> N
 async def test_actv_05_failures_populates_last_error_message(client) -> None:
     """ACTV-05: errored session with api_error event -> message populated."""
     app = client._transport.app  # type: ignore[attr-defined]
-    base = datetime.now(timezone.utc) - timedelta(minutes=10)
+    base = datetime.now(UTC) - timedelta(minutes=10)
     await _seed_rows(app, "sessions", [make_session_row(session_id="s-err", started_at=base)])
     await _seed_rows(
         app,
@@ -207,7 +221,7 @@ async def test_actv_05_failures_populates_last_error_message(client) -> None:
 async def test_actv_05_failures_rate_limited_without_api_error_has_null_message(client) -> None:
     """ACTV-05: rate_limited session WITHOUT an api_error event -> last_error_message=None."""
     app = client._transport.app  # type: ignore[attr-defined]
-    base = datetime.now(timezone.utc) - timedelta(minutes=10)
+    base = datetime.now(UTC) - timedelta(minutes=10)
     await _seed_rows(app, "sessions", [make_session_row(session_id="s-rate", started_at=base)])
     await _seed_rows(
         app,

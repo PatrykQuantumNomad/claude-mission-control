@@ -7,9 +7,8 @@ those as MarkdownV2 routinely produces 400 Bad Request from Telegram and
 swallows the notification. A `test_api_no_parse_mode_argument` test in
 test_phase9_telegram_unit.py asserts this contract via inspect.signature().
 """
-from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 
@@ -19,7 +18,7 @@ BASE_URL = "https://api.telegram.org/bot{token}"
 async def get_me(
     token: str,
     *,
-    client: Optional[httpx.AsyncClient] = None,
+    client: httpx.AsyncClient | None = None,
 ) -> dict[str, Any]:
     """Verify token. Returns the result dict on success; raises httpx.HTTPStatusError on failure."""
     url = BASE_URL.format(token=token) + "/getMe"
@@ -38,8 +37,8 @@ async def send_message(
     chat_id: str,
     text: str,
     *,
-    reply_markup: Optional[dict[str, Any]] = None,
-    client: Optional[httpx.AsyncClient] = None,
+    reply_markup: dict[str, Any] | None = None,
+    client: httpx.AsyncClient | None = None,
 ) -> dict[str, Any]:
     """Send plain text. NO parse_mode parameter (Pitfall P3).
 
@@ -65,7 +64,7 @@ async def answer_callback_query(
     callback_query_id: str,
     text: str = "",
     *,
-    client: Optional[httpx.AsyncClient] = None,
+    client: httpx.AsyncClient | None = None,
 ) -> None:
     """Must be called within 15s of receiving a callback (Telegram contract)."""
     url = BASE_URL.format(token=token) + "/answerCallbackQuery"
@@ -83,9 +82,9 @@ async def edit_message_reply_markup(
     token: str,
     chat_id: str,
     message_id: str,
-    reply_markup: Optional[dict[str, Any]] = None,
+    reply_markup: dict[str, Any] | None = None,
     *,
-    client: Optional[httpx.AsyncClient] = None,
+    client: httpx.AsyncClient | None = None,
 ) -> None:
     """Strip inline keyboard after answer recorded so user can't double-press."""
     url = BASE_URL.format(token=token) + "/editMessageReplyMarkup"
@@ -108,7 +107,7 @@ async def get_updates(
     offset: int,
     timeout: int = 25,
     *,
-    client: Optional[httpx.AsyncClient] = None,
+    client: httpx.AsyncClient | None = None,
 ) -> list[dict[str, Any]]:
     """Long-poll for updates starting from offset. timeout=25 fits inside launchd cycle."""
     url = BASE_URL.format(token=token) + "/getUpdates"

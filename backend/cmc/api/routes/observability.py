@@ -21,12 +21,11 @@ Decisions locked by Plan 03-04:
   - OBSV-10 pressure consumes claude_code.api_retries_exhausted, claude_code.compaction,
     claude_code.api_error events.
 """
-from __future__ import annotations
 
 import re
 from collections import defaultdict, deque
-from datetime import datetime, timezone
-from typing import Literal, Optional
+from datetime import UTC, datetime
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import text
@@ -315,7 +314,7 @@ _HOOK_EVENTS_SQL = text("""
 _HOOK_PAIR_CAP_MS = 60_000
 
 
-def _classify_hook(event_name: str) -> Optional[tuple[str, str]]:
+def _classify_hook(event_name: str) -> tuple[str, str] | None:
     """Return (kind, key) where kind in {'pre','post'} and key is the suffix
     shared by the pair (e.g. 'tool_use'). Returns None if not a paired hook event.
 
@@ -332,7 +331,7 @@ def _classify_hook(event_name: str) -> Optional[tuple[str, str]]:
     return None
 
 
-def _percentile(sorted_values: list[int], p: float) -> Optional[int]:
+def _percentile(sorted_values: list[int], p: float) -> int | None:
     """Pattern 4 offset percentile (Pitfall 2 wrapper): max(int(N*p) - 1, 0)."""
     if not sorted_values:
         return None
@@ -340,7 +339,7 @@ def _percentile(sorted_values: list[int], p: float) -> Optional[int]:
     return sorted_values[idx]
 
 
-def _parse_ts(value) -> Optional[datetime]:
+def _parse_ts(value) -> datetime | None:
     """Parse a ts value from SQLite — may be string or datetime depending on
     column type. Returns timezone-aware UTC datetime, or None on parse error.
     """
@@ -354,7 +353,7 @@ def _parse_ts(value) -> Optional[datetime]:
         except (ValueError, TypeError):
             return None
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return dt
 
 
@@ -398,7 +397,7 @@ async def hooks_activity(
         bucket_key = (pre_day, f"claude_code.hook.pre_{pair_key}")
         durations[bucket_key].append(ms)
 
-    p50_by_key: dict[tuple[str, str], Optional[int]] = {}
+    p50_by_key: dict[tuple[str, str], int | None] = {}
     for k, vs in durations.items():
         vs.sort()
         p50_by_key[k] = _percentile(vs, 0.5)
@@ -555,8 +554,16 @@ async def edit_decisions(
     first; we sum both sources by tool_name. low_sample = (acc+rej) < 10.
     """
     since = _RANGE_TO_SINCE[range_]
-    tool_rows = (await db.execute(_EDIT_DECISIONS_SQL, {"since_clause": since})).mappings().all()
-    otel_rows = (await db.execute(_EDIT_DECISIONS_OTEL_SQL, {"since_clause": since})).mappings().all()
+    tool_rows = (
+        (await db.execute(_EDIT_DECISIONS_SQL, {"since_clause": since}))
+        .mappings()
+        .all()
+    )
+    otel_rows = (
+        (await db.execute(_EDIT_DECISIONS_OTEL_SQL, {"since_clause": since}))
+        .mappings()
+        .all()
+    )
     merged: dict[str, dict[str, int]] = {
         n: {"accepted": 0, "rejected": 0} for n in _EDIT_TOOL_NAMES
     }
@@ -759,7 +766,7 @@ def _coerce_started_at(value) -> datetime:
     else:
         dt = datetime.fromisoformat(str(value))
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return dt
 
 

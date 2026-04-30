@@ -5,15 +5,13 @@ Per RESEARCH §Pattern 1 + Pitfall 6: Pydantic v2 needs `from_attributes=True`
 conversion via `model_validate(orm_row)`. Plain BaseModel is used when input is
 NOT an ORM row (e.g. aggregated dicts, request bodies).
 """
-from __future__ import annotations
 
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class RangeWindow(str, Enum):
+class RangeWindow(StrEnum):
     """Standard time-window selector accepted by aggregate endpoints (OBSV-*)."""
 
     today = "today"
@@ -33,7 +31,7 @@ class ErrorResponse(BaseModel):
     """Standard error envelope: short machine-readable code + optional human detail."""
 
     error: str
-    detail: Optional[str] = None
+    detail: str | None = None
 
 
 class ORMBase(BaseModel):

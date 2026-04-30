@@ -18,10 +18,9 @@ A protobuf request (Content-Type: application/x-protobuf) will fail JSON
 parsing here and return 200 anyway — supporting protobuf is deferred per
 research §A3.
 """
-from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.exc import IntegrityError
@@ -117,7 +116,7 @@ async def otlp_logs(
                     try:
                         async with db.begin_nested():
                             db.add(OtelEvent(
-                                ts=ts or datetime.now(timezone.utc),
+                                ts=ts or datetime.now(UTC),
                                 event_name=event_name,
                                 session_id=session_id,
                                 body={"record": record, "resource": resource, "scope": scope},
@@ -130,7 +129,7 @@ async def otlp_logs(
                         # Savepoint already rolled back by the context manager.
                         async with db.begin_nested():
                             db.add(OtelEvent(
-                                ts=ts or datetime.now(timezone.utc),
+                                ts=ts or datetime.now(UTC),
                                 event_name=event_name,
                                 session_id=None,
                                 body={"record": record, "resource": resource, "scope": scope},
@@ -210,7 +209,7 @@ async def otlp_metrics(
                                     value = 0.0
                                 attrs_dp = iter_attrs(dp.get("attributes"))
                                 db.add(OtelMetric(
-                                    ts=ts or datetime.now(timezone.utc),
+                                    ts=ts or datetime.now(UTC),
                                     metric_name=name,
                                     value=value,
                                     kind=kind,

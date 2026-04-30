@@ -14,7 +14,6 @@ Single-flight: POST /api/mcp/sync sets `app.state.mcp_sync_running = True`
 in the entry path and clears it in `finally`. Concurrent calls receive
 409 (mitigation T-03-05-05).
 """
-from __future__ import annotations
 
 import re
 import time

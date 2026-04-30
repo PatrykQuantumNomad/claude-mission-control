@@ -18,7 +18,6 @@ Fields:
   mcp_server_count: int — len(settings.mcpServers) when present
   hook_count:       int — len(settings.hooks) when present
 """
-from __future__ import annotations
 
 from pydantic import BaseModel
 

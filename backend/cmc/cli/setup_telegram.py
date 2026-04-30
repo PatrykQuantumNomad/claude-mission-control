@@ -18,18 +18,15 @@ Security Domain V7: never echo the token to stdout after capture.
 Exposed as `python -m cmc.cli.setup_telegram` and via the
 scripts/setup_telegram.py shim.
 """
-from __future__ import annotations
 
 import asyncio
 import os
 import sys
 from pathlib import Path
-from typing import Optional
 
 import httpx
 
 from cmc.telegram import api
-
 
 INSTALL_ENV = Path.home() / ".command-centre" / ".env"
 DEV_ENV = Path.cwd() / ".env"
@@ -94,7 +91,7 @@ def _write_env(path: Path, token: str, chat_id: str, allowed: list[str]) -> None
     os.replace(tmp, path)
 
 
-def _prompt(prompt: str, *, default: Optional[str] = None) -> str:
+def _prompt(prompt: str, *, default: str | None = None) -> str:
     suffix = f" [{default}]" if default else ""
     v = input(f"{prompt}{suffix}: ").strip()
     return v or (default or "")

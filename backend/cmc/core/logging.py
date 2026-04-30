@@ -1,10 +1,11 @@
 """structlog + stdlib logging configuration."""
-from __future__ import annotations
 
 import logging
+import sys
 from typing import TYPE_CHECKING
 
 import structlog
+from pythonjsonlogger.json import JsonFormatter
 
 if TYPE_CHECKING:
     # Type-only import avoids circular dependency:
@@ -15,7 +16,24 @@ if TYPE_CHECKING:
 def configure_logging(settings: "Settings") -> None:
     """Configure structlog + stdlib logging once at app startup."""
     level = getattr(logging, settings.log_level.upper(), logging.INFO)
-    logging.basicConfig(level=level, format="%(message)s")
+    handler = logging.StreamHandler(sys.stdout)
+    if settings.log_format == "json":
+        handler.setFormatter(
+            JsonFormatter(
+                "%(asctime)s %(levelname)s %(name)s %(message)s",
+                rename_fields={
+                    "asctime": "timestamp",
+                    "levelname": "level",
+                    "name": "logger",
+                },
+            )
+        )
+    else:
+        handler.setFormatter(logging.Formatter("%(message)s"))
+    root = logging.getLogger()
+    root.handlers.clear()
+    root.addHandler(handler)
+    root.setLevel(level)
     structlog.configure(
         processors=[
             structlog.contextvars.merge_contextvars,

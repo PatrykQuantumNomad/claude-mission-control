@@ -28,7 +28,6 @@ Latency percentiles (SQLite 3.47+ window functions):
       against SQLite). Numerically equivalent for N >= 2; for N == 1 both
       forms return the single value.
 """
-from __future__ import annotations
 
 import time
 
@@ -37,7 +36,6 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from cmc.db.models.mcp_stats import MCPStat
-
 
 # ---- Per-(server, tool) source SQL ---------------------------------------
 #

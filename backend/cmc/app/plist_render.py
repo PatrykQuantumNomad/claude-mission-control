@@ -16,7 +16,6 @@ cmc.config.Settings, which loads ~/.command-centre/.env at process startup.
 Baking secrets into a plist would persist them in plain text on disk inside
 ~/Library.
 """
-from __future__ import annotations
 
 from importlib.resources import files
 from pathlib import Path

@@ -5,10 +5,9 @@ Per 01-01-SCHEMA.md (table 8). Drives HITL-01..03 / DISP-07 / HPNL-01 / TELE-02.
 HITL-02 partial-unique: dedup_key UNIQUE WHERE status='pending' is implemented
 via a partial unique INDEX (sqlite supports partial indexes via sqlite_where).
 """
-from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy import JSON, Column, ForeignKey, Integer, String, text
 from sqlmodel import Field, Index, SQLModel
@@ -17,8 +16,8 @@ from sqlmodel import Field, Index, SQLModel
 class Decision(SQLModel, table=True):
     __tablename__ = "decisions"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
-    session_id: Optional[str] = Field(
+    id: int | None = Field(default=None, primary_key=True)
+    session_id: str | None = Field(
         default=None,
         sa_column=Column(
             String,
@@ -26,7 +25,7 @@ class Decision(SQLModel, table=True):
             nullable=True,
         ),
     )
-    task_id: Optional[int] = Field(
+    task_id: int | None = Field(
         default=None,
         sa_column=Column(
             Integer,
@@ -40,9 +39,9 @@ class Decision(SQLModel, table=True):
         default_factory=list, sa_column=Column(JSON, nullable=False)
     )
     status: str = Field(default="pending")  # pending / answered
-    answer: Optional[str] = None
-    answered_at: Optional[datetime] = None
-    answered_by: Optional[str] = None  # dashboard / telegram / cli
+    answer: str | None = None
+    answered_at: datetime | None = None
+    answered_by: str | None = None  # dashboard / telegram / cli
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     __table_args__ = (

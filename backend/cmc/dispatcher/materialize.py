@@ -13,10 +13,9 @@ the operator notices a misconfigured schedule.
 Pitfall 3 cousin (cron failure): if next_run() raises (corrupt cron string),
 log + leave next_run_at alone; same SAPI-04 visibility logic applies.
 """
-from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -39,7 +38,7 @@ async def materialize_due_schedules(db: AsyncSession) -> list[int]:
     Each schedule is wrapped in a SAVEPOINT so an IntegrityError on one row
     does NOT poison the session for subsequent schedules in the same cycle.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     due: list[Schedule] = (
         await db.execute(
             select(Schedule)

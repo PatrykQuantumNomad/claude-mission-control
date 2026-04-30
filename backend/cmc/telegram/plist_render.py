@@ -17,7 +17,6 @@ templates' EnvironmentVariables. install.sh writes it to
 Baking the token into a plist would persist it in plain text on disk
 inside ~/Library.
 """
-from __future__ import annotations
 
 from importlib.resources import files
 from pathlib import Path

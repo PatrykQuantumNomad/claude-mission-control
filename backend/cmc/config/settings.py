@@ -12,16 +12,13 @@ Locked decisions:
   produces identical absolute paths whether uvicorn was started from the repo root
   or from `backend/`.
 """
-from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated, Self
 
 from pydantic import Field, ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
-
-
 
 from cmc.core.paths import resolve_under_repo_root
 
@@ -47,11 +44,96 @@ class Settings(BaseSettings):
     # against the repo root so cwd cannot drift them.
     host: str = "127.0.0.1"
     port: int = 8765
+    app_name: str = "Claude Mission Control"
+    app_description: str = "Local dashboard and automation API for Claude Code"
+    app_version: str = "0.1.0"
+    debug: bool = False
+    docs_enabled: bool = True
+    redoc_enabled: bool = False
+    openapi_enabled: bool = True
+    info_endpoint_enabled: bool = False
+    endpoints_listing_enabled: bool = False
     db_path: Path = Path("data/cmc.db")
     db_echo: bool = False
     log_level: str = "INFO"
+    log_format: str = "text"
+    log_redact_headers: bool = False
     static_dir: Path = Path("frontend/dist")
     alembic_ini_path: Path = Path("backend/alembic.ini")
+
+    # Production chassis hardening. Defaults preserve local development:
+    # local hosts are accepted, auth/rate-limit/metrics/OTel are opt-in.
+    health_check_path: str = "/healthcheck"
+    readiness_check_path: str = "/ready"
+    readiness_include_details: bool = False
+    database_health_timeout_seconds: float = 2.0
+    trusted_hosts: list[str] = Field(
+        default_factory=lambda: ["127.0.0.1", "localhost", "test", "testserver", "*.local"]
+    )
+    cors_allowed_origins: list[str] = Field(
+        default_factory=lambda: ["http://127.0.0.1:5173", "http://localhost:5173"]
+    )
+    cors_allow_credentials: bool = False
+    cors_allowed_methods: list[str] = Field(
+        default_factory=lambda: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"]
+    )
+    cors_allowed_headers: list[str] = Field(
+        default_factory=lambda: [
+            "Authorization",
+            "Content-Type",
+            "X-Correlation-ID",
+            "X-Request-ID",
+        ]
+    )
+    cors_expose_headers: list[str] = Field(
+        default_factory=lambda: [
+            "X-Correlation-ID",
+            "X-Request-ID",
+            "X-RateLimit-Limit",
+            "X-RateLimit-Remaining",
+            "X-RateLimit-Reset",
+        ]
+    )
+    request_timeout_s: float = 30.0
+    max_request_body_bytes: int = 10_000_000
+    security_headers_enabled: bool = True
+    security_hsts_enabled: bool = False
+    security_hsts_max_age_seconds: int = 31_536_000
+    security_referrer_policy: str = "no-referrer"
+    security_permissions_policy: str = "geolocation=(), microphone=(), camera=()"
+    security_content_security_policy: str = ""
+    security_trust_proxy_proto_header: bool = False
+    security_trusted_proxies: list[str] = Field(default_factory=list)
+
+    auth_enabled: bool = False
+    auth_jwt_algorithms: list[str] = Field(default_factory=lambda: ["HS256"])
+    auth_jwt_secret: str | None = None
+    auth_jwt_public_key: str | None = None
+    auth_jwks_url: str | None = None
+    auth_jwt_audience: str | None = None
+    auth_jwt_issuer: str | None = None
+    auth_require_exp: bool = True
+    auth_clock_skew_seconds: int = 30
+    auth_jwks_cache_ttl_seconds: int = 300
+    auth_jwks_max_stale_seconds: int = 3600
+
+    metrics_enabled: bool = False
+    metrics_prefix: str = "cmc"
+    otel_enabled: bool = False
+    otel_service_name: str = "claude-mission-control"
+    otel_service_version: str = "0.1.0"
+    otel_environment: str = "local"
+    otel_exporter_otlp_endpoint: str = "http://localhost:4318/v1/traces"
+    otel_exporter_otlp_headers: str = ""
+
+    rate_limit_enabled: bool = False
+    rate_limit_requests: int = 120
+    rate_limit_window_seconds: int = 60
+    rate_limit_key_strategy: str = "ip"
+    rate_limit_storage_url: str = ""
+    rate_limit_trust_proxy_headers: bool = False
+    rate_limit_proxy_headers: list[str] = Field(default_factory=lambda: ["x-forwarded-for"])
+    rate_limit_trusted_proxies: list[str] = Field(default_factory=list)
 
     # Phase 2 — JSONL ingestion
     # NOTE: jsonl_root is a USER-HOME-anchored path, not a repo-root-anchored path.
@@ -81,7 +163,10 @@ class Settings(BaseSettings):
     )
     claude_default_model: str = Field(
         default="sonnet",
-        description="DISP-10 fallback model alias (passed to claude --model when task.model is null)",
+        description=(
+            "DISP-10 fallback model alias "
+            "(passed to claude --model when task.model is null)"
+        ),
     )
     dispatcher_max_concurrent: int = Field(
         default=3,
@@ -106,11 +191,11 @@ class Settings(BaseSettings):
 
     # Phase 9 — Telegram (TELE-01..07). All optional; bot disabled when
     # telegram_bot_token is None.
-    telegram_bot_token: Optional[str] = Field(
+    telegram_bot_token: str | None = Field(
         default=None,
         description="BotFather token; when None telegram daemons no-op",
     )
-    telegram_chat_id: Optional[str] = Field(
+    telegram_chat_id: str | None = Field(
         default=None,
         description=(
             "Single-user chat_id from setup_telegram wizard. Stored as string to preserve "
@@ -142,7 +227,7 @@ class Settings(BaseSettings):
     # Loaded via Settings (env_file tuple) so launchd-spawned daemons can read it
     # without the operator's shell env. Dispatcher run_classic.py INTENTIONALLY
     # does NOT use this — it scrubs the key for Pitfall 8 (subscription-auth path).
-    anthropic_api_key: Optional[str] = Field(
+    anthropic_api_key: str | None = Field(
         default=None,
         description=(
             "Read from ~/.command-centre/.env via Settings (NOT bare os.environ). "
@@ -182,7 +267,7 @@ class Settings(BaseSettings):
         return v
 
     @model_validator(mode="after")
-    def _resolve_repo_root_paths(self) -> "Settings":
+    def _resolve_repo_root_paths(self) -> Self:
         """Make path-shaped fields cwd-independent.
 
         Runs AFTER pydantic-settings has applied env vars + .env, so user-supplied

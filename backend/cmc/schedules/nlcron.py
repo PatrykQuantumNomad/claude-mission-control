@@ -3,10 +3,8 @@
 Returns None when the model output fails croniter validation OR when
 ANTHROPIC_API_KEY is unset (caller emits 503).
 """
-from __future__ import annotations
 
 import os
-from typing import Optional
 
 from cmc.schedules.cron import validate_cron
 
@@ -20,7 +18,7 @@ _SYSTEM_PROMPT = (
 )
 
 
-async def nl_to_cron(prompt: str) -> Optional[str]:
+async def nl_to_cron(prompt: str) -> str | None:
     """Convert NL schedule to cron via Claude Haiku 4.5. None on failure.
 
     Pitfall 9: AsyncAnthropic is constructed inside the function so module
@@ -39,7 +37,11 @@ async def nl_to_cron(prompt: str) -> Optional[str]:
         system=_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": prompt}],
     )
-    text = msg.content[0].text.strip()
+    first_block = msg.content[0] if msg.content else None
+    text_value = getattr(first_block, "text", None)
+    if not isinstance(text_value, str):
+        return None
+    text = text_value.strip()
     if text == "INVALID" or not validate_cron(text):
         return None
     return text

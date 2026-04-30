@@ -10,10 +10,9 @@ Pitfall awareness:
   - Queue paths under repo_root() / .tmp/mission-control-queue/{decisions,inbox}/{id}.jsonl
     are .gitignore'd; tests clean up to avoid leakage between runs.
 """
-from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -23,7 +22,6 @@ from cmc.db.models.decisions import Decision
 from cmc.db.models.inbox import InboxMessage
 
 from .conftest import make_decision_row, make_inbox_row
-
 
 # ---------- Wave 0 smoke (kept) ----------
 
@@ -88,7 +86,7 @@ async def test_hitl01_list_default_returns_all_statuses(client) -> None:
         dedup_key="dk-answered",
         status="answered",
         answer="yes",
-        answered_at=datetime.now(timezone.utc),
+        answered_at=datetime.now(UTC),
         answered_by="dashboard",
     )
 
@@ -107,7 +105,7 @@ async def test_hitl01_list_filtered_pending(client) -> None:
         dedup_key="dk-a",
         status="answered",
         answer="yes",
-        answered_at=datetime.now(timezone.utc),
+        answered_at=datetime.now(UTC),
         answered_by="dashboard",
     )
 
@@ -128,7 +126,7 @@ async def test_hitl01_list_filtered_answered(client) -> None:
         dedup_key="dk-a",
         status="answered",
         answer="yes",
-        answered_at=datetime.now(timezone.utc),
+        answered_at=datetime.now(UTC),
         answered_by="dashboard",
     )
 
@@ -164,7 +162,11 @@ async def test_hitl02_create_returns_201(client) -> None:
     sessionmaker = client._transport.app.state.sessions
     from sqlalchemy import select as _sel
     async with sessionmaker() as db:
-        rows = (await db.execute(_sel(Decision).where(Decision.dedup_key == "dk-new"))).scalars().all()
+        rows = (
+            (await db.execute(_sel(Decision).where(Decision.dedup_key == "dk-new")))
+            .scalars()
+            .all()
+        )
         assert len(rows) == 1
         assert rows[0].status == "pending"
 
@@ -190,7 +192,11 @@ async def test_hitl02_create_duplicate_pending_returns_existing(client) -> None:
     sessionmaker = client._transport.app.state.sessions
     from sqlalchemy import select as _sel
     async with sessionmaker() as db:
-        rows = (await db.execute(_sel(Decision).where(Decision.dedup_key == "dk-dup"))).scalars().all()
+        rows = (
+            (await db.execute(_sel(Decision).where(Decision.dedup_key == "dk-dup")))
+            .scalars()
+            .all()
+        )
         assert len(rows) == 1
 
 
@@ -303,7 +309,7 @@ async def test_hitl03_answer_409_when_already_answered(client) -> None:
         dedup_key="dk-already",
         status="answered",
         answer="yes",
-        answered_at=datetime.now(timezone.utc),
+        answered_at=datetime.now(UTC),
         answered_by="dashboard",
     )
     qf = _decisions_queue_file(decision_id)
@@ -327,7 +333,7 @@ async def test_hitl03_answer_409_when_already_answered(client) -> None:
 
 @pytest.mark.asyncio
 async def test_hitl04_inbox_list_default(client) -> None:
-    await _seed_inbox(client, body="msg-read", read=True, read_at=datetime.now(timezone.utc))
+    await _seed_inbox(client, body="msg-read", read=True, read_at=datetime.now(UTC))
     await _seed_inbox(client, body="msg-unread", read=False)
 
     r = await client.get("/api/inbox")
@@ -339,7 +345,7 @@ async def test_hitl04_inbox_list_default(client) -> None:
 
 @pytest.mark.asyncio
 async def test_hitl04_inbox_list_unread_filter(client) -> None:
-    await _seed_inbox(client, body="msg-read", read=True, read_at=datetime.now(timezone.utc))
+    await _seed_inbox(client, body="msg-read", read=True, read_at=datetime.now(UTC))
     await _seed_inbox(client, body="msg-unread", read=False)
 
     r = await client.get("/api/inbox?unread=true")
@@ -356,7 +362,7 @@ async def test_hitl04_inbox_list_max_age_days(client) -> None:
     """?max_age_days=5 returns only messages newer than 5 days."""
     sessionmaker = client._transport.app.state.sessions
     old_row = make_inbox_row(body="old-msg")
-    old_row["created_at"] = datetime.now(timezone.utc) - timedelta(days=10)
+    old_row["created_at"] = datetime.now(UTC) - timedelta(days=10)
     new_row = make_inbox_row(body="new-msg")  # default created_at = now
     async with sessionmaker() as db:
         db.add(InboxMessage(**old_row))
@@ -392,7 +398,11 @@ async def test_hitl05_create_inbox(client) -> None:
     sessionmaker = client._transport.app.state.sessions
     from sqlalchemy import select as _sel
     async with sessionmaker() as db:
-        rows = (await db.execute(_sel(InboxMessage).where(InboxMessage.id == body["id"]))).scalars().all()
+        rows = (
+            (await db.execute(_sel(InboxMessage).where(InboxMessage.id == body["id"])))
+            .scalars()
+            .all()
+        )
         assert len(rows) == 1
 
 

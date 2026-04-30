@@ -13,13 +13,12 @@ Decisions locked here (no CONTEXT.md exists for Phase 3):
   - SESS-07 today summary uses STRFTIME(..., 'localtime') for the bucket key
     (Pitfall 4 mitigation: single source of truth for the local-day window).
 """
-from __future__ import annotations
 
 import asyncio
 import json
 import re
-from datetime import datetime, timezone
-from typing import Literal, Optional
+from datetime import UTC, datetime
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
@@ -56,8 +55,8 @@ _UUID_RE = re.compile(
 async def list_sessions(
     db: AsyncSession = Depends(get_session),
     range_: Literal["today", "7d", "30d", "all"] = Query("30d", alias="range"),
-    source: Optional[str] = None,
-    model: Optional[str] = None,
+    source: str | None = None,
+    model: str | None = None,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ):
@@ -245,7 +244,7 @@ async def live_session_state(
 # ---------- SESS-05: live SSE stream ----------
 
 
-def _format_sse(event: str, data: dict, *, retry: Optional[int] = None) -> bytes:
+def _format_sse(event: str, data: dict, *, retry: int | None = None) -> bytes:
     """Format an SSE wire-frame.
 
     Per the SSE spec each frame ends with a blank line (\\n\\n). FastAPI's
@@ -291,13 +290,13 @@ async def live_session_stream(
     MISS_LIMIT = 3   # close after this many consecutive missing-row polls
 
     async def gen():
-        start = datetime.now(timezone.utc)
-        last_updated_at: Optional[datetime] = None
+        start = datetime.now(UTC)
+        last_updated_at: datetime | None = None
         consecutive_misses = 0
         while True:
             if await request.is_disconnected():
                 return
-            if (datetime.now(timezone.utc) - start).total_seconds() > MAX_S:
+            if (datetime.now(UTC) - start).total_seconds() > MAX_S:
                 return
             row = (
                 await db.execute(
@@ -384,7 +383,7 @@ async def queue_follow_up(
     line = (
         json.dumps(
             {
-                "ts": datetime.now(timezone.utc).isoformat(),
+                "ts": datetime.now(UTC).isoformat(),
                 "session_id": session_id,
                 "message": payload.message,
             },

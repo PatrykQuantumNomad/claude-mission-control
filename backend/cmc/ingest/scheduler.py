@@ -18,11 +18,10 @@ Key rules (research §1, §3, §5 + Pitfalls 5/7):
   - ended_at heuristic: `datetime.now() - mtime > idle_threshold` →
     set ended_at = parser._last_message_ts; else leave None ("still live").
 """
-from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -54,7 +53,8 @@ async def sync_once(sessionmaker: async_sessionmaker, settings: Settings) -> dic
       - corrupted JSONL lines (skipped by iter_jsonl, parse continues)
       - per-file errors (logged, counted in `errors`, loop continues)
     """
-    started_clock = asyncio.get_event_loop().time()
+    loop = asyncio.get_running_loop()
+    started_clock = loop.time()
     summary: dict = {"files_seen": 0, "files_updated": 0, "errors": 0}
 
     root = Path(settings.jsonl_root).expanduser()
@@ -74,9 +74,7 @@ async def sync_once(sessionmaker: async_sessionmaker, settings: Settings) -> dic
             log.exception("ingest.file_error path=%s", jsonl_path)
             summary["errors"] += 1
 
-    summary["duration_ms"] = int(
-        (asyncio.get_event_loop().time() - started_clock) * 1000
-    )
+    summary["duration_ms"] = int((loop.time() - started_clock) * 1000)
     return summary
 
 
@@ -86,7 +84,7 @@ async def _sync_one_file(
     jsonl_path: Path,
 ) -> bool:
     """Process a single JSONL file. Returns True if a row was upserted."""
-    mtime = datetime.fromtimestamp(jsonl_path.stat().st_mtime)
+    mtime = datetime.fromtimestamp(jsonl_path.stat().st_mtime, UTC)
 
     async with sessionmaker() as db:
         existing = await get_existing_session_for_path(db, jsonl_path)
@@ -108,13 +106,13 @@ async def _sync_one_file(
         # ended_at decision via mtime heuristic (research §1).
         last_ts = sess.pop("_last_message_ts", None)
         idle = timedelta(minutes=settings.session_idle_minutes)
-        is_stale = (datetime.now() - mtime) > idle
+        is_stale = (datetime.now(UTC) - mtime) > idle
         sess["ended_at"] = last_ts if is_stale else None
 
         # Scheduler-supplied fields (parser doesn't know these).
         sess["jsonl_path"] = str(jsonl_path)
         sess["jsonl_mtime"] = mtime
-        sess["synced_at"] = datetime.utcnow()
+        sess["synced_at"] = datetime.now(UTC)
         sess["source"] = sess.get("source") or "claude-code"
         # project_hash = the parent directory name (e.g. -Users-test-project).
         sess["project_hash"] = jsonl_path.parent.name
@@ -133,7 +131,7 @@ async def _sync_one_file(
             }
             # Phase 2 v1 simplification: attribute previous-totals to the
             # latest sync-date in the system tz (see repository.py docstring).
-            primary_day = (existing.synced_at or datetime.utcnow()).date()
+            primary_day = (existing.synced_at or datetime.now(UTC)).date()
             primary_model = existing.model or "unknown"
 
         await upsert_session(db, **sess)

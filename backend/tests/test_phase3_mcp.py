@@ -3,12 +3,10 @@
 Phase 3 per-router convention: every MCP-* test lives in this file.
 See test_phase3_system.py module docstring for the full convention.
 """
-from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
-import pytest
-from sqlalchemy import insert, select, text
+from sqlalchemy import insert, text
 
 
 def test_mcp_schemas_importable() -> None:
@@ -52,7 +50,7 @@ async def _seed_priority_sources(app) -> None:
         sess = make_session_row(session_id="sess-mcp-1")
         await db.execute(insert(Session.__table__).values(**sess))
 
-        base_ts = datetime(2026, 4, 26, 12, 0, 0, tzinfo=timezone.utc)
+        base_ts = datetime(2026, 4, 26, 12, 0, 0, tzinfo=UTC)
 
         # Source 2: three github/list_repos ToolCalls with duration.
         for i, dur in enumerate([100, 200, 300]):
@@ -315,7 +313,7 @@ async def test_aggregator_prefers_tool_decision_over_tools(seeded_app) -> None:
             sess = make_session_row(session_id="sess-dual-1")
             await db.execute(insert(Session.__table__).values(**sess))
 
-            base_ts = datetime(2026, 4, 26, 13, 0, 0, tzinfo=timezone.utc)
+            base_ts = datetime(2026, 4, 26, 13, 0, 0, tzinfo=UTC)
 
             # Source 2: ToolCall row for dual/X.
             await db.execute(

@@ -10,7 +10,6 @@ Behavior:
   - --print-pid-file PATH: write os.getpid() to PATH then sleep 1, write JSON to stdout
     (Pitfall 10 verification — parent must have already written its own PID file)
 """
-from __future__ import annotations
 
 import argparse
 import json

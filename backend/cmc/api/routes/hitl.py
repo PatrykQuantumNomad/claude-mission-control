@@ -36,10 +36,9 @@ Pitfall 6 — partial-unique conflict refetch
 Error contract — the app HTTPException handler emits {error: detail}, NOT
 the FastAPI default {detail: ...}. See STATE.md Plan 03-03 note.
 """
-from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from typing import Literal, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import func, select, text
@@ -73,7 +72,7 @@ router = APIRouter(tags=["hitl"])
 @router.get("/decisions", response_model=DecisionListResponse)
 async def list_decisions(
     db: AsyncSession = Depends(get_session),
-    status_: Optional[Literal["pending", "answered"]] = Query(None, alias="status"),
+    status_: Literal["pending", "answered"] | None = Query(None, alias="status"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ) -> DecisionListResponse:
@@ -117,7 +116,7 @@ async def create_decision(
             prompt=payload.prompt,
             options=payload.options,
             status="pending",
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         .on_conflict_do_nothing(
             index_elements=["dedup_key"],
@@ -174,7 +173,7 @@ async def answer_decision(
 
     row.status = "answered"
     row.answer = payload.answer
-    row.answered_at = datetime.now(timezone.utc)
+    row.answered_at = datetime.now(UTC)
     row.answered_by = payload.answered_by
     await db.commit()
     return DecisionAnswerResponse(
@@ -191,7 +190,7 @@ async def answer_decision(
 async def list_inbox(
     db: AsyncSession = Depends(get_session),
     unread: bool = Query(False),
-    max_age_days: Optional[int] = Query(None, ge=1, le=365),
+    max_age_days: int | None = Query(None, ge=1, le=365),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ) -> InboxListResponse:
@@ -202,7 +201,7 @@ async def list_inbox(
         q = q.where(InboxMessage.read == False)  # noqa: E712
         c = c.where(InboxMessage.read == False)  # noqa: E712
     if max_age_days is not None:
-        cutoff = datetime.now(timezone.utc) - timedelta(days=max_age_days)
+        cutoff = datetime.now(UTC) - timedelta(days=max_age_days)
         q = q.where(InboxMessage.created_at >= cutoff)
         c = c.where(InboxMessage.created_at >= cutoff)
     q = q.order_by(InboxMessage.created_at.desc()).limit(limit).offset(offset)
@@ -227,7 +226,7 @@ async def create_inbox(
         task_id=payload.task_id,
         subject=payload.subject,
         body=payload.body,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     db.add(m)
     await db.commit()
@@ -256,7 +255,7 @@ async def mark_inbox_read(
         raise HTTPException(status_code=404, detail="inbox message not found")
     if not row.read:
         row.read = True
-        row.read_at = datetime.now(timezone.utc)
+        row.read_at = datetime.now(UTC)
         await db.commit()
     return InboxReadResponse(id=inbox_id, read=True, read_at=row.read_at)
 
@@ -285,7 +284,7 @@ async def reply_inbox(
     queue_path = write_inbox_reply(inbox_id, payload.reply)
 
     row.reply = payload.reply
-    row.replied_at = datetime.now(timezone.utc)
+    row.replied_at = datetime.now(UTC)
     await db.commit()
     return InboxReplyResponse(
         replied=True,

@@ -16,7 +16,6 @@ Notes (Pitfall 5 implementation details):
    `Path(...)` before joining to avoid `TypeError: unsupported operand type(s)
    for /: 'str' and 'str'`.
 """
-from __future__ import annotations
 
 from pathlib import Path
 
@@ -31,5 +30,7 @@ class SPAStaticFiles(StaticFiles):
             return await super().get_response(path, scope)
         except HTTPException as ex:
             if ex.status_code == 404:
+                if self.directory is None:
+                    raise
                 return FileResponse(Path(self.directory) / "index.html")
             raise

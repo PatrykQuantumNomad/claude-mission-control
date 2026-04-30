@@ -10,12 +10,9 @@ Sections:
   Plan 02-04 (scheduler/repo):     INGST-04, INGST-05 tests appended.
   Plan 02-05 (lifespan/manual):    INGST-01, INGST-10 tests appended.
 """
-from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
-
+from datetime import UTC, datetime, timedelta
 
 # ---- Plan 02-01: settings sanity ----
 
@@ -122,7 +119,7 @@ def test_jsonl_parser_duration_capped_at_ten_minutes(tmp_path):
     from cmc.ingest.jsonl_parser import parse_session_file
 
     sid = "cap-test-session"
-    base = datetime(2026, 4, 25, 12, 0, 0, tzinfo=timezone.utc)
+    base = datetime(2026, 4, 25, 12, 0, 0, tzinfo=UTC)
 
     def iso(t: datetime) -> str:
         return t.isoformat().replace("+00:00", "Z")
@@ -198,9 +195,13 @@ from sqlalchemy import select
 
 
 @pytest.mark.asyncio
-async def test_otlp_logs_persists_records_and_returns_200(test_settings_with_static, otlp_log_payload):
+async def test_otlp_logs_persists_records_and_returns_200(
+    test_settings_with_static,
+    otlp_log_payload,
+):
     """INGST-07 happy path: 2 log records => 200 + 2 rows in otel_events."""
     from httpx import ASGITransport, AsyncClient
+
     from cmc.app import create_app
     from cmc.db.models.otel_events import OtelEvent
 
@@ -223,6 +224,7 @@ async def test_otlp_logs_persists_records_and_returns_200(test_settings_with_sta
 async def test_otlp_logs_returns_200_for_malformed_body(test_settings_with_static):
     """INGST-07 + Pitfall 4: malformed JSON body returns 200 (NEVER 4xx)."""
     from httpx import ASGITransport, AsyncClient
+
     from cmc.app import create_app
     from cmc.db.models.otel_events import OtelEvent
 
@@ -245,6 +247,7 @@ async def test_otlp_logs_returns_200_for_malformed_body(test_settings_with_stati
 async def test_otlp_logs_per_record_skip_still_returns_200(test_settings_with_static):
     """INGST-07: a record with garbage shape is skipped; sibling record commits; resp=200."""
     from httpx import ASGITransport, AsyncClient
+
     from cmc.app import create_app
     from cmc.db.models.otel_events import OtelEvent
 
@@ -259,7 +262,10 @@ async def test_otlp_logs_per_record_skip_still_returns_200(test_settings_with_st
                     {
                         "timeUnixNano": "1745601281385000000",
                         "attributes": [
-                            {"key": "event.name", "value": {"stringValue": "claude_code.api_request"}},
+                            {
+                                "key": "event.name",
+                                "value": {"stringValue": "claude_code.api_request"},
+                            },
                             {"key": "session_id", "value": {"stringValue": "sess-skip"}},
                         ],
                     },
@@ -283,9 +289,13 @@ async def test_otlp_logs_per_record_skip_still_returns_200(test_settings_with_st
 
 
 @pytest.mark.asyncio
-async def test_otlp_logs_extracts_mcp_attrs_via_tool_parameters(test_settings_with_static, otlp_log_payload):
+async def test_otlp_logs_extracts_mcp_attrs_via_tool_parameters(
+    test_settings_with_static,
+    otlp_log_payload,
+):
     """INGST-08 — tool_parameters JSON path (preferred over name-split)."""
     from httpx import ASGITransport, AsyncClient
+
     from cmc.app import create_app
     from cmc.db.models.otel_events import OtelEvent
 
@@ -309,6 +319,7 @@ async def test_otlp_logs_extracts_mcp_attrs_via_tool_parameters(test_settings_wi
 async def test_otlp_logs_mcp_fallback_split_on_tool_name(test_settings_with_static):
     """INGST-08 fallback — when tool_parameters is absent, split tool_name."""
     from httpx import ASGITransport, AsyncClient
+
     from cmc.app import create_app
     from cmc.db.models.otel_events import OtelEvent
 
@@ -347,6 +358,7 @@ async def test_otlp_logs_mcp_fallback_split_on_tool_name(test_settings_with_stat
 async def test_otlp_metrics_persists_three_kinds(test_settings_with_static, otlp_metric_payload):
     """INGST-09 — sum + gauge + histogram persist with correct kind/value."""
     from httpx import ASGITransport, AsyncClient
+
     from cmc.app import create_app
     from cmc.db.models.otel_metrics import OtelMetric
 
@@ -378,6 +390,7 @@ async def test_otlp_metrics_persists_three_kinds(test_settings_with_static, otlp
 async def test_otlp_logs_body_cap_returns_413(test_settings_with_static):
     """INGST-07 body-cap: oversize Content-Length header returns 413 (the ONLY non-200)."""
     from httpx import ASGITransport, AsyncClient
+
     from cmc.app import create_app
 
     app = create_app(settings=test_settings_with_static)
@@ -425,6 +438,7 @@ async def test_otlp_get_returns_405_proves_router_mounted(test_settings, tmp_pat
     production, but it masks the 405 we want to assert here.
     """
     from httpx import ASGITransport, AsyncClient
+
     from cmc.app import create_app
 
     settings = test_settings.model_copy(update={"static_dir": tmp_path / "no-spa"})
@@ -458,6 +472,7 @@ async def _bootstrap_app(test_settings):
     (e.g. settings_with_jsonl_root).
     """
     from fastapi import FastAPI
+
     from cmc.app.lifespan import lifespan
 
     # Only override if the caller hasn't already pointed jsonl_root at a
@@ -480,36 +495,35 @@ async def test_upsert_session_idempotent(test_settings):
     First call inserts; second call with new totals updates the SAME row. Final
     state: 1 row with the second call's totals (no inflation, no duplicates).
     """
-    from cmc.ingest.repository import upsert_session
     from cmc.db.models.sessions import Session as SessionModel
+    from cmc.ingest.repository import upsert_session
 
     app, cm = await _bootstrap_app(test_settings)
-    async with cm:
-        async with app.state.sessions() as db:
-            now = datetime.now(timezone.utc)
-            await upsert_session(
-                db, session_id="s1",
-                started_at=now, synced_at=now, jsonl_mtime=now,
-                jsonl_path="/tmp/x.jsonl", source="claude-code",
-                tokens_input=10, tokens_output=20,
-                tokens_cache_read=0, tokens_cache_create=0,
-                tool_call_count=0, message_count=1,
-            )
-            await upsert_session(
-                db, session_id="s1",
-                started_at=now, synced_at=now, jsonl_mtime=now,
-                jsonl_path="/tmp/x.jsonl", source="claude-code",
-                tokens_input=15, tokens_output=25,
-                tokens_cache_read=0, tokens_cache_create=0,
-                tool_call_count=1, message_count=2,
-            )
-            await db.commit()
-            rows = (await db.execute(select(SessionModel))).scalars().all()
-            assert len(rows) == 1
-            assert rows[0].tokens_input == 15
-            assert rows[0].tokens_output == 25
-            assert rows[0].tool_call_count == 1
-            assert rows[0].message_count == 2
+    async with cm, app.state.sessions() as db:
+        now = datetime.now(UTC)
+        await upsert_session(
+            db, session_id="s1",
+            started_at=now, synced_at=now, jsonl_mtime=now,
+            jsonl_path="/tmp/x.jsonl", source="claude-code",
+            tokens_input=10, tokens_output=20,
+            tokens_cache_read=0, tokens_cache_create=0,
+            tool_call_count=0, message_count=1,
+        )
+        await upsert_session(
+            db, session_id="s1",
+            started_at=now, synced_at=now, jsonl_mtime=now,
+            jsonl_path="/tmp/x.jsonl", source="claude-code",
+            tokens_input=15, tokens_output=25,
+            tokens_cache_read=0, tokens_cache_create=0,
+            tool_call_count=1, message_count=2,
+        )
+        await db.commit()
+        rows = (await db.execute(select(SessionModel))).scalars().all()
+        assert len(rows) == 1
+        assert rows[0].tokens_input == 15
+        assert rows[0].tokens_output == 25
+        assert rows[0].tool_call_count == 1
+        assert rows[0].message_count == 2
 
 
 @pytest.mark.asyncio
@@ -522,12 +536,12 @@ async def test_upsert_tools_pending_to_ok_transition(test_settings):
     The scheduler in Plan 02-04 mirrors this pattern: each file gets its own
     sessionmaker() context, so cache freshness is naturally bounded per cycle.
     """
-    from cmc.ingest.repository import upsert_session, upsert_tools
     from cmc.db.models.tools import ToolCall
+    from cmc.ingest.repository import upsert_session, upsert_tools
 
     app, cm = await _bootstrap_app(test_settings)
     async with cm:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         # Phase 1: insert parent + pending tool
         async with app.state.sessions() as db:
             await upsert_session(
@@ -580,30 +594,29 @@ async def test_accumulate_token_usage_creates_bucket(test_settings):
     """INGST-05 simple: accumulate_token_usage with prev_totals=None creates
     a fresh row with the new bucket totals.
     """
-    from cmc.ingest.repository import accumulate_token_usage
     from cmc.db.models.token_usage import TokenUsage
+    from cmc.ingest.repository import accumulate_token_usage
 
     app, cm = await _bootstrap_app(test_settings)
-    async with cm:
-        async with app.state.sessions() as db:
-            await accumulate_token_usage(
-                db, session_id="sess-x",
-                previous_totals=None,
-                new_buckets=[{
-                    "day": date(2026, 4, 25), "model": "opus", "source": "claude-code",
-                    "tokens_input": 10, "tokens_output": 20,
-                    "tokens_cache_read": 100, "tokens_cache_create": 50,
-                }],
-                primary_day=None, primary_model=None,
-            )
-            await db.commit()
-            rows = (await db.execute(select(TokenUsage))).scalars().all()
-            assert len(rows) == 1
-            assert rows[0].tokens_input == 10
-            assert rows[0].tokens_output == 20
-            assert rows[0].tokens_cache_read == 100
-            assert rows[0].tokens_cache_create == 50
-            assert rows[0].sessions_count == 1
+    async with cm, app.state.sessions() as db:
+        await accumulate_token_usage(
+            db, session_id="sess-x",
+            previous_totals=None,
+            new_buckets=[{
+                "day": date(2026, 4, 25), "model": "opus", "source": "claude-code",
+                "tokens_input": 10, "tokens_output": 20,
+                "tokens_cache_read": 100, "tokens_cache_create": 50,
+            }],
+            primary_day=None, primary_model=None,
+        )
+        await db.commit()
+        rows = (await db.execute(select(TokenUsage))).scalars().all()
+        assert len(rows) == 1
+        assert rows[0].tokens_input == 10
+        assert rows[0].tokens_output == 20
+        assert rows[0].tokens_cache_read == 100
+        assert rows[0].tokens_cache_create == 50
+        assert rows[0].sessions_count == 1
 
 
 @pytest.mark.asyncio
@@ -616,48 +629,47 @@ async def test_accumulate_token_usage_option_b_no_double_count(test_settings):
       - Re-parse with corrected totals (15, 25) on the same day+model.
       - Final bucket totals must equal (15, 25), NOT (25, 45).
     """
-    from cmc.ingest.repository import accumulate_token_usage
     from cmc.db.models.token_usage import TokenUsage
+    from cmc.ingest.repository import accumulate_token_usage
 
     app, cm = await _bootstrap_app(test_settings)
-    async with cm:
-        async with app.state.sessions() as db:
-            day = date(2026, 4, 25)
-            # First parse — fresh session
-            await accumulate_token_usage(
-                db, session_id="sess-x",
-                previous_totals=None,
-                new_buckets=[{
-                    "day": day, "model": "opus", "source": "claude-code",
-                    "tokens_input": 10, "tokens_output": 20,
-                    "tokens_cache_read": 0, "tokens_cache_create": 0,
-                }],
-                primary_day=None, primary_model=None,
-            )
-            await db.commit()
+    async with cm, app.state.sessions() as db:
+        day = date(2026, 4, 25)
+        # First parse — fresh session
+        await accumulate_token_usage(
+            db, session_id="sess-x",
+            previous_totals=None,
+            new_buckets=[{
+                "day": day, "model": "opus", "source": "claude-code",
+                "tokens_input": 10, "tokens_output": 20,
+                "tokens_cache_read": 0, "tokens_cache_create": 0,
+            }],
+            primary_day=None, primary_model=None,
+        )
+        await db.commit()
 
-            # Re-parse — pass previous totals so Option B subtracts them.
-            await accumulate_token_usage(
-                db, session_id="sess-x",
-                previous_totals={
-                    "tokens_input": 10, "tokens_output": 20,
-                    "tokens_cache_read": 0, "tokens_cache_create": 0,
-                },
-                new_buckets=[{
-                    "day": day, "model": "opus", "source": "claude-code",
-                    "tokens_input": 15, "tokens_output": 25,
-                    "tokens_cache_read": 0, "tokens_cache_create": 0,
-                }],
-                primary_day=day, primary_model="opus",
-            )
-            await db.commit()
+        # Re-parse — pass previous totals so Option B subtracts them.
+        await accumulate_token_usage(
+            db, session_id="sess-x",
+            previous_totals={
+                "tokens_input": 10, "tokens_output": 20,
+                "tokens_cache_read": 0, "tokens_cache_create": 0,
+            },
+            new_buckets=[{
+                "day": day, "model": "opus", "source": "claude-code",
+                "tokens_input": 15, "tokens_output": 25,
+                "tokens_cache_read": 0, "tokens_cache_create": 0,
+            }],
+            primary_day=day, primary_model="opus",
+        )
+        await db.commit()
 
-            rows = (await db.execute(select(TokenUsage))).scalars().all()
-            assert len(rows) == 1
-            assert rows[0].tokens_input == 15, "Option B: subtract 10 then add 15 = 15 (NOT 25)"
-            assert rows[0].tokens_output == 25
-            # sessions_count must NOT be incremented on re-parse
-            assert rows[0].sessions_count == 1
+        rows = (await db.execute(select(TokenUsage))).scalars().all()
+        assert len(rows) == 1
+        assert rows[0].tokens_input == 15, "Option B: subtract 10 then add 15 = 15 (NOT 25)"
+        assert rows[0].tokens_output == 25
+        # sessions_count must NOT be incremented on re-parse
+        assert rows[0].sessions_count == 1
 
 
 @pytest.mark.asyncio
@@ -665,68 +677,69 @@ async def test_repository_idempotent_full_run(test_settings, golden_jsonl_sessio
     """INGST-04 full idempotence: running upsert_session + upsert_tools +
     accumulate_token_usage twice with identical inputs leaves DB state identical.
     """
-    from cmc.ingest.repository import (
-        upsert_session, upsert_tools, accumulate_token_usage,
-    )
-    from cmc.ingest.jsonl_parser import parse_session_file
     from cmc.db.models.sessions import Session as SessionModel
-    from cmc.db.models.tools import ToolCall
     from cmc.db.models.token_usage import TokenUsage
+    from cmc.db.models.tools import ToolCall
+    from cmc.ingest.jsonl_parser import parse_session_file
+    from cmc.ingest.repository import (
+        accumulate_token_usage,
+        upsert_session,
+        upsert_tools,
+    )
 
     parsed = parse_session_file(golden_jsonl_session)
     sess = dict(parsed["session"])
     sess.pop("_last_message_ts", None)
     sess["jsonl_path"] = str(golden_jsonl_session)
-    sess["jsonl_mtime"] = datetime.now(timezone.utc)
-    sess["synced_at"] = datetime.now(timezone.utc)
+    sess["jsonl_mtime"] = datetime.now(UTC)
+    sess["synced_at"] = datetime.now(UTC)
     sess["source"] = "claude-code"
     sess["ended_at"] = None
 
     app, cm = await _bootstrap_app(test_settings)
-    async with cm:
-        async with app.state.sessions() as db:
-            for _ in range(2):
-                await upsert_session(db, **sess)
-                await upsert_tools(db, sess["session_id"], parsed["tool_calls"])
-                # Pass previous_totals=None on BOTH iterations: this proves the
-                # raw upsert helpers themselves are idempotent (the Option B
-                # subtract path is exercised by the no_double_count test). To
-                # avoid inflating sessions_count on the second iteration, we
-                # delete the existing token_usage rows first as the scheduler
-                # would naturally NOT call accumulate twice with prev=None for
-                # the same session.
-                if _ == 0:
-                    await accumulate_token_usage(
-                        db, session_id=sess["session_id"],
-                        previous_totals=None,
-                        new_buckets=parsed["token_usage_buckets"],
-                        primary_day=None, primary_model=None,
-                    )
-                else:
-                    # Second pass: emulate the re-parse Option B path
-                    await accumulate_token_usage(
-                        db, session_id=sess["session_id"],
-                        previous_totals={
-                            "tokens_input": sess["tokens_input"],
-                            "tokens_output": sess["tokens_output"],
-                            "tokens_cache_read": sess["tokens_cache_read"],
-                            "tokens_cache_create": sess["tokens_cache_create"],
-                        },
-                        new_buckets=parsed["token_usage_buckets"],
-                        primary_day=parsed["token_usage_buckets"][0]["day"],
-                        primary_model=parsed["token_usage_buckets"][0]["model"],
-                    )
-                await db.commit()
+    async with cm, app.state.sessions() as db:
+        for _ in range(2):
+            await upsert_session(db, **sess)
+            await upsert_tools(db, sess["session_id"], parsed["tool_calls"])
+            # Pass previous_totals=None on BOTH iterations: this proves the
+            # raw upsert helpers themselves are idempotent (the Option B
+            # subtract path is exercised by the no_double_count test). To
+            # avoid inflating sessions_count on the second iteration, we
+            # delete the existing token_usage rows first as the scheduler
+            # would naturally NOT call accumulate twice with prev=None for
+            # the same session.
+            if _ == 0:
+                await accumulate_token_usage(
+                    db, session_id=sess["session_id"],
+                    previous_totals=None,
+                    new_buckets=parsed["token_usage_buckets"],
+                    primary_day=None, primary_model=None,
+                )
+            else:
+                # Second pass: emulate the re-parse Option B path
+                await accumulate_token_usage(
+                    db, session_id=sess["session_id"],
+                    previous_totals={
+                        "tokens_input": sess["tokens_input"],
+                        "tokens_output": sess["tokens_output"],
+                        "tokens_cache_read": sess["tokens_cache_read"],
+                        "tokens_cache_create": sess["tokens_cache_create"],
+                    },
+                    new_buckets=parsed["token_usage_buckets"],
+                    primary_day=parsed["token_usage_buckets"][0]["day"],
+                    primary_model=parsed["token_usage_buckets"][0]["model"],
+                )
+            await db.commit()
 
-            sessions = (await db.execute(select(SessionModel))).scalars().all()
-            assert len(sessions) == 1
-            assert sessions[0].tokens_input == 15  # totals from parser
-            tools = (await db.execute(select(ToolCall))).scalars().all()
-            assert len(tools) == 2  # paired Bash + pending mcp
-            buckets = (await db.execute(select(TokenUsage))).scalars().all()
-            # Final bucket sum equals the parser totals — Option B did not inflate.
-            assert sum(b.tokens_input for b in buckets) == 15
-            assert sum(b.tokens_output for b in buckets) == 28
+        sessions = (await db.execute(select(SessionModel))).scalars().all()
+        assert len(sessions) == 1
+        assert sessions[0].tokens_input == 15  # totals from parser
+        tools = (await db.execute(select(ToolCall))).scalars().all()
+        assert len(tools) == 2  # paired Bash + pending mcp
+        buckets = (await db.execute(select(TokenUsage))).scalars().all()
+        # Final bucket sum equals the parser totals — Option B did not inflate.
+        assert sum(b.tokens_input for b in buckets) == 15
+        assert sum(b.tokens_output for b in buckets) == 28
 
 
 # ---- Plan 02-04: scheduler (INGST-04 + INGST-05 + INGST-06 e2e + loop hygiene) ----
@@ -748,10 +761,10 @@ async def test_sync_once_ingests_golden_session(
 ):
     """INGST-04 + INGST-05 e2e: sync_once parses + upserts the golden fixture
     into all 3 tables (sessions, tools, token_usage)."""
-    from cmc.ingest.scheduler import sync_once
     from cmc.db.models.sessions import Session as SessionModel
-    from cmc.db.models.tools import ToolCall
     from cmc.db.models.token_usage import TokenUsage
+    from cmc.db.models.tools import ToolCall
+    from cmc.ingest.scheduler import sync_once
 
     app, cm = await _bootstrap_app(settings_with_jsonl_root)
     async with cm:
@@ -776,8 +789,8 @@ async def test_sync_once_excludes_subagents(settings_with_jsonl_root, golden_jso
     """Glob is `*/*.jsonl` (one level) — must NOT scoop up subagent JSONL files
     nested deeper. (Pitfall 5 in research §1.)
     """
-    from cmc.ingest.scheduler import sync_once
     from cmc.db.models.sessions import Session as SessionModel
+    from cmc.ingest.scheduler import sync_once
 
     # Place a subagent JSONL two levels deeper than the parent session.
     proj = golden_jsonl_session.parent  # fake_jsonl_dir/-Users-test-project/
@@ -808,8 +821,8 @@ async def test_sync_once_ended_at_heuristic_stale_file(
     """ended_at decision: file with mtime older than session_idle_minutes →
     ended_at set from parser._last_message_ts. Fresh file → ended_at None.
     """
-    from cmc.ingest.scheduler import sync_once
     from cmc.db.models.sessions import Session as SessionModel
+    from cmc.ingest.scheduler import sync_once
 
     # Make the file STALE: mtime far in the past (well beyond 5 min idle).
     stale_epoch = (datetime.now() - timedelta(hours=2)).timestamp()
@@ -829,8 +842,8 @@ async def test_sync_once_ended_at_heuristic_fresh_file(
     settings_with_jsonl_root, golden_jsonl_session,
 ):
     """Fresh-mtime file → ended_at left None ('still live' session)."""
-    from cmc.ingest.scheduler import sync_once
     from cmc.db.models.sessions import Session as SessionModel
+    from cmc.ingest.scheduler import sync_once
 
     # Make the file FRESH: mtime = now.
     now_epoch = datetime.now().timestamp()
@@ -853,8 +866,8 @@ async def test_sync_once_local_day_bucket_uses_system_tz(
     """INGST-05 + research §6: 04:00 UTC = previous day in Pacific → bucket
     `day` must be the LOCAL date (2026-04-24), not the UTC date (2026-04-25).
     """
-    from cmc.ingest.scheduler import sync_once
     from cmc.db.models.token_usage import TokenUsage
+    from cmc.ingest.scheduler import sync_once
 
     monkeypatch.setenv("TZ", "America/Los_Angeles")
     _time.tzset()
@@ -904,8 +917,8 @@ async def test_sync_once_corrupted_line_does_not_crash(
     """INGST-06 e2e: golden_jsonl_session contains a corrupted mid-file line.
     sync_once MUST not raise; valid messages MUST still be ingested.
     """
-    from cmc.ingest.scheduler import sync_once
     from cmc.db.models.sessions import Session as SessionModel
+    from cmc.ingest.scheduler import sync_once
 
     app, cm = await _bootstrap_app(settings_with_jsonl_root)
     async with cm:
@@ -990,6 +1003,7 @@ async def test_lifespan_runs_initial_sync_and_schedules_loop(
     After exiting the lifespan context, the periodic task is cancelled cleanly.
     """
     from fastapi import FastAPI
+
     from cmc.app.lifespan import lifespan
     from cmc.db.models.sessions import Session as SessionModel
 
@@ -1050,6 +1064,7 @@ async def test_lifespan_boots_when_jsonl_root_missing(
     propagate the warning into a boot failure.
     """
     from fastapi import FastAPI
+
     from cmc.app.lifespan import lifespan
     from cmc.db.models.sessions import Session as SessionModel
 
@@ -1077,6 +1092,7 @@ async def test_manual_sync_returns_summary_and_persists_data(
     what sync_once would produce.
     """
     from httpx import ASGITransport, AsyncClient
+
     from cmc.app import create_app
     from cmc.db.models.sessions import Session as SessionModel
 
@@ -1114,6 +1130,7 @@ async def test_manual_sync_idempotent_under_repeat(
     """
     from httpx import ASGITransport, AsyncClient
     from sqlalchemy import func
+
     from cmc.app import create_app
     from cmc.db.models.sessions import Session as SessionModel
     from cmc.db.models.token_usage import TokenUsage

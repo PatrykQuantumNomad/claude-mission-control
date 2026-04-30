@@ -12,11 +12,10 @@ Pitfall awareness:
     tests monkeypatch BOTH `cmc.tasks.spawn.subprocess.Popen` AND `cmc.tasks.spawn.repo_root`
     so no real subprocess + no real .tmp/ writes ever happen.
 """
-from __future__ import annotations
 
 import subprocess
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
 import pytest
@@ -26,7 +25,6 @@ from cmc.db.models.tasks import Task
 from cmc.tasks.transitions import validate_transition
 
 from .conftest import make_task_row
-
 
 # ---------- Wave 0 smoke (kept) ----------
 
@@ -298,7 +296,7 @@ async def test_task05_approve_404(client) -> None:
 @pytest.mark.asyncio
 async def test_task06_rerun_legal(client) -> None:
     """rerun resets failed -> pending, clears started_at/ended_at/error_message."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     task_id = await _seed_task(
         client,
         title="t-rerun",

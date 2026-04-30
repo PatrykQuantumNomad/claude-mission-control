@@ -15,10 +15,8 @@ alongside `body` is silently dropped server-side. The marker payload still
 preserves the agent_marker provenance in `body`. If a future migration adds
 a `source` column the wire shape stays compatible.
 """
-from __future__ import annotations
 
 import logging
-from typing import Optional
 
 import httpx
 
@@ -30,7 +28,7 @@ async def post_inbox_marker(
     *,
     port: int,
     host: str = "127.0.0.1",
-) -> Optional[int]:
+) -> int | None:
     """POST /api/inbox with {source: 'agent_marker', body}; return inbox id or None.
 
     Args:

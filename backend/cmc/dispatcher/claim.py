@@ -17,9 +17,8 @@ is `engine.connect().execution_options(isolation_level="SERIALIZABLE")`, which
 on SQLite maps to `BEGIN IMMEDIATE`. The contract — "no double-claim across
 overlapping cycles" — is what matters; both routes deliver atomic semantics.
 """
-from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -52,7 +51,7 @@ async def claim_pending_tasks(engine: AsyncEngine, slots: int) -> list[dict]:
     """
     if slots <= 0:
         return []
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     async with engine.connect() as conn:
         # Manually upgrade the transaction from DEFERRED (auto-BEGIN default) to
         # IMMEDIATE by issuing BEGIN IMMEDIATE BEFORE any other statement runs.

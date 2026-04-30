@@ -2,10 +2,9 @@
 
 Wave 1 plan 04-04 router consumes these as already-defined contracts.
 """
-from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -20,10 +19,10 @@ class ScheduleListItem(ORMBase):
     name: str
     cron: str
     enabled: bool
-    next_run_at: Optional[datetime]
-    last_run_at: Optional[datetime]
+    next_run_at: datetime | None
+    last_run_at: datetime | None
     task_template: dict[str, Any]
-    skill: Optional[str]
+    skill: str | None
     created_at: datetime
     updated_at: datetime
 
@@ -38,15 +37,15 @@ class ScheduleCreate(BaseModel):
     cron: str = Field(min_length=1, max_length=100)
     enabled: bool = True
     task_template: dict[str, Any] = Field(default_factory=dict)
-    skill: Optional[str] = Field(default=None, max_length=100)
+    skill: str | None = Field(default=None, max_length=100)
 
 
 class ScheduleUpdate(BaseModel):
-    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
-    cron: Optional[str] = Field(default=None, min_length=1, max_length=100)
-    enabled: Optional[bool] = None
-    task_template: Optional[dict[str, Any]] = None
-    skill: Optional[str] = Field(default=None, max_length=100)
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    cron: str | None = Field(default=None, min_length=1, max_length=100)
+    enabled: bool | None = None
+    task_template: dict[str, Any] | None = None
+    skill: str | None = Field(default=None, max_length=100)
 
 
 class ScheduleRunsResponse(BaseModel):

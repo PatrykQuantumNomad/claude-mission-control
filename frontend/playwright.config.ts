@@ -15,6 +15,9 @@
 // baseURL=127.0.0.1:4173 — explicit IPv4 to match the backend bind address
 // and avoid IPv6 (::1) ambiguity when uvicorn binds to 127.0.0.1.
 
+/// <reference types="node" />
+
+import { env } from 'node:process'
 import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
@@ -24,7 +27,7 @@ export default defineConfig({
   fullyParallel: false, // Schedules test mutates server state — keep serial.
   retries: 0,
   workers: 1,
-  reporter: process.env.CI ? 'github' : 'line',
+  reporter: env.CI ? 'github' : 'line',
   use: {
     baseURL: 'http://127.0.0.1:4173',
     trace: 'on-first-retry',

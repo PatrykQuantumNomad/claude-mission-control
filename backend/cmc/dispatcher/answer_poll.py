@@ -10,12 +10,10 @@ across `await asyncio.sleep(poll_s)` would hold a connection out of the pool
 for hours under default settings.dispatcher_decision_timeout_s=3600 — fine in
 isolation, dangerous under load.
 """
-from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 
@@ -30,7 +28,7 @@ async def wait_for_answer(
     *,
     timeout_s: float = 3600,
     poll_s: float = 2.0,
-) -> Optional[str]:
+) -> str | None:
     """Poll decisions table every poll_s seconds; return answer or None on timeout.
 
     Args:
@@ -43,8 +41,8 @@ async def wait_for_answer(
         The `answer` column when status flips to 'answered' (may itself be None
         if user explicitly skipped); or None on timeout.
     """
-    deadline = datetime.now(timezone.utc).timestamp() + timeout_s
-    while datetime.now(timezone.utc).timestamp() < deadline:
+    deadline = datetime.now(UTC).timestamp() + timeout_s
+    while datetime.now(UTC).timestamp() < deadline:
         # Fresh session per iteration — see module docstring.
         async with sessions() as db:
             row = (

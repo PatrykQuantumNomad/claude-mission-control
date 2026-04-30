@@ -6,10 +6,9 @@ NOTE: SCHEMA flags this table as [NEEDS USER CONFIRMATION] — the production
 dashboard may compute the heatmap on the fly from otel_metrics. Materialized
 here as a precomputed cache per the approved-as-is decision (2026-04-25).
 """
-from __future__ import annotations
 
-from datetime import date as _date, datetime
-from typing import Optional
+from datetime import date as _date
+from datetime import datetime
 
 from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, Index, SQLModel
@@ -18,7 +17,7 @@ from sqlmodel import Field, Index, SQLModel
 class Activity(SQLModel, table=True):
     __tablename__ = "activities"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     day: _date
     # kind enum: {commits, prs, lines_added, lines_removed, sessions, tokens}
     kind: str

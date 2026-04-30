@@ -10,15 +10,13 @@ Plan 08-01 ships:
 
 Plans 08-02..04 will append DISP-05..12 cases here.
 """
-from __future__ import annotations
 
 import asyncio
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
-import pytest_asyncio
 from sqlalchemy import select
 
 # ---- Settings tests ----------------------------------------------------------
@@ -200,7 +198,7 @@ async def test_disp01_claim_respects_priority_and_scheduled_for(test_settings):
     from cmc.db.models.tasks import Task
     from cmc.dispatcher.claim import claim_pending_tasks
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     future = now + timedelta(hours=1)
 
     engine, sessions = await _bootstrap_db(test_settings)
@@ -209,7 +207,12 @@ async def test_disp01_claim_respects_priority_and_scheduled_for(test_settings):
             # 4 tasks: low-priority, high-priority (older), high-priority (newer),
             # high-priority-future-scheduled
             db.add_all([
-                Task(title="lo", priority=5, status="pending", created_at=now - timedelta(seconds=10)),
+                Task(
+                    title="lo",
+                    priority=5,
+                    status="pending",
+                    created_at=now - timedelta(seconds=10),
+                ),
                 Task(title="hi-old", priority=1, status="pending",
                      created_at=now - timedelta(seconds=20)),
                 Task(title="hi-new", priority=1, status="pending",
@@ -238,7 +241,7 @@ async def test_disp01_claim_partitions_pending(test_settings):
     from cmc.db.models.tasks import Task
     from cmc.dispatcher.claim import claim_pending_tasks
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     engine, sessions = await _bootstrap_db(test_settings)
     try:
         async with sessions() as db:
@@ -274,7 +277,7 @@ async def test_disp01_materialize_creates_task_rows(test_settings):
     from cmc.db.models.tasks import Task
     from cmc.dispatcher.materialize import materialize_due_schedules
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     engine, sessions = await _bootstrap_db(test_settings)
     try:
         async with sessions() as db:
@@ -308,7 +311,7 @@ async def test_disp01_materialize_creates_task_rows(test_settings):
         s = scheds[0]
         assert s.last_run_at is not None
         # Tz-aware compare (SQLite strips tzinfo on round-trip)
-        nra = s.next_run_at if s.next_run_at.tzinfo else s.next_run_at.replace(tzinfo=timezone.utc)
+        nra = s.next_run_at if s.next_run_at.tzinfo else s.next_run_at.replace(tzinfo=UTC)
         assert nra > now
     finally:
         await engine.dispose()
@@ -321,7 +324,7 @@ async def test_disp01_materialize_skips_disabled_or_future(test_settings):
     from cmc.db.models.tasks import Task
     from cmc.dispatcher.materialize import materialize_due_schedules
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     engine, sessions = await _bootstrap_db(test_settings)
     try:
         async with sessions() as db:
@@ -352,7 +355,7 @@ async def test_disp01_materialize_handles_bad_template(test_settings):
     from cmc.db.models.tasks import Task
     from cmc.dispatcher.materialize import materialize_due_schedules
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     engine, sessions = await _bootstrap_db(test_settings)
     try:
         async with sessions() as db:
@@ -383,11 +386,11 @@ async def test_disp01_materialize_handles_bad_template(test_settings):
         assert bad.name == "bad"
         # Pitfall 7 contract: bad schedule's next_run_at NOT advanced.
         bad_nra = (bad.next_run_at if bad.next_run_at.tzinfo
-                   else bad.next_run_at.replace(tzinfo=timezone.utc))
+                   else bad.next_run_at.replace(tzinfo=UTC))
         assert bad_nra == now or bad_nra <= now  # untouched
         # Good schedule advanced.
         good_nra = (good.next_run_at if good.next_run_at.tzinfo
-                    else good.next_run_at.replace(tzinfo=timezone.utc))
+                    else good.next_run_at.replace(tzinfo=UTC))
         assert good_nra > now
     finally:
         await engine.dispose()
@@ -413,7 +416,7 @@ async def test_disp02_emergency_stop_early_return(
     try:
         async with sessions() as db:
             db.add(SystemState(key="emergency_stop", value="1",
-                               updated_at=datetime.now(timezone.utc)))
+                               updated_at=datetime.now(UTC)))
             await db.commit()
 
         # Force run_one_cycle to use OUR engine (not load_settings()).
@@ -501,7 +504,7 @@ async def test_disp01_one_cycle_smoke(
 
     engine, sessions = await _bootstrap_db(test_settings)
     try:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         async with sessions() as db:
             db.add(
                 Schedule(
@@ -572,7 +575,7 @@ async def test_disp04_concurrency_cap(
 
     engine, sessions = await _bootstrap_db(test_settings)
     try:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         async with sessions() as db:
             db.add_all([
                 Task(title=f"t{i}", priority=3, status="pending", created_at=now)
@@ -754,7 +757,7 @@ def _classic_cmd_args() -> tuple[str, list[str]]:
     raise NotImplementedError
 
 
-def _write_fake_claude_wrapper(tmp_path, fixture_extra_args=()) -> "Path":
+def _write_fake_claude_wrapper(tmp_path, fixture_extra_args=()) -> Path:
     """Write a small executable shim that delegates to fake_claude_classic.py.
 
     Returns a Path the runner can use as settings.claude_bin. The wrapper
@@ -796,7 +799,7 @@ async def test_disp05_classic_happy_path(
             t = Task(
                 title="hi", description="run me", status="running",
                 execution_mode="classic", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -844,7 +847,7 @@ async def test_disp05_classic_writes_pid_immediately(
             t = Task(
                 title="x", description="x", status="running",
                 execution_mode="classic", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -903,7 +906,7 @@ async def test_disp05_classic_nonzero_exit(
             t = Task(
                 title="boom", description="x", status="running",
                 execution_mode="classic", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -944,7 +947,7 @@ async def test_disp05_classic_timeout(
             t = Task(
                 title="slow", description="x", status="running",
                 execution_mode="classic", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -988,7 +991,7 @@ async def test_disp05_classic_scrubs_anthropic_key(
             t = Task(
                 title="ok", description="x", status="running",
                 execution_mode="classic", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -1035,7 +1038,7 @@ async def test_disp05_classic_passes_resolved_model(
             t = Task(
                 title="m", description="x", status="running",
                 execution_mode="classic", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -1228,7 +1231,7 @@ def test_oneshot_main_handles_exception(monkeypatch, capsys):
 
 def test_marker_parser_skips_fenced_code():
     """DECISION/INBOX inside ```fenced``` blocks must NOT be emitted (Pitfall 4)."""
-    from cmc.dispatcher.marker_parser import Marker, MarkerParser
+    from cmc.dispatcher.marker_parser import MarkerParser
 
     parser = MarkerParser()
     text = (
@@ -1325,7 +1328,7 @@ async def test_answer_poll_returns_answer_when_status_flips(test_settings):
                 prompt="should I deploy?",
                 options=[],
                 status="pending",
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(d)
             await db.commit()
@@ -1340,7 +1343,7 @@ async def test_answer_poll_returns_answer_when_status_flips(test_settings):
                 ).scalar_one()
                 row.status = "answered"
                 row.answer = "yes"
-                row.answered_at = datetime.now(timezone.utc)
+                row.answered_at = datetime.now(UTC)
                 row.answered_by = "dashboard"
                 await db.commit()
 
@@ -1369,7 +1372,7 @@ async def test_answer_poll_returns_none_on_timeout(test_settings):
                 prompt="never answered",
                 options=[],
                 status="pending",
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(d)
             await db.commit()
@@ -1402,7 +1405,7 @@ async def test_answer_poll_uses_fresh_session_per_poll(test_settings, monkeypatc
                 prompt="count my sessions",
                 options=[],
                 status="pending",
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(d)
             await db.commit()
@@ -1526,7 +1529,7 @@ async def test_inbox_post_handles_unexpected_status(monkeypatch):
 # ---- Plan 08-03 — DISP-06 run_stream (stream-mode runner) ------------------
 
 
-def _write_fake_claude_stream_wrapper(tmp_path, fixture_extra_args=()) -> "Path":
+def _write_fake_claude_stream_wrapper(tmp_path, fixture_extra_args=()) -> Path:
     """Sibling of _write_fake_claude_wrapper for stream mode.
 
     The wrapper PREPENDS test-supplied fixture flags ahead of the Popen-supplied
@@ -1600,7 +1603,7 @@ async def test_disp06_stream_happy_path(
             t = Task(
                 title="s", description="x", status="running",
                 execution_mode="stream", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -1648,7 +1651,7 @@ async def test_disp06_stream_writes_pid_immediately(
             t = Task(
                 title="x", description="x", status="running",
                 execution_mode="stream", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -1699,7 +1702,7 @@ async def test_disp06_stream_scrubs_anthropic_key(
             t = Task(
                 title="ok", description="x", status="running",
                 execution_mode="stream", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -1745,7 +1748,7 @@ async def test_disp06_stream_uses_resolved_model(
             t = Task(
                 title="m", description="x", status="running",
                 execution_mode="stream", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -1827,7 +1830,7 @@ async def test_disp07_decision_blocks_until_answered(
             t = Task(
                 title="d", description="x", status="running",
                 execution_mode="stream", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -1850,7 +1853,7 @@ async def test_disp07_decision_blocks_until_answered(
                     if row is not None:
                         row.status = "answered"
                         row.answer = "yes"
-                        row.answered_at = datetime.now(timezone.utc)
+                        row.answered_at = datetime.now(UTC)
                         row.answered_by = "dashboard"
                         await db.commit()
                         return
@@ -1865,7 +1868,9 @@ async def test_disp07_decision_blocks_until_answered(
             refreshed = (
                 await db.execute(select(Task).where(Task.id == task_id))
             ).scalar_one()
-        assert refreshed.status == "done", f"unexpected status: {refreshed.status} / {refreshed.error_message}"
+        assert refreshed.status == "done", (
+            f"unexpected status: {refreshed.status} / {refreshed.error_message}"
+        )
         # Decision row was created with status=answered.
         async with sessions() as db:
             d = (await db.execute(
@@ -1924,7 +1929,7 @@ async def test_disp07_fenced_decision_not_inserted(
             t = Task(
                 title="f", description="x", status="running",
                 execution_mode="stream", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -1946,7 +1951,7 @@ async def test_disp07_fenced_decision_not_inserted(
                     if row is not None:
                         row.status = "answered"
                         row.answer = "ok"
-                        row.answered_at = datetime.now(timezone.utc)
+                        row.answered_at = datetime.now(UTC)
                         await db.commit()
                         return
                 await asyncio.sleep(0.1)
@@ -1960,7 +1965,9 @@ async def test_disp07_fenced_decision_not_inserted(
             rows = (await db.execute(
                 select(Decision).where(Decision.task_id == task_id)
             )).scalars().all()
-        assert len(rows) == 1, f"expected 1 decision row, got {len(rows)}: {[r.prompt for r in rows]}"
+        assert len(rows) == 1, (
+            f"expected 1 decision row, got {len(rows)}: {[r.prompt for r in rows]}"
+        )
         assert "ignored" not in rows[0].prompt.lower()
         assert "real" in rows[0].prompt.lower()
     finally:
@@ -2012,7 +2019,7 @@ async def test_disp07_decision_timeout_marks_failed(
             t = Task(
                 title="t", description="x", status="running",
                 execution_mode="stream", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -2078,7 +2085,7 @@ async def test_disp08_inbox_marker_posts_to_api(
             t = Task(
                 title="i", description="x", status="running",
                 execution_mode="stream", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -2137,7 +2144,7 @@ async def test_disp06_stream_handles_nonzero_exit(
             t = Task(
                 title="bad", description="x", status="running",
                 execution_mode="stream", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -2209,7 +2216,7 @@ async def test_disp06_stream_unlinks_pid_on_exception(
             t = Task(
                 title="e", description="x", status="running",
                 execution_mode="stream", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -2244,7 +2251,6 @@ def test_input_format_spike_writes_correct_shape(tmp_path, monkeypatch):
     """The bytes written to stdin match the symmetric NDJSON shape."""
     import shlex
     import stat
-    import sys as _sys
 
     from cmc.dispatcher import _input_format_spike as spike_module
 
@@ -2255,12 +2261,16 @@ def test_input_format_spike_writes_correct_shape(tmp_path, monkeypatch):
         f"#!/bin/sh\n"
         f"cat > {shlex.quote(str(captured))}\n"
         f"# Simulate one assistant event so the spike returns 'accepted'.\n"
-        f'printf \'{{"type":"assistant","message":{{"role":"assistant","content":[{{"type":"text","text":"hi"}}]}}}}\\n\'\n'
+        "printf "
+        "'{\"type\":\"assistant\",\"message\":{\"role\":\"assistant\","
+        "\"content\":[{\"type\":\"text\",\"text\":\"hi\"}]}}\\n'\n"
         f"exit 0\n"
     )
-    recorder.chmod(recorder.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+    recorder.chmod(
+        recorder.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH
+    )
 
-    outcome, detail = spike_module.probe_stdin_shape(claude_bin=str(recorder))
+    _outcome, _detail = spike_module.probe_stdin_shape(claude_bin=str(recorder))
     # Whatever the outcome (depends on read timing), stdin must have been
     # written with the symmetric shape.
     assert captured.exists(), "spike did not write to stdin"
@@ -2276,9 +2286,7 @@ def test_input_format_spike_writes_correct_shape(tmp_path, monkeypatch):
 
 def test_input_format_spike_returns_accepted_or_rejected(tmp_path):
     """When claude IS present and emits an assistant event, spike returns 'accepted'."""
-    import shlex
     import stat
-    import sys as _sys
 
     from cmc.dispatcher import _input_format_spike as spike_module
 
@@ -2287,7 +2295,9 @@ def test_input_format_spike_returns_accepted_or_rejected(tmp_path):
         "#!/bin/sh\n"
         "# Drain stdin in the background, then emit one assistant event.\n"
         "cat > /dev/null &\n"
-        'printf \'{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"hi"}]}}\\n\'\n'
+        "printf "
+        "'{\"type\":\"assistant\",\"message\":{\"role\":\"assistant\","
+        "\"content\":[{\"type\":\"text\",\"text\":\"hi\"}]}}\\n'\n"
         "wait\n"
     )
     accepted_recorder.chmod(
@@ -2549,7 +2559,7 @@ async def test_disp04_autonomy_gate_no_skill_proceeds(test_settings):
             t = Task(
                 title="t", description="x", status="running",
                 execution_mode="classic", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -2583,7 +2593,7 @@ async def test_disp04_autonomy_gate_auto_proceeds(test_settings):
             t = Task(
                 title="t", description="x", status="running",
                 execution_mode="classic", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -2619,7 +2629,7 @@ async def test_disp04_autonomy_gate_review_blocks(test_settings):
             t = Task(
                 title="t", description="x", status="running",
                 execution_mode="classic", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -2655,7 +2665,7 @@ async def test_disp04_autonomy_gate_manual_blocks(test_settings):
             t = Task(
                 title="t", description="x", status="running",
                 execution_mode="classic", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -2691,7 +2701,7 @@ async def test_disp04_autonomy_gate_unknown_value_treated_as_manual(test_setting
             t = Task(
                 title="t", description="x", status="running",
                 execution_mode="classic", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -2727,7 +2737,7 @@ def test_disp09_followup_pump_reads_messages_file(tmp_path, monkeypatch):
     from cmc.dispatcher.follow_ups import FollowUpPump
 
     # Redirect queue_path to tmp_path so we don't touch real .tmp/.
-    queue_root = tmp_path / "queue"
+    tmp_path / "queue"
     monkeypatch.setattr(
         "cmc.core.queue.repo_root", lambda: tmp_path
     )
@@ -2925,7 +2935,7 @@ async def test_heartbeat_fan_out_classic(
             t = Task(
                 title="hi", description="run me", status="pending",
                 execution_mode="classic", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -2992,7 +3002,7 @@ async def test_heartbeat_fan_out_stream(
             t = Task(
                 title="s", description="x", status="pending",
                 execution_mode="stream", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -3049,7 +3059,7 @@ async def test_heartbeat_skill_router_called_for_unassigned(
             t = Task(
                 title="ship", description="ship now", status="pending",
                 execution_mode="classic", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -3126,12 +3136,11 @@ async def test_heartbeat_skill_router_skipped_for_assigned(
             t = Task(
                 title="t", description="x", status="pending",
                 execution_mode="classic", priority=3, skill="existing",
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
             await db.refresh(t)
-            task_id = t.id
 
         pick_calls: list[int] = []
 
@@ -3184,7 +3193,7 @@ async def test_heartbeat_autonomy_gate_blocks_review_skill(
             t = Task(
                 title="t", description="x", status="pending",
                 execution_mode="classic", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -3255,7 +3264,7 @@ async def test_heartbeat_interactive_mode_maps_to_classic(
             t = Task(
                 title="t", description="x", status="pending",
                 execution_mode="interactive", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -3321,7 +3330,7 @@ async def test_heartbeat_max_concurrent_respected(
             db.add_all([
                 Task(title=f"t{i}", priority=3, status="pending",
                      execution_mode="classic",
-                     created_at=datetime.now(timezone.utc))
+                     created_at=datetime.now(UTC))
                 for i in range(5)
             ])
             await db.commit()
@@ -3404,7 +3413,7 @@ async def test_run_stream_pumps_followups(
             t = Task(
                 title="t", description="x", status="running",
                 execution_mode="stream", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -3432,7 +3441,7 @@ async def test_run_stream_pumps_followups(
                         # Also flip the decision so answer_poll resumes.
                         row.status = "answered"
                         row.answer = "yes"
-                        row.answered_at = datetime.now(timezone.utc)
+                        row.answered_at = datetime.now(UTC)
                         row.answered_by = "test"
                         await db.commit()
                         return
@@ -3457,7 +3466,7 @@ async def test_run_stream_pumps_followups(
         )
 
         # Per-task log file exists.
-        log_dir = tmp_path / ".tmp" / "mission-control-queue" / "dispatcher-logs"
+        tmp_path / ".tmp" / "mission-control-queue" / "dispatcher-logs"
         # log_dir uses repo_root from cmc.core.paths (NOT cmc.core.queue.repo_root),
         # so it lands in the real repo. Just assert the run completed.
     finally:
@@ -3495,7 +3504,7 @@ async def test_e2e_classic_full_cycle(
             t = Task(
                 title="E2E classic", description="hello",
                 status="pending", execution_mode="classic", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -3589,7 +3598,7 @@ async def test_e2e_stream_with_decision_full_cycle(
             t = Task(
                 title="E2E stream", description="x",
                 status="pending", execution_mode="stream", priority=3,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             db.add(t)
             await db.commit()
@@ -3616,7 +3625,7 @@ async def test_e2e_stream_with_decision_full_cycle(
                     if row is not None:
                         row.status = "answered"
                         row.answer = "yes"
-                        row.answered_at = datetime.now(timezone.utc)
+                        row.answered_at = datetime.now(UTC)
                         row.answered_by = "test"
                         await db.commit()
                         return
@@ -3663,12 +3672,12 @@ async def test_e2e_emergency_stop_short_circuits_full_cycle(
         async with sessions() as db:
             db.add(SystemState(
                 key="emergency_stop", value="1",
-                updated_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(UTC),
             ))
             db.add_all([
                 Task(title=f"e{i}", description="x",
                      status="pending", execution_mode="classic", priority=3,
-                     created_at=datetime.now(timezone.utc))
+                     created_at=datetime.now(UTC))
                 for i in range(3)
             ])
             await db.commit()
@@ -3729,7 +3738,7 @@ async def test_e2e_overlapping_cycles_no_double_claim(
             db.add_all([
                 Task(title=f"t{i}", description="x",
                      status="pending", execution_mode="classic", priority=3,
-                     created_at=datetime.now(timezone.utc))
+                     created_at=datetime.now(UTC))
                 for i in range(5)
             ])
             await db.commit()
@@ -3748,7 +3757,6 @@ async def test_e2e_overlapping_cycles_no_double_claim(
         # subprocess execution. The fan-out spawns the threads and we let
         # them no-op so cycles stay fast.
         claimed_ids: list[int] = []
-        claimed_lock = threading.Lock() if False else None  # not needed; GIL serializes append
 
         import threading as _threading
         lock = _threading.Lock()

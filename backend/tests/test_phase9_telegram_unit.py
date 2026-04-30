@@ -5,16 +5,15 @@ Convention note: subsequent Phase 9 plans add their own per-concern files
 rather than appending here. Plan boundaries are larger this phase, so
 co-locating tests with their plan owner keeps merge surface clean.
 """
-from __future__ import annotations
 
 import json
+from datetime import UTC
 
 import httpx
 import pytest
 from httpx import MockTransport, Response
 
 from cmc.telegram import api, dash_router, messages
-
 
 # ---------- api.py ----------
 
@@ -238,7 +237,7 @@ def test_route_snooze_resolves_first():
 
 
 def test_route_reply_inbox_is_noop():
-    method, path, body = dash_router.route("reply_inbox", ["12"])
+    method, path, _body = dash_router.route("reply_inbox", ["12"])
     assert method == "NOOP"
     assert path == "/api/inbox/12"
 
@@ -327,7 +326,7 @@ def test_plist_render_no_secrets_in_environment(tmp_path):
 
 @pytest.mark.asyncio
 async def test_notifications_list_orders_by_sent_at_desc(client, seeded_app):
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
     from cmc.db.models.notification_log import NotificationLog
 
@@ -339,7 +338,7 @@ async def test_notifications_list_orders_by_sent_at_desc(client, seeded_app):
                 kind="decision",
                 entity_id="1",
                 chat_id="999",
-                sent_at=datetime.now(timezone.utc) - timedelta(minutes=5),
+                sent_at=datetime.now(UTC) - timedelta(minutes=5),
                 status="sent",
             )
         )
@@ -348,7 +347,7 @@ async def test_notifications_list_orders_by_sent_at_desc(client, seeded_app):
                 kind="failure",
                 entity_id="2",
                 chat_id="999",
-                sent_at=datetime.now(timezone.utc),
+                sent_at=datetime.now(UTC),
                 status="sent",
             )
         )
@@ -362,7 +361,7 @@ async def test_notifications_list_orders_by_sent_at_desc(client, seeded_app):
 
 @pytest.mark.asyncio
 async def test_notifications_list_filters_by_kind(client, seeded_app):
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from cmc.db.models.notification_log import NotificationLog
 
@@ -374,7 +373,7 @@ async def test_notifications_list_filters_by_kind(client, seeded_app):
                 kind="decision",
                 entity_id="11",
                 chat_id="999",
-                sent_at=datetime.now(timezone.utc),
+                sent_at=datetime.now(UTC),
                 status="sent",
             )
         )
@@ -383,7 +382,7 @@ async def test_notifications_list_filters_by_kind(client, seeded_app):
                 kind="failure",
                 entity_id="22",
                 chat_id="999",
-                sent_at=datetime.now(timezone.utc),
+                sent_at=datetime.now(UTC),
                 status="sent",
             )
         )
@@ -397,7 +396,7 @@ async def test_notifications_list_filters_by_kind(client, seeded_app):
 
 @pytest.mark.asyncio
 async def test_snooze_sets_snoozed_until(client, seeded_app):
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from cmc.db.models.notification_log import NotificationLog
 
@@ -408,7 +407,7 @@ async def test_snooze_sets_snoozed_until(client, seeded_app):
             kind="decision",
             entity_id="42",
             chat_id="999",
-            sent_at=datetime.now(timezone.utc),
+            sent_at=datetime.now(UTC),
             status="sent",
         )
         db.add(row)
@@ -436,7 +435,7 @@ async def test_snooze_unknown_id_404(client):
 
 @pytest.mark.asyncio
 async def test_resolve_returns_id(client, seeded_app):
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from cmc.db.models.notification_log import NotificationLog
 
@@ -447,7 +446,7 @@ async def test_resolve_returns_id(client, seeded_app):
             kind="overdue_schedule",
             entity_id="7",
             chat_id="999",
-            sent_at=datetime.now(timezone.utc),
+            sent_at=datetime.now(UTC),
             status="sent",
         )
         db.add(row)

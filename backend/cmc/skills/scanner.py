@@ -11,11 +11,10 @@ Hardening per Plan 03-05 threat model:
   - scan_all caps total results at MAX_SKILLS=1000 (defense against a
     user-mode skill dir with thousands of stale entries).
 """
-from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator, Optional
 
 import yaml
 
@@ -46,7 +45,7 @@ def find_skill_files(root: Path) -> Iterator[Path]:
             yield skill_md
 
 
-def parse_skill(path: Path, default_env: str = "personal") -> Optional[dict]:
+def parse_skill(path: Path, default_env: str = "personal") -> dict | None:
     """Parse a SKILL.md file and return its metadata as a dict.
 
     Returns None on:
@@ -97,7 +96,7 @@ def parse_skill(path: Path, default_env: str = "personal") -> Optional[dict]:
 
 def scan_all(
     user_dir: Path,
-    project_dir: Optional[Path] = None,
+    project_dir: Path | None = None,
     max_skills: int = MAX_SKILLS,
 ) -> list[dict]:
     """Scan the user + project skill roots and return parsed dicts.

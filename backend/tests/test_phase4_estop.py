@@ -23,10 +23,9 @@ Pitfall awareness (Plan 04-05):
       emergency_stop_all to a stub — we never SIGTERM real PIDs in tests.
 """
 import os
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy import select
-
 
 # ---- Helpers ----
 

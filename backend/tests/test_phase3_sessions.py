@@ -3,11 +3,10 @@
 Phase 3 per-router convention: every SESS-* test lives in this file.
 See test_phase3_system.py module docstring for the full convention.
 """
-from __future__ import annotations
 
 import json
 import subprocess
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -24,7 +23,6 @@ from .conftest import (
     make_session_row,
     make_tool_call,
 )
-
 
 # ---------- Wave 0 smoke (kept) ----------
 
@@ -69,7 +67,7 @@ def _new_uuid() -> str:
 @pytest.mark.asyncio
 async def test_sess01_list_pagination_and_filters(client) -> None:
     """SESS-01: pagination + range/source/model filters narrow results."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     # 5 sessions: 3 today (mixed source/model), 2 outside today (40 days old)
     rows: list[tuple[type, dict]] = [
         (SessionModel, make_session_row(
@@ -141,7 +139,7 @@ async def test_sess01_list_pagination_and_filters(client) -> None:
 @pytest.mark.asyncio
 async def test_sess02_session_details_with_tools(client) -> None:
     """SESS-02: details returns session + ordered tool timeline."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     sid = _new_uuid()
     rows: list[tuple[type, dict]] = [
         (SessionModel, make_session_row(session_id=sid, started_at=now - timedelta(minutes=5))),
@@ -188,7 +186,7 @@ async def test_sess03_live_fallback_no_live_state(client) -> None:
 
     Pitfall 8 fallback per RESEARCH Open Q1.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     live_sid = _new_uuid()
     ended_sid = _new_uuid()
     rows: list[tuple[type, dict]] = [
@@ -217,7 +215,7 @@ async def test_sess03_live_fallback_no_live_state(client) -> None:
 @pytest.mark.asyncio
 async def test_sess03_live_prefers_live_state_row(client) -> None:
     """SESS-03 with live_state row: prefers its last_activity_at + state."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     sid = _new_uuid()
     last_act = now - timedelta(seconds=10)
     rows: list[tuple[type, dict]] = [
@@ -250,7 +248,7 @@ async def test_sess03_live_prefers_live_state_row(client) -> None:
 @pytest.mark.asyncio
 async def test_sess07_today_summary(client) -> None:
     """SESS-07: today-window aggregation across sessions + otel_events."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     today_sid_a = _new_uuid()
     today_sid_b = _new_uuid()
     yesterday_sid = _new_uuid()
@@ -315,7 +313,7 @@ async def test_sessions_router_registered() -> None:
 @pytest.mark.asyncio
 async def test_sess04_live_state_with_row(client) -> None:
     """SESS-04: returns LiveSessionState fields when a live_state row exists."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     sid = _new_uuid()
     last_act = now - timedelta(seconds=5)
     rows: list[tuple[type, dict]] = [
@@ -373,7 +371,7 @@ async def test_sess05_stream_with_row(client) -> None:
     """
     from cmc.api.routes.sessions import live_session_stream
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     sid = _new_uuid()
     rows: list[tuple[type, dict]] = [
         (SessionModel, make_session_row(session_id=sid, started_at=now - timedelta(minutes=1))),
@@ -404,9 +402,10 @@ async def test_sess05_stream_with_row(client) -> None:
         # live_session_stream returns a StreamingResponse; we read its body iterator.
         resp = await live_session_stream(sid, _StubRequest(), db=db)
         assert resp.media_type == "text/event-stream"
-        chunks: list[bytes] = []
-        async for chunk in resp.body_iterator:
-            chunks.append(chunk if isinstance(chunk, bytes) else chunk.encode())
+        chunks = [
+            chunk if isinstance(chunk, bytes) else chunk.encode()
+            async for chunk in resp.body_iterator
+        ]
 
     joined = b"".join(chunks).decode("utf-8")
     assert "event: live_state" in joined, f"no live_state event in: {joined!r}"
@@ -446,7 +445,7 @@ async def test_sess05_stream_without_row_emits_heartbeat_and_closes(client) -> N
 @pytest.mark.asyncio
 async def test_sess06_queue_message_happy_path(client) -> None:
     """SESS-06: 202 + JSONL line written to repo_root() queue path."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     sid = _new_uuid()
     await _seed(client, [
         (SessionModel, make_session_row(
@@ -514,7 +513,7 @@ async def test_sess06_unknown_session_returns_404(client) -> None:
 
 @pytest.mark.asyncio
 async def test_sess06_ended_session_returns_409(client) -> None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     sid = _new_uuid()
     await _seed(client, [
         (SessionModel, make_session_row(

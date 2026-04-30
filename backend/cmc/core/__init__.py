@@ -4,9 +4,9 @@ from cmc.core.paths import repo_root, resolve_under_repo_root
 from cmc.core.static import SPAStaticFiles
 
 __all__ = [
-    "repo_root",
-    "resolve_under_repo_root",
     "SPAStaticFiles",
     "configure_logging",
     "register_error_handlers",
+    "repo_root",
+    "resolve_under_repo_root",
 ]

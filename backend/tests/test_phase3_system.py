@@ -14,7 +14,6 @@ respective routers:
 Wave 1 plans (03-02..03-05) APPEND their feature tests to the matching file;
 they do NOT create additional test files for the same router.
 """
-from __future__ import annotations
 
 
 def test_system_schemas_importable() -> None:
@@ -88,7 +87,7 @@ async def test_client_health_endpoint_returns_200(client) -> None:
 
 # ---------- Wave 1 / Plan 03-02 — Task 1: SAPI-01..04 ----------
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from sqlalchemy import insert
@@ -181,7 +180,7 @@ async def test_sapi02_system_health_with_otel_events(client) -> None:
     """SAPI-02: When otel_events has rows, last_otel_event_age_seconds is an
     int >= 0 (Pitfall 4: tz-naive SQLite datetimes are normalized to UTC)."""
     # Insert one OtelEvent ~10s in the past (tz-aware UTC)
-    ten_s_ago = datetime.now(timezone.utc) - timedelta(seconds=10)
+    ten_s_ago = datetime.now(UTC) - timedelta(seconds=10)
     await _seed(
         client,
         [(OtelEvent, make_otel_event(ts=ten_s_ago, event_name="claude_code.api_request"))],
@@ -271,7 +270,7 @@ async def test_sapi04_attention_phase4_emptiness_returns_zeros(client) -> None:
 async def test_sapi04_attention_detects_stuck_session(client) -> None:
     """SAPI-04 stuck_sessions: a session that started >3h ago and has no
     ended_at is counted as stuck and surfaces as an AttentionItem."""
-    four_hours_ago = datetime.now(timezone.utc) - timedelta(hours=4)
+    four_hours_ago = datetime.now(UTC) - timedelta(hours=4)
     await _seed(
         client,
         [
@@ -296,7 +295,7 @@ async def test_sapi04_attention_detects_stuck_session(client) -> None:
 
 import asyncio
 import json as _json
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 
 def _parse_sse_chunks(raw: str) -> list[dict]:
@@ -387,7 +386,7 @@ async def test_sapi05_firehose_route_is_registered(client) -> None:
     try:
         ct = await asyncio.wait_for(_check(), timeout=3.0)
         assert "text/event-stream" in ct
-    except (asyncio.TimeoutError, TimeoutError):
+    except TimeoutError:
         # Stream is open and waiting for events — that's the right behavior.
         # If route weren't registered, SPA mount would have returned text/html
         # synchronously before any timeout could fire.
@@ -420,7 +419,7 @@ async def test_sapi05_tail_otel_events_yields_dict_per_row(seeded_app) -> None:
     async with cm:
         # Insert two events
         async with app.state.sessions() as s:
-            base = datetime.now(timezone.utc) - timedelta(seconds=1)
+            base = datetime.now(UTC) - timedelta(seconds=1)
             from sqlalchemy import insert as _insert
             await s.execute(_insert(OtelEvent).values(
                 **make_otel_event(ts=base, event_name="claude_code.api_request")
@@ -437,9 +436,9 @@ async def test_sapi05_tail_otel_events_yields_dict_per_row(seeded_app) -> None:
         # first iteration (so we collect events from one batch then exit)
         async with app.state.sessions() as s:
             req = _fake_disconnecting_request(after_n_calls=1)
-            chunks: list[dict] = []
-            async for chunk in tail_otel_events(req, s, since_id=0):
-                chunks.append(chunk)
+            chunks = [
+                chunk async for chunk in tail_otel_events(req, s, since_id=0)
+            ]
 
         # Both events should be yielded in the first batch
         assert len(chunks) == 2
@@ -453,13 +452,14 @@ async def test_sapi05_tail_otel_events_yields_dict_per_row(seeded_app) -> None:
 
 async def test_sapi05_tail_otel_events_event_name_filter(seeded_app) -> None:
     """SAPI-05 unit: ?event_name= filter narrows what tail_otel_events yields."""
-    from cmc.api.sse import tail_otel_events
     from sqlalchemy import insert as _insert
+
+    from cmc.api.sse import tail_otel_events
 
     app, cm = seeded_app
     async with cm:
         async with app.state.sessions() as s:
-            base = datetime.now(timezone.utc) - timedelta(seconds=1)
+            base = datetime.now(UTC) - timedelta(seconds=1)
             await s.execute(_insert(OtelEvent).values(
                 **make_otel_event(ts=base, event_name="claude_code.api_request")
             ))
@@ -473,11 +473,12 @@ async def test_sapi05_tail_otel_events_event_name_filter(seeded_app) -> None:
 
         async with app.state.sessions() as s:
             req = _fake_disconnecting_request(after_n_calls=1)
-            chunks: list[dict] = []
-            async for chunk in tail_otel_events(
-                req, s, since_id=0, event_name="claude_code.api_request"
-            ):
-                chunks.append(chunk)
+            chunks = [
+                chunk
+                async for chunk in tail_otel_events(
+                    req, s, since_id=0, event_name="claude_code.api_request"
+                )
+            ]
 
         # Only the api_request event should pass the filter
         assert len(chunks) == 1
@@ -495,10 +496,10 @@ async def test_sapi05_tail_otel_events_exits_on_disconnect(seeded_app) -> None:
     async with cm:
         async with app.state.sessions() as s:
             req = _fake_disconnecting_request(after_n_calls=0)  # disconnect immediately
-            chunks: list[dict] = []
             # Should return after first is_disconnected() check
-            async for chunk in tail_otel_events(req, s, since_id=0):
-                chunks.append(chunk)
+            chunks = [
+                chunk async for chunk in tail_otel_events(req, s, since_id=0)
+            ]
 
         # No events were inserted, and we disconnect immediately, so 0 chunks
         assert chunks == []

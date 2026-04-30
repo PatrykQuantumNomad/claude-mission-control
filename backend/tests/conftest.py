@@ -3,7 +3,6 @@
 Plans 04-06 will extend this with engine/session/app fixtures. For Plan 02
 we just need test settings and a tmp-path fixture for db_path.
 """
-from __future__ import annotations
 
 import os
 from pathlib import Path
@@ -87,7 +86,7 @@ def test_settings_with_static(test_settings, tmp_static_dir) -> Settings:
 # ---- Phase 2 fixtures ----
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 
 @pytest.fixture
@@ -122,7 +121,7 @@ def golden_jsonl_session(fake_jsonl_dir: Path) -> Path:
     proj.mkdir()
     f = proj / "11111111-2222-3333-4444-555555555555.jsonl"
 
-    base_ts = datetime(2026, 4, 25, 17, 0, 0, tzinfo=timezone.utc)
+    base_ts = datetime(2026, 4, 25, 17, 0, 0, tzinfo=UTC)
     sid = "11111111-2222-3333-4444-555555555555"
 
     def iso(t: datetime) -> str:
@@ -205,7 +204,10 @@ def otlp_log_payload() -> dict:
                         "timeUnixNano": "1745601281385000000",
                         "body": {"stringValue": "tool_result"},
                         "attributes": [
-                            {"key": "event.name", "value": {"stringValue": "claude_code.tool_result"}},
+                            {
+                                "key": "event.name",
+                                "value": {"stringValue": "claude_code.tool_result"},
+                            },
                             {"key": "session_id", "value": {"stringValue": "sess-1"}},
                             {"key": "tool_name", "value": {"stringValue": "Bash"}},
                             {"key": "success", "value": {"stringValue": "true"}},
@@ -216,11 +218,26 @@ def otlp_log_payload() -> dict:
                         "timeUnixNano": "1745601282385000000",
                         "body": {"stringValue": "tool_result"},
                         "attributes": [
-                            {"key": "event.name", "value": {"stringValue": "claude_code.tool_result"}},
+                            {
+                                "key": "event.name",
+                                "value": {"stringValue": "claude_code.tool_result"},
+                            },
                             {"key": "session_id", "value": {"stringValue": "sess-1"}},
-                            {"key": "tool_name", "value": {"stringValue": "mcp__myserver__do_thing"}},
-                            {"key": "tool_parameters", "value": {"stringValue":
-                                json.dumps({"mcp_server_name": "myserver", "mcp_tool_name": "do_thing"})}},
+                            {
+                                "key": "tool_name",
+                                "value": {"stringValue": "mcp__myserver__do_thing"},
+                            },
+                            {
+                                "key": "tool_parameters",
+                                "value": {
+                                    "stringValue": json.dumps(
+                                        {
+                                            "mcp_server_name": "myserver",
+                                            "mcp_tool_name": "do_thing",
+                                        }
+                                    )
+                                },
+                            },
                         ],
                     },
                 ],
@@ -294,7 +311,6 @@ def otlp_metric_payload() -> dict:
 # construction OR raw INSERT statements (they are NOT fixtures — just module-
 # level helpers callable from any test).
 
-from typing import Optional
 
 import httpx
 import pytest_asyncio
@@ -342,7 +358,7 @@ async def seeded_app(test_settings):
 
     app = create_app(test_settings)
     # Defensive pre-seed (the lifespan will overwrite on startup).
-    app.state.boot_time = datetime.now(timezone.utc) - timedelta(seconds=42)
+    app.state.boot_time = datetime.now(UTC) - timedelta(seconds=42)
 
     return app, app.router.lifespan_context(app)
 
@@ -379,23 +395,23 @@ async def client(seeded_app):
 
 def make_session_row(
     session_id: str = "sess-1",
-    started_at: Optional[datetime] = None,
-    ended_at: Optional[datetime] = None,
+    started_at: datetime | None = None,
+    ended_at: datetime | None = None,
     cwd: str = "/Users/test/proj",
-    model: Optional[str] = "claude-opus-4-7",
-    source: Optional[str] = "claude-code",
-    outcome: Optional[str] = None,
+    model: str | None = "claude-opus-4-7",
+    source: str | None = "claude-code",
+    outcome: str | None = None,
     tokens_input: int = 0,
     tokens_output: int = 0,
     tokens_cache_read: int = 0,
     tokens_cache_create: int = 0,
     tool_call_count: int = 0,
     message_count: int = 0,
-    error_message: Optional[str] = None,
+    error_message: str | None = None,
 ) -> dict:
     """Return a dict suitable for Session ORM construction or raw insert."""
     if started_at is None:
-        started_at = datetime.now(timezone.utc)
+        started_at = datetime.now(UTC)
     return {
         "session_id": session_id,
         "started_at": started_at,
@@ -418,20 +434,20 @@ def make_session_row(
 
 
 def make_otel_event(
-    id: Optional[int] = None,
-    ts: Optional[datetime] = None,
+    id: int | None = None,
+    ts: datetime | None = None,
     event_name: str = "claude_code.tool_result",
-    session_id: Optional[str] = None,
-    body: Optional[dict] = None,
-    attrs_mcp_server: Optional[str] = None,
-    attrs_mcp_tool: Optional[str] = None,
+    session_id: str | None = None,
+    body: dict | None = None,
+    attrs_mcp_server: str | None = None,
+    attrs_mcp_tool: str | None = None,
 ) -> dict:
     """Return a dict suitable for OtelEvent ORM construction or raw insert.
 
     `id` is left None by default — the DB autogenerates the rowid.
     """
     if ts is None:
-        ts = datetime.now(timezone.utc)
+        ts = datetime.now(UTC)
     row: dict = {
         "ts": ts,
         "event_name": event_name,
@@ -447,7 +463,7 @@ def make_otel_event(
 
 
 def make_token_usage_bucket(
-    day: Optional[str] = None,
+    day: str | None = None,
     model: str = "claude-opus-4-7",
     source: str = "claude-code",
     tokens_input: int = 1000,
@@ -481,19 +497,19 @@ def make_tool_call(
     tool_use_id: str = "tu-1",
     session_id: str = "sess-1",
     tool_name: str = "Bash",
-    started_at: Optional[datetime] = None,
-    ended_at: Optional[datetime] = None,
-    duration_ms: Optional[int] = None,
+    started_at: datetime | None = None,
+    ended_at: datetime | None = None,
+    duration_ms: int | None = None,
     status: str = "ok",
-    error_message: Optional[str] = None,
-    input_summary: Optional[str] = None,
-    mcp_server_name: Optional[str] = None,
-    mcp_tool_name: Optional[str] = None,
-    decision: Optional[str] = None,
+    error_message: str | None = None,
+    input_summary: str | None = None,
+    mcp_server_name: str | None = None,
+    mcp_tool_name: str | None = None,
+    decision: str | None = None,
 ) -> dict:
     """Return a dict suitable for ToolCall ORM construction or raw insert."""
     if started_at is None:
-        started_at = datetime.now(timezone.utc)
+        started_at = datetime.now(UTC)
     return {
         "tool_use_id": tool_use_id,
         "session_id": session_id,
@@ -516,13 +532,13 @@ def make_tool_call(
 def make_decision_row(
     dedup_key: str = "dk-1",
     prompt: str = "test decision prompt",
-    options: Optional[list] = None,
+    options: list | None = None,
     status: str = "pending",
-    session_id: Optional[str] = None,
-    task_id: Optional[int] = None,
-    answer: Optional[str] = None,
-    answered_at: Optional[datetime] = None,
-    answered_by: Optional[str] = None,
+    session_id: str | None = None,
+    task_id: int | None = None,
+    answer: str | None = None,
+    answered_at: datetime | None = None,
+    answered_by: str | None = None,
 ) -> dict:
     """Return a dict suitable for Decision ORM construction or raw insert."""
     return {
@@ -535,19 +551,19 @@ def make_decision_row(
         "answer": answer,
         "answered_at": answered_at,
         "answered_by": answered_by,
-        "created_at": datetime.now(timezone.utc),
+        "created_at": datetime.now(UTC),
     }
 
 
 def make_inbox_row(
     body: str = "test inbox body",
-    subject: Optional[str] = None,
-    session_id: Optional[str] = None,
-    task_id: Optional[int] = None,
+    subject: str | None = None,
+    session_id: str | None = None,
+    task_id: int | None = None,
     read: bool = False,
-    read_at: Optional[datetime] = None,
-    reply: Optional[str] = None,
-    replied_at: Optional[datetime] = None,
+    read_at: datetime | None = None,
+    reply: str | None = None,
+    replied_at: datetime | None = None,
 ) -> dict:
     """Return a dict suitable for InboxMessage ORM construction or raw insert."""
     return {
@@ -559,7 +575,7 @@ def make_inbox_row(
         "read_at": read_at,
         "reply": reply,
         "replied_at": replied_at,
-        "created_at": datetime.now(timezone.utc),
+        "created_at": datetime.now(UTC),
     }
 
 
@@ -568,22 +584,22 @@ def make_task_row(
     description: str = "",
     status: str = "pending",
     priority: int = 3,
-    quadrant: Optional[str] = None,
+    quadrant: str | None = None,
     approval: str = "auto",
-    risk: Optional[str] = None,
+    risk: str | None = None,
     dry_run: bool = False,
-    model: Optional[str] = None,
+    model: str | None = None,
     execution_mode: str = "interactive",
-    skill: Optional[str] = None,
-    scheduled_for: Optional[datetime] = None,
-    schedule_id: Optional[int] = None,
-    pid: Optional[int] = None,
-    stdout_path: Optional[str] = None,
-    error_message: Optional[str] = None,
-    started_at: Optional[datetime] = None,
-    ended_at: Optional[datetime] = None,
-    approved_at: Optional[datetime] = None,
-    timeout_s: Optional[int] = None,
+    skill: str | None = None,
+    scheduled_for: datetime | None = None,
+    schedule_id: int | None = None,
+    pid: int | None = None,
+    stdout_path: str | None = None,
+    error_message: str | None = None,
+    started_at: datetime | None = None,
+    ended_at: datetime | None = None,
+    approved_at: datetime | None = None,
+    timeout_s: int | None = None,
 ) -> dict:
     """Return a dict suitable for Task ORM construction or raw insert.
 
@@ -608,7 +624,7 @@ def make_task_row(
         "pid": pid,
         "stdout_path": stdout_path,
         "error_message": error_message,
-        "created_at": datetime.now(timezone.utc),
+        "created_at": datetime.now(UTC),
         "started_at": started_at,
         "ended_at": ended_at,
         "approved_at": approved_at,
@@ -620,13 +636,13 @@ def make_schedule_row(
     name: str = "sched-1",
     cron: str = "0 9 * * *",
     enabled: bool = True,
-    next_run_at: Optional[datetime] = None,
-    last_run_at: Optional[datetime] = None,
-    task_template: Optional[dict] = None,
-    skill: Optional[str] = None,
+    next_run_at: datetime | None = None,
+    last_run_at: datetime | None = None,
+    task_template: dict | None = None,
+    skill: str | None = None,
 ) -> dict:
     """Return a dict suitable for Schedule ORM construction or raw insert."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return {
         "name": name,
         "cron": cron,
@@ -732,7 +748,7 @@ def make_task_orm(**overrides):
         approval="auto",
         dry_run=False,
         execution_mode="classic",
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     defaults.update(overrides)
     return Task(**defaults)
@@ -742,7 +758,7 @@ def make_schedule_orm(**overrides):
     """Phase 8 variant — Schedule ORM instance (sibling of make_task_orm)."""
     from cmc.db.models.schedules import Schedule
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     defaults = dict(
         name="test schedule",
         cron="*/5 * * * *",

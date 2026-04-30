@@ -11,7 +11,6 @@ Matrix (research §6, Open Q2 — locked as v1 contract):
   done              -> {}                # terminal
   failed            -> {pending}         # rerun resets
 """
-from __future__ import annotations
 
 _ALLOWED_TRANSITIONS: dict[str, frozenset[str]] = {
     "pending":            frozenset({"running", "awaiting_approval", "failed", "done"}),

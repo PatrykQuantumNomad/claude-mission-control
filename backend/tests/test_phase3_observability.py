@@ -5,9 +5,8 @@ See test_phase3_system.py module docstring for the full convention.
 
 Plan 03-04 appended OBSV-01..10 endpoint tests below the Wave-0 smoke.
 """
-from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import insert
 
@@ -70,7 +69,14 @@ async def _seed_rows(app, table_name: str, rows: list[dict]) -> None:
     table = SQLModel.metadata.tables[table_name]
     if table_name == "token_usage":
         rows = [
-            {**r, "day": date.fromisoformat(r["day"]) if isinstance(r.get("day"), str) else r.get("day")}
+            {
+                **r,
+                "day": (
+                    date.fromisoformat(r["day"])
+                    if isinstance(r.get("day"), str)
+                    else r.get("day")
+                ),
+            }
             for r in rows
         ]
 
@@ -90,7 +96,7 @@ async def _seed_rows(app, table_name: str, rows: list[dict]) -> None:
                     )
                 ).scalars().all()
                 missing = needed_session_ids - set(existing)
-                base_ts = datetime.now(timezone.utc) - timedelta(minutes=5)
+                base_ts = datetime.now(UTC) - timedelta(minutes=5)
                 for sid in missing:
                     await conn.execute(
                         insert(sessions_table).values(
@@ -109,9 +115,9 @@ async def _seed_rows(app, table_name: str, rows: list[dict]) -> None:
 async def test_obsv_01_usage_tokens_range_filter(client) -> None:
     """OBSV-01: token_usage rows within range bucket; ordering by day DESC, tokens_input DESC."""
     app = client._transport.app  # type: ignore[attr-defined]
-    today = datetime.now(timezone.utc).date().isoformat()
-    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).date().isoformat()
-    long_ago = (datetime.now(timezone.utc) - timedelta(days=10)).date().isoformat()
+    today = datetime.now(UTC).date().isoformat()
+    yesterday = (datetime.now(UTC) - timedelta(days=1)).date().isoformat()
+    long_ago = (datetime.now(UTC) - timedelta(days=10)).date().isoformat()
     rows = [
         make_token_usage_bucket(day=today, model="claude-opus-4-7", tokens_input=500),
         make_token_usage_bucket(day=yesterday, model="claude-opus-4-7", tokens_input=1000),
@@ -146,7 +152,7 @@ async def test_obsv_01_usage_tokens_range_filter(client) -> None:
 async def test_obsv_02_usage_cache_low_sample(client) -> None:
     """OBSV-02: hit_rate float in [0,1]; low_sample True when total billable < 10000."""
     app = client._transport.app  # type: ignore[attr-defined]
-    today = datetime.now(timezone.utc).date().isoformat()
+    today = datetime.now(UTC).date().isoformat()
     # 200 cache_read / (1000 input + 200 cache_read + 100 cache_create) = 200/1300 ~= 0.1538
     rows = [
         make_token_usage_bucket(
@@ -177,7 +183,7 @@ async def test_obsv_03_outcomes_priority_buckets(client) -> None:
     Five distinct sessions, each landing in exactly one bucket.
     """
     app = client._transport.app  # type: ignore[attr-defined]
-    base = datetime.now(timezone.utc) - timedelta(hours=1)
+    base = datetime.now(UTC) - timedelta(hours=1)
     sessions = [
         make_session_row(session_id="sess-err", started_at=base, ended_at=base),
         make_session_row(session_id="sess-rate", started_at=base, ended_at=base),
@@ -217,7 +223,7 @@ async def test_obsv_03_outcomes_priority_buckets(client) -> None:
 async def test_obsv_04_tool_latency_happy(client) -> None:
     """OBSV-04 happy path: 10 calls 100..1000ms; p50 ~= 500, p95 ~= 1000."""
     app = client._transport.app  # type: ignore[attr-defined]
-    base = datetime.now(timezone.utc) - timedelta(hours=1)
+    base = datetime.now(UTC) - timedelta(hours=1)
     sess_row = make_session_row(session_id="sess-bash", started_at=base)
     await _seed_rows(app, "sessions", [sess_row])
     rows = [
@@ -256,7 +262,7 @@ async def test_obsv_04_tool_latency_pitfall_2_n_equals_1(client) -> None:
     p50 == p95 == max == that single duration.
     """
     app = client._transport.app  # type: ignore[attr-defined]
-    base = datetime.now(timezone.utc) - timedelta(hours=1)
+    base = datetime.now(UTC) - timedelta(hours=1)
     await _seed_rows(app, "sessions", [make_session_row(session_id="sess-1", started_at=base)])
     await _seed_rows(
         app,
@@ -298,7 +304,7 @@ async def test_obsv_05_hook_fires_no_pairing(client) -> None:
     Result: 1 item (pre_tool_use), fires=3, p50=None.
     """
     app = client._transport.app  # type: ignore[attr-defined]
-    base = datetime.now(timezone.utc) - timedelta(hours=1)
+    base = datetime.now(UTC) - timedelta(hours=1)
     events = [
         make_otel_event(
             ts=base + timedelta(seconds=i),
@@ -333,7 +339,7 @@ async def test_obsv_05_hook_paired_duration_p50_with_orphan(client) -> None:
     fires count includes orphan (3 pre events).
     """
     app = client._transport.app  # type: ignore[attr-defined]
-    now = datetime.now(timezone.utc) - timedelta(hours=1)
+    now = datetime.now(UTC) - timedelta(hours=1)
     events = [
         make_otel_event(
             ts=now - timedelta(seconds=10),
@@ -382,7 +388,7 @@ async def test_obsv_05_hook_paired_duration_p50_with_orphan(client) -> None:
 async def test_obsv_05_hook_60s_cap(client) -> None:
     """OBSV-05: pair longer than 60_000ms is capped to 60_000ms."""
     app = client._transport.app  # type: ignore[attr-defined]
-    now = datetime.now(timezone.utc) - timedelta(hours=1)
+    now = datetime.now(UTC) - timedelta(hours=1)
     events = [
         make_otel_event(
             ts=now,
@@ -410,7 +416,7 @@ async def test_obsv_05_hook_60s_cap(client) -> None:
 async def test_obsv_05_hook_cross_session_no_pairing(client) -> None:
     """OBSV-05: pre in session A and post in session B do NOT pair (FIFO is per-session)."""
     app = client._transport.app  # type: ignore[attr-defined]
-    now = datetime.now(timezone.utc) - timedelta(hours=1)
+    now = datetime.now(UTC) - timedelta(hours=1)
     events = [
         make_otel_event(
             ts=now,
@@ -439,7 +445,7 @@ async def test_obsv_05_hook_cross_session_no_pairing(client) -> None:
 async def test_obsv_06_sessions_by_project_rollup(client) -> None:
     """OBSV-06: cwd rollup with pct_of_total summing to 1.0; display_path uses ~/."""
     app = client._transport.app  # type: ignore[attr-defined]
-    base = datetime.now(timezone.utc) - timedelta(hours=1)
+    base = datetime.now(UTC) - timedelta(hours=1)
     sessions = [
         make_session_row(
             session_id="s-1", started_at=base, cwd="/Users/foo/proj-a",
@@ -479,7 +485,7 @@ async def test_obsv_06_sessions_by_project_rollup(client) -> None:
 async def test_obsv_07_agent_fanout_lists_agent_callers(client) -> None:
     """OBSV-07: sessions that called the Agent tool, with agent_calls count."""
     app = client._transport.app  # type: ignore[attr-defined]
-    base = datetime.now(timezone.utc) - timedelta(hours=1)
+    base = datetime.now(UTC) - timedelta(hours=1)
     await _seed_rows(
         app, "sessions",
         [make_session_row(session_id="s-agent", started_at=base, cwd="/Users/foo/agent-proj")],
@@ -519,7 +525,7 @@ async def test_obsv_08_edit_decisions_via_tools_decision(client) -> None:
     -> Edit row: accepted=3, rejected=1, accept_rate=0.75, low_sample=true.
     """
     app = client._transport.app  # type: ignore[attr-defined]
-    base = datetime.now(timezone.utc) - timedelta(hours=1)
+    base = datetime.now(UTC) - timedelta(hours=1)
     decisions = ["accept", "accept", "accept", "reject", None]
     await _seed_rows(
         app, "sessions",
@@ -553,7 +559,7 @@ async def test_obsv_08_edit_decisions_via_otel_events(client) -> None:
     -> Write row: accepted=3, rejected=1.
     """
     app = client._transport.app  # type: ignore[attr-defined]
-    base = datetime.now(timezone.utc) - timedelta(hours=1)
+    base = datetime.now(UTC) - timedelta(hours=1)
     decisions = ["accept", "accept", "reject", "accept"]
     events = [
         make_otel_event(
@@ -577,7 +583,7 @@ async def test_obsv_08_edit_decisions_via_otel_events(client) -> None:
 async def test_obsv_09_productivity_rollup(client) -> None:
     """OBSV-09: SUM of otel_metrics counters for commits/PRs/lines."""
     app = client._transport.app  # type: ignore[attr-defined]
-    base = datetime.now(timezone.utc) - timedelta(hours=1)
+    base = datetime.now(UTC) - timedelta(hours=1)
     metrics = [
         {
             "ts": base, "metric_name": "claude_code.commit.count",
@@ -614,7 +620,7 @@ async def test_obsv_09_productivity_rollup(client) -> None:
 async def test_obsv_10_pressure_counts_and_recent_errors(client) -> None:
     """OBSV-10: api_retries_exhausted + compaction counts; last 10 api_error events."""
     app = client._transport.app  # type: ignore[attr-defined]
-    base = datetime.now(timezone.utc) - timedelta(hours=1)
+    base = datetime.now(UTC) - timedelta(hours=1)
     events = (
         [
             make_otel_event(ts=base, event_name="claude_code.api_retries_exhausted",

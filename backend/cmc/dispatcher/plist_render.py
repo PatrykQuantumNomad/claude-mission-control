@@ -18,7 +18,6 @@ template's EnvironmentVariables. Operators set it via `launchctl setenv` if
 the skill router needs it; baking it into the plist would persist the key in
 plain text on disk inside ~/Library.
 """
-from __future__ import annotations
 
 from importlib.resources import files
 from pathlib import Path

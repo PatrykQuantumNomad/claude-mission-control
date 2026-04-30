@@ -18,19 +18,19 @@ Caveat (Phase 2 v1 simplification, see 02-04-PLAN.md interfaces block):
 All functions DO NOT commit. The caller wraps the unit-of-work in a single
 commit (sync_once does this per file).
 """
-from __future__ import annotations
 
-from datetime import date as _date, datetime
+from collections.abc import Sequence
+from datetime import UTC, datetime
+from datetime import date as _date
 from pathlib import Path
-from typing import Sequence
 
 from sqlalchemy import select, update
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from cmc.db.models.sessions import Session as SessionModel
-from cmc.db.models.tools import ToolCall
 from cmc.db.models.token_usage import TokenUsage
+from cmc.db.models.tools import ToolCall
 
 
 async def get_existing_session_for_path(
@@ -206,7 +206,7 @@ async def _adjust_bucket(
                 TokenUsage.tokens_cache_create + tokens_cache_create
             ),
             sessions_count=TokenUsage.sessions_count + sessions_count_delta,
-            updated_at=datetime.utcnow(),
+            updated_at=datetime.now(UTC),
         )
     )
     result = await db.execute(upd)
@@ -222,7 +222,7 @@ async def _adjust_bucket(
         tokens_cache_read=tokens_cache_read,
         tokens_cache_create=tokens_cache_create,
         sessions_count=sessions_count_delta,
-        updated_at=datetime.utcnow(),
+        updated_at=datetime.now(UTC),
     )
     stmt = stmt.on_conflict_do_update(
         index_elements=["day", "model", "source"],

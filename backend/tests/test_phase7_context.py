@@ -13,7 +13,6 @@ Threat model (PLAN.md <threat_model>):
 Tests use monkeypatch on context_module.HOME_CLAUDE_DIR to redirect filesystem
 reads into a tmp_path so the test never touches the real ~/.claude directory.
 """
-from __future__ import annotations
 
 import json
 

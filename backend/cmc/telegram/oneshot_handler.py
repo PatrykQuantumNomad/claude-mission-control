@@ -8,7 +8,6 @@ respawns it (throttled by ThrottleInterval to prevent thrash).
 Mirrors cmc.telegram.oneshot_notifier in shape, but the inner call
 long-runs instead of single-cycle.
 """
-from __future__ import annotations
 
 import asyncio
 import logging

@@ -22,11 +22,9 @@ The tick stamp is wrapped in try/finally so it ALWAYS runs even when sweep /
 claim / materialize raises — SAPI-04's liveness check would otherwise silently
 fail when the dispatcher is wedged.
 """
-from __future__ import annotations
 
 import logging
 import threading
-from typing import Any, Optional
 
 from sqlalchemy import select
 from sqlalchemy import update as _upd
@@ -152,7 +150,7 @@ async def run_one_cycle() -> int:
 
 async def _resolve_skill_for_task(
     task_row: dict, sessions
-) -> tuple[dict, Optional[Skill]]:
+) -> tuple[dict, Skill | None]:
     """Returns (possibly-rebuilt task_row dict, resolved Skill or None).
 
     If task.skill is unset: ask the router (Haiku), persist the chosen name

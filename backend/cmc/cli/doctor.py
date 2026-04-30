@@ -21,16 +21,15 @@ Exit code: 0 iff zero checks have status 'fail'. Warns do NOT trigger 1.
 Exposed as `python -m cmc.cli.doctor` and via the scripts/doctor.py shim.
 The `cmc doctor` subcommand routes here.
 """
-from __future__ import annotations
 
 import inspect
 import json
 import os
 import subprocess
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional
 
 from cmc.config import load_settings
 from cmc.config.settings import Settings
@@ -47,7 +46,7 @@ class Check:
     label: str
     status: str  # 'ok' | 'warn' | 'fail'
     message: str
-    hint: Optional[str] = None
+    hint: str | None = None
 
 
 # ---------------------------------------------------------------- 1. python
@@ -167,11 +166,8 @@ def _check_port_8765() -> Check:
             f"net_connections requires elevated perms: {exc}",
         )
     for c in conns:
-        if (
-            getattr(c, "laddr", None)
-            and c.laddr.port == 8765
-            and c.status == "LISTEN"
-        ):
+        laddr = getattr(c, "laddr", None)
+        if getattr(laddr, "port", None) == 8765 and c.status == "LISTEN":
             pid = c.pid
             if not pid:
                 return Check(
@@ -226,7 +222,7 @@ def _check_health_endpoint() -> Check:
 # ---------------------------------------------------------------- 7. launchd
 
 
-def _check_launchd_jobs(*, settings: Optional[Settings] = None) -> Check:
+def _check_launchd_jobs(*, settings: Settings | None = None) -> Check:
     """Check that all 4 daemons are loaded; long-running ones must also be running.
 
     com.cmc.server         → KeepAlive=true   → expect state=running
@@ -291,7 +287,7 @@ def _check_launchd_jobs(*, settings: Optional[Settings] = None) -> Check:
 # ---------------------------------------------------------------- 8. telegram
 
 
-def _check_telegram(*, settings: Optional[Settings] = None) -> Check:
+def _check_telegram(*, settings: Settings | None = None) -> Check:
     """SC3 (Phase 11): read TELEGRAM_BOT_TOKEN via Settings so launchd-spawned
     daemons (which don't inherit shell env) and `cmc doctor` invocations from
     arbitrary cwds both honor ~/.command-centre/.env."""

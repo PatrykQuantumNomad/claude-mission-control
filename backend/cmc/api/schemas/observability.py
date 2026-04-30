@@ -5,15 +5,12 @@ endpoints. All aggregate endpoints accept a `range` query param of type
 `RangeWindow` and echo it back in their response so the UI can verify what
 window was actually computed (RangeWindow.today defaults to local-day).
 """
-from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel
 
 from cmc.api.schemas.common import RangeWindow
-
 
 # ---- OBSV-01: tokens / day --------------------------------------------------
 
@@ -79,9 +76,9 @@ class OutcomesResponse(BaseModel):
 class ToolLatencyRow(BaseModel):
     tool_name: str
     call_count: int
-    p50_ms: Optional[int] = None
-    p95_ms: Optional[int] = None
-    max_ms: Optional[int] = None
+    p50_ms: int | None = None
+    p95_ms: int | None = None
+    max_ms: int | None = None
     error_rate: float
 
 
@@ -96,7 +93,7 @@ class HookActivityRow(BaseModel):
     day: str
     hook_name: str
     fires: int
-    paired_duration_ms_p50: Optional[int] = None
+    paired_duration_ms_p50: int | None = None
 
 
 class HookActivityResponse(BaseModel):
@@ -125,7 +122,7 @@ class ProjectRollupResponse(BaseModel):
 
 class AgentFanoutRow(BaseModel):
     session_id: str
-    title: Optional[str] = None
+    title: str | None = None
     agent_calls: int
     started_at: datetime
 
@@ -164,7 +161,7 @@ class ProductivityResponse(BaseModel):
 
 class ApiErrorEntry(BaseModel):
     ts: datetime
-    session_id: Optional[str] = None
+    session_id: str | None = None
     message: str
 
 
@@ -207,7 +204,7 @@ class FailureRow(BaseModel):
     session_id: str
     started_at: datetime
     outcome: str  # 'errored' | 'rate_limited'
-    last_error_message: Optional[str] = None
+    last_error_message: str | None = None
 
 
 class FailuresResponse(BaseModel):

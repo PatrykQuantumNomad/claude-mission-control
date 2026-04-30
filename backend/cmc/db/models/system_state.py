@@ -6,10 +6,9 @@ NOTE: SCHEMA flags `value` + `value_json` two-column shape as
 [NEEDS USER CONFIRMATION] — accepted as-is per APPROVED 2026-04-25
 (both columns retained for flexibility).
 """
-from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, SQLModel
@@ -19,6 +18,6 @@ class SystemState(SQLModel, table=True):
     __tablename__ = "system_state"
 
     key: str = Field(primary_key=True)
-    value: Optional[str] = None
-    value_json: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON, nullable=True))
+    value: str | None = None
+    value_json: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON, nullable=True))
     updated_at: datetime = Field(default_factory=datetime.utcnow)

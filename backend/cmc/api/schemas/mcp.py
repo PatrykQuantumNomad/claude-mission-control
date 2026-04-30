@@ -9,10 +9,9 @@ DTOs supplied here for Wave 1 plan 03-05's MCP router to consume:
 `source_priority` reflects the materializer's chosen authority for each row
 (tool_decision > tools > otel — see RESEARCH §MCP catalog stack).
 """
-from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -25,9 +24,9 @@ class McpServerRow(ORMBase):
     server_name: str
     call_count: int
     error_count: int
-    latency_p50_ms: Optional[float] = None
-    latency_p95_ms: Optional[float] = None
-    latency_max_ms: Optional[float] = None
+    latency_p50_ms: float | None = None
+    latency_p95_ms: float | None = None
+    latency_max_ms: float | None = None
     source_priority: str
     computed_at: datetime
 
@@ -43,11 +42,11 @@ class McpToolRow(ORMBase):
     tool_name: str
     call_count: int
     error_count: int
-    latency_p50_ms: Optional[float] = None
-    latency_p95_ms: Optional[float] = None
-    latency_max_ms: Optional[float] = None
+    latency_p50_ms: float | None = None
+    latency_p95_ms: float | None = None
+    latency_max_ms: float | None = None
     source_priority: str
-    schema_size_bytes: Optional[int] = None
+    schema_size_bytes: int | None = None
 
 
 class McpToolsResponse(BaseModel):

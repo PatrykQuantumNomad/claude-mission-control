@@ -1,8 +1,7 @@
 """TASK-07 dispatcher trigger. RESEARCH §Pattern 6 + Pitfalls 2 + 10."""
-from __future__ import annotations
 
 import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from cmc.core.paths import repo_root
@@ -22,7 +21,7 @@ def spawn_dispatcher_oneshot(settings: "Settings") -> int:
     """
     log_dir = repo_root() / ".tmp" / "mission-control-queue" / "dispatcher-logs"
     log_dir.mkdir(parents=True, exist_ok=True)
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     log_path = log_dir / f"oneshot-{ts}.log"
     log_fp = open(log_path, "ab", buffering=0)
     try:

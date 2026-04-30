@@ -31,14 +31,13 @@ The loop:
 Designed to be run from cmc.telegram.oneshot_handler under launchd's
 KeepAlive=true plist (see cmc.telegram.templates).
 """
-from __future__ import annotations
 
 import asyncio
 import logging
 import os
 import subprocess
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 import httpx
 from sqlalchemy import select
@@ -72,7 +71,7 @@ async def set_offset(db: AsyncSession, offset: int) -> None:
     """UPSERT system_state.telegram_offset = offset. Pitfall P2: caller must
     invoke this BEFORE processing the batch so a crash mid-loop does not
     cause Telegram to redeliver already-handled updates on next start."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     await db.execute(
         sqlite_insert(SystemState)
         .values(key="telegram_offset", value=str(int(offset)), updated_at=now)
@@ -125,8 +124,7 @@ def relay_text_to_claude(text: str, settings: Settings) -> str:
             cmd,
             cwd=str(repo_root()),
             env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             stdin=subprocess.DEVNULL,
             timeout=CLAUDE_RELAY_TIMEOUT_S,
             check=False,
@@ -298,9 +296,9 @@ async def run_handler_loop(
     sessions,
     settings: Settings,
     *,
-    http_client: Optional[httpx.AsyncClient] = None,
-    telegram_client: Optional[httpx.AsyncClient] = None,
-    max_iterations: Optional[int] = None,
+    http_client: httpx.AsyncClient | None = None,
+    telegram_client: httpx.AsyncClient | None = None,
+    max_iterations: int | None = None,
 ) -> int:
     """Long-poll loop. Returns total updates processed.
 

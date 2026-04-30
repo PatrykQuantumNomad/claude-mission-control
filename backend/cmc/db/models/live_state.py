@@ -2,10 +2,8 @@
 
 Per 01-01-SCHEMA.md (table 11). Drives SESS-03,04,05 / OPNL-04.
 """
-from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import Column, ForeignKey, String
 from sqlmodel import Field, Index, SQLModel
@@ -26,9 +24,9 @@ class LiveState(SQLModel, table=True):
     last_activity_at: datetime
     # state enum [NEEDS USER CONFIRMATION] — accepted as-is per APPROVED 2026-04-25.
     state: str = Field(default="idle")
-    current_message: Optional[str] = None
-    current_tool: Optional[str] = None
-    pid: Optional[int] = None
+    current_message: str | None = None
+    current_tool: str | None = None
+    pid: int | None = None
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     __table_args__ = (

@@ -2,10 +2,9 @@
 
 Per 01-01-SCHEMA.md (table 5). Drives OBSV-09,10 / OPNL-13,14.
 """
-from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, Index, SQLModel
@@ -14,12 +13,12 @@ from sqlmodel import Field, Index, SQLModel
 class OtelMetric(SQLModel, table=True):
     __tablename__ = "otel_metrics"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     ts: datetime
     metric_name: str
     value: float
     kind: str  # counter / gauge / histogram
-    unit: Optional[str] = None
+    unit: str | None = None
     attrs: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     received_at: datetime = Field(default_factory=datetime.utcnow)
 

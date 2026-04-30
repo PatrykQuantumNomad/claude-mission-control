@@ -19,7 +19,6 @@ Threat model (PLAN.md <threat_model>):
 Polling cadence: lib/queries.ts useContextHealth fetches at 60_000ms —
 this is a low-frequency endpoint by design (file IO once per minute).
 """
-from __future__ import annotations
 
 import json
 import re
@@ -53,7 +52,7 @@ def _redact_keys(items: dict) -> list[str]:
     """
     return [
         f"{k} (redacted)" if SECRET_PATTERN.search(k) else k
-        for k in items.keys()
+        for k in items
     ]
 
 

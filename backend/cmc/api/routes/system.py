@@ -22,11 +22,10 @@ generator pattern; the modern FastAPI pattern is "BE the generator". Per
 Pitfall 1: tail_otel_events checks request.is_disconnected() each loop and
 caps the stream at 60min so generators never leak.
 """
-from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
-from typing import AsyncIterator, Optional
+from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 
 import psutil
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -94,7 +93,7 @@ def _coerce_value(row: SystemState):
     return row.value
 
 
-def _parse_ts_or_none(raw: Optional[str]) -> Optional[datetime]:
+def _parse_ts_or_none(raw: str | None) -> datetime | None:
     """Parse an ISO-8601 timestamp string -> tz-aware UTC datetime.
 
     Returns None on parse failure or empty input. Per Pitfall 4: treat naive
@@ -107,7 +106,7 @@ def _parse_ts_or_none(raw: Optional[str]) -> Optional[datetime]:
     except ValueError:
         return None
     if ts.tzinfo is None:
-        ts = ts.replace(tzinfo=timezone.utc)
+        ts = ts.replace(tzinfo=UTC)
     return ts
 
 
@@ -121,7 +120,7 @@ async def system_health(
     `status` is hard-coded to "ok" until a degradation heuristic lands in a
     later phase (kept here so the response_model stays stable).
     """
-    now_utc = datetime.now(timezone.utc)
+    now_utc = datetime.now(UTC)
 
     # Uptime: difference between now and lifespan-set boot_time (Plan 03-01).
     # Defensive fallback to ~0 if state was somehow unset (should never trigger).
@@ -136,13 +135,13 @@ async def system_health(
     # Last otel event age. Empty table -> None.
     last_ts_row = await db.execute(select(func.max(OtelEvent.ts)))
     last_otel_ts = last_ts_row.scalar_one_or_none()
-    last_otel_event_age_seconds: Optional[int]
+    last_otel_event_age_seconds: int | None
     if last_otel_ts is None:
         last_otel_event_age_seconds = None
     else:
         # Pitfall 4: SQLite returns tz-naive datetimes by default; treat as UTC.
         if last_otel_ts.tzinfo is None:
-            last_otel_ts = last_otel_ts.replace(tzinfo=timezone.utc)
+            last_otel_ts = last_otel_ts.replace(tzinfo=UTC)
         last_otel_event_age_seconds = max(
             0, int((now_utc - last_otel_ts).total_seconds())
         )
@@ -184,7 +183,7 @@ async def system_health(
 
 @router.get("/system/state", response_model=SystemStateResponse)
 async def system_state(
-    key: Optional[str] = Query(
+    key: str | None = Query(
         None, description="If provided, return only this key's value"
     ),
     db: AsyncSession = Depends(get_session),
@@ -255,7 +254,7 @@ async def attention(db: AsyncSession = Depends(get_session)) -> AttentionRespons
     stuck_sessions = (await db.execute(stuck_q)).scalar_one()
 
     # Stale dispatcher: derive from system_state.dispatcher_last_tick_at age.
-    stale_dispatcher_seconds: Optional[int] = None
+    stale_dispatcher_seconds: int | None = None
     row = (
         await db.execute(
             select(SystemState).where(SystemState.key == "dispatcher_last_tick_at")
@@ -265,7 +264,7 @@ async def attention(db: AsyncSession = Depends(get_session)) -> AttentionRespons
         ts = _parse_ts_or_none(row.value)
         if ts is not None:
             stale_dispatcher_seconds = max(
-                0, int((datetime.now(timezone.utc) - ts).total_seconds())
+                0, int((datetime.now(UTC) - ts).total_seconds())
             )
 
     items: list[AttentionItem] = []
@@ -304,11 +303,11 @@ async def attention(db: AsyncSession = Depends(get_session)) -> AttentionRespons
 
 
 async def _resolve_since_id(
-    since: Optional[str] = Query(
+    since: str | None = Query(
         None, description="ISO timestamp; default = tail (MAX(id)-100)"
     ),
     db: AsyncSession = Depends(get_session),
-) -> Optional[int]:
+) -> int | None:
     """Validate `?since=` ISO timestamp -> starting OtelEvent.id.
 
     Lives as a separate FastAPI dependency so HTTPException(400) raised here
@@ -327,7 +326,7 @@ async def _resolve_since_id(
             detail="invalid `since` ISO timestamp",
         ) from exc
     if ts.tzinfo is None:
-        ts = ts.replace(tzinfo=timezone.utc)
+        ts = ts.replace(tzinfo=UTC)
     max_id_row = await db.execute(
         select(func.max(OtelEvent.id)).where(OtelEvent.ts < ts)
     )
@@ -337,10 +336,10 @@ async def _resolve_since_id(
 @router.get("/firehose", response_class=EventSourceResponse)
 async def firehose(
     request: Request,
-    event_name: Optional[str] = Query(
+    event_name: str | None = Query(
         None, description="server-side event_name filter"
     ),
-    since_id: Optional[int] = Depends(_resolve_since_id),
+    since_id: int | None = Depends(_resolve_since_id),
     db: AsyncSession = Depends(get_session),
 ) -> AsyncIterator[ServerSentEvent]:
     """SAPI-05: SSE stream of recent OTEL events.
@@ -402,7 +401,7 @@ async def emergency_stop(
     early-return on the flag prevents this in practice; serial ordering keeps
     the invariant even if the dispatcher's polling cadence drifts).
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # 1. Flip the flag (KV upsert).
     await db.execute(
@@ -453,7 +452,7 @@ async def emergency_resume(
     Per RESEARCH A3 / Open Q3: do NOT delete the row. Update to '0' so SAPI-03
     consumers see an explicit value rather than 'absent' which is ambiguous.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     await db.execute(
         sqlite_insert(SystemState)
         .values(key="emergency_stop", value="0", updated_at=now)

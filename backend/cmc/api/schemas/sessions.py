@@ -7,10 +7,8 @@ DTOs supplied here for Wave 1 plan 03-03 to consume:
   - FollowUpMessageRequest: POST /api/sessions/{id}/follow-up (SESS-06)
   - TodaySummaryResponse:   GET /api/sessions/today    (SESS-07)
 """
-from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -23,11 +21,11 @@ class SessionListItem(ORMBase):
 
     session_id: str
     started_at: datetime
-    ended_at: Optional[datetime] = None
-    cwd: Optional[str] = None
-    model: Optional[str] = None
-    source: Optional[str] = None
-    outcome: Optional[str] = None
+    ended_at: datetime | None = None
+    cwd: str | None = None
+    model: str | None = None
+    source: str | None = None
+    outcome: str | None = None
     tokens_input: int
     tokens_output: int
     tokens_cache_read: int
@@ -51,13 +49,13 @@ class ToolTimelineEntry(ORMBase):
     tool_use_id: str
     tool_name: str
     started_at: datetime
-    ended_at: Optional[datetime] = None
-    duration_ms: Optional[int] = None
+    ended_at: datetime | None = None
+    duration_ms: int | None = None
     status: str
-    input_summary: Optional[str] = None
-    mcp_server_name: Optional[str] = None
-    mcp_tool_name: Optional[str] = None
-    decision: Optional[str] = None
+    input_summary: str | None = None
+    mcp_server_name: str | None = None
+    mcp_tool_name: str | None = None
+    decision: str | None = None
 
 
 class SessionDetailsResponse(BaseModel):
@@ -72,10 +70,10 @@ class LiveSessionItem(ORMBase):
 
     session_id: str
     started_at: datetime
-    last_activity_at: Optional[datetime] = None
-    state: Optional[str] = None
-    current_tool: Optional[str] = None
-    model: Optional[str] = None
+    last_activity_at: datetime | None = None
+    state: str | None = None
+    current_tool: str | None = None
+    model: str | None = None
 
 
 class LiveSessionState(ORMBase):
@@ -84,9 +82,9 @@ class LiveSessionState(ORMBase):
     session_id: str
     last_activity_at: datetime
     state: str
-    current_message: Optional[str] = None
-    current_tool: Optional[str] = None
-    pid: Optional[int] = None
+    current_message: str | None = None
+    current_tool: str | None = None
+    pid: int | None = None
     updated_at: datetime
 
 

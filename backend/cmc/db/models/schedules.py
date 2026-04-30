@@ -6,10 +6,9 @@ NOTE: SCHEMA flags `name` UNIQUE and `skill` FK as [NEEDS USER CONFIRMATION].
 Accepted as-is per APPROVED 2026-04-25 — `name` is UNIQUE and `skill` is
 free-text (no enforced FK).
 """
-from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy import JSON, Column, UniqueConstraint
 from sqlmodel import Field, Index, SQLModel
@@ -18,16 +17,16 @@ from sqlmodel import Field, Index, SQLModel
 class Schedule(SQLModel, table=True):
     __tablename__ = "schedules"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     name: str
     cron: str  # 5-field unix cron expression
     enabled: bool = Field(default=True)
-    next_run_at: Optional[datetime] = None
-    last_run_at: Optional[datetime] = None
+    next_run_at: datetime | None = None
+    last_run_at: datetime | None = None
     task_template: dict[str, Any] = Field(
         default_factory=dict, sa_column=Column(JSON, nullable=False)
     )
-    skill: Optional[str] = None  # free-text ref to skills.name
+    skill: str | None = None  # free-text ref to skills.name
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

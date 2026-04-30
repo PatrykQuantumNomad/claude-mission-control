@@ -7,10 +7,9 @@ future change edits one file, not three routers.
 
 Phase 8 dispatcher reads from these directories — Phase 4 is the writer.
 """
-from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from cmc.core.paths import repo_root
@@ -39,7 +38,7 @@ def write_decision_answer(decision_id: int, answer: str, answered_by: str) -> Pa
     """Append answer record to .tmp/mission-control-queue/decisions/{id}.jsonl."""
     p = queue_path("decisions", str(int(decision_id)))
     _append_jsonl(p, {
-        "ts": datetime.now(timezone.utc).isoformat(),
+        "ts": datetime.now(UTC).isoformat(),
         "decision_id": int(decision_id),
         "answer": answer,
         "answered_by": answered_by,
@@ -51,7 +50,7 @@ def write_inbox_reply(inbox_id: int, reply: str) -> Path:
     """Append reply record to .tmp/mission-control-queue/inbox/{id}.jsonl."""
     p = queue_path("inbox", str(int(inbox_id)))
     _append_jsonl(p, {
-        "ts": datetime.now(timezone.utc).isoformat(),
+        "ts": datetime.now(UTC).isoformat(),
         "inbox_id": int(inbox_id),
         "reply": reply,
     })

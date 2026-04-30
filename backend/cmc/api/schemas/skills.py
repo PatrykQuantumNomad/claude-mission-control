@@ -8,10 +8,9 @@ DTOs supplied here for Wave 1 plan 03-05's skills router to consume:
 `autonomy` is one of "auto" | "review" | "manual" — the SkillAutonomyPatch
 schema enforces this at the request boundary.
 """
-from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -25,7 +24,7 @@ class SkillRow(ORMBase):
     environment: str
     user_invocable: bool
     autonomy: str
-    description: Optional[str] = None
+    description: str | None = None
     path: str
     updated_at: datetime
 

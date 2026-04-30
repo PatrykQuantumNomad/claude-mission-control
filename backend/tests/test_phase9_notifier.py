@@ -9,10 +9,9 @@ state and asserts ZERO new sendMessage calls; rowcount-driven INSERT
 ON CONFLICT DO NOTHING is the only design that satisfies this under both
 single-process and concurrent ticks.
 """
-from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
@@ -92,7 +91,7 @@ async def test_notifier_full_cycle_sends_three(test_settings):
     """3 candidates (decision + failure + overdue schedule) → 3 sendMessage calls."""
     engine, sessions = await _bootstrap_db(test_settings)
     try:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         async with sessions() as db:
             db.add(
                 Decision(
@@ -148,7 +147,7 @@ async def test_notifier_dedup_no_resend(test_settings):
     """Pitfall P6: re-running with same DB state → 0 new sendMessage calls."""
     engine, sessions = await _bootstrap_db(test_settings)
     try:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         async with sessions() as db:
             db.add(
                 Decision(
@@ -182,7 +181,7 @@ async def test_notifier_snooze_blocks_resend(test_settings):
     """status='snoozed' AND snoozed_until > now blocks the candidate."""
     engine, sessions = await _bootstrap_db(test_settings)
     try:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         async with sessions() as db:
             d = Decision(
                 dedup_key="dk-3",
@@ -231,7 +230,7 @@ async def test_notifier_rerun_cleanup_allows_resend(test_settings):
     """
     engine, sessions = await _bootstrap_db(test_settings)
     try:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         # Step 1+2: task has been rerun → currently 'running' but stale
         # failure notif row from the prior failure still exists.
         async with sessions() as db:
@@ -346,7 +345,7 @@ async def test_notifier_send_failure_marks_status_failed(test_settings):
     """sendMessage returns 500 → notification_log row left at status='failed'."""
     engine, sessions = await _bootstrap_db(test_settings)
     try:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         async with sessions() as db:
             db.add(
                 Decision(
@@ -389,7 +388,7 @@ async def test_notifier_inline_keyboard_shape(test_settings):
     """Decision sendMessage carries answer_decision:<id>:yes / :no callbacks."""
     engine, sessions = await _bootstrap_db(test_settings)
     try:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         async with sessions() as db:
             d = Decision(
                 dedup_key="dk-5",
@@ -470,7 +469,7 @@ async def test_oneshot_notifier_amain_returns_1_on_crash(monkeypatch, tmp_path):
 
 def test_oneshot_notifier_module_imports_clean():
     """Sanity: the launchd entry point module imports without side effects."""
-    from cmc.telegram import oneshot_notifier  # noqa: F401
+    from cmc.telegram import oneshot_notifier
 
     assert hasattr(oneshot_notifier, "main")
     assert hasattr(oneshot_notifier, "_amain")

@@ -9,11 +9,10 @@ INGST-08: MCP attribute extraction has TWO paths:
 These helpers are deliberately pure: no DB, no FastAPI, no async. They make
 the router layer trivial to unit-test without a TestClient.
 """
-from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from cmc.ingest.jsonl_parser import split_mcp  # reuse Plan 02-02 helper
 
@@ -51,7 +50,7 @@ def parse_unix_nano(s: str | int | None) -> datetime | None:
         ns = int(s)
     except (TypeError, ValueError):
         return None
-    return datetime.fromtimestamp(ns / 1_000_000_000, tz=timezone.utc)
+    return datetime.fromtimestamp(ns / 1_000_000_000, tz=UTC)
 
 
 def extract_mcp_attrs(record: dict) -> tuple[str | None, str | None]:

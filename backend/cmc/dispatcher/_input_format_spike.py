@@ -21,7 +21,6 @@ Exit codes:
     1  rejected (no assistant event OR explicit error result)
     77 skipped (claude binary not present — EX_NOPERM-ish convention)
 """
-from __future__ import annotations
 
 import json
 import os

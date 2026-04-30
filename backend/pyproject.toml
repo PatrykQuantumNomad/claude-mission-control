@@ -18,6 +18,17 @@ dependencies = [
   "croniter==6.2.2",
   "anthropic==0.97.0",
   "httpx>=0.28",
+  "prometheus-client>=0.25.0",
+  "starlette-exporter>=0.23.0",
+  "python-json-logger>=4.1.0",
+  "pyjwt>=2.12.1",
+  "cryptography>=47.0.0",
+  "opentelemetry-api>=1.41.1",
+  "opentelemetry-sdk>=1.41.1",
+  "opentelemetry-exporter-otlp-proto-http>=1.41.1",
+  "opentelemetry-instrumentation-fastapi>=0.62b1",
+  "opentelemetry-instrumentation-httpx>=0.62b1",
+  "opentelemetry-instrumentation-sqlalchemy>=0.62b1",
 ]
 
 [project.optional-dependencies]
@@ -25,7 +36,14 @@ dev = [
   "pytest>=9.0",
   "pytest-asyncio>=0.24",
   "ruff>=0.9",
+  "pyright>=1.1.409",
+  "pytest-cov>=7.1.0",
+  "bandit>=1.9.4",
+  "pip-audit>=2.10.0",
   "pytest-freezer>=0.4",   # Phase 2: deterministic time for INGST-05 local-day bucket tests
+]
+redis = [
+    "redis>=7.4.0",
 ]
 
 [build-system]
@@ -45,4 +63,32 @@ line-length = 100
 target-version = "py313"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B"]
+select = ["E", "F", "I", "UP", "B", "PERF", "RUF"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+  "fastapi.Depends",
+  "fastapi.Query",
+  "fastapi.Path",
+  "fastapi.Body",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/conftest.py" = ["E402"]
+"tests/test_phase2_ingest.py" = ["E402"]
+"tests/test_phase3_system.py" = ["E402"]
+
+[tool.pyright]
+pythonVersion = "3.13"
+typeCheckingMode = "basic"
+include = ["cmc"]
+exclude = [
+  "cmc/api",
+  "cmc/db",
+  "cmc/dispatcher",
+  "cmc/ingest/repository.py",
+  "cmc/telegram",
+  "migrations",
+  "tests",
+]
+reportMissingTypeStubs = false

@@ -15,7 +15,6 @@ across the pragma block and restore the prior value via try/finally.
 Per RESEARCH.md Pitfall 4, WAL mode must be set on the FIRST connect — the
 connect event ensures this.
 """
-from __future__ import annotations
 
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
@@ -39,7 +38,6 @@ def create_engine_for_settings(settings: Settings) -> AsyncEngine:
     engine = create_async_engine(
         f"sqlite+aiosqlite:///{settings.db_path}",
         echo=settings.db_echo,
-        future=True,
     )
 
     @event.listens_for(engine.sync_engine, "connect")

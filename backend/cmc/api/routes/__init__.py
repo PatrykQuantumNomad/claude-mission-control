@@ -19,7 +19,12 @@ Haiku 4.5 with 503-graceful fallback when ANTHROPIC_API_KEY missing).
 """
 from fastapi import APIRouter
 
+# Phase 7 Plan 01 — also re-export the context module under its short name
+# so test fixtures can `from cmc.api.routes import context as context_module`
+# and monkeypatch HOME_CLAUDE_DIR for hermetic filesystem testing.
+from cmc.api.routes import context as context
 from cmc.api.routes.context import router as context_router
+from cmc.api.routes.health import infrastructure_router
 from cmc.api.routes.health import router as health_router
 from cmc.api.routes.hitl import router as hitl_router
 from cmc.api.routes.ingest import router as ingest_router
@@ -32,11 +37,6 @@ from cmc.api.routes.skills import router as skills_router
 from cmc.api.routes.sync import router as sync_router
 from cmc.api.routes.system import router as system_router
 from cmc.api.routes.tasks import router as tasks_router
-
-# Phase 7 Plan 01 — also re-export the context module under its short name
-# so test fixtures can `from cmc.api.routes import context as context_module`
-# and monkeypatch HOME_CLAUDE_DIR for hermetic filesystem testing.
-from cmc.api.routes import context as context  # noqa: F401,PLC0414  (re-export)
 
 
 def all_routers() -> list[APIRouter]:
@@ -70,4 +70,4 @@ def raw_routers() -> list[APIRouter]:
     OTLP/HTTP /v1/logs and /v1/metrics (Plan 02-03). These MUST still be
     registered BEFORE the SPA static mount in the factory (Pitfall 8).
     """
-    return [ingest_router]
+    return [infrastructure_router, ingest_router]

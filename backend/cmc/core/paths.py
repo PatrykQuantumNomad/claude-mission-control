@@ -7,7 +7,6 @@ server was started from the repo root or from `backend/`.
 
 Plan 07's app factory uses the same helper to resolve `static_dir` for the SPA mount.
 """
-from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path

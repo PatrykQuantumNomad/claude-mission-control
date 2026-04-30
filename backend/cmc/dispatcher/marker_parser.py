@@ -24,11 +24,11 @@ Pitfall: Always call `flush()` at end-of-stream to emit any final un-newlined
 buffered marker line. Without it, a stream that ends mid-line (no trailing \n)
 loses the last marker.
 """
-from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Iterator, Literal
+from typing import Literal
 
 _DECISION_RE = re.compile(r"^\s*DECISION:\s*(?P<body>.*\S)\s*$")
 _INBOX_RE = re.compile(r"^\s*INBOX:\s*(?P<body>.*\S)\s*$")

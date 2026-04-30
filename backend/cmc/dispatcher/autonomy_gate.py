@@ -15,10 +15,10 @@ Contract (Plan 08-04 Truth #6):
 - skill.autonomy='manual' → ('block', 'manual'); task → 'awaiting_approval'.
 - skill.autonomy=<anything else> → ('block', 'manual') (Pitfall 12).
 """
-from __future__ import annotations
 
 import logging
-from typing import Any, Mapping, Optional
+from collections.abc import Mapping
+from typing import Any
 
 from sqlalchemy import update as _upd
 
@@ -29,9 +29,9 @@ log = logging.getLogger(__name__)
 
 async def check_autonomy(
     task_row: Mapping[str, Any],
-    skill: Optional[Any],
+    skill: Any | None,
     sessions,
-) -> tuple[str, Optional[str]]:
+) -> tuple[str, str | None]:
     """Returns ('proceed'|'block', reason|None).
 
     Args:

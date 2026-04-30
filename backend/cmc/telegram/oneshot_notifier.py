@@ -10,7 +10,6 @@ Pattern parity: shape mirrors cmc.dispatcher.oneshot and
 cmc.telegram.oneshot_handler — per-tick engine + sessionmaker
 construction so each launchd spawn is independent.
 """
-from __future__ import annotations
 
 import asyncio
 import logging

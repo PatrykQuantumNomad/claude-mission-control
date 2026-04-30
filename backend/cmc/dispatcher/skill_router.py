@@ -15,12 +15,10 @@ Why filter on user_invocable: skills marked user_invocable=False are internal
 (cleanup hooks, etc.) and the dispatcher must not auto-select them — only
 operators can opt-in to non-public skills explicitly.
 """
-from __future__ import annotations
 
 import json
 import logging
 import os
-from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,7 +38,7 @@ _SYSTEM_PROMPT = (
 
 async def pick_skill(
     db: AsyncSession, task_title: str, task_desc: str
-) -> Optional[str]:
+) -> str | None:
     """Return the best skill name for the task, or None when ungraceful.
 
     Args:

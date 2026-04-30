@@ -4,10 +4,8 @@ Per 01-01-SCHEMA.md (table 9). Drives HITL-04..07 / DISP-08 / HPNL-02 / TELE-02.
 
 NOTE: class name is `InboxMessage` per the Plan 05 entry contract aggregator.
 """
-from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import Column, ForeignKey, Integer, String
 from sqlmodel import Field, Index, SQLModel
@@ -16,8 +14,8 @@ from sqlmodel import Field, Index, SQLModel
 class InboxMessage(SQLModel, table=True):
     __tablename__ = "inbox"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
-    session_id: Optional[str] = Field(
+    id: int | None = Field(default=None, primary_key=True)
+    session_id: str | None = Field(
         default=None,
         sa_column=Column(
             String,
@@ -25,7 +23,7 @@ class InboxMessage(SQLModel, table=True):
             nullable=True,
         ),
     )
-    task_id: Optional[int] = Field(
+    task_id: int | None = Field(
         default=None,
         sa_column=Column(
             Integer,
@@ -33,12 +31,12 @@ class InboxMessage(SQLModel, table=True):
             nullable=True,
         ),
     )
-    subject: Optional[str] = None
+    subject: str | None = None
     body: str
     read: bool = Field(default=False)
-    read_at: Optional[datetime] = None
-    reply: Optional[str] = None
-    replied_at: Optional[datetime] = None
+    read_at: datetime | None = None
+    reply: str | None = None
+    replied_at: datetime | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     __table_args__ = (

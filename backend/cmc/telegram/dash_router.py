@@ -10,12 +10,12 @@ Verb table (must stay under Telegram's 64-byte callback_data cap):
   approve_task:<id>             -> POST /api/tasks/{id}/approve
   reject_task:<id>              -> POST /api/tasks/{id}/reject
   rerun_task:<id>               -> POST /api/tasks/{id}/rerun
-  answer_decision:<id>:<yes|no> -> POST /api/decisions/{id}/answer  body={"answer": ..., "answered_by": "telegram"}
+  answer_decision:<id>:<yes|no> -> POST /api/decisions/{id}/answer
+    body={"answer": ..., "answered_by": "telegram"}
   reply_inbox:<id>              -> NOOP at routing layer; handler enters reply state
   snooze:<kind>:<entity>:<dur>  -> RESOLVE_THEN_PATCH (handler resolves notif_id first)
   estop                         -> POST /api/system/emergency-stop body={"reason": "telegram"}
 """
-from __future__ import annotations
 
 from typing import Any
 

@@ -18,10 +18,8 @@ Duration whitelist (Q7 = single 30m for v1; the table is wider so tests can
 exercise alternates without code change):
   15m / 30m / 1h / 4h
 """
-from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import desc, select
@@ -50,7 +48,7 @@ def _row_to_dict(r: NotificationLog) -> dict:
 
 @router.get("")
 async def list_notifications(
-    kind: Optional[str] = Query(None),
+    kind: str | None = Query(None),
     limit: int = Query(50, ge=1, le=500),
     db: AsyncSession = Depends(get_session),
 ) -> dict:
@@ -85,7 +83,7 @@ async def snooze_notification(
     ).scalar_one_or_none()
     if row is None:
         raise HTTPException(status_code=404, detail="notification not found")
-    until = datetime.now(timezone.utc) + timedelta(minutes=_DURATION_TABLE[duration])
+    until = datetime.now(UTC) + timedelta(minutes=_DURATION_TABLE[duration])
     row.snoozed_until = until
     row.status = "snoozed"
     await db.commit()
@@ -100,7 +98,7 @@ async def snooze_notification(
 async def resolve_notification(
     kind: str,
     entity_id: str,
-    chat_id: Optional[str] = Query(None),
+    chat_id: str | None = Query(None),
     db: AsyncSession = Depends(get_session),
 ) -> dict:
     """Handler lookup helper for snooze callbacks.

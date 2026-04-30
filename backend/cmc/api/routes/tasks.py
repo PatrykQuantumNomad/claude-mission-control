@@ -35,10 +35,8 @@ Subprocess detachment (TASK-07)
 Error contract — the app HTTPException handler emits {error: detail}, NOT
 the FastAPI default {detail: ...}. See STATE.md Plan 03-03 note.
 """
-from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import func, select
@@ -68,8 +66,8 @@ router = APIRouter(tags=["tasks"])
 @router.get("/tasks", response_model=TaskListResponse)
 async def list_tasks(
     db: AsyncSession = Depends(get_session),
-    status_: Optional[str] = Query(None, alias="status"),
-    quadrant: Optional[str] = Query(None),
+    status_: str | None = Query(None, alias="status"),
+    quadrant: str | None = Query(None),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ) -> TaskListResponse:
@@ -113,7 +111,7 @@ async def create_task(
     """
     t = Task(
         **payload.model_dump(),
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     db.add(t)
     await db.commit()
@@ -206,7 +204,7 @@ async def approve_task(
     if row.status != "awaiting_approval":
         raise HTTPException(status_code=400, detail="task is not awaiting approval")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     row.status = "pending"
     row.approved_at = now
     await db.commit()

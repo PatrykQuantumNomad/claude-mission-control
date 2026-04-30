@@ -35,7 +35,6 @@ Plan 08-04 will layer follow-up file→stdin injection on top of this. For
 Plan 03, stdin is opened (PIPE) but used only to send an 'interrupt' message
 on decision timeout.
 """
-from __future__ import annotations
 
 import asyncio
 import hashlib
@@ -44,8 +43,9 @@ import logging
 import os
 import subprocess
 import threading
-from datetime import datetime, timezone
-from typing import Any, Mapping, Optional
+from collections.abc import Mapping
+from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy import update as _upd
@@ -68,7 +68,7 @@ def run_stream(
     settings,
     sessions,
     *,
-    skill: Optional[Any] = None,
+    skill: Any | None = None,
 ) -> None:
     """One stream-mode subprocess. Sync — caller spawns it on a thread.
 
@@ -116,10 +116,10 @@ def run_stream(
     loop_thread.start()
     loop_ready.wait(timeout=2.0)
 
-    proc: Optional[subprocess.Popen] = None
-    reader: Optional[threading.Thread] = None
-    pump: Optional[FollowUpPump] = None
-    pump_thread: Optional[threading.Thread] = None
+    proc: subprocess.Popen | None = None
+    reader: threading.Thread | None = None
+    pump: FollowUpPump | None = None
+    pump_thread: threading.Thread | None = None
     decision_timed_out = {"v": False}
 
     def handle_marker(m: Marker) -> None:
@@ -342,7 +342,7 @@ def _insert_decision_sync(
     body: str,
     sessions,
     loop: asyncio.AbstractEventLoop,
-) -> Optional[int]:
+) -> int | None:
     """INSERT a pending Decision row from the reader thread; return new id.
 
     On HITL-02 partial-unique conflict (existing pending row with same dedup_key),
@@ -350,8 +350,8 @@ def _insert_decision_sync(
     """
     dedup = hashlib.sha256(f"{task_id}:{body}".encode()).hexdigest()[:32]
 
-    async def _insert() -> Optional[int]:
-        now = datetime.now(timezone.utc)
+    async def _insert() -> int | None:
+        now = datetime.now(UTC)
         async with sessions() as db:
             d = Decision(
                 task_id=task_id,
@@ -386,14 +386,14 @@ def _insert_decision_sync(
 def _mark_status_via_loop(
     task_id: int,
     status: str,
-    error_message: Optional[str],
+    error_message: str | None,
     sessions,
     loop: asyncio.AbstractEventLoop,
 ) -> None:
     """Update task status via the dedicated asyncio loop."""
 
     async def _mark() -> None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         values: dict[str, Any] = {"status": status, "ended_at": now}
         if error_message is not None:
             values["error_message"] = error_message

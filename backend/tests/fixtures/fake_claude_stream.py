@@ -23,7 +23,6 @@ Emitted event shapes:
             "content":[{"type":"text","text":"..."}]},"session_id":"...","uuid":"..."}
   Result:  {"type":"result","subtype":"complete"}
 """
-from __future__ import annotations
 
 import argparse
 import json

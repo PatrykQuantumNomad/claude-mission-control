@@ -22,14 +22,13 @@ This module does NOT manage status transitions beyond done|failed. The
 heartbeat's claim step has already flipped pending→running; we only stamp
 ended_at + status + error_message at the end.
 """
-from __future__ import annotations
 
 import logging
 import os
 import subprocess
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Mapping, Optional
+from collections.abc import Mapping
+from datetime import UTC, datetime
+from typing import Any
 
 from cmc.core.paths import repo_root
 from cmc.dispatcher.model_resolve import resolve_model
@@ -43,7 +42,7 @@ def run_classic(
     settings,
     sessions,
     *,
-    skill: Optional[Any] = None,
+    skill: Any | None = None,
 ) -> None:
     """One classic-mode subprocess; sync — caller spawns it on a thread.
 
@@ -87,7 +86,7 @@ def run_classic(
         "--model", model,
     ]
 
-    proc: Optional[subprocess.Popen] = None
+    proc: subprocess.Popen | None = None
     log_fp = open(log_path, "ab", buffering=0)
     try:
         try:
@@ -164,14 +163,14 @@ def _mark_done_sync(task_id: int, sessions) -> None:
 
 
 async def _mark_status(
-    task_id: int, status: str, error_message: Optional[str], sessions
+    task_id: int, status: str, error_message: str | None, sessions
 ) -> None:
     """Async DB update — set status + ended_at (+ optional error_message)."""
     from sqlalchemy import update as _upd
 
     from cmc.db.models.tasks import Task
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     async with sessions() as db:
         values: dict[str, Any] = {"status": status, "ended_at": now}
         if error_message is not None:

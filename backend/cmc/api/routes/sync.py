@@ -17,7 +17,6 @@ Response shape:
     "duration_ms": int,
   }
 """
-from __future__ import annotations
 
 import logging
 

@@ -6,12 +6,11 @@ Pitfall 3 (cursor lifetime in long-running SSE generator):
   - Exhaust query results to a list before sleeping (no held cursors).
   - Cap loop duration (60 minutes) — clients reconnect.
 """
-from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime, timezone
-from typing import AsyncIterator, Optional
+from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 
 from fastapi import Request
 from sqlalchemy import func, select
@@ -28,8 +27,8 @@ async def tail_otel_events(
     request: Request,
     db: AsyncSession,
     *,
-    since_id: Optional[int] = None,
-    event_name: Optional[str] = None,
+    since_id: int | None = None,
+    event_name: str | None = None,
 ) -> AsyncIterator[dict]:
     """Yield SSE-formatted dicts ({event, data, id}) for new otel_events.
 
@@ -42,11 +41,11 @@ async def tail_otel_events(
         # default: start at MAX(id) - 100, so reconnects don't replay history
         row = await db.execute(select(func.coalesce(func.max(OtelEvent.id), 0)))
         last_id = max(0, (row.scalar_one() or 0) - 100)
-    start = datetime.now(timezone.utc)
+    start = datetime.now(UTC)
     while True:
         if await request.is_disconnected():
             return
-        if (datetime.now(timezone.utc) - start).total_seconds() > SSE_MAX_DURATION_S:
+        if (datetime.now(UTC) - start).total_seconds() > SSE_MAX_DURATION_S:
             return
         stmt = select(OtelEvent).where(OtelEvent.id > last_id)
         if event_name:

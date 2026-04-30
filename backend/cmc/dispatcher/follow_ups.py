@@ -21,7 +21,6 @@ Lifecycle:
   (BrokenPipeError seen on inject → set stop event).
 - Pump does NOT close proc.stdin — that's run_stream's teardown responsibility.
 """
-from __future__ import annotations
 
 import json
 import logging

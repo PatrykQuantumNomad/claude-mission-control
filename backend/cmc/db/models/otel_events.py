@@ -2,10 +2,9 @@
 
 Per 01-01-SCHEMA.md (table 4). Drives SAPI-05 / OBSV-05,08,10 / ACTV-03,05.
 """
-from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy import JSON, Column, ForeignKey, String
 from sqlmodel import Field, Index, SQLModel
@@ -14,11 +13,11 @@ from sqlmodel import Field, Index, SQLModel
 class OtelEvent(SQLModel, table=True):
     __tablename__ = "otel_events"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     ts: datetime
     event_name: str
     # Soft FK: events may arrive before sessions row exists; ON DELETE SET NULL.
-    session_id: Optional[str] = Field(
+    session_id: str | None = Field(
         default=None,
         sa_column=Column(
             String,
@@ -27,8 +26,8 @@ class OtelEvent(SQLModel, table=True):
         ),
     )
     body: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
-    attrs_mcp_server: Optional[str] = None
-    attrs_mcp_tool: Optional[str] = None
+    attrs_mcp_server: str | None = None
+    attrs_mcp_tool: str | None = None
     received_at: datetime = Field(default_factory=datetime.utcnow)
 
     __table_args__ = (

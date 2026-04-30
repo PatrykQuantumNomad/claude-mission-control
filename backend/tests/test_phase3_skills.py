@@ -3,13 +3,11 @@
 Phase 3 per-router convention: every SKILL-* test lives in this file.
 See test_phase3_system.py module docstring for the full convention.
 """
-from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
-import pytest
 from sqlalchemy import insert, text
 
 
@@ -285,7 +283,7 @@ async def test_skills_list_with_filters(seeded_app) -> None:
     async with cm:
         sessionmaker = app.state.sessions
         async with sessionmaker() as db:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             for n, env, ui in [
                 ("personal-only", "personal", True),
                 ("project-only", "project", True),
@@ -331,7 +329,7 @@ async def test_skills_patch_autonomy(seeded_app) -> None:
     async with cm:
         sessionmaker = app.state.sessions
         async with sessionmaker() as db:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             await db.execute(insert(Skill.__table__).values(
                 name="my-skill",
                 environment="personal",

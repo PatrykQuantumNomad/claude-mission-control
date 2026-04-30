@@ -4,7 +4,6 @@ Two functions:
   validate_cron(expr) -> bool : 5-field cron validity check
   next_run(expr, base) -> datetime : next firing after base (tz-aware UTC)
 """
-from __future__ import annotations
 
 from datetime import datetime
 

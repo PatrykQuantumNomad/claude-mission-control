@@ -37,10 +37,8 @@ Recompute matrix (SCHD-03 — Pitfall 7 + Open Q4: clear AND recompute)
 Error contract — the app HTTPException handler emits {error: detail}, NOT
 the FastAPI default {detail: ...}. See STATE.md Plan 03-03 note.
 """
-from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import func, select
@@ -112,9 +110,9 @@ async def create_schedule(
     if not validate_cron(payload.cron):
         raise HTTPException(status_code=422, detail="invalid cron expression")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cron = payload.cron.strip()
-    nxt: Optional[datetime] = next_run(cron, now) if payload.enabled else None
+    nxt: datetime | None = next_run(cron, now) if payload.enabled else None
     s = Schedule(
         name=payload.name,
         cron=cron,
@@ -132,7 +130,7 @@ async def create_schedule(
         await db.rollback()
         raise HTTPException(
             status_code=409, detail="schedule name already exists"
-        )
+        ) from None
     await db.refresh(s)
     return ScheduleListItem.model_validate(s)
 
@@ -181,11 +179,11 @@ async def patch_schedule(
 
     if cron_changed or enabled_changed:
         if row.enabled:
-            row.next_run_at = next_run(row.cron, datetime.now(timezone.utc))
+            row.next_run_at = next_run(row.cron, datetime.now(UTC))
         else:
             row.next_run_at = None
 
-    row.updated_at = datetime.now(timezone.utc)
+    row.updated_at = datetime.now(UTC)
 
     try:
         await db.commit()
@@ -193,7 +191,7 @@ async def patch_schedule(
         await db.rollback()
         raise HTTPException(
             status_code=409, detail="schedule name already exists"
-        )
+        ) from None
     await db.refresh(row)
     return ScheduleListItem.model_validate(row)
 

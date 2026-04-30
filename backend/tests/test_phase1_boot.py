@@ -6,7 +6,6 @@ Plan 05 (models + migration): FOUND-02 (15 tables present), FOUND-03 (column-exi
 Plan 06 (app factory + lifespan): FOUND-01 (app factory), FOUND-05 (lifespan disposes engine)
 Plan 07 (smoke): FOUND-06 (SPA root + deep link + /api/health not shadowed)
 """
-from __future__ import annotations
 
 from pathlib import Path
 
@@ -16,7 +15,6 @@ from sqlalchemy import text
 from cmc.config import Settings, load_settings
 from cmc.core.paths import repo_root
 from cmc.db import create_engine_for_settings, make_sessionmaker
-
 
 # ---- FOUND-04: pydantic-settings ----
 
@@ -221,9 +219,9 @@ async def test_sessionmaker_yields_working_session(test_settings):
 @pytest.mark.asyncio
 async def test_alembic_upgrade_creates_all_tables(test_settings):
     """FOUND-02: alembic upgrade head creates all 15 application tables."""
-    from sqlalchemy import inspect
-    from alembic.config import Config
     from alembic import command
+    from alembic.config import Config
+    from sqlalchemy import inspect
 
     engine = create_engine_for_settings(test_settings)
     ini_path = repo_root() / "backend/alembic.ini"
@@ -255,8 +253,8 @@ async def test_alembic_upgrade_creates_all_tables(test_settings):
 @pytest.mark.asyncio
 async def test_alembic_upgrade_is_idempotent(test_settings):
     """FOUND-02: running alembic upgrade twice does not error (idempotent)."""
-    from alembic.config import Config
     from alembic import command
+    from alembic.config import Config
 
     engine = create_engine_for_settings(test_settings)
     ini_path = repo_root() / "backend/alembic.ini"
@@ -297,6 +295,7 @@ def test_column_exists_helper_signature():
 async def test_lifespan_initializes_engine_and_sessions(test_settings):
     """FOUND-05: Lifespan populates app.state.engine and app.state.sessions."""
     from fastapi import FastAPI
+
     from cmc.app.lifespan import lifespan
 
     app = FastAPI()
@@ -316,6 +315,7 @@ async def test_lifespan_creates_all_tables(test_settings):
     """FOUND-02 + FOUND-05: Lifespan runs alembic upgrade -> all 15 tables exist."""
     from fastapi import FastAPI
     from sqlalchemy import inspect
+
     from cmc.app.lifespan import lifespan
 
     app = FastAPI()
@@ -333,6 +333,7 @@ async def test_lifespan_creates_all_tables(test_settings):
 async def test_lifespan_disposes_on_shutdown(test_settings):
     """FOUND-05: engine.dispose() is called after yield."""
     from fastapi import FastAPI
+
     from cmc.app.lifespan import lifespan
 
     app = FastAPI()
@@ -354,6 +355,7 @@ async def test_lifespan_uses_repo_root_anchored_alembic_ini(test_settings, monke
     started from `cd backend && uvicorn ...`).
     """
     from fastapi import FastAPI
+
     from cmc.app.lifespan import lifespan
 
     # Move cwd somewhere unrelated; lifespan should still resolve alembic.ini correctly.
@@ -373,6 +375,7 @@ async def test_lifespan_uses_repo_root_anchored_alembic_ini(test_settings, monke
 def test_create_app_returns_fastapi(test_settings):
     """FOUND-01: create_app() returns a FastAPI instance with settings on state."""
     from fastapi import FastAPI
+
     from cmc.app import create_app
 
     app = create_app(settings=test_settings)
@@ -392,6 +395,7 @@ def test_health_route_registered(test_settings):
 async def test_health_route_returns_ok(test_settings):
     """FOUND-01: GET /api/health returns 200 with {'status': 'ok'}."""
     from httpx import ASGITransport, AsyncClient
+
     from cmc.app import create_app
 
     app = create_app(settings=test_settings)
@@ -412,6 +416,7 @@ async def test_health_route_returns_ok(test_settings):
 async def test_spa_root_returns_index_html(test_settings_with_static):
     """FOUND-06: GET / returns index.html with status 200."""
     from httpx import ASGITransport, AsyncClient
+
     from cmc.app import create_app
 
     app = create_app(settings=test_settings_with_static)
@@ -427,6 +432,7 @@ async def test_spa_root_returns_index_html(test_settings_with_static):
 async def test_spa_deep_link_fallback(test_settings_with_static):
     """FOUND-06: GET /any-deep-link returns index.html (SPA fallback)."""
     from httpx import ASGITransport, AsyncClient
+
     from cmc.app import create_app
 
     app = create_app(settings=test_settings_with_static)
@@ -445,6 +451,7 @@ async def test_spa_deep_link_fallback(test_settings_with_static):
 async def test_api_not_shadowed_by_spa_mount(test_settings_with_static):
     """Pitfall 8 regression: /api/health and /api/docs still work after SPA mount."""
     from httpx import ASGITransport, AsyncClient
+
     from cmc.app import create_app
 
     app = create_app(settings=test_settings_with_static)

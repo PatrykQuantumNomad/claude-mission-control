@@ -6,10 +6,9 @@ to avoid Pitfall 10 (mid-spawn SIGTERM losing the PID reference).
 Plan 08-01 ships the helpers; Plans 08-02..04 wire run_classic / run_stream
 through write_pid_file / unlink_pid_file as the canonical ESTOP-08 contract.
 """
-from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import psutil
@@ -83,7 +82,7 @@ async def stamp_tick(sessions) -> None:
     SAPI-04's liveness check sees a fresh tick stamp even when sweep / claim /
     materialize raise mid-cycle.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     iso = now.isoformat()
     async with sessions() as db:
         await db.execute(

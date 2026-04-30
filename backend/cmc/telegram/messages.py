@@ -6,9 +6,8 @@ reply_markup follows Telegram's inline_keyboard contract — a 2D array of
 Telegram, hence the verb:arg:arg:arg compact encoding consumed by
 cmc.telegram.dash_router.
 """
-from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 
 def _kb(rows: list[list[tuple[str, str]]]) -> dict[str, Any]:
@@ -100,6 +99,6 @@ def format_approval(task_row) -> tuple[str, dict[str, Any]]:
     return text, kb
 
 
-def format_test() -> tuple[str, Optional[dict[str, Any]]]:
+def format_test() -> tuple[str, dict[str, Any] | None]:
     """Wizard hello-world. No buttons — just a sanity check."""
     return "👋 Mission Control connected", None

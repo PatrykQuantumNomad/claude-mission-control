@@ -5,7 +5,6 @@ Supports two invocation modes:
 2. Shared connection: lifespan injects a connection via `config.attributes['connection']`
    so migrations run against the same engine the app uses (per RESEARCH.md Pattern 5).
 """
-from __future__ import annotations
 
 import asyncio
 from logging.config import fileConfig

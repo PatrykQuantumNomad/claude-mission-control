@@ -6,7 +6,6 @@ Covers:
 - doctor 8-check infrastructure (run_checks count + sample checks).
 - install.sh dry-run smoke + cmc shim help/unknown-subcommand routing.
 """
-from __future__ import annotations
 
 import json
 import os
@@ -14,7 +13,6 @@ import sys
 from pathlib import Path
 
 import pytest
-
 
 # =========================================================================
 # server plist
@@ -213,6 +211,7 @@ def test_doctor_telegram_via_settings_present():
     """SC3: when telegram_bot_token IS set in Settings, doctor proceeds to call
     Telegram (httpx.get patched to avoid real network)."""
     import httpx
+
     from cmc.cli.doctor import _check_telegram
     from cmc.config.settings import Settings
 

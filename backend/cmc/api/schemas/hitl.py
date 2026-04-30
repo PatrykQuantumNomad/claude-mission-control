@@ -5,15 +5,13 @@ Wave 1 plan 04-02 router consumes these as already-defined contracts.
 DTOs that wrap ORM rows inherit ORMBase (Pitfall 5: needs from_attributes=True).
 Plain BaseModel only for request bodies and synthetic responses.
 """
-from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
 from cmc.api.schemas.common import ORMBase
-
 
 # ---- Decisions (HITL-01..03) ----
 
@@ -22,15 +20,15 @@ class DecisionListItem(ORMBase):
     """Decision row projection for list responses."""
 
     id: int
-    session_id: Optional[str]
-    task_id: Optional[int]
+    session_id: str | None
+    task_id: int | None
     dedup_key: str
     prompt: str
     options: list[Any]
     status: str
-    answer: Optional[str]
-    answered_at: Optional[datetime]
-    answered_by: Optional[str]
+    answer: str | None
+    answered_at: datetime | None
+    answered_by: str | None
     created_at: datetime
 
 
@@ -40,8 +38,8 @@ class DecisionListResponse(BaseModel):
 
 
 class DecisionCreate(BaseModel):
-    session_id: Optional[str] = None
-    task_id: Optional[int] = None
+    session_id: str | None = None
+    task_id: int | None = None
     dedup_key: str = Field(min_length=1, max_length=200)
     prompt: str = Field(min_length=1, max_length=10000)
     options: list[Any] = Field(default_factory=list)
@@ -66,14 +64,14 @@ class InboxListItem(ORMBase):
     """Inbox row projection for list responses."""
 
     id: int
-    session_id: Optional[str]
-    task_id: Optional[int]
-    subject: Optional[str]
+    session_id: str | None
+    task_id: int | None
+    subject: str | None
     body: str
     read: bool
-    read_at: Optional[datetime]
-    reply: Optional[str]
-    replied_at: Optional[datetime]
+    read_at: datetime | None
+    reply: str | None
+    replied_at: datetime | None
     created_at: datetime
 
 
@@ -83,9 +81,9 @@ class InboxListResponse(BaseModel):
 
 
 class InboxCreate(BaseModel):
-    session_id: Optional[str] = None
-    task_id: Optional[int] = None
-    subject: Optional[str] = Field(default=None, max_length=200)
+    session_id: str | None = None
+    task_id: int | None = None
+    subject: str | None = Field(default=None, max_length=200)
     body: str = Field(min_length=1, max_length=10000)
 
 

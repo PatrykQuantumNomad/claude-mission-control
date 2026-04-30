@@ -64,14 +64,14 @@ NOTE: parse_session_file does NOT decide session.ended_at — the scheduler in
 Plan 02-04 does that based on file mtime + Settings.session_idle_minutes. The
 parser exposes _last_message_ts for the scheduler to consume.
 """
-from __future__ import annotations
 
 import json
 import logging
 from collections import defaultdict
-from datetime import date as _date, datetime
+from collections.abc import Iterator
+from datetime import date as _date
+from datetime import datetime
 from pathlib import Path
-from typing import Iterator
 
 log = logging.getLogger(__name__)
 
@@ -220,15 +220,21 @@ def parse_session_file(path: Path) -> dict:
                     continue
                 btype = block.get("type")
                 if btype == "tool_use":
-                    tool_uses[block.get("id")] = {
-                        "tool_use_id": block.get("id"),
+                    tool_use_id = block.get("id")
+                    if not isinstance(tool_use_id, str):
+                        continue
+                    tool_uses[tool_use_id] = {
+                        "tool_use_id": tool_use_id,
                         "tool_name": block.get("name"),
                         "started_at": ts,
                         "input_summary": _summarize_input(block.get("input")),
                     }
                 elif btype == "tool_result":
-                    tool_results[block.get("tool_use_id")] = {
-                        "tool_use_id": block.get("tool_use_id"),
+                    tool_use_id = block.get("tool_use_id")
+                    if not isinstance(tool_use_id, str):
+                        continue
+                    tool_results[tool_use_id] = {
+                        "tool_use_id": tool_use_id,
                         "ended_at": ts,
                         "is_error": bool(block.get("is_error")),
                     }

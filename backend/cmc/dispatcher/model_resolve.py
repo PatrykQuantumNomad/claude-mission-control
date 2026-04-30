@@ -14,10 +14,10 @@ Why this order:
   upstream incident) without code changes.
 - Settings fallback ensures resolve_model never returns None / empty string.
 """
-from __future__ import annotations
 
 import os
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 
 def resolve_model(task: Mapping[str, Any] | Any, skill: Any, settings) -> str:

@@ -6,11 +6,10 @@ Pitfall P3: messages.py only produces plain text; api.send_message has
 no parse_mode arg.
 Pitfall P5: stamp_tick wrapped in try/finally so SAPI-04 sees liveness.
 """
-from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import httpx
 from sqlalchemy import and_, delete, or_, select
@@ -36,7 +35,7 @@ LOCAL_API = "http://127.0.0.1:8765"
 
 async def stamp_tick(sessions) -> None:
     """Upsert system_state.telegram_last_tick_at = now isoformat (Pitfall P5)."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     async with sessions() as db:
         await db.execute(
             sqlite_insert(SystemState)
@@ -89,7 +88,7 @@ async def cleanup_rerun_failures(db: AsyncSession) -> int:
 
 
 async def _fetch_unread_inbox(
-    http_client: Optional[httpx.AsyncClient],
+    http_client: httpx.AsyncClient | None,
 ) -> list[Any]:
     """SC5 (Phase 11): GET /api/inbox?unread=true. Replaces the direct
     InboxMessage SELECT for HTTP symmetry — the notifier becomes a pure
@@ -130,7 +129,7 @@ async def _fetch_unread_inbox(
 async def _gather_candidates(
     db: AsyncSession,
     now: datetime,
-    http_client: Optional[httpx.AsyncClient] = None,
+    http_client: httpx.AsyncClient | None = None,
 ) -> dict[str, list[Any]]:
     """Returns {kind: [rows]} dict. No filtering against notification_log yet.
 
@@ -233,7 +232,7 @@ async def _claim_and_send(
     chat_id: str,
     token: str,
     now: datetime,
-    http_client: Optional[httpx.AsyncClient],
+    http_client: httpx.AsyncClient | None,
 ) -> bool:
     """Atomic INSERT-OR-IGNORE → send → status writeback. Returns True if sent.
 
@@ -301,7 +300,7 @@ async def run_one_cycle(
     sessions,
     settings: Settings,
     *,
-    http_client: Optional[httpx.AsyncClient] = None,
+    http_client: httpx.AsyncClient | None = None,
 ) -> int:
     """One launchd-driven notifier tick. Returns count of notifications sent.
 
@@ -321,7 +320,7 @@ async def run_one_cycle(
     chat_id = settings.telegram_chat_id
 
     sent_count = 0
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     async with sessions() as db:
         # Rerun cleanup BEFORE candidate scan — RESEARCH §D3 edge case.
         await cleanup_rerun_failures(db)

@@ -9,7 +9,6 @@ Plan 09-03. Covers:
   - get_updates exception → sleep + retry (network flap tolerance)
   - setup_telegram wizard 4-state machine + .env atomic-merge
 """
-from __future__ import annotations
 
 import httpx
 import pytest
@@ -17,7 +16,6 @@ from httpx import MockTransport, Response
 
 from cmc.config import Settings
 from cmc.telegram import handler
-
 
 # ---------- helpers ----------
 

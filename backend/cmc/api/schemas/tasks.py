@@ -7,10 +7,9 @@ endpoint takes NO body in v1. The handler signature should omit any body
 parameter entirely rather than declaring an empty Pydantic model (which
 would force callers to send `{}` and 422 on missing).
 """
-from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -25,22 +24,22 @@ class TaskListItem(ORMBase):
     description: str
     status: str
     priority: int
-    quadrant: Optional[str]
+    quadrant: str | None
     approval: str
-    risk: Optional[str]
+    risk: str | None
     dry_run: bool
-    model: Optional[str]
+    model: str | None
     execution_mode: str
-    skill: Optional[str]
-    scheduled_for: Optional[datetime]
-    schedule_id: Optional[int]
-    pid: Optional[int]
-    stdout_path: Optional[str]
-    error_message: Optional[str]
+    skill: str | None
+    scheduled_for: datetime | None
+    schedule_id: int | None
+    pid: int | None
+    stdout_path: str | None
+    error_message: str | None
     created_at: datetime
-    started_at: Optional[datetime]
-    ended_at: Optional[datetime]
-    approved_at: Optional[datetime]
+    started_at: datetime | None
+    ended_at: datetime | None
+    approved_at: datetime | None
 
 
 class TaskListResponse(BaseModel):
@@ -54,34 +53,34 @@ class TaskCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     description: str = ""
     priority: int = Field(default=3, ge=1, le=5)
-    quadrant: Optional[Literal["do", "plan", "delegate", "drop"]] = None
+    quadrant: Literal["do", "plan", "delegate", "drop"] | None = None
     approval: Literal["auto", "awaiting_approval"] = "auto"
-    risk: Optional[Literal["low", "medium", "high"]] = None
+    risk: Literal["low", "medium", "high"] | None = None
     dry_run: bool = False
-    model: Optional[str] = Field(default=None, max_length=100)
+    model: str | None = Field(default=None, max_length=100)
     execution_mode: Literal["interactive", "classic", "stream"] = "interactive"
-    skill: Optional[str] = Field(default=None, max_length=100)
-    scheduled_for: Optional[datetime] = None
-    schedule_id: Optional[int] = None
+    skill: str | None = Field(default=None, max_length=100)
+    scheduled_for: datetime | None = None
+    schedule_id: int | None = None
 
 
 class TaskUpdate(BaseModel):
     """All fields optional; status validated by transitions matrix in router."""
 
-    title: Optional[str] = Field(default=None, min_length=1, max_length=200)
-    description: Optional[str] = None
-    priority: Optional[int] = Field(default=None, ge=1, le=5)
-    quadrant: Optional[Literal["do", "plan", "delegate", "drop"]] = None
-    approval: Optional[Literal["auto", "awaiting_approval"]] = None
-    risk: Optional[Literal["low", "medium", "high"]] = None
-    dry_run: Optional[bool] = None
-    model: Optional[str] = Field(default=None, max_length=100)
-    execution_mode: Optional[Literal["interactive", "classic", "stream"]] = None
-    skill: Optional[str] = Field(default=None, max_length=100)
-    scheduled_for: Optional[datetime] = None
-    schedule_id: Optional[int] = None
-    status: Optional[str] = None  # validated by transitions matrix in router
-    error_message: Optional[str] = None
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = None
+    priority: int | None = Field(default=None, ge=1, le=5)
+    quadrant: Literal["do", "plan", "delegate", "drop"] | None = None
+    approval: Literal["auto", "awaiting_approval"] | None = None
+    risk: Literal["low", "medium", "high"] | None = None
+    dry_run: bool | None = None
+    model: str | None = Field(default=None, max_length=100)
+    execution_mode: Literal["interactive", "classic", "stream"] | None = None
+    skill: str | None = Field(default=None, max_length=100)
+    scheduled_for: datetime | None = None
+    schedule_id: int | None = None
+    status: str | None = None  # validated by transitions matrix in router
+    error_message: str | None = None
 
 
 class TaskApproveResponse(BaseModel):

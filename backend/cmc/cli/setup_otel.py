@@ -18,7 +18,6 @@ restore point if the merge produces unexpected output.
 Exposed as `python -m cmc.cli.setup_otel` and via the scripts/setup_otel.py
 shim. The `cmc setup otel` subcommand routes here.
 """
-from __future__ import annotations
 
 import json
 import os

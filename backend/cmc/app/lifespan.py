@@ -23,19 +23,23 @@ runs `resolve_under_repo_root()` on them). The lifespan trusts them as-is —
 no cwd-relative fallbacks here. If alembic.ini is genuinely missing,
 RuntimeError is the right behavior (CI/dev would surface it immediately).
 """
-from __future__ import annotations
 
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
+import httpx
 from alembic import command
 from alembic.config import Config as AlembicConfig
 from fastapi import FastAPI
 
+from cmc.auth import JWTAuthService
 from cmc.db import create_engine_for_settings, make_sessionmaker
+from cmc.db.health import check_database_readiness
 from cmc.ingest.scheduler import periodic_sync_loop, sync_once
+from cmc.observability import instrument_database_engine
+from cmc.readiness import ReadinessCheckResult, ReadinessRegistry
 
 log = logging.getLogger(__name__)
 
@@ -43,14 +47,29 @@ log = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = app.state.settings
+    if not hasattr(app.state, "readiness_registry"):
+        app.state.readiness_registry = ReadinessRegistry()
+        app.state.readiness_registry.register("application", _application_ready)
 
     # Phase 3 SAPI-02 reads this for uptime calc; set BEFORE alembic upgrade so
     # it's the moment the process started serving.
-    app.state.boot_time = datetime.now(timezone.utc)
+    app.state.boot_time = datetime.now(UTC)
 
     # Create the engine (pragma listener attached inside helper, per Plan 04).
     # settings.db_path is absolute (Plan 02 model_validator), so cwd doesn't matter.
     engine = create_engine_for_settings(settings)
+    instrument_database_engine(engine, settings)
+    app.state.readiness_registry.register("database", check_database_readiness)
+
+    http_client = httpx.AsyncClient(timeout=5.0)
+    auth_service = JWTAuthService(settings, http_client)
+    app.state.http_client = http_client
+    app.state.auth_service = auth_service
+    app.state.readiness_registry.register("auth", auth_service.readiness_check)
+    try:
+        await auth_service.warm_up()
+    except Exception:
+        log.exception("auth.warmup_failed")
 
     # settings.alembic_ini_path is absolute (Plan 02 model_validator). If it
     # doesn't exist, fail loud — that means the repo layout broke or someone
@@ -116,4 +135,10 @@ async def lifespan(app: FastAPI):
                 await sync_task
             except asyncio.CancelledError:
                 pass
+        await http_client.aclose()
         await engine.dispose()
+
+
+def _application_ready(app: FastAPI) -> ReadinessCheckResult:
+    _ = app
+    return ReadinessCheckResult.ok("application")

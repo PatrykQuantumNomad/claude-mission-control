@@ -6,9 +6,8 @@ DTOs supplied here for Wave 1 plan 03-02 to consume:
   - AttentionResponse:    GET /api/system/attention (SAPI-04)
   - FirehoseEvent:        SSE data payload for /api/system/firehose (SAPI-05)
 """
-from __future__ import annotations
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
@@ -17,8 +16,8 @@ class DaemonAge(BaseModel):
     """Per-daemon age tuple used by SystemHealthResponse.daemon_ages."""
 
     key: str
-    last_tick_at: Optional[str] = None
-    age_seconds: Optional[int] = None
+    last_tick_at: str | None = None
+    age_seconds: int | None = None
 
 
 class SystemHealthResponse(BaseModel):
@@ -31,7 +30,7 @@ class SystemHealthResponse(BaseModel):
     status: Literal["ok", "degraded"]
     uptime_seconds: int
     memory_rss_mb: float
-    last_otel_event_age_seconds: Optional[int] = None
+    last_otel_event_age_seconds: int | None = None
     daemon_ages: list[DaemonAge]
     tzname: str
 
@@ -49,7 +48,7 @@ class AttentionItem(BaseModel):
     kind: str
     severity: Literal["info", "warning", "error"]
     count: int
-    detail: Optional[str] = None
+    detail: str | None = None
 
 
 class AttentionResponse(BaseModel):
@@ -63,7 +62,7 @@ class AttentionResponse(BaseModel):
     items: list[AttentionItem]
     pending_decisions: int
     failed_tasks: int
-    stale_dispatcher_seconds: Optional[int] = None
+    stale_dispatcher_seconds: int | None = None
     stuck_sessions: int
 
 
@@ -78,9 +77,9 @@ class FirehoseEvent(BaseModel):
     id: int
     ts: str  # ISO 8601 UTC
     event_name: str
-    session_id: Optional[str] = None
-    attrs_mcp_server: Optional[str] = None
-    attrs_mcp_tool: Optional[str] = None
+    session_id: str | None = None
+    attrs_mcp_server: str | None = None
+    attrs_mcp_tool: str | None = None
 
 
 # ---- Phase 4 ESTOP extension (Plan 04-01) ----

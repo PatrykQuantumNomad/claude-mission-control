@@ -7,7 +7,6 @@ len(live_pids) to compute the DISP-04 concurrency cap (slots = max - live).
 Garbage tolerance: non-numeric .pid contents (race-write, manual edit) are
 treated as dead — file unlinked, no error raised.
 """
-from __future__ import annotations
 
 import logging
 

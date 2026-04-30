@@ -10,7 +10,6 @@ The frontend AttentionBar render extension lands atomically with this
 backend change so the UI can never sit in a "renders zeros but no data"
 drift state (RESEARCH §Pitfall 7 + Open Q3 — single-plan atomic landing).
 """
-from __future__ import annotations
 
 import pytest
 

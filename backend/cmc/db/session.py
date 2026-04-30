@@ -1,5 +1,4 @@
 """Async session factory and FastAPI dependency."""
-from __future__ import annotations
 
 from collections.abc import AsyncIterator
 

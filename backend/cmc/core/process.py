@@ -1,11 +1,10 @@
 """PID-file scan + ps validation — RESEARCH Pattern 7 + Pitfall 4."""
-from __future__ import annotations
 
 import os
 import signal
 import subprocess
 from pathlib import Path
-from typing import Optional, TypedDict
+from typing import TypedDict
 
 from cmc.core.paths import repo_root
 
@@ -22,7 +21,7 @@ def pid_dir() -> Path:
     return repo_root() / PID_DIR_REL
 
 
-def _read_pid(pid_file: Path) -> Optional[int]:
+def _read_pid(pid_file: Path) -> int | None:
     try:
         return int(pid_file.read_text().strip())
     except (OSError, ValueError):
@@ -52,7 +51,7 @@ def validate_pid_is_claude(pid: int) -> bool:
     return ("claude" in line) and (" -p" in line)
 
 
-def emergency_stop_all(pid_directory: Optional[Path] = None) -> StopSummary:
+def emergency_stop_all(pid_directory: Path | None = None) -> StopSummary:
     """Scan pid_directory (default: repo .tmp/.../pids/), validate via ps,
     SIGTERM matching PIDs. Returns {terminated, skipped, missing} lists.
 

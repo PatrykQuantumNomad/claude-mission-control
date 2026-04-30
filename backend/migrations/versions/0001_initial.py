@@ -22,7 +22,6 @@ Manual edits over autogenerate output:
   sqlmodel.sql.sqltypes.AutoString without emitting the import)
 - Added _column_exists helper for FOUND-03 (idempotent ADD COLUMN check)
 """
-from __future__ import annotations
 
 from typing import Sequence
 

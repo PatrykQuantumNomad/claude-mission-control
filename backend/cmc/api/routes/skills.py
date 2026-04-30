@@ -17,13 +17,11 @@ Path roots:
     project_dir = repo_root() / "skills"  (environment="project" default)
 The frontmatter `environment` key overrides the per-root default.
 """
-from __future__ import annotations
 
 import re
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
@@ -50,8 +48,8 @@ _SKILL_NAME_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
 @router.get("/skills", response_model=SkillListResponse)
 async def list_skills(
     db: AsyncSession = Depends(get_session),
-    environment: Optional[str] = Query(None),
-    user_invocable: Optional[bool] = Query(None),
+    environment: str | None = Query(None),
+    user_invocable: bool | None = Query(None),
 ) -> SkillListResponse:
     """SKIL-01: list skills with optional environment + user_invocable filters."""
     stmt = select(Skill)
@@ -104,7 +102,7 @@ async def skills_sync(
                     select(Skill).where(Skill.name == s["name"])
                 )).scalar_one_or_none()
 
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
 
                 if existing is None:
                     await db.execute(sqlite_insert(Skill).values(
@@ -182,7 +180,7 @@ async def patch_autonomy(
     if existing is None:
         raise HTTPException(status_code=404, detail="skill not found")
     existing.autonomy = payload.autonomy
-    existing.updated_at = datetime.now(timezone.utc)
+    existing.updated_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(existing)
     return SkillAutonomyResponse.model_validate(existing)

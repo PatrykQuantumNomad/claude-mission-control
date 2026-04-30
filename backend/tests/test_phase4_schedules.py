@@ -15,9 +15,8 @@ Pitfall awareness:
     constructor — the conftest mock_anthropic_client fixture remains available
     for callers that prefer it).
 """
-from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
@@ -28,7 +27,6 @@ from cmc.db.models.tasks import Task
 from cmc.schedules.cron import validate_cron
 
 from .conftest import make_schedule_row, make_task_row
-
 
 # ---------- Wave 0 smoke (kept) ----------
 
@@ -104,8 +102,8 @@ async def test_schd02_create_valid_cron(client) -> None:
     # STATE.md note); accept either naive or aware datetimes by normalizing
     # naive values to UTC for the futurity comparison.
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    assert parsed > datetime.now(timezone.utc) - timedelta(seconds=5)
+        parsed = parsed.replace(tzinfo=UTC)
+    assert parsed > datetime.now(UTC) - timedelta(seconds=5)
     assert isinstance(body["id"], int)
 
     # DB row exists with same name
@@ -163,7 +161,7 @@ async def test_schd02_create_duplicate_name_409(client) -> None:
 @pytest.mark.asyncio
 async def test_schd03_patch_cron_change_recomputes_next_run(client) -> None:
     """Cron change must trigger next_run_at recomputation (Pitfall 7)."""
-    seeded_next = datetime(2026, 5, 1, 9, 0, 0, tzinfo=timezone.utc)
+    seeded_next = datetime(2026, 5, 1, 9, 0, 0, tzinfo=UTC)
     sched_id = await _seed_schedule(
         client,
         name="recompute",
@@ -181,10 +179,10 @@ async def test_schd03_patch_cron_change_recomputes_next_run(client) -> None:
     assert body["next_run_at"] is not None
     parsed = datetime.fromisoformat(body["next_run_at"].replace("Z", "+00:00"))
     # SQLite strips tzinfo on round-trip (Pitfall 4 cousin); normalize.
-    parsed_aware = parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+    parsed_aware = parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
     # Recomputed -> different from seeded value AND in the future relative to "now".
     assert parsed_aware != seeded_next
-    assert parsed_aware > datetime.now(timezone.utc) - timedelta(seconds=5)
+    assert parsed_aware > datetime.now(UTC) - timedelta(seconds=5)
 
 
 @pytest.mark.asyncio
@@ -195,7 +193,7 @@ async def test_schd03_patch_disable_clears_next_run(client) -> None:
         name="disable-me",
         cron="0 9 * * *",
         enabled=True,
-        next_run_at=datetime(2026, 5, 1, 9, 0, 0, tzinfo=timezone.utc),
+        next_run_at=datetime(2026, 5, 1, 9, 0, 0, tzinfo=UTC),
     )
     r = await client.patch(
         f"/api/schedules/{sched_id}",
