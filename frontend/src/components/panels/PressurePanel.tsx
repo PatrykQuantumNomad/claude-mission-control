@@ -1,4 +1,4 @@
-// PressurePanel — OPNL-14 (Phase 6 Plan 03 / Wave 3).
+// PressurePanel — OPNL-14 (current).
 //
 // Operator-pressure indicators: api_retries_exhausted (red emphasis when >0),
 // compaction_count, and a CollapsibleSection containing the 10 most-recent

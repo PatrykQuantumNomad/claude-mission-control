@@ -51,7 +51,7 @@
 }
 
 /* ─────────────────────────────────────────────────────────── */
-/* Phase 9 Plan 05 (Q1=A locked) — light theme override.        */
+/* current (Q1=A locked) — light theme override.        */
 /* Minimal palette flip: only the core surface/text/border       */
 /* tokens are inverted. Visual polish (shadow tuning, gradient    */
 /* recolour, accent contrast) is deliberately deferred to v2 —    */
@@ -112,7 +112,7 @@ body {
 }
 
 /* ─────────────────────────────────────────────────────────── */
-/* AppShell + NavBar — Phase 5 Plan 01                          */
+/* AppShell + NavBar — current                          */
 /* ─────────────────────────────────────────────────────────── */
 
 .cmc-shell { display: flex; flex-direction: column; min-height: 100%; }
@@ -181,7 +181,7 @@ body {
   border-color: var(--cmc-border-glow);
 }
 
-/* Phase 9 Plan 05 — ThemeToggle button (compact icon button next to Cmd+K). */
+/* current — ThemeToggle button (compact icon button next to Cmd+K). */
 .cmc-theme-toggle {
   display: inline-flex;
   align-items: center;
@@ -211,7 +211,7 @@ body {
 }
 
 /* ─────────────────────────────────────────────────────────── */
-/* Layout primitives — Phase 5 Plan 02                          */
+/* Layout primitives — current                          */
 /* ─────────────────────────────────────────────────────────── */
 
 /* Card family — UI-SPEC FESH-05 + DESG-04 */
@@ -369,7 +369,7 @@ body {
 .cmc-error-fallback__detail { margin: 0 0 var(--space-md); font-family: var(--font-mono); font-size: var(--size-label); color: var(--cmc-text-subtle); }
 
 /* ─────────────────────────────────────────────────────────── */
-/* Interactive primitives — Phase 5 Plan 03                     */
+/* Interactive primitives — current                     */
 /* ─────────────────────────────────────────────────────────── */
 
 /* Sheet — UI-SPEC FESH-04 + Motion Contract 220ms ease-out */
@@ -512,7 +512,7 @@ body {
 }
 
 /* ─────────────────────────────────────────────────────────── */
-/* Page grid — Phase 5 Plan 04 (Wave 3)                          */
+/* Page grid — current                          */
 /* ─────────────────────────────────────────────────────────── */
 
 /* Card grid — DESG-04 — auto-rows-fr matched heights, breakpoint-free responsive */
@@ -572,7 +572,7 @@ body {
 }
 
 /* ─────────────────────────────────────────────────────────── */
-/* Phase 6 Plan 01 — Wave 1 panel primitives                    */
+/* current panel primitives                    */
 /* PanelCard / RangeToggle / DataTable / HeatmapGrid /          */
 /* StatList / KpiTile / ErrorState                               */
 /* ─────────────────────────────────────────────────────────── */
@@ -781,7 +781,7 @@ body {
 }
 
 /* ─────────────────────────────────────────────────────────── */
-/* Phase 6 Plan 02 (Wave 2) — top-strip panels                  */
+/* current — top-strip panels                  */
 /* ─────────────────────────────────────────────────────────── */
 
 /* SystemHealthStrip — pills row + numeric stats line */
@@ -977,7 +977,7 @@ body {
 }
 
 /* ─────────────────────────────────────────────────────────── */
-/* Phase 6 Plan 03 (Wave 3) — analytical-grid panels             */
+/* current — analytical-grid panels             */
 /* TokenUsage / Cache / Outcomes / Hooks / Project / Latency /   */
 /* AgentFanout / EditAcceptance / Productivity / Pressure / MCP  */
 /* ─────────────────────────────────────────────────────────── */
@@ -1173,8 +1173,8 @@ body {
 }
 
 /* ============================================================================
- * Phase 6 Plan 04 (Wave 4) — Activity page core panels (heatmap + charts +
- * sessions table). HeatmapGrid base classes live in Wave 1 (~L632); this
+ * current — Activity page core panels (heatmap + charts +
+ * sessions table). HeatmapGrid base classes live in later work (~L632); this
  * section appends panel-specific layout only.
  * ============================================================================
  */
@@ -1232,7 +1232,7 @@ body {
 }
 
 /* ============================================================================
- * Phase 6 Plan 05 (Wave 5) — Activity page tail panels (OTEL feed + failures
+ * current — Activity page tail panels (OTEL feed + failures
  * list + TopSkills v2 placeholder). TopSkills uses the EmptyState primitive
  * directly so no panel-specific class is needed for it.
  * ============================================================================
@@ -1328,7 +1328,7 @@ body {
   text-overflow: ellipsis;
 }
 
-/* Generic mono helper used by Wave 5 panel rows. Keeps inline-mono uses out
+/* Generic mono helper used by later work panel rows. Keeps inline-mono uses out
    of bespoke per-panel classes. Tokens only. */
 .cmc-mono {
   font-family: var(--font-mono);
@@ -1336,10 +1336,10 @@ body {
 }
 
 /* ============================================================================
- * Phase 7 Plan 01 (Wave 0) — AlertDialog primitive + EmergencyStopBanner
+ * current — AlertDialog primitive + EmergencyStopBanner
  * state-machine variants + ContextHealthCard chip-list. All tokens (no inline
  * hex). z-index sits above Sheet (40/41) and below CommandPalette (50) per
- * Phase 5 stack.
+ * current stack.
  * ============================================================================
  */
 
@@ -1470,7 +1470,7 @@ body {
 }
 
 /* ============================================================================
- * Phase 7 Plan 02 (Wave 1) — DecisionsCard + InboxCard inline-expand row
+ * current — DecisionsCard + InboxCard inline-expand row
  * pattern. Both panels list rows with an inline-expand form (textarea +
  * Submit/Cancel) that materializes when the operator clicks Answer / Reply.
  * Tokens only — no inline hex.
@@ -1585,7 +1585,7 @@ body {
 
 /* Generic input recipe — matches the existing cmc-input usages without
  * collision. SkillsRegistry select inherits this, plus a min-width modifier
- * (Plan 07-02 Task 2). */
+ * (implementation Task 2). */
 .cmc-input {
   background: var(--cmc-surface);
   color: var(--cmc-text);
@@ -1609,7 +1609,7 @@ body {
 }
 
 /* ============================================================================
- * Phase 7 Plan 03 (Wave 2) — TaskBoard + TaskComposer
+ * current — TaskBoard + TaskComposer
  * Tokens only; no inline hex.
  * ============================================================================ */
 
@@ -1727,7 +1727,7 @@ body {
 }
 
 /* ============================================================================
- * Phase 7 Plan 04 (Wave 4) — SchedulesCard + ScheduleComposer
+ * current — SchedulesCard + ScheduleComposer
  * ============================================================================ */
 
 .cmc-schedules-list {

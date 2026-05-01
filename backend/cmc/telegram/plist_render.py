@@ -1,10 +1,10 @@
-"""TELE-07: render telegram-notifier.plist OR telegram-handler.plist.
+"""Render telegram-notifier.plist OR telegram-handler.plist.
 
 Mirrors cmc.dispatcher.plist_render (string.Template, NOT Jinja2). The .j2
 suffix is convention only — adding Jinja2 just for 3 substitutions would
 inflate the runtime dependency graph.
 
-Phase 9 install.sh invokes this via the CLI entry below:
+install.sh invokes this via the CLI entry below:
     python -m cmc.telegram.plist_render --variant notifier <python_path> <repo_root>
     python -m cmc.telegram.plist_render --variant handler  <python_path> <repo_root>
 

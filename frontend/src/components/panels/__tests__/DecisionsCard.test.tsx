@@ -1,4 +1,4 @@
-// DecisionsCard — HPNL-01 (Phase 7 Plan 02 / Wave 1).
+// DecisionsCard — HPNL-01 (current).
 //
 // Strategy: setQueryData seeds qk.decisions('pending') with a fixture so
 // PanelCard resolves synchronously to its data branch. Mutation tests use

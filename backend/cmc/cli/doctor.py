@@ -1,11 +1,11 @@
-"""SETUP-06: zero-LLM 8-check health report.
+"""Zero-LLM 8-check health report.
 
 Each check returns a Check dataclass with one of three statuses:
 - 'ok'   — green check, no action needed
 - 'warn' — yellow check, optional action (does NOT fail the run)
 - 'fail' — red check, fix required (process exits 1)
 
-The 8 checks (locked by Plan 09-04 frontmatter / RESEARCH §D6):
+The 8 checks:
   1. Python ≥3.12
   2. claude on PATH (subprocess.run('claude --version'))
   3. ~/.claude/settings.json exists + parses as JSON
@@ -232,9 +232,9 @@ def _check_launchd_jobs(*, settings: Settings | None = None) -> Check:
 
     Telegram daemons are skipped silently if telegram_bot_token is unset.
 
-    SC3 (Phase 11): telegram_configured is read from Settings (which honors
-    ~/.command-centre/.env via the env_file tuple), NOT bare os.environ —
-    so launchd-spawned `cmc doctor` invocations behave consistently with
+    telegram_configured is read from Settings (which honors
+    ~/.command-centre/.env via the env_file tuple), NOT bare os.environ, so
+    launchd-spawned `cmc doctor` invocations behave consistently with
     interactive shell invocations.
     """
     if settings is None:
@@ -288,9 +288,8 @@ def _check_launchd_jobs(*, settings: Settings | None = None) -> Check:
 
 
 def _check_telegram(*, settings: Settings | None = None) -> Check:
-    """SC3 (Phase 11): read TELEGRAM_BOT_TOKEN via Settings so launchd-spawned
-    daemons (which don't inherit shell env) and `cmc doctor` invocations from
-    arbitrary cwds both honor ~/.command-centre/.env."""
+    """Read TELEGRAM_BOT_TOKEN via Settings so launchd-spawned daemons and
+    `cmc doctor` invocations from arbitrary cwds both honor ~/.command-centre/.env."""
     if settings is None:
         settings = load_settings()
     token = settings.telegram_bot_token
@@ -344,9 +343,9 @@ CHECKS: list[Callable[..., Check]] = [
 def run_checks() -> list[Check]:
     """Run all 8 checks sequentially. Returns the resulting Check list.
 
-    SC3 (Phase 11): Settings is loaded ONCE at the top and threaded into any
-    check whose signature accepts a `settings` kwarg. Legacy checks that
-    take no parameters are called without modification.
+    Settings is loaded ONCE at the top and threaded into any check whose
+    signature accepts a `settings` kwarg. Legacy checks that take no parameters
+    are called without modification.
     """
     settings = load_settings()
     out: list[Check] = []

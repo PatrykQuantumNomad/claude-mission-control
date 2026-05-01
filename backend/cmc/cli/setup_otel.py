@@ -1,7 +1,6 @@
-"""SETUP-05: atomic merge of 6 OTEL env keys into ~/.claude/settings.json.
+"""Atomic merge of 6 OTEL env keys into ~/.claude/settings.json.
 
-Locked keys per Plan 09-01 frontmatter Q3 (six keys; OTEL_LOG_USER_PROMPTS
-intentionally dropped — defaults to 0 anyway).
+OTEL_LOG_USER_PROMPTS is intentionally omitted because its default is already 0.
 
 Pitfall P8 (atomic write): the temp file lives in the SAME parent directory
 as the final destination so `os.replace` is a same-filesystem rename and

@@ -1,13 +1,13 @@
-"""Phase 4 Tasks router tests — TASK-01..07.
+"""Tasks router tests — TASK-01..07.
 
-Per Plan 03-01 per-router convention: ALL TASK-* tests live here.
-Wave 1 plan 04-03 implements the Tasks router; tests below cover all 7 endpoints.
+All TASK-* tests live here. Tests below cover task CRUD, transitions,
+dispatcher triggering, and rejection behavior.
 
 Pitfall awareness:
-  - r.json()["error"] (NOT "detail") — Phase 1 error handler emits {error: ...}.
+  - r.json()["error"] (NOT "detail") — the error handler emits {error: ...}.
   - tz-aware UTC datetimes when seeding (Pitfall 4).
   - TASK-03 illegal status transitions are validated by cmc.tasks.transitions
-    (pure function); the matrix is locked in Wave 0 — see transitions.py docstring.
+    (pure function); see transitions.py for the matrix.
   - TASK-07 spawn_dispatcher_oneshot uses subprocess.Popen + start_new_session=True;
     tests monkeypatch BOTH `cmc.tasks.spawn.subprocess.Popen` AND `cmc.tasks.spawn.repo_root`
     so no real subprocess + no real .tmp/ writes ever happen.
@@ -26,10 +26,10 @@ from cmc.tasks.transitions import validate_transition
 
 from .conftest import make_task_row
 
-# ---------- Wave 0 smoke (kept) ----------
+# ---------- Schema smoke ----------
 
 
-def test_phase4_tasks_smoke():
+def test_tasks_schemas_smoke():
     t = TaskCreate(title="hello")
     assert t.title == "hello"
     assert validate_transition("pending", "running") is True
@@ -330,7 +330,7 @@ async def test_task06_rerun_illegal(client) -> None:
     assert "not in failed state" in r.json()["error"].lower()
 
 
-# ---------- TASK-08 (Phase 10): POST /api/tasks/{id}/reject ----------
+# ---------- TASK-08: POST /api/tasks/{id}/reject ----------
 
 
 @pytest.mark.asyncio

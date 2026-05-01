@@ -1,6 +1,6 @@
-// UnifiedFailures — ACTV-05 (Phase 6 Plan 05 / Wave 5).
+// UnifiedFailures — ACTV-05 (current).
 //
-// Surfaces /api/sessions/failures (route shipped in Plan 06-01) so operators
+// Surfaces /api/sessions/failures (route shipped in implementation) so operators
 // have a "what crashed?" view across recent sessions. Each row shows:
 //   - outcome Badge (variant=danger for errored, variant=warning for rate_limited)
 //   - session_id (mono, truncated to 8 chars + ellipsis; full id on hover via title)

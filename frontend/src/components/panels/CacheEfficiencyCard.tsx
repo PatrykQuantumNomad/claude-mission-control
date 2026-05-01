@@ -1,4 +1,4 @@
-// CacheEfficiencyCard — OPNL-06 (Phase 6 Plan 03 / Wave 3).
+// CacheEfficiencyCard — OPNL-06 (current).
 //
 // Big number (overall hit_rate × 100 displayed as %) + sparkline of trend
 // hit_rate with a 70% target ReferenceLine + a Low-sample Badge when the

@@ -1,7 +1,6 @@
-"""Phase 3 MCP-router tests (MCP-*).
+"""MCP router tests (MCP-*).
 
-Phase 3 per-router convention: every MCP-* test lives in this file.
-See test_phase3_system.py module docstring for the full convention.
+Every MCP-* test lives in this file.
 """
 
 from datetime import UTC, datetime, timedelta

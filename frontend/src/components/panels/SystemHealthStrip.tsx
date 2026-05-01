@@ -1,4 +1,4 @@
-// SystemHealthStrip — OPNL-01 (Phase 6 Plan 02 / Wave 2).
+// SystemHealthStrip — OPNL-01 (current).
 //
 // Full-width status strip rendered above the panel grid on / route. Pulls
 // /api/system/health every 5s via useSystemHealth (cadence locked in

@@ -2,7 +2,8 @@
 
 Per 01-01-SCHEMA.md (table 9). Drives HITL-04..07 / DISP-08 / HPNL-02 / TELE-02.
 
-NOTE: class name is `InboxMessage` per the Plan 05 entry contract aggregator.
+NOTE: class name is `InboxMessage` so it reads clearly at call sites and in the
+models package aggregator.
 """
 
 from datetime import datetime

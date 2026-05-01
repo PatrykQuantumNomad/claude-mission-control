@@ -1,15 +1,14 @@
 """DISP-08 INBOX → POST /api/inbox via httpx.
 
 Why HTTP (not direct DB INSERT): preserves Pydantic validation on the inbox
-endpoint AND any future side effects (HPNL-02 push, Telegram fan-out). RESEARCH
-§Open Q1 explicitly chose the HTTP path over a DB-direct shortcut.
+endpoint AND any future side effects such as push notifications or fan-out.
 
 Localhost-only call (the dispatcher and the API run in the same trust domain).
 Tolerates connection errors so a dead/restarting server doesn't kill the stream
 loop — a missed inbox marker is far less bad than a crashed run_stream.
 
-Note on the `source` field: the InboxCreate schema (Phase 4 HITL-05) accepts
-`{session_id, task_id, subject, body}`. Pydantic v2's default extra-fields
+Note on the `source` field: the InboxCreate schema accepts `{session_id,
+task_id, subject, body}`. Pydantic v2's default extra-fields
 behavior is to ignore unknown keys, so sending `source: 'agent_marker'`
 alongside `body` is silently dropped server-side. The marker payload still
 preserves the agent_marker provenance in `body`. If a future migration adds

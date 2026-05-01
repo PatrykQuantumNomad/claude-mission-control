@@ -1,6 +1,6 @@
 // Sheet — UI-SPEC FESH-04. Wraps Radix Dialog with framer-motion slide-from-right
 // (220ms ease-out per Motion Contract). Locks Dialog.Title for aria-labelledby
-// (Radix logs a console error otherwise — RESEARCH note). `description` is optional
+// (Radix logs a console error otherwise — design notes note). `description` is optional
 // but ties to aria-describedby via Dialog.Description when provided.
 //
 // Dialog.Portal forceMount + AnimatePresence is the canonical Radix+framer-motion
@@ -18,7 +18,7 @@ interface SheetProps {
   title: string
   /** Optional description; when present ties to aria-describedby via Dialog.Description. */
   description?: string
-  /** v1 only ships right-side per Phase 5 CONTEXT decision. */
+  /** v1 only ships right-side per current CONTEXT decision. */
   side?: 'right'
   children: ReactNode
 }

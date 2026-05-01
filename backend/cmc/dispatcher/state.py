@@ -2,9 +2,6 @@
 
 All write paths are atomic (os.replace for PID files; UPSERT for tick stamp)
 to avoid Pitfall 10 (mid-spawn SIGTERM losing the PID reference).
-
-Plan 08-01 ships the helpers; Plans 08-02..04 wire run_classic / run_stream
-through write_pid_file / unlink_pid_file as the canonical ESTOP-08 contract.
 """
 
 import os
@@ -15,7 +12,7 @@ import psutil
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from cmc.config import load_settings
-from cmc.core.process import pid_dir as _phase4_pid_dir
+from cmc.core.process import pid_dir as _process_pid_dir
 from cmc.db.models.system_state import SystemState
 
 # Historical default; runtime callers should prefer max_concurrent() to honor env overrides.
@@ -23,19 +20,19 @@ MAX_CONCURRENT = 3
 
 
 def pid_dir() -> Path:
-    """Re-export Phase 4 pid_dir; centralizes the import for dispatcher modules.
+    """Re-export process pid_dir; centralizes the import for dispatcher modules.
 
-    Tests monkeypatch `cmc.dispatcher.state._phase4_pid_dir` so we always call
+    Tests monkeypatch `cmc.dispatcher.state._process_pid_dir` so we always call
     through the module-level binding (do NOT inline the import).
     """
-    return _phase4_pid_dir()
+    return _process_pid_dir()
 
 
 def write_pid_file(task_id: int, pid: int) -> Path:
     """Atomically write {pid_dir}/{task_id}.pid via tmp + os.replace.
 
-    Pitfall 10 mitigation: must happen IMMEDIATELY after Popen, before any
-    wait/read. The tmp + rename dance guarantees a reader never sees a
+    Must happen IMMEDIATELY after Popen, before any wait/read. The tmp + rename
+    dance guarantees a reader never sees a
     partially-written file (POSIX rename is atomic on the same filesystem).
     """
     d = pid_dir()

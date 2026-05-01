@@ -29,7 +29,7 @@ log = logging.getLogger(__name__)
 OVERDUE_GRACE_MINUTES = 5
 DECISION_LOOKBACK_HOURS = 24
 
-# Phase 11 SC5: HTTP-symmetric inbox discovery — mirrors handler.py:54.
+# HTTP-symmetric inbox discovery mirrors handler.py.
 LOCAL_API = "http://127.0.0.1:8765"
 
 
@@ -56,7 +56,7 @@ async def cleanup_rerun_failures(db: AsyncSession) -> int:
     """Delete kind=failure rows for tasks that have left 'failed' state (rerun started).
 
     Without this, a SECOND failure for the same task id collides with the
-    existing UNIQUE row and gets dropped → no re-notify. RESEARCH §D3 edge case.
+    existing UNIQUE row and gets dropped -> no re-notify.
     Notifier-side housekeeping (NOT in tasks router) so the design lives next to
     the code that observes the staleness.
     """
@@ -90,22 +90,21 @@ async def cleanup_rerun_failures(db: AsyncSession) -> int:
 async def _fetch_unread_inbox(
     http_client: httpx.AsyncClient | None,
 ) -> list[Any]:
-    """SC5 (Phase 11): GET /api/inbox?unread=true. Replaces the direct
-    InboxMessage SELECT for HTTP symmetry — the notifier becomes a pure
-    HTTP consumer of inbox state, mirroring the dispatcher's "API state
-    via API, never direct DB" pattern.
+    """GET /api/inbox?unread=true. Replaces the direct InboxMessage SELECT for
+    HTTP symmetry — the notifier becomes a pure HTTP consumer of inbox state,
+    mirroring the dispatcher's "API state via API, never direct DB" pattern.
 
     Returns a list of attribute-accessible objects (SimpleNamespace) shaped
     like InboxListItem dicts, consumable by _FORMATTER['inbox']
     (messages.format_inbox uses getattr/.id/.body/etc).
 
     Empty list on HTTP failure (server down, network blip, non-2xx) —
-    graceful degrade preserves the pre-Phase-11 try/except invariant.
+    graceful degrade keeps notifier failures from blocking other candidates.
     """
     if http_client is None:
         # Notifier must always have a client for HTTP discovery in production
         # (run_one_cycle constructs one when caller doesn't pass it). Returning
-        # [] mirrors the pre-Phase-11 try/except graceful-degrade contract.
+        # [] preserves graceful degradation.
         return []
     try:
         r = await http_client.get(
@@ -133,9 +132,8 @@ async def _gather_candidates(
 ) -> dict[str, list[Any]]:
     """Returns {kind: [rows]} dict. No filtering against notification_log yet.
 
-    Phase 11 SC5: inbox kind is fetched via HTTP (GET /api/inbox?unread=true)
-    instead of a direct ORM SELECT. http_client is passed through from
-    run_one_cycle.
+    Inbox kind is fetched via HTTP (GET /api/inbox?unread=true) instead of a
+    direct ORM SELECT. http_client is passed through from run_one_cycle.
     """
     decisions = (
         await db.execute(
@@ -167,9 +165,9 @@ async def _gather_candidates(
         )
     ).scalars().all()
 
-    # Phase 11 SC5 (interp A): inbox via HTTP, not direct ORM SELECT.
-    # Mirrors the dispatcher pattern of "API state via API". Graceful
-    # degrade on server-down preserved by _fetch_unread_inbox.
+    # Inbox via HTTP, not direct ORM SELECT. Mirrors the dispatcher pattern of
+    # "API state via API". Graceful degrade on server-down is handled by
+    # _fetch_unread_inbox.
     inbox = await _fetch_unread_inbox(http_client)
 
     return {
@@ -322,7 +320,7 @@ async def run_one_cycle(
     sent_count = 0
     now = datetime.now(UTC)
     async with sessions() as db:
-        # Rerun cleanup BEFORE candidate scan — RESEARCH §D3 edge case.
+        # Rerun cleanup BEFORE candidate scan so a second failure can notify.
         await cleanup_rerun_failures(db)
 
         candidates = await _gather_candidates(db, now, http_client=http_client)

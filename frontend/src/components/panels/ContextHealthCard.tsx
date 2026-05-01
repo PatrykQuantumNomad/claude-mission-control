@@ -1,4 +1,4 @@
-// ContextHealthCard — SKLP-03 (Phase 7 Plan 01 / Wave 0).
+// ContextHealthCard — SKLP-03 (current).
 //
 // Read-only display of /api/context/health: aggregate counts (claude_md_lines,
 // mcp_server_count, hook_count, settings_keys.length) shown via StatList, and

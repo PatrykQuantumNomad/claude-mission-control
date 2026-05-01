@@ -68,8 +68,8 @@ def format_overdue(schedule_row) -> tuple[str, dict[str, Any]]:
 def format_inbox(inbox_row) -> tuple[str, dict[str, Any]]:
     """Inbox-prompt notification + Reply/Snooze buttons.
 
-    Inbox rows in Phase 4 use `body` for the message text; some callers may
-    pass rows with `prompt` instead. Tolerate both via getattr fallback.
+    Inbox rows use `body` for the message text; some callers may pass rows
+    with `prompt` instead. Tolerate both via getattr fallback.
     """
     body = getattr(inbox_row, "prompt", None) or getattr(inbox_row, "body", "") or ""
     text = (

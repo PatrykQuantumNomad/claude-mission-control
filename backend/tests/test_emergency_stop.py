@@ -1,6 +1,4 @@
-"""Phase 4 Emergency Stop tests — ESTOP-01..04.
-
-Per Plan 03-01 per-router convention. Wave 1 plan 04-05 appends.
+"""Emergency Stop tests — ESTOP-01..04.
 
 Test inventory (10 cases):
     - test_estop01_stop_with_no_pids_or_running_tasks
@@ -14,7 +12,7 @@ Test inventory (10 cases):
     - test_estop04_resume_no_prior_stop
     - test_estop_emergency_stop_visible_via_sapi03
 
-Pitfall awareness (Plan 04-05):
+Pitfall awareness:
     - Mock emergency_stop_all where it's IMPORTED in the router module
       (`cmc.api.routes.system.emergency_stop_all`), NOT where it's defined
       (`cmc.core.process.emergency_stop_all`). Python re-binds at import time,
@@ -288,8 +286,8 @@ async def test_estop04_resume_clears_flag(
     seeded_app, client, monkeypatch
 ) -> None:
     """ESTOP-04: POST /emergency-resume sets system_state.emergency_stop='0'.
-    Per RESEARCH A3 / Open Q3 we UPDATE rather than DELETE so SAPI-03 sees an
-    explicit value (not 'absent', which is ambiguous).
+    We UPDATE rather than DELETE so SAPI-03 sees an explicit value (not
+    'absent', which is ambiguous).
     """
     app, _cm = seeded_app
     _stub_empty_summary(monkeypatch)
@@ -338,9 +336,9 @@ async def test_estop04_resume_no_prior_stop(seeded_app, client) -> None:
 async def test_estop_emergency_stop_visible_via_sapi03(
     seeded_app, client, monkeypatch
 ) -> None:
-    """Plan 03-02's SAPI-03 whitelist already includes 'emergency_stop'.
+    """SAPI-03 whitelist includes 'emergency_stop'.
     After POST /emergency-stop writes the row, GET /api/system/state?key=emergency_stop
-    must return {items: {emergency_stop: '1'}}. Cross-plan contract guard:
+    must return {items: {emergency_stop: '1'}}. Cross-router contract guard:
     confirms the ESTOP write side and SAPI-03 read side agree on column shape.
     """
     _stub_empty_summary(monkeypatch)

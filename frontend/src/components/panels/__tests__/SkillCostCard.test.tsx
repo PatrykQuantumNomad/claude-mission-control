@@ -1,6 +1,6 @@
-// SkillCostCard — SKLP-02 v2 placeholder (Phase 7 Plan 02 / Wave 1).
+// SkillCostCard — SKLP-02 v2 placeholder (current).
 //
-// Mirrors the TopSkills v2-deferral pattern (Phase 6 STATE.md L246): static
+// Mirrors the TopSkills v2-deferral pattern (current STATE.md L246): static
 // EmptyState card with reqId kicker — preserves traceability without
 // fetching a backend route that does not yet exist (no claude_code.skill_invoked
 // event in current ingest).

@@ -1,6 +1,6 @@
-"""TELE-05 + TELE-06 — handler long-poll, whitelist, dispatch.
+"""Telegram handler tests for long-polling, whitelist checks, and dispatch.
 
-Plan 09-03. Covers:
+Covers:
   - run_handler_loop offset persistence (Pitfall P2)
   - User whitelist drops (silently — log INFO not ERROR)
   - Text → claude relay with ANTHROPIC_API_KEY scrub (Pitfall P12)
@@ -202,8 +202,8 @@ async def test_handler_callback_approve_task_dispatches_post(seeded_app):
 async def test_handler_callback_reject_task_dispatches_post(seeded_app):
     """SC2: reject_task:42 → POST /api/tasks/42/reject, ack, edit-strip buttons.
 
-    Closes v1.0 audit gap: 🛑 Reject button on Telegram approval-card was 404'ing
-    because the backend route did not exist (Plan 10-01 Task 1 added it).
+    Closes v1.0 audit gap: the Reject button on Telegram approval-card was
+    404'ing before the backend route existed.
     """
     app, cm = seeded_app
     update = {
@@ -244,7 +244,7 @@ async def test_handler_callback_reject_task_dispatches_post(seeded_app):
 async def test_handler_callback_answer_decision_tags_telegram_provenance(seeded_app):
     """SC3 wired: callback answer_decision:7:yes → POST body includes answered_by=telegram.
 
-    Pure-function coverage in test_phase9_telegram_unit.py guards dash_router.route();
+    Pure-function coverage in test_telegram_units.py guards dash_router.route();
     this test guards the handler→http_client wiring (the body must actually be
     sent over the wire, not just constructed).
     """
@@ -398,7 +398,7 @@ async def test_handler_text_relays_to_claude_with_env_scrub(
         transport=_telegram_transport([[update], []], ans, ed, send_calls=sent)
     )
     local = httpx.AsyncClient(transport=_local_api_transport([]))
-    # Phase 11: explicit anthropic_api_key=None keeps the scrub-only path —
+    # Explicit anthropic_api_key=None keeps the scrub-only path:
     # without this, pydantic-settings would pick up the monkeypatched env var
     # at Settings construction time and Settings would consider that the
     # trusted value. This test specifically asserts the no-Settings-value
@@ -432,7 +432,7 @@ async def test_handler_text_relays_to_claude_with_env_scrub(
 async def test_handler_surfaces_anthropic_api_key_from_settings(
     seeded_app, monkeypatch
 ):
-    """SC4 (Phase 11): when settings.anthropic_api_key is set, the handler
+    """When settings.anthropic_api_key is set, the handler
     injects it into the env dict passed to `claude -p` AFTER scrubbing any
     shell-inherited (untrusted) value. Trust boundary = Settings, not shell."""
     app, cm = seeded_app

@@ -1,4 +1,4 @@
-"""Anthropic Haiku NL -> cron — RESEARCH Pattern 8 + Pitfall 9.
+"""Anthropic Haiku NL -> cron.
 
 Returns None when the model output fails croniter validation OR when
 ANTHROPIC_API_KEY is unset (caller emits 503).
@@ -21,9 +21,8 @@ _SYSTEM_PROMPT = (
 async def nl_to_cron(prompt: str) -> str | None:
     """Convert NL schedule to cron via Claude Haiku 4.5. None on failure.
 
-    Pitfall 9: AsyncAnthropic is constructed inside the function so module
-    import does not require ANTHROPIC_API_KEY. Tests monkeypatch the env
-    or replace the client.
+    AsyncAnthropic is constructed inside the function so module import does not
+    require ANTHROPIC_API_KEY. Tests monkeypatch the env or replace the client.
     """
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:

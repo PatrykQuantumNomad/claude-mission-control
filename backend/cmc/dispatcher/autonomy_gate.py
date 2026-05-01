@@ -8,7 +8,7 @@ Pitfall 12 (conservative-by-default): unknown autonomy values fall back to
 'manual' (block). NEVER treat unknown as 'auto' — that would silently widen
 the trust radius for misconfigured skills.
 
-Contract (Plan 08-04 Truth #6):
+Contract:
 - skill is None → ('proceed', None). No-skill tasks bypass the gate.
 - skill.autonomy='auto' → ('proceed', None).
 - skill.autonomy='review' → ('block', 'review'); task → 'awaiting_approval'.

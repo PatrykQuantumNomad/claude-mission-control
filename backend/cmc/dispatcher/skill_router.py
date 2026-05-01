@@ -4,7 +4,7 @@ Mirrors `cmc.schedules.nlcron` exactly: lazy import AsyncAnthropic inside the
 function, 503-graceful when ANTHROPIC_API_KEY unset, strict JSON output,
 validate against the local skill registry to reject hallucinated names.
 
-Contract (locked by Plan 08-04 Truth #4):
+Contract:
 - Returns None when ANTHROPIC_API_KEY is unset.
 - Returns None when no user_invocable=True skills exist.
 - Returns None when Haiku output is not valid JSON, missing 'skill' key, or

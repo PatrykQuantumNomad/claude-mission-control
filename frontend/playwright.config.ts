@@ -1,6 +1,6 @@
-// Playwright config — Phase 9 Plan 05 Task 2 (TEST-01..04).
+// Playwright config — current Task 2 (TEST-01..04).
 //
-// Locked decisions per RESEARCH §D8/§D9:
+// Locked decisions per Design note:
 //   - chromium-only (single-developer macOS dashboard; multi-browser is v2)
 //   - Run against `vite preview` (production build), NEVER `vite dev`
 //     — Pitfall P9: HMR causes flake (DOM repaints between page.click and

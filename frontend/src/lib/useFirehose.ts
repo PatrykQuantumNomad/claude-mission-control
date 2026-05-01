@@ -1,4 +1,4 @@
-// Phase 6 Plan 01: bespoke SSE hook around the native EventSource API.
+// current: bespoke SSE hook around the native EventSource API.
 // Connects to /api/firehose, optionally filtered server-side by event_name,
 // and ring-buffers incoming `otel` events into local state with a configurable
 // cap (default 500). Status is exposed for UI affordances ("Connecting…",
@@ -6,7 +6,7 @@
 //
 // We use native EventSource (not @microsoft/fetch-event-source or eventsource-
 // polyfill) because:
-//   - the dashboard targets evergreen browsers (Phase 5 baseline)
+//   - the dashboard targets evergreen browsers (baseline)
 //   - SAPI-05 backend route writes plain `event: otel\ndata: {...}\n\n` frames
 //     so the auto-reconnect baked into EventSource is sufficient
 //   - the only behavior we'd lose vs fetch-EventSource is custom headers; the

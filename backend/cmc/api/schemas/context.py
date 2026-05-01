@@ -1,6 +1,6 @@
-"""Phase 7 Plan 01 — SKLP-03 ContextHealthResponse schema.
+"""Context health response schema.
 
-Defense-in-depth contract (T-07-01-01 — RESEARCH §Pitfall 5):
+Defense-in-depth contract:
 the schema MUST NOT contain a `settings_values` field, a `settings` dict,
 or anything that could leak the underlying secret values. Even if the
 redaction logic in cmc.api.routes.context regresses, the wire shape

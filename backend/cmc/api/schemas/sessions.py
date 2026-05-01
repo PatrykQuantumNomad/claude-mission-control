@@ -1,6 +1,6 @@
 """Response schemas for SESS-* (sessions) routes.
 
-DTOs supplied here for Wave 1 plan 03-03 to consume:
+DTOs supplied here:
   - SessionListResponse:    GET /api/sessions          (SESS-01)
   - SessionDetailsResponse: GET /api/sessions/{id}     (SESS-02 + SESS-03 timeline)
   - LiveSessionItem/State:  GET /api/sessions/live*    (SESS-04, SESS-05)

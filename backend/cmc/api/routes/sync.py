@@ -5,8 +5,7 @@ on boot and the periodic loop calls every 120s). The HTTP wrapper is
 intentionally trivial: parse no body, return the summary dict as JSON.
 
 This guarantees zero divergence between boot-sync, periodic-sync, and
-manual-sync behavior — there is exactly one ingestion code path. If a
-future plan changes how a sync cycle works, all three triggers benefit.
+manual-sync behavior — there is exactly one ingestion code path.
 
 Response shape:
   {
@@ -36,9 +35,8 @@ async def manual_sync(request: Request) -> dict:
     The route is `/sync` because all_routers() registers it under `/api`,
     so the actual URL is POST /api/sync.
 
-    Per Phase 2 ROADMAP success criterion #5: this endpoint validates that
-    a manual re-scrape can be triggered on demand (e.g. dashboard refresh
-    button, or post-Plan-02-06 smoke check).
+    This endpoint lets the dashboard or operator trigger a manual re-scrape
+    on demand.
     """
     summary = await sync_once(request.app.state.sessions, request.app.state.settings)
     log.info("ingest.manual_sync %s", summary)

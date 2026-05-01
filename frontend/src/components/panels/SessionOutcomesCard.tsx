@@ -1,4 +1,4 @@
-// SessionOutcomesCard — OPNL-07 (Phase 6 Plan 03 / Wave 3).
+// SessionOutcomesCard — OPNL-07 (current).
 //
 // Stacked daily bar chart with mutually-exclusive outcome buckets
 // (errored / rate_limited / truncated / unfinished / ok) summing to that

@@ -5,23 +5,15 @@ Two router groups, each with a different mount strategy:
   all_routers()  -> mounted under /api  (ordinary application API)
   raw_routers()  -> mounted at root      (paths fixed by an external spec)
 
-Phase 1: only health (under /api).
-Phase 2 added: ingest router (Plan 02-03) at root because the OTLP/HTTP spec
-fixes the paths at /v1/logs and /v1/metrics, and sync router (Plan 02-05)
-under /api for the manual ingestion trigger (INGST-10).
-Phase 3 Wave 1 adds: system (Plan 03-02), sessions (Plan 03-03),
-observability (Plan 03-04), mcp + skills (Plan 03-05) routers (under /api).
-Phase 4 Wave 1 adds: hitl router (Plan 04-02 — decisions + inbox combined,
-HITL-01..07) and tasks router (Plan 04-03 — TASK-01..07; mounts /tasks*
-+ /dispatcher/trigger under /api). Phase 4 Wave 3 adds schedules router
-(Plan 04-04 — SCHD-01..06; full CRUD + runs view + NL->cron via Claude
-Haiku 4.5 with 503-graceful fallback when ANTHROPIC_API_KEY missing).
+The ingest router is root-mounted because the OTLP/HTTP spec fixes the
+paths at /v1/logs and /v1/metrics. Application features, including sync,
+system, sessions, observability, MCP, skills, context, HITL, tasks,
+schedules, and notifications, are mounted under /api.
 """
 from fastapi import APIRouter
 
-# Phase 7 Plan 01 — also re-export the context module under its short name
-# so test fixtures can `from cmc.api.routes import context as context_module`
-# and monkeypatch HOME_CLAUDE_DIR for hermetic filesystem testing.
+# Re-export the context module under its short name so test fixtures can
+# monkeypatch HOME_CLAUDE_DIR for hermetic filesystem testing.
 from cmc.api.routes import context as context
 from cmc.api.routes.context import router as context_router
 from cmc.api.routes.health import infrastructure_router
@@ -42,10 +34,8 @@ from cmc.api.routes.tasks import router as tasks_router
 def all_routers() -> list[APIRouter]:
     """Routers mounted under the /api prefix.
 
-    Phase 7 Plan 01 adds context_router (SKLP-03 GET /api/context/health) —
-    placed after skills_router (which it complements) and before the
-    Phase-4 hitl/tasks/schedules block to keep observability-style read
-    routers grouped together.
+    Context is placed after skills, which it complements, and before
+    workflow routers such as HITL, tasks, schedules, and notifications.
     """
     return [
         health_router,
@@ -67,7 +57,7 @@ def raw_routers() -> list[APIRouter]:
     """Routers mounted at root (no /api prefix).
 
     Used for paths whose URL is fixed by an external contract — currently
-    OTLP/HTTP /v1/logs and /v1/metrics (Plan 02-03). These MUST still be
-    registered BEFORE the SPA static mount in the factory (Pitfall 8).
+    OTLP/HTTP /v1/logs and /v1/metrics. These MUST still be registered
+    BEFORE the SPA static mount in the factory.
     """
     return [infrastructure_router, ingest_router]

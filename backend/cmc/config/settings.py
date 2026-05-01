@@ -1,7 +1,5 @@
 """Pydantic-Settings configuration with pretty ValidationError + repo-root path resolution.
 
-Source pattern: 01-RESEARCH.md "Pattern 4: Pydantic-Settings with Pretty ValidationError".
-
 Locked decisions:
 - All fields have sensible defaults; nothing required (see CONTEXT.md).
 - A single `.env` is auto-loaded if present, gitignored.
@@ -135,25 +133,23 @@ class Settings(BaseSettings):
     rate_limit_proxy_headers: list[str] = Field(default_factory=lambda: ["x-forwarded-for"])
     rate_limit_trusted_proxies: list[str] = Field(default_factory=list)
 
-    # Phase 2 — JSONL ingestion
+    # JSONL ingestion
     # NOTE: jsonl_root is a USER-HOME-anchored path, not a repo-root-anchored path.
     # It is intentionally OMITTED from `_resolve_repo_root_paths` below so that
     # `~/...` env overrides resolve via Path.expanduser() at scraper access time
-    # (per Phase 2 plan 02-01 interfaces block).
+    # instead of being incorrectly anchored under the repository.
     jsonl_root: Path = Field(default_factory=lambda: Path.home() / ".claude/projects")
     session_idle_minutes: int = 5
     otlp_max_body_bytes: int = 10_000_000  # 10MB cap on /v1/logs and /v1/metrics
 
-    # Phase 4 — TASK-07 dispatcher trigger
-    # Per RESEARCH Open Q5: Phase 8 replaces the stub by editing this default,
-    # not router code. list[str] argv with default_factory because list defaults
-    # must be callable.
+    # Task router dispatcher trigger. list[str] argv uses default_factory because
+    # mutable defaults must be callable.
     dispatcher_oneshot_cmd: list[str] = Field(
         default_factory=lambda: [sys.executable, "-m", "cmc.dispatcher.oneshot"],
-        description="argv list spawned by TASK-07; Phase 4 default invokes the stub",
+        description="argv list spawned by the task trigger endpoint",
     )
 
-    # Phase 8 — Mission Control Dispatcher (DISP-01..12)
+    # Mission Control dispatcher
     # NOTE: claude_bin is INTENTIONALLY OMITTED from `_resolve_repo_root_paths`
     # below — it's an absolute system path, not a repo-anchored path. launchd
     # does not inherit user PATH so a fully-qualified path is required.
@@ -189,8 +185,7 @@ class Settings(BaseSettings):
         description="DISP-07 cadence for polling decision-status changes (seconds)",
     )
 
-    # Phase 9 — Telegram (TELE-01..07). All optional; bot disabled when
-    # telegram_bot_token is None.
+    # Telegram integration. All optional; bot disabled when telegram_bot_token is None.
     telegram_bot_token: str | None = Field(
         default=None,
         description="BotFather token; when None telegram daemons no-op",
@@ -223,17 +218,17 @@ class Settings(BaseSettings):
         description="Notifier oneshot StartInterval; matches plist template",
     )
 
-    # Phase 11 — TELE-05 ANTHROPIC_API_KEY surface for the Telegram handler relay.
-    # Loaded via Settings (env_file tuple) so launchd-spawned daemons can read it
-    # without the operator's shell env. Dispatcher run_classic.py INTENTIONALLY
-    # does NOT use this — it scrubs the key for Pitfall 8 (subscription-auth path).
+    # ANTHROPIC_API_KEY surface for the Telegram handler relay. Loaded via
+    # Settings (env_file tuple) so launchd-spawned daemons can read it without
+    # the operator's shell env. Dispatcher run_classic.py intentionally does not
+    # use this; it scrubs the key for subscription-auth runs.
     anthropic_api_key: str | None = Field(
         default=None,
         description=(
             "Read from ~/.command-centre/.env via Settings (NOT bare os.environ). "
             "Surfaced into the env dict passed to `claude -p` by the Telegram "
-            "handler (TELE-05). Dispatcher classic-runner does NOT use this — it "
-            "scrubs the key for Pitfall 8 (subscription-auth)."
+            "handler. Dispatcher classic-runner does NOT use this; it scrubs "
+            "the key for subscription-auth runs."
         ),
     )
 

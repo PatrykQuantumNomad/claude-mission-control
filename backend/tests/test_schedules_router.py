@@ -1,10 +1,10 @@
-"""Phase 4 Schedules router tests — SCHD-01..06.
+"""Schedules router tests — SCHD-01..06.
 
-Per Plan 03-01 per-router convention: ALL SCHD-* tests live here.
-Wave 3 plan 04-04 implements the Schedules router; tests below cover all 6 endpoints.
+All SCHD-* tests live here. Tests below cover schedule CRUD, task history,
+and natural-language cron generation.
 
 Pitfall awareness:
-  - r.json()["error"] (NOT "detail") — Phase 1 error handler emits {error: ...}.
+  - r.json()["error"] (NOT "detail") — the error handler emits {error: ...}.
   - tz-aware UTC datetimes when seeding (Pitfall 4) — Schedule.next_run_at must
     be timezone-aware on insert, and assertions parse the response value with
     datetime.fromisoformat (post-Z/+00:00 normalisation).
@@ -28,10 +28,10 @@ from cmc.schedules.cron import validate_cron
 
 from .conftest import make_schedule_row, make_task_row
 
-# ---------- Wave 0 smoke (kept) ----------
+# ---------- Schema smoke ----------
 
 
-def test_phase4_schedules_smoke():
+def test_schedules_smoke():
     s = ScheduleCreate(name="daily", cron="0 9 * * *")
     assert s.cron == "0 9 * * *"
     assert validate_cron("0 9 * * *") is True
@@ -98,9 +98,8 @@ async def test_schd02_create_valid_cron(client) -> None:
     assert body["enabled"] is True
     assert body["next_run_at"] is not None
     parsed = datetime.fromisoformat(body["next_run_at"].replace("Z", "+00:00"))
-    # SQLite strips tzinfo on round-trip (Pitfall 4 cousin — see Plan 04-02
-    # STATE.md note); accept either naive or aware datetimes by normalizing
-    # naive values to UTC for the futurity comparison.
+    # SQLite strips tzinfo on round-trip; accept either naive or aware datetimes
+    # by normalizing naive values to UTC for the futurity comparison.
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=UTC)
     assert parsed > datetime.now(UTC) - timedelta(seconds=5)

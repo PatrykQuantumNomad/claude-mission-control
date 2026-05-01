@@ -47,7 +47,7 @@ describe('SessionOutcomesCard', () => {
     expect(screen.getByText('OPNL-07')).toBeInTheDocument()
     expect(screen.getByText('Session Outcomes')).toBeInTheDocument()
     // ResponsiveContainer gets width: 0 in happy-dom; assert on container class
-    // (Wave 3 deviation — Rule 1 test infra).
+    // (test-infra deviation — Rule 1 test infra).
     await waitFor(() =>
       expect(container.querySelector('.recharts-responsive-container')).not.toBeNull(),
     )

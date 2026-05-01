@@ -1,10 +1,4 @@
-"""Phase 9 unit tests — telegram primitives, plist render, notifications router.
-
-Convention note: subsequent Phase 9 plans add their own per-concern files
-(test_phase9_notifier.py, test_phase9_handler.py, test_phase9_setup.py)
-rather than appending here. Plan boundaries are larger this phase, so
-co-locating tests with their plan owner keeps merge surface clean.
-"""
+"""Telegram unit tests for API helpers, formatters, plist rendering, and notifications."""
 
 import json
 from datetime import UTC
@@ -83,7 +77,7 @@ async def test_get_updates_returns_list():
         )
 
     async with httpx.AsyncClient(transport=MockTransport(handler)) as client:
-        res = await api.get_updates("TKN", offset=0, timeout=1, client=client)
+        res = await api.get_updates("TKN", offset=0, poll_timeout_s=1, client=client)
     assert len(res) == 1
     assert res[0]["update_id"] == 1
 
@@ -248,7 +242,7 @@ def test_route_reply_inbox_is_noop():
 def test_plist_render_notifier_substitutes_paths(tmp_path):
     """Use tmp_path so Path.resolve() doesn't follow real symlinks (e.g.
     /opt/homebrew/bin/python3.13 -> Cellar/...) which would defeat the
-    substring assertion. Mirrors Phase 8 dispatcher render_plist tests.
+    substring assertion. Mirrors dispatcher render_plist tests.
     """
     from cmc.telegram.plist_render import render_plist
 
@@ -308,7 +302,7 @@ def test_plist_render_well_formed_xml(tmp_path):
 
 
 def test_plist_render_no_secrets_in_environment(tmp_path):
-    """Pitfall mirror of Phase 8 dispatcher: TELEGRAM_BOT_TOKEN must not be
+    """Pitfall mirror of dispatcher: TELEGRAM_BOT_TOKEN must not be
     baked into the plist. install.sh writes it to ~/.command-centre/.env
     instead."""
     from cmc.telegram.plist_render import render_plist

@@ -1,22 +1,21 @@
 """JSONL transcript parser — pure functions, no DB, no async, no I/O beyond reading the file.
 
-Called by cmc.ingest.scheduler (Plan 02-04) inside asyncio.to_thread() so the
-event loop stays responsive during a parse. Returns a dict whose keys match the
-SQLModel column names in cmc.db.models.{sessions,tools,token_usage} so the
-repository in Plan 02-04 can pass them as **kwargs to upsert helpers.
+Called by cmc.ingest.scheduler inside asyncio.to_thread() so the event loop
+stays responsive during a parse. Returns a dict whose keys match the SQLModel
+column names in cmc.db.models.{sessions,tools,token_usage} so the repository
+can pass them as **kwargs to upsert helpers.
 
-Per INGST-06 + research §1 Pitfall: corrupted JSONL lines must NEVER crash the
-parser. iter_jsonl() catches JSONDecodeError per-line, logs a warning, and
-continues so subsequent valid lines are still parsed.
+Corrupted JSONL lines must NEVER crash the parser. iter_jsonl() catches
+JSONDecodeError per-line, logs a warning, and continues so subsequent valid
+lines are still parsed.
 
-Per research §5 + INGST-05: token_usage_buckets are bucketed by LOCAL date
-(astimezone() with no arg honors the OS tz), not UTC date.
+token_usage_buckets are bucketed by LOCAL date (astimezone() with no arg honors
+the OS tz), not UTC date.
 
-Per INGST-03 + research §3: paired tool_call durations are clamped at 10 minutes
-(_TEN_MIN_MS) so unattended-tool outliers (sleep, long compile) cannot skew
-downstream charts.
+Paired tool_call durations are clamped at 10 minutes (_TEN_MIN_MS) so
+unattended-tool outliers (sleep, long compile) cannot skew downstream charts.
 
-Returned dict shape (consumed by Plan 02-04's repository as **kwargs to upserts):
+Returned dict shape (consumed by the repository as **kwargs to upserts):
 
     {
       "session": {
@@ -60,9 +59,9 @@ Returned dict shape (consumed by Plan 02-04's repository as **kwargs to upserts)
       ],
     }
 
-NOTE: parse_session_file does NOT decide session.ended_at — the scheduler in
-Plan 02-04 does that based on file mtime + Settings.session_idle_minutes. The
-parser exposes _last_message_ts for the scheduler to consume.
+NOTE: parse_session_file does NOT decide session.ended_at — the scheduler
+does that based on file mtime + Settings.session_idle_minutes. The parser
+exposes _last_message_ts for the scheduler to consume.
 """
 
 import json
@@ -276,7 +275,7 @@ def parse_session_file(path: Path) -> dict:
             "tokens_cache_create": tokens_cache_create,
             "message_count": message_count,
             "tool_call_count": len(paired),
-            "_last_message_ts": last_ts,  # consumed by scheduler in Plan 02-04
+            "_last_message_ts": last_ts,  # consumed by scheduler
         },
         "tool_calls": paired,
         "token_usage_buckets": [

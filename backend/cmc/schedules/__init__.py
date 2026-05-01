@@ -1,1 +1,1 @@
-"""cmc.schedules — Phase 4 cron parsing + NL→cron via Anthropic Haiku."""
+"""Schedule management, cron parsing, and natural-language cron generation."""

@@ -10,7 +10,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render } from '../../../test/utils'
 import { AppShell } from '../AppShell'
 
-// Plan 07-01: AppShell renders NavBar which now mounts EmergencyStopBanner —
+// Note: AppShell renders NavBar which now mounts EmergencyStopBanner —
 // requires QueryClientProvider. We stub fetch to a benign idle response.
 function makeRouter() {
   const rootRoute = createRootRoute({

@@ -2,14 +2,14 @@
 // failure boundary". Wraps children with react-error-boundary and renders the
 // canonical shell-level fallback that quotes the UI-SPEC error copy verbatim.
 //
-// react-error-boundary v6 typed FallbackProps.error as `unknown` (Plan 05-01
+// react-error-boundary v6 typed FallbackProps.error as `unknown` (implementation
 // decision); we narrow defensively here so any throw shape produces a readable
 // message string in the .cmc-error-fallback__detail row.
 //
 // Note: routes/__root.tsx already inlines an inline ShellErrorFallback for the
 // root tree. This module exposes a reusable wrapper that downstream callers
-// (Phase 6 panel-level fallback boundaries, Plan 05-04 page-grid wrappers) can
-// import. Plan 05-04 may consolidate the inline copy into this primitive.
+// (current panel-level fallback boundaries, implementation page-grid wrappers) can
+// import. implementation may consolidate the inline copy into this primitive.
 
 import { ErrorBoundary as REBoundary, FallbackProps } from 'react-error-boundary'
 import { ReactNode } from 'react'

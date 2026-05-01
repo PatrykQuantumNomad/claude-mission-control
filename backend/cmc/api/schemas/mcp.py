@@ -1,13 +1,13 @@
 """Response schemas for MCP-* (MCP server/tool catalog) routes.
 
-DTOs supplied here for Wave 1 plan 03-05's MCP router to consume:
+DTOs supplied here:
   - GET  /api/mcp/servers          -> McpServerListResponse  (MCP-01)
   - GET  /api/mcp/servers/{n}/tools -> McpToolsResponse      (MCP-02)
   - POST /api/mcp/sync              -> McpSyncResponse        (MCP-03)
   - POST /api/mcp/measure           -> McpMeasureResponse     (MCP-04)
 
 `source_priority` reflects the materializer's chosen authority for each row
-(tool_decision > tools > otel — see RESEARCH §MCP catalog stack).
+(tool_decision > tools > otel).
 """
 
 from datetime import datetime

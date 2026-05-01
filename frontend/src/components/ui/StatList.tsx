@@ -1,4 +1,4 @@
-// StatList — Phase 6 Plan 01. Icon + label + value rows. Used by Phase 6
+// StatList — current. Icon + label + value rows. Used by current
 // ProductivityCard and PressurePanel for narrow KPI lists where a 4-up
 // KpiTile grid would be visually overwhelming.
 //

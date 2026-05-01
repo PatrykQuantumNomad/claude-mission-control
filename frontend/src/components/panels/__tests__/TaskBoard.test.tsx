@@ -1,13 +1,13 @@
-// TaskBoard — TPNL-01 (Phase 7 Plan 03 / Wave 2).
+// TaskBoard — TPNL-01 (current).
 //
 // Strategy: setQueryData seeds qk.tasks() with mixed-status rows so PanelCard
 // resolves synchronously to its data branch and the board can group items
-// client-side. AlertDialog from Plan 07-01 is a Radix portal — assertions
+// client-side. AlertDialog from implementation is a Radix portal — assertions
 // against the dialog use document.body.querySelectorAll because the dialog
 // content is portaled outside the test container.
 //
 // awaiting_approval rows render in an above-board banner, NOT a 4th column —
-// this is the explicit Pitfall 11 / Open Q1 lock from RESEARCH.
+// this is the explicit Pitfall 11 / Open Q1 lock from design notes.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'

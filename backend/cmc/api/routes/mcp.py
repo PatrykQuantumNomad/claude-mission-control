@@ -8,7 +8,7 @@ Endpoints:
 
 Path-traversal mitigation: server name is validated against
 `^[a-zA-Z0-9._-]+$` (V11) — rejects `..` and slashes. SQL parameters are
-always bound (never f-stringed) per RESEARCH §SQL injection.
+always bound, never f-stringed.
 
 Single-flight: POST /api/mcp/sync sets `app.state.mcp_sync_running = True`
 in the entry path and clears it in `finally`. Concurrent calls receive

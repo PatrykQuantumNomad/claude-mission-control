@@ -1,4 +1,4 @@
-// HookActivityCard — OPNL-09 (Phase 6 Plan 03 / Wave 3).
+// HookActivityCard — OPNL-09 (current).
 //
 // Stacked daily bar chart of hook fires by hook_name + a sample-weighted
 // per-hook p50 paired-duration summary line below the chart.

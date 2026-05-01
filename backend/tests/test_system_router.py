@@ -1,18 +1,12 @@
-"""Phase 3 system-router tests (SAPI-*).
+"""System router tests (SAPI-*).
 
-Phase 3 convention (declared here per RESEARCH Open Question 6 / A10): the
-Phase 2 monolith `test_phase2_ingest.py` grew to 1156 lines, which made
-navigation slow and rebases noisy. Phase 3 splits tests by router instead
-of phase. Every SAPI-* test lives in this file. Sibling files own their
-respective routers:
+Every SAPI-* test lives in this file. Sibling files own their respective
+routers:
 
-  - SESS-* tests  -> test_phase3_sessions.py
-  - OBSV-* tests  -> test_phase3_observability.py
-  - MCP-*  tests  -> test_phase3_mcp.py
-  - SKILL-* tests -> test_phase3_skills.py
-
-Wave 1 plans (03-02..03-05) APPEND their feature tests to the matching file;
-they do NOT create additional test files for the same router.
+  - SESS-* tests  -> test_sessions_router.py
+  - OBSV-* tests  -> test_observability_router.py
+  - MCP-*  tests  -> test_mcp_router.py
+  - SKILL-* tests -> test_skills_router.py
 """
 
 
@@ -43,9 +37,9 @@ def test_psutil_importable_and_alive() -> None:
 def test_tail_otel_events_callable() -> None:
     """Wave-0 smoke: shared SSE helper is importable + callable.
 
-    The full streaming behavior is covered by SAPI-05 / SESS-05 tests in
-    Wave 1 — this test just guarantees the import contract for downstream
-    plans that do `from cmc.api.sse import tail_otel_events`.
+    The full streaming behavior is covered by SAPI-05 / SESS-05 tests;
+    this test just guarantees the import contract for callers that do
+    `from cmc.api.sse import tail_otel_events`.
     """
     from cmc.api.sse import tail_otel_events
 
@@ -55,7 +49,7 @@ def test_tail_otel_events_callable() -> None:
 def test_seeded_app_yields_tuple(seeded_app) -> None:
     """Wave-0 smoke: seeded_app fixture yields (app, lifespan_cm) tuple.
 
-    Wave 1 plans pattern-match this shape as
+    Router tests use this shape as
         app, cm = seeded_app
         async with cm:
             ...
@@ -73,19 +67,18 @@ def test_seeded_app_yields_tuple(seeded_app) -> None:
 
 async def test_client_health_endpoint_returns_200(client) -> None:
     """Wave-0 smoke: the `client` fixture properly enters the lifespan and
-    routes /api/health through to the Phase 1 health router.
+    routes /api/health through to the health router.
 
-    This proves the full Phase 3 fixture chain works end-to-end:
+    This proves the shared fixture chain works end-to-end:
       seeded_app -> create_app(settings) -> lifespan startup -> ASGITransport
       -> httpx.AsyncClient -> /api/health -> 200
-    Future Phase 3 plans can rely on `client` for any endpoint test.
     """
     response = await client.get("/api/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
 
-# ---------- Wave 1 / Plan 03-02 — Task 1: SAPI-01..04 ----------
+# ---------- SAPI-01..04 ----------
 
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
@@ -102,7 +95,7 @@ from .conftest import make_otel_event, make_session_row
 async def _seed(client_fixture, rows: list[tuple[type, dict]]) -> None:
     """Insert ORM rows directly via the seeded app's sessionmaker.
 
-    Mirrors the helper in test_phase3_sessions.py so SAPI tests can stay
+    Mirrors the helper in test_sessions_router.py so SAPI tests can stay
     self-contained.
     """
     sessionmaker = client_fixture._transport.app.state.sessions
@@ -112,16 +105,15 @@ async def _seed(client_fixture, rows: list[tuple[type, dict]]) -> None:
         await s.commit()
 
 
-# ---- Test 0: SAPI-01 contract preserved through Wave 1 router edits ----
+# ---- SAPI-01 contract preserved through router edits -------------------------
 
 
 async def test_sapi01_health_still_returns_ok(client) -> None:
     """SAPI-01: GET /api/health continues to return 200 + {"status": "ok"}
-    after this plan registers system_router into all_routers().
+    with system_router registered in all_routers().
 
-    The Phase 1 health route lives in cmc/api/routes/health.py and is NOT
-    touched by Plan 03-02 (per RESEARCH Open Q9). This is the contract
-    verification that Wave 1's router-registration edits don't regress it.
+    The health route lives in cmc/api/routes/health.py. This verifies that
+    router-registration edits don't regress it.
     """
     response = await client.get("/api/health")
     assert response.status_code == 200
@@ -239,12 +231,12 @@ async def test_sapi03_system_state_whitelist_enforcement(client) -> None:
     assert response.status_code == 404
 
 
-# ---- Test 4: SAPI-04 graceful Phase 4 emptiness (Pitfall 7) ----
+# ---- Test 4: SAPI-04 graceful empty workflow tables ----
 
 
-async def test_sapi04_attention_phase4_emptiness_returns_zeros(client) -> None:
+async def test_sapi04_attention_empty_workflow_tables_returns_zeros(client) -> None:
     """SAPI-04 / Pitfall 7: pending_decisions=0, failed_tasks=0 ALWAYS in the
-    response, even when Phase 4 tables are empty. No conditional schema."""
+    response, even when workflow tables are empty. No conditional schema."""
     response = await client.get("/api/attention")
     assert response.status_code == 200
     body = response.json()
@@ -291,7 +283,7 @@ async def test_sapi04_attention_detects_stuck_session(client) -> None:
     assert "stuck_sessions" in kinds
 
 
-# ---------- Wave 1 / Plan 03-02 — Task 2: SAPI-05 firehose SSE ----------
+# ---------- SAPI-05 firehose SSE ----------
 
 import asyncio
 import json as _json
@@ -331,9 +323,9 @@ def _parse_sse_chunks(raw: str) -> list[dict]:
     return events
 
 
-# ---- Note on SSE testing strategy (Rule 1 deviation from plan) ----
+# ---- Note on SSE testing strategy ----
 #
-# The plan's original tests used `client.stream("GET", "/api/firehose")` over
+# Earlier tests used `client.stream("GET", "/api/firehose")` over
 # httpx ASGITransport. That pattern HANGS in this stack because:
 #   - tail_otel_events polls request.is_disconnected() each iteration
 #   - ASGITransport's receive() never returns http.disconnect for a streaming
@@ -345,17 +337,15 @@ def _parse_sse_chunks(raw: str) -> list[dict]:
 # Mitigation: keep ONE HTTP-level test (asserting Content-Type + 400) and
 # move the streaming-behavior assertions to a unit test that drives
 # tail_otel_events directly with a controllable mock Request. This preserves
-# every behavior in the plan's done criteria without requiring a real
-# uvicorn server in the test loop.
-# Production behavior (real uvicorn / curl -N) is verified by the Phase 3
-# verifier checkpoint and the SMOKE recipe — not by these tests.
+# every relevant behavior without requiring a real uvicorn server in the test loop.
+# Production behavior (real uvicorn / curl -N) is verified by the smoke recipe.
 
 
 async def test_sapi05_firehose_invalid_since_returns_400(client) -> None:
     """SAPI-05: ?since=<bogus> returns 400 with a helpful detail (Validation
-    is a Tampering mitigation per RESEARCH Security Domain V5 / T-03-02-02).
+    protects the endpoint from malformed timestamps).
 
-    Note: the Phase 1 register_error_handlers wrapper renders HTTPException
+    Note: the register_error_handlers wrapper renders HTTPException
     as `{"error": detail}` (NOT FastAPI's default `{"detail": ...}`), so the
     body assertion uses `error`. See cmc/core/errors.py.
     """

@@ -1,4 +1,4 @@
-// KpiRow — OPNL-02 (Phase 6 Plan 02 / Wave 2).
+// KpiRow — OPNL-02 (current).
 //
 // Four-up KPI tile row rendered above the panel grid on / route. Pulls
 // /api/summary every 15s via useSummary (cadence locked in lib/queries.ts).

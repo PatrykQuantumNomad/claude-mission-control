@@ -1,4 +1,4 @@
-// DecisionsCard — HPNL-01 (Phase 7 Plan 02 / Wave 1).
+// DecisionsCard — HPNL-01 (current).
 //
 // Lists pending agent decisions and lets the operator answer inline. Each row
 // expands to a textarea + Submit/Cancel; submission goes through

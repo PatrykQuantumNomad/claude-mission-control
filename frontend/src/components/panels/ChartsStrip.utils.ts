@@ -1,6 +1,6 @@
 // Pure helper for ChartsStrip — slices /api/usage/tokens?range=30d down to
 // the most recent 14 distinct days, preserving stack segments. Backend
-// observability.py Range Literal does not accept '14d' (06-RESEARCH §11)
+// observability.py Range Literal does not accept '14d' (06-design notes)
 // so the panel overfetches 30d and slices client-side.
 //
 // Reuses the same per-day collapse shape as TokenUsageCard (input / output /

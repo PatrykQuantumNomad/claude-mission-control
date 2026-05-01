@@ -1,8 +1,8 @@
-// ContextHealthCard — SKLP-03 (Plan 07-01).
+// ContextHealthCard — SKLP-03.
 //
 // Strategy: setQueryData seeds qk.contextHealth() with a fixture so the
 // PanelCard query branches resolve synchronously to the data branch (no
-// fetch round-trip needed). Reflects Phase 6 panel-test convention.
+// fetch round-trip needed). Reflects current panel-test convention.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'

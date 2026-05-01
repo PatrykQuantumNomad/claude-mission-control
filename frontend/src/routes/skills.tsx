@@ -1,4 +1,4 @@
-// Skills page (`/skills`) — Phase 7 final form.
+// Skills page (`/skills`) — current final form.
 //
 // Layout:
 //   - DecisionsCard (HPNL-01, full-width — agent decisions awaiting answer)
@@ -7,7 +7,7 @@
 //       TaskBoard         (TPNL-01)
 //       SchedulesCard     (TPNL-03; opens TPNL-04 ScheduleComposer via "+ New")
 //       SkillsRegistry    (SKLP-04)
-//       McpPanel          (SKLP-01 — Phase 6 component reused with reqId override)
+//       McpPanel          (SKLP-01 — component reused with reqId override)
 //       SkillCostCard     (SKLP-02 — v2 placeholder)
 //       ContextHealthCard (SKLP-03)
 //
@@ -19,7 +19,7 @@
 //
 // TPNL-05 EmergencyStopBanner is mounted in NavBar — visible globally.
 //
-// PlaceholderCardGrid was retired in Plan 07-04 along with the helper file;
+// PlaceholderCardGrid was retired in implementation along with the helper file;
 // every former placeholder slot now resolves to a real panel.
 
 import { createFileRoute } from '@tanstack/react-router'
@@ -51,7 +51,7 @@ function SkillsPage() {
           Skills registry, MCP servers, decisions, inbox, tasks, schedules.
         </p>
       </header>
-      {/* Full-width above-grid panels (LiveSessionsCard pattern — RESEARCH §thing-13). */}
+      {/* Full-width above-grid panels (LiveSessionsCard pattern — design notes). */}
       <DecisionsCard />
       <InboxCard />
       {/* Live grid for tasks, schedules, and the SKLP-* family + ContextHealthCard. */}

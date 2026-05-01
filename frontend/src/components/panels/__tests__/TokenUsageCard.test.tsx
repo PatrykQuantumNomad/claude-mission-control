@@ -77,7 +77,7 @@ describe('TokenUsageCard', () => {
     expect(screen.getByText('Token Usage')).toBeInTheDocument()
     // ResponsiveContainer gets width: 0 in happy-dom (no real layout) so no
     // inner SVG renders. Assert on the container class + sr-only fallback
-    // table so we know data flowed through. (Wave 3 deviation Rule 1.)
+    // table so we know data flowed through. (test-infra deviation Rule 1.)
     await waitFor(() =>
       expect(container.querySelector('.recharts-responsive-container')).not.toBeNull(),
     )

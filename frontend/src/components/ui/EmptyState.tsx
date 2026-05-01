@@ -2,7 +2,7 @@
 // with: optional icon (rendered at 48px in --cmc-text-dim via CSS), heading,
 // body, optional action slot (typically a primary Button).
 //
-// Phase 5 ships only the structural primitive; Phase 6/7 supplies the noun-
+// This ships only the structural primitive; current supplies the noun-
 // substituted body string per the UI-SPEC's "Once {data-noun} arrives it will
 // appear here" template.
 

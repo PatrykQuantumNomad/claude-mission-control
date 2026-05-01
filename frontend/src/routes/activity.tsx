@@ -1,6 +1,5 @@
-// Activity page (`/activity`) — Phase 6 Plan 05 (Wave 5) closes out Phase 6 by
-// landing the last 3 ACTV-* slots: ACTV-03 OtelPanel (SSE firehose),
-// ACTV-04 TopSkills (v2 placeholder per Plan 06-01 decision), and
+// Activity page (`/activity`) with the ACTV-* panels: ACTV-03 OtelPanel (SSE firehose),
+// ACTV-04 TopSkills (v2 placeholder per implementation decision), and
 // ACTV-05 UnifiedFailures (failed sessions w/ last error). PlaceholderCardGrid
 // is now removed from this route entirely — every ACTV-* slot is filled by a
 // real (or v2-placeholder) panel.

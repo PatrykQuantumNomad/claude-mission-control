@@ -1,4 +1,4 @@
-// ScheduleComposer — TPNL-04 (Phase 7 Plan 04 / Wave 4).
+// ScheduleComposer — TPNL-04 (current).
 //
 // Strategy mirrors TaskComposer: render the Sheet directly with open=true and
 // assert against form fields via screen queries (Sheet portals into

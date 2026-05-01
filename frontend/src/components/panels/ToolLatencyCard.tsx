@@ -1,10 +1,10 @@
-// ToolLatencyCard — OPNL-08 (Phase 6 Plan 03 / Wave 3).
+// ToolLatencyCard — OPNL-08 (current).
 //
 // Sortable DataTable: tool_name / call_count / p50 / p95 / max / error_rate
 // + Flag badge (danger when p95>5000 OR error_rate>0.05; success when
 // call_count>=10 AND p95<1000 AND error_rate=0). Pulls /api/tools/latency
 // at 30s cadence via useLatency(range). Backend already returns p50/p95/max
-// via Plan 03-04's window-function pattern; frontend just renders the values.
+// via implementation's window-function pattern; frontend just renders the values.
 
 import { useState } from 'react'
 import { Badge, DataTable, PanelCard, RangeToggle } from '../ui'

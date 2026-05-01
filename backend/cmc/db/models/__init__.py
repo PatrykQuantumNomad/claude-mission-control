@@ -1,10 +1,10 @@
 """Database models. Importing this module populates SQLModel.metadata.
 
-Per RESEARCH.md Pitfall 2: every model module MUST be imported here with
-`# noqa: F401` or `alembic revision --autogenerate` produces an empty migration
-because target_metadata in env.py would be empty.
+Every model module MUST be imported here with `# noqa: F401` or
+`alembic revision --autogenerate` produces an empty migration because
+target_metadata in env.py would be empty.
 
-The 15 imports below cover every table from 01-01-SCHEMA.md (APPROVED 2026-04-25).
+The imports below cover every database table.
 """
 from cmc.db.models.activities import Activity  # noqa: F401
 from cmc.db.models.decisions import Decision  # noqa: F401

@@ -1,7 +1,7 @@
-"""Shared response-model primitives reused across all Phase 3 router schemas.
+"""Shared response-model primitives reused across API router schemas.
 
-Per RESEARCH §Pattern 1 + Pitfall 6: Pydantic v2 needs `from_attributes=True`
-(the v1 `orm_mode` is gone). The ORMBase mixin enables ORM-row -> response-model
+Pydantic v2 needs `from_attributes=True` for ORM rows (the v1 `orm_mode` is
+gone). The ORMBase mixin enables ORM-row -> response-model
 conversion via `model_validate(orm_row)`. Plain BaseModel is used when input is
 NOT an ORM row (e.g. aggregated dicts, request bodies).
 """

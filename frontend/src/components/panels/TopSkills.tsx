@@ -1,15 +1,15 @@
-// TopSkills — ACTV-04 (Phase 6 Plan 05 / Wave 5).
+// TopSkills — ACTV-04 (current).
 //
-// SCOPED TO V2 in Phase 6 Plan 01. Decision rationale:
+// SCOPED TO V2 in current. Decision rationale:
 //   - The sessions table has no skill_id column today.
-//   - Phase 2 ingest does not emit a `claude_code.skill_invoked` OTEL event
+//   - ingestion does not emit a `claude_code.skill_invoked` OTEL event
 //     (verified: grep returns no occurrences in backend/cmc/ingest as of
 //     2026-04-27).
 //   - Heuristic-via-cwd does not work because Claude Code sessions run from
 //     the project cwd, not from inside skill folders.
 //
-// V2 plan: add a skill_id link on session_starts via Phase 2 ingest enhancement,
-// THEN add a /api/skills/usage backend route, THEN replace this placeholder
+// V2 direction: add a skill_id link on session_starts via ingestion enhancement,
+// then add a /api/skills/usage backend route, then replace this placeholder
 // with real top-N skill usage data. Until then, the card preserves the
 // requirement ID's traceability and tells the operator what's coming —
 // without speculative ingest changes.

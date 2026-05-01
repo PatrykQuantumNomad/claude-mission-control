@@ -37,10 +37,11 @@ dev = [
   "pytest-asyncio>=0.24",
   "ruff>=0.9",
   "pyright>=1.1.409",
+  "pre-commit>=4.0",
   "pytest-cov>=7.1.0",
   "bandit>=1.9.4",
   "pip-audit>=2.10.0",
-  "pytest-freezer>=0.4",   # Phase 2: deterministic time for INGST-05 local-day bucket tests
+  "pytest-freezer>=0.4",   # Deterministic time for local-day bucket tests
 ]
 redis = [
     "redis>=7.4.0",
@@ -75,8 +76,8 @@ extend-immutable-calls = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/conftest.py" = ["E402"]
-"tests/test_phase2_ingest.py" = ["E402"]
-"tests/test_phase3_system.py" = ["E402"]
+"tests/test_ingest.py" = ["E402"]
+"tests/test_system_router.py" = ["E402"]
 
 [tool.pyright]
 pythonVersion = "3.13"

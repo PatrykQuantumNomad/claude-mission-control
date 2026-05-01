@@ -1,10 +1,10 @@
-"""SETUP-04: render com.cmc.server.plist.j2 with per-machine paths.
+"""Render com.cmc.server.plist.j2 with per-machine paths.
 
 Mirrors the dispatcher/telegram plist_render pattern (string.Template, NOT
 Jinja2). The .j2 suffix is convention only — adding Jinja2 just for 3
 substitutions would inflate the runtime dependency graph.
 
-Phase 9 install.sh invokes this via the CLI entry below:
+install.sh invokes this via the CLI entry below:
     python -m cmc.app.plist_render <python_path> <repo_root>
 
 Output is written to ~/Library/LaunchAgents/com.cmc.server.plist by

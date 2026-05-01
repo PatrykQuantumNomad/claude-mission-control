@@ -1,0 +1,21 @@
+repos:
+  - repo: local
+    hooks:
+      - id: backend-typecheck
+        name: backend typecheck (pyright)
+        entry: make typecheck-backend
+        language: system
+        pass_filenames: false
+        files: ^backend/
+      - id: backend-ruff
+        name: backend lint (ruff)
+        entry: make ruff-backend
+        language: system
+        pass_filenames: false
+        files: ^backend/
+      - id: frontend-quality
+        name: frontend typecheck (tsc)
+        entry: make typecheck
+        language: system
+        pass_filenames: false
+        files: ^frontend/

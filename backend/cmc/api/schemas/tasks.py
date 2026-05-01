@@ -1,6 +1,4 @@
-"""Phase 4 Task request/response schemas — TASK-01..07.
-
-Wave 1 plan 04-03 router consumes these as already-defined contracts.
+"""Task request/response schemas.
 
 NOTE: TaskTriggerRequest is intentionally NOT defined — the trigger
 endpoint takes NO body in v1. The handler signature should omit any body

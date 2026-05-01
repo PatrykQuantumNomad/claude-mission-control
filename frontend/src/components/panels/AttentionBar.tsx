@@ -1,4 +1,4 @@
-// AttentionBar — OPNL-03 (Phase 6 Plan 02 / Wave 2; extended Phase 7 Plan 03).
+// AttentionBar — OPNL-03 (current; extended current).
 //
 // Full-width warning bar that DISAPPEARS via PanelCard's hiddenWhenEmpty=true
 // when there is nothing demanding the operator's attention. Pulls /api/attention
@@ -8,17 +8,17 @@
 //   - items.length === 0
 //   - stuck_sessions === 0
 //   - stale_dispatcher_seconds === null
-//   - pending_decisions === 0 (Plan 07-03)
-//   - failed_tasks === 0 (Plan 07-03)
+//   - pending_decisions === 0
+//   - failed_tasks === 0
 //
 // Visible content:
 //   - Badge "Stuck sessions: N" when stuck_sessions > 0
 //   - Badge "Dispatcher stale Xs" when stale_dispatcher_seconds != null
-//   - Badge "N pending decisions" when pending_decisions > 0 (Plan 07-03)
-//   - Badge "N failed tasks" when failed_tasks > 0 (Plan 07-03)
+//   - Badge "N pending decisions" when pending_decisions > 0
+//   - Badge "N failed tasks" when failed_tasks > 0
 //   - One pill per items[i] showing kind/severity/count/detail
 //
-// Plan 07-03 closes the Plan 06-02 deferral by surfacing pending_decisions
+// implementation closes the implementation deferral by surfacing pending_decisions
 // + failed_tasks (now real-data-backed in routes/system.py SAPI-04).
 
 import { Badge, PanelCard } from '../ui'

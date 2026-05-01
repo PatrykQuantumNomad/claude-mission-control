@@ -1,4 +1,4 @@
-// Global Vitest setup — Phase 5 Plan 01 (RESEARCH §Code Examples "Vitest setup file (full)").
+// Global Vitest setup — current (design notes)").
 // Three sections, in order: (a) act() bridge, (b) Radix/jsdom shims, (c) per-test cleanup.
 
 import '@testing-library/jest-dom/vitest'

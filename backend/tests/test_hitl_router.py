@@ -1,10 +1,9 @@
-"""Phase 4 HITL router tests — HITL-01..07.
+"""HITL router tests — HITL-01..07.
 
-Per Plan 03-01 per-router convention: ALL HITL-* tests live here.
-Wave 1 plan 04-02 implements the HITL router; tests below cover all 7 endpoints.
+All HITL-* tests live here. Tests below cover decisions and inbox endpoints.
 
 Pitfall awareness:
-  - r.json()["error"] (NOT "detail") — Phase 1 error handler emits {error: ...}.
+  - r.json()["error"] (NOT "detail") — the error handler emits {error: ...}.
   - tz-aware UTC datetimes when seeding (Pitfall 4).
   - HITL-03 / HITL-07 file-then-DB ordering: file write FIRST, then DB UPDATE.
   - Queue paths under repo_root() / .tmp/mission-control-queue/{decisions,inbox}/{id}.jsonl
@@ -23,10 +22,10 @@ from cmc.db.models.inbox import InboxMessage
 
 from .conftest import make_decision_row, make_inbox_row
 
-# ---------- Wave 0 smoke (kept) ----------
+# ---------- Schema smoke ----------
 
 
-def test_phase4_hitl_smoke():
+def test_hitl_schemas_smoke():
     d = DecisionCreate(dedup_key="dk-1", prompt="test")
     assert d.dedup_key == "dk-1"
     r = InboxReplyRequest(reply="yes")

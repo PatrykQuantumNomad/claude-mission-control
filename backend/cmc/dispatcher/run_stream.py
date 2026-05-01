@@ -31,9 +31,8 @@ verify against backend/cmc/db/models/decisions.py). The marker body becomes
 the prompt; options[] is left empty (the agent did not enumerate choices in
 the marker text — HITL UI presents free-form answer).
 
-Plan 08-04 will layer follow-up file→stdin injection on top of this. For
-Plan 03, stdin is opened (PIPE) but used only to send an 'interrupt' message
-on decision timeout.
+Follow-up file->stdin injection uses the same stdin pipe. Decision timeout also
+writes an interrupt message to stdin so the child can exit cleanly.
 """
 
 import asyncio
@@ -88,7 +87,7 @@ def run_stream(
     log_path = log_dir / f"task-{task_id}-stream-{int(datetime.now().timestamp())}.log"
 
     env = os.environ.copy()
-    env.pop("ANTHROPIC_API_KEY", None)  # Pitfall 8
+    env.pop("ANTHROPIC_API_KEY", None)  # scrub shell-inherited key
 
     prompt = task_row.get("description") or task_row.get("title") or ""
     cmd = [
@@ -164,10 +163,7 @@ def run_stream(
                     pass
             else:
                 # Decision answered — feed the answer back to the agent as a
-                # follow-up user message so its read loop unblocks. Plan 04's
-                # follow-up pump will replace this with richer content (queue
-                # files, multiple turns); for Plan 03 a minimal wake-up keeps
-                # the symmetric NDJSON contract verifiable in fixtures.
+                # follow-up user message so its read loop unblocks.
                 try:
                     if proc is not None and proc.stdin and not proc.stdin.closed:
                         followup = json.dumps({
@@ -281,7 +277,7 @@ def run_stream(
         else:
             _mark_status_via_loop(task_id, "done", None, sessions, loop)
     finally:
-        # LOCKED teardown order (Plan 04 inserts FollowUpPump.stop() at step 1):
+        # Teardown order:
         #   1. pump.stop() — pump must STOP writing to stdin BEFORE we close it
         #      (otherwise it could log a false "stdin closed" warning).
         #   2. Close proc.stdin (signals EOF to claude; reader unblocks).

@@ -1,19 +1,19 @@
-// End-to-end smoke test for the full Phase 5+6+7 shell.
+// End-to-end smoke test for the full future work6+7 shell.
 //
 // Boots the real <RouterProvider> over the generated routeTree (NOT an
 // in-memory createRoute mock — those are reserved for component-level tests
 // in components/ui/__tests__/*). This test exercises the entire mounted app:
 // __root.tsx (QueryClientProvider + ErrorBoundary + AppShell) → routes/index
-// (or activity / skills) → live panels (Phase 6 + 7).
+// (or activity / skills) → live panels (current + 7).
 //
 // `createMemoryHistory` gives a deterministic test environment without
 // touching the browser history API. The selector `'h1'` discriminates page
 // headings from CommandPalette items that share the same text.
 //
-// Plan 07-04 extension — Phase 7 final close-out guard:
+// implementation extension — current final close-out guard:
 //   - On `/`, `/activity`, AND `/skills`, every live panel must render real
 //     content (no "Nothing to show yet" placeholder body remains). The
-//     PlaceholderCardGrid helper file was DELETED in Plan 07-04; the only
+//     PlaceholderCardGrid helper file was DELETED in implementation; the only
 //     remaining `lucide-inbox` icons would be from PanelCard EmptyStates
 //     (which now pass NO icon, so 0 inbox icons should appear on every route).
 //   - The assertion guards against accidental regressions where a future
@@ -49,7 +49,7 @@ function makeRouter(initialEntry: string) {
   })
 }
 
-// URL-aware fetch mock — returns non-empty payloads for every Phase 6
+// URL-aware fetch mock — returns non-empty payloads for every current
 // endpoint so live panels render data, not the "Nothing to show yet" empty
 // state. Covers /api/system/health, /api/attention, /api/summary, /api/usage/*,
 // /api/sessions/*, /api/tools/*, /api/hooks/*, /api/activity/*, /api/mcp,
@@ -246,7 +246,7 @@ function makeFetchMock() {
         server_name: 'a-server',
         items: [],
       })
-    // Phase 7 Plan 01 — system state (ESTOP banner) + context/health (SKLP-03)
+    // current — system state (ESTOP banner) + context/health (SKLP-03)
     if (url.includes('/api/system/state'))
       return json({ items: { emergency_stop: '0' } })
     if (url.includes('/api/context/health'))
@@ -260,17 +260,17 @@ function makeFetchMock() {
         mcp_server_count: 1,
         hook_count: 0,
       })
-    // Phase 7 Plan 02 — HPNL panels (decisions + inbox) + SKLP panels (skills)
+    // current — HPNL panels (decisions + inbox) + SKLP panels (skills)
     if (url.startsWith('/api/decisions'))
       return json({ items: [], total: 0 })
     if (url.startsWith('/api/inbox'))
       return json({ items: [], total: 0 })
     if (url.startsWith('/api/skills'))
       return json({ items: [] })
-    // Phase 7 Plan 03 — TPNL TaskBoard (TPNL-01)
+    // current — TPNL TaskBoard (TPNL-01)
     if (url.startsWith('/api/tasks'))
       return json({ items: [], total: 0 })
-    // Phase 7 Plan 04 — TPNL SchedulesCard (TPNL-03 / TPNL-04 composer fields)
+    // current — TPNL SchedulesCard (TPNL-03 / TPNL-04 composer fields)
     if (url.startsWith('/api/schedules'))
       return json({ items: [], total: 0 })
     return json({})
@@ -306,7 +306,7 @@ describe('integration: full app', () => {
     const { findByText } = render(<RouterProvider router={router} />)
     expect(await findByText('Activity', { selector: 'h1' })).toBeInTheDocument()
     // Every ACTV-* slot now has a real (or v2-placeholder) panel; the
-    // PlaceholderCardGrid usage on /activity is gone (Plan 06-05).
+    // PlaceholderCardGrid usage on /activity is gone.
     expect(await findByText('ACTV-01')).toBeInTheDocument()
     expect(await findByText('ACTV-02')).toBeInTheDocument()
     expect(await findByText('ACTV-03')).toBeInTheDocument()
@@ -335,16 +335,16 @@ describe('integration: full app', () => {
     // Wait for one of the panels to mount.
     expect(await screen.findByText('OPNL-15')).toBeInTheDocument()
     // Same discriminator: PlaceholderCardGrid is the only consumer of the
-    // lucide-inbox EmptyState icon on the / route. Plan 06-03 deleted that
+    // lucide-inbox EmptyState icon on the / route. implementation deleted that
     // usage; this test guards against regressions.
     expect(container.querySelector('svg.lucide-inbox')).toBeNull()
   })
 
-  it('mounts /skills and shows Skills heading + every Phase 7 reqId via live PanelCard kickers', async () => {
+  it('mounts /skills and shows Skills heading + every current reqId via live PanelCard kickers', async () => {
     const router = makeRouter('/skills')
     const { findByText, container } = render(<RouterProvider router={router} />)
     expect(await findByText('Skills', { selector: 'h1' })).toBeInTheDocument()
-    // Plan 07-04 final close: every Phase 7 reqId now resolves to a live
+    // implementation final close: every current reqId now resolves to a live
     // PanelCard kicker (TPNL-02 TaskComposer is reachable via Cmd+K; TPNL-04
     // ScheduleComposer via "+ New" on SchedulesCard; TPNL-05 EmergencyStopBanner
     // is mounted in NavBar — all three are exercised in dedicated tests).
@@ -357,12 +357,12 @@ describe('integration: full app', () => {
     expect(await findByText('Context Health')).toBeInTheDocument()
     expect(await findByText('TPNL-01')).toBeInTheDocument() // TaskBoard
     expect(await findByText('Task Board')).toBeInTheDocument()
-    // Plan 07-04 retires the last placeholder slot — TPNL-03 SchedulesCard
+    // implementation retires the last placeholder slot — TPNL-03 SchedulesCard
     // is now a live panel, NOT a PlaceholderCardGrid entry.
     expect(await findByText('TPNL-03')).toBeInTheDocument()
     expect(await findByText('Schedules')).toBeInTheDocument()
     // Pitfall 10 final lockdown: PlaceholderCardGrid file was DELETED in
-    // Plan 07-04, so zero lucide-inbox icons remain on /skills (PanelCard's
+    // implementation, so zero lucide-inbox icons remain on /skills (PanelCard's
     // EmptyState passes no icon). This is the strongest possible structural
     // guard — typecheck would fail if any consumer still imported the helper.
     const inboxIcons = container.querySelectorAll('svg.lucide-inbox')

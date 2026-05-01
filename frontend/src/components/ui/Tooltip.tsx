@@ -4,7 +4,7 @@
 // AppShell, and Radix de-dupes pointer-state internally per the docs.
 //
 // The trigger uses Radix's `asChild` pattern, so the supplied child renders as
-// the actual trigger element. Phase 6/7 callers can pass an icon button, a
+// the actual trigger element. callers can pass an icon button, a
 // span, or a forwardRef'd custom component.
 
 import * as TooltipPrimitive from '@radix-ui/react-tooltip'

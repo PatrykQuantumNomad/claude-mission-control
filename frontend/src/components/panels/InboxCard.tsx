@@ -1,4 +1,4 @@
-// InboxCard — HPNL-02 (Phase 7 Plan 02 / Wave 1).
+// InboxCard — HPNL-02 (current).
 //
 // Lists unread agent-to-user messages with two row actions:
 //   - Mark read: useReadInbox (OPTIMISTIC — idempotent so safe to flip UI

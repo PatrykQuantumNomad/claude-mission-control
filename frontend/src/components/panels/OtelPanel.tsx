@@ -1,17 +1,16 @@
-// OtelPanel — ACTV-03 (Phase 6 Plan 05 / Wave 5).
+// OtelPanel — ACTV-03 (current).
 //
 // Live OTEL firehose subscription with a client-side event_name filter and a
 // connection-status pill. This is the project's first long-lived SSE consumer
 // in production — exercises useFirehose end-to-end and proves the hook is
-// reusable for SESS-05 in Phase 7+.
+// reusable for SESS-05 in future work.
 //
 // Bespoke shell (NOT PanelCard) — useFirehose returns a different shape than
 // UseQueryResult so PanelCard's skeleton/error/empty branches don't fit. The
 // Card composition below mirrors PanelCard's visual contract (kicker + title
 // + description + trailing controls).
 //
-// Filter strategy: client-side substring match (RESEARCH §SSE filter
-// strategy 2). Server-side filter would require disconnect+reconnect on
+// Filter strategy: client-side substring match (design notes// strategy 2). Server-side filter would require disconnect+reconnect on
 // every keystroke; client-side filter narrows the ring-buffered events
 // without any network churn.
 //

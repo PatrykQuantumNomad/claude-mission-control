@@ -1,4 +1,4 @@
-// ProductivityCard — OPNL-13 (Phase 6 Plan 03 / Wave 3).
+// ProductivityCard — OPNL-13 (current).
 //
 // StatList of commits / PRs / lines added / lines removed pulled from
 // /api/activity/productivity at 120s cadence via useProductivity(range).

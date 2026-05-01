@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
-// Phase 5 Plan 01 — Vitest 4 + happy-dom + RTL 16 config.
+// current — Vitest 4 + happy-dom + RTL 16 config.
 //
 // Deviation (Rule 3 — environment plumbing): the test scripts in package.json
 // run with `NODE_OPTIONS=--no-experimental-webstorage`. Node 25.x exposes a

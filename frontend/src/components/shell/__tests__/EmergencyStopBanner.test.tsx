@@ -1,4 +1,4 @@
-// EmergencyStopBanner — TPNL-05 (Plan 07-01).
+// EmergencyStopBanner — TPNL-05.
 //
 // Test strategy:
 //   - vi.useFakeTimers() so the 5_000ms re-disarm timer is deterministic.
@@ -6,7 +6,7 @@
 //   - Seed the systemState query with setQueryData when we want to short-cut
 //     the loading branch and assert the engaged-state UI.
 //
-// Behaviour exercised (per plan §Task 2 behaviour bullets):
+// Behaviour exercised:
 //   1. idle -> click -> armed (label + class change)
 //   2. armed -> 5_001ms wall clock advance -> back to idle (auto-disarm)
 //   3. armed -> click -> firing fires the emergencyStop POST

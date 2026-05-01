@@ -1,7 +1,7 @@
 // Pure helper for TokenUsageCard — collapses per-(day, model, source) rows
 // from /api/usage/tokens into a per-day summary keyed by token TYPE
 // (input/output/cache_read/cache_create). Model/source-axis stacking is a v2
-// affordance per 06-RESEARCH; v1 stacks token types only.
+// affordance per 06-design notes; v1 stacks token types only.
 
 import type { TokenUsageDailyRow } from '../../lib/api'
 

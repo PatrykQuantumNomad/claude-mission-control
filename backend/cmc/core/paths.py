@@ -5,7 +5,7 @@ resolved against `repo_root()`, NOT against `Path.cwd()`. This keeps `data/cmc.d
 and `backend/alembic.ini` pointing at the SAME files regardless of whether the
 server was started from the repo root or from `backend/`.
 
-Plan 07's app factory uses the same helper to resolve `static_dir` for the SPA mount.
+The app factory uses the same helper to resolve `static_dir` for the SPA mount.
 """
 
 from functools import lru_cache

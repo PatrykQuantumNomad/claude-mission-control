@@ -1,6 +1,6 @@
 """System router — SAPI-02..05.
 
-SAPI-01 (/api/health) stays in cmc.api.routes.health (per RESEARCH §1 Open Q9).
+SAPI-01 (/api/health) stays in cmc.api.routes.health.
 This module owns:
   - GET /system/health    -> SAPI-02
   - GET /system/state     -> SAPI-03
@@ -17,10 +17,9 @@ public read endpoint. Adding a new public key requires editing
 SSE note (FastAPI 0.136.1): the firehose endpoint is an `async def` with
 `response_class=EventSourceResponse` — FastAPI's routing layer encodes each
 yielded `ServerSentEvent` into the SSE wire format and inserts keep-alive
-comments every 15s. The plan referenced an sse_starlette-style return-the-
-generator pattern; the modern FastAPI pattern is "BE the generator". Per
-Pitfall 1: tail_otel_events checks request.is_disconnected() each loop and
-caps the stream at 60min so generators never leak.
+comments every 15s. The modern FastAPI pattern is "BE the generator".
+tail_otel_events checks request.is_disconnected() each loop and caps the
+stream at 60min so generators never leak.
 """
 
 import os
@@ -54,9 +53,8 @@ from cmc.db.models.tasks import Task
 
 router = APIRouter(tags=["system"])
 
-# SAPI-03 whitelist (per RESEARCH Open Q3 + Security Domain Information
-# Disclosure mitigation T-03-02-01). Adding new public keys requires explicit
-# code change + review.
+# SAPI-03 whitelist. Adding new public keys requires explicit code change
+# and review because system_state also stores internal operational keys.
 _SYSTEM_STATE_WHITELIST = frozenset({
     "tzname",
     "last_jsonl_sync_at",
@@ -86,7 +84,7 @@ def _coerce_value(row: SystemState):
 
     Prefers value_json when set (object/array), else falls back to the plain
     `value` string. Keeps the response shape consistent with how downstream
-    phases (4, 5) write the column.
+    writers store the column.
     """
     if row.value_json is not None:
         return row.value_json
@@ -96,8 +94,8 @@ def _coerce_value(row: SystemState):
 def _parse_ts_or_none(raw: str | None) -> datetime | None:
     """Parse an ISO-8601 timestamp string -> tz-aware UTC datetime.
 
-    Returns None on parse failure or empty input. Per Pitfall 4: treat naive
-    timestamps as UTC (matches Phase 2 INGST-04 which writes UTC ISO strings).
+    Returns None on parse failure or empty input. Treat naive timestamps as UTC
+    because ingestion and daemon tick writers persist UTC ISO strings.
     """
     if not raw:
         return None
@@ -117,12 +115,12 @@ async def system_health(
 ) -> SystemHealthResponse:
     """SAPI-02: aggregate liveness snapshot (uptime, memory, daemon ages, tz).
 
-    `status` is hard-coded to "ok" until a degradation heuristic lands in a
-    later phase (kept here so the response_model stays stable).
+    `status` is hard-coded to "ok" until a degradation heuristic lands; keep
+    the field present so the response model stays stable.
     """
     now_utc = datetime.now(UTC)
 
-    # Uptime: difference between now and lifespan-set boot_time (Plan 03-01).
+    # Uptime: difference between now and lifespan-set boot_time.
     # Defensive fallback to ~0 if state was somehow unset (should never trigger).
     boot_time = getattr(request.app.state, "boot_time", now_utc)
     uptime_seconds = max(0, int((now_utc - boot_time).total_seconds()))
@@ -221,11 +219,10 @@ async def system_state(
 async def attention(db: AsyncSession = Depends(get_session)) -> AttentionResponse:
     """SAPI-04: aggregate attention snapshot.
 
-    Plan 07-03 (Phase 7 Wave 2 part 1) closes the Plan 06-02 deferral:
-    pending_decisions / failed_tasks now reflect real DB state via SELECT
-    COUNT(*) queries scoped WHERE status='pending' (decisions) and
-    WHERE status='failed' (tasks). The response shape is unchanged
-    (Pitfall 7 — frontend never branches on schema presence).
+    pending_decisions / failed_tasks reflect real DB state via SELECT COUNT(*)
+    queries scoped WHERE status='pending' (decisions) and WHERE status='failed'
+    (tasks). The response shape is stable so the frontend never branches on
+    schema presence.
     """
     pending_decisions = (
         await db.execute(
@@ -242,7 +239,7 @@ async def attention(db: AsyncSession = Depends(get_session)) -> AttentionRespons
 
     # Stuck sessions: started >3h ago and never ended.
     # Use func.datetime("now", "-3 hours") which is SQLite-native and matches
-    # how started_at is stored (UTC ISO string from Phase 2).
+    # how started_at is stored (UTC ISO string).
     stuck_q = (
         select(func.count())
         .select_from(SessionModel)
@@ -349,7 +346,7 @@ async def firehose(
     the SSE wire format (`event: ...\\ndata: ...\\n\\n`) with keep-alive
     pings inserted every 15s on idle.
 
-    Per Pitfall 1 + Pitfall 3 (handled inside `tail_otel_events`):
+    Handled inside `tail_otel_events`:
       - request.is_disconnected() polled each iteration so the generator
         exits within ~1s of client close.
       - Stream auto-caps at 60min so generators never leak.
@@ -377,7 +374,7 @@ async def firehose(
         )
 
 
-# ---- Phase 4 ESTOP-01..04 (Plan 04-05) ----
+# ---- ESTOP-01..04 ------------------------------------------------------------
 
 
 @router.post(
@@ -449,8 +446,8 @@ async def emergency_resume(
 ) -> EmergencyResumeResponse:
     """ESTOP-04: clear the emergency_stop flag (set value='0').
 
-    Per RESEARCH A3 / Open Q3: do NOT delete the row. Update to '0' so SAPI-03
-    consumers see an explicit value rather than 'absent' which is ambiguous.
+    Do NOT delete the row. Update to '0' so SAPI-03 consumers see an explicit
+    value rather than 'absent', which is ambiguous.
     """
     now = datetime.now(UTC)
     await db.execute(

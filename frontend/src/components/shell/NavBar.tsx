@@ -26,7 +26,7 @@ export function NavBar() {
           </li>
         ))}
       </ul>
-      {/* Phase 7 Plan 01 — TPNL-05. EmergencyStopBanner is mounted in the
+      {/* current — TPNL-05. EmergencyStopBanner is mounted in the
           right-side action area so it is visible on every route from boot. */}
       <EmergencyStopBanner />
       <button
@@ -36,7 +36,7 @@ export function NavBar() {
       >
         <span aria-hidden>Cmd+K</span>
       </button>
-      {/* Phase 9 Plan 05 — TEST-04 / Q1=A. ThemeToggle ships at far right of
+      {/* current — TEST-04 / Q1=A. ThemeToggle ships at far right of
           NavBar's action area. Persists via localStorage `cmc.theme`. */}
       <ThemeToggle />
     </nav>

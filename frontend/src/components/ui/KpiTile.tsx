@@ -1,4 +1,4 @@
-// KpiTile — Phase 6 Plan 01. Display-size value + uppercase mono label with
+// KpiTile — current. Display-size value + uppercase mono label with
 // an optional subline. Used 4-up in KpiRow on the home dashboard. `mono`
 // renders the value in JetBrains Mono with tabular-nums; default is body
 // font for word values like "Healthy".

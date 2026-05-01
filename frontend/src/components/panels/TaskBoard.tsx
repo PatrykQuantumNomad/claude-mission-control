@@ -1,19 +1,19 @@
-// TaskBoard — TPNL-01 (Phase 7 Plan 03 / Wave 2).
+// TaskBoard — TPNL-01 (current).
 //
 // Single useTasks() fetch grouped client-side into 3 columns: pending, running,
 // done (failed rows merge into done with a destructive "Failed" badge).
 // awaiting_approval rows render in an above-board banner — NOT a 4th column —
-// per RESEARCH §Pitfall 11 / Open Q1 lock. The banner uses the AttentionBar
+// per design notes. The banner uses the AttentionBar
 // pattern: high-visibility band that disappears when the awaiting list is empty.
 //
-// Per-row actions respect the Phase 4 transition matrix (STATE.md L162):
+// Per-row actions respect the current transition matrix (STATE.md L162):
 //   - Approve: only on awaiting_approval rows
 //   - Rerun:   only on failed rows
 //   - Delete:  on any non-running row (DELETE backend route TASK-04 has no
 //              transition guard; UI just hides delete on running rows for
 //              ergonomics — a running task should be killed via ESTOP)
 //
-// Delete action goes through AlertDialog (Plan 07-01 primitive) because hard
+// Delete action goes through AlertDialog (implementation primitive) because hard
 // delete has no soft-FK cascade per STATE.md L211; the confirm step prevents
 // fat-finger destructive actions. Cadence is locked at 5_000ms in lib/queries.ts
 // — this panel does NOT inline refetchInterval.

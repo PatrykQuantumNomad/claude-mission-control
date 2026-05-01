@@ -1,6 +1,6 @@
 """DISP-07 marker parser — fenced-code-aware DECISION/INBOX extractor.
 
-Locked grammar (Phase 8 RESEARCH §6.7):
+Grammar:
     ^\\s*(DECISION|INBOX):\\s+(.*\\S)\\s*$  on assistant text outside fenced code blocks.
 
 Why these constraints (Pitfall 4 prevention):

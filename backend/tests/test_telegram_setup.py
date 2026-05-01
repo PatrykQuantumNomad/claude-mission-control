@@ -29,7 +29,7 @@ def test_server_plist_renders_uvicorn_command() -> None:
     assert "cmc.app.factory:create_app" in out
     assert "--factory" in out
     assert "<key>KeepAlive</key>" in out
-    # Server binds to localhost:8765 (Phase 1 architectural decision)
+    # Server binds to localhost:8765.
     assert "127.0.0.1" in out
     assert "8765" in out
     # WorkingDirectory honored
@@ -58,7 +58,7 @@ def test_server_plist_module_cli_entry(tmp_path) -> None:
 
 
 def test_dispatcher_plist_module_cli_entry(tmp_path) -> None:
-    """Phase-9 retrofit: `python -m cmc.dispatcher.plist_render` works."""
+    """`python -m cmc.dispatcher.plist_render` works."""
     import subprocess
 
     res = subprocess.run(
@@ -190,12 +190,11 @@ def test_doctor_settings_check_warn_when_missing(
 
 
 def test_doctor_telegram_skipped_when_unset() -> None:
-    """SC3 (Phase 11): doctor reads token via Settings, not bare os.environ.
+    """doctor reads token via Settings, not bare os.environ.
 
-    Pre-Phase-11 this test used monkeypatch.delenv — that only insulates
-    from os.environ, not from a real ~/.command-centre/.env on disk. Now
-    that Settings loads that file, the test injects an explicit Settings
-    instance with `_env_file=None` (no file load) and `telegram_bot_token=None`.
+    The test injects an explicit Settings instance with `_env_file=None`
+    (no file load) and `telegram_bot_token=None` so it is insulated from
+    os.environ and any real ~/.command-centre/.env on disk.
     """
     from cmc.cli.doctor import _check_telegram
     from cmc.config.settings import Settings
@@ -294,7 +293,7 @@ def test_doctor_render_includes_ansi_colors() -> None:
 
 
 def _repo_root() -> Path:
-    """backend/tests/test_phase9_setup.py → repo root (parents[2])."""
+    """backend/tests/test_telegram_setup.py -> repo root (parents[2])."""
     return Path(__file__).resolve().parents[2]
 
 

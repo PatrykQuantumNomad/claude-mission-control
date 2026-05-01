@@ -1,4 +1,4 @@
-// Theme module — Phase 9 Plan 05 Task 1 (Q1=A locked).
+// Theme module — current Task 1 (Q1=A locked).
 //
 // Minimal theme persistence layer for the dashboard. The TEST-04 contract is
 // "theme toggle persists across reload" — we satisfy that with a single

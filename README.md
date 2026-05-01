@@ -110,8 +110,10 @@ Common workflows:
 make setup              # install backend and frontend development dependencies
 make dev-backend        # run FastAPI on 127.0.0.1:8765
 make dev-frontend       # run Vite on 127.0.0.1:5173
+make hooks-install      # install backend/frontend quality checks as a pre-commit hook
 make test               # run backend and frontend unit tests
 make lint               # run backend ruff checks and frontend typecheck
+make pre-commit         # run the pre-commit quality hook across all files
 make check              # run lint, tests, frontend build, and installer dry-run
 make build              # build frontend assets and backend package artifacts
 make install-dry-run    # smoke check installer without writing files

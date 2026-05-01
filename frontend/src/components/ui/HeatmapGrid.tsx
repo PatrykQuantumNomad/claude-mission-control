@@ -1,4 +1,4 @@
-// HeatmapGrid — Phase 6 Plan 01. Hand-rolled CSS-grid heatmap (typically 30
+// HeatmapGrid — current. Hand-rolled CSS-grid heatmap (typically 30
 // cells for the 30-day session activity panel). Caller supplies a `colorScale`
 // function that maps a cell's value (and the max across the grid) to a CSS
 // color token. We pass that string directly to `style.background` so callers

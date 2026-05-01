@@ -1,12 +1,12 @@
-// ChartsStrip — ACTV-02 (Phase 6 Plan 04 / Wave 4).
+// ChartsStrip — ACTV-02 (current).
 //
 // 14-day stacked token bar chart for the /activity page. The backend
 // /api/usage/tokens Range Literal accepts only {today, 7d, 30d}; we
 // overfetch 30d and slice the last 14 days client-side via sliceLast14Days
-// (06-RESEARCH §11 mitigation — no backend change).
+// (06-design notes).
 //
 // /api/usage/tokens does not accept '14d' (Literal closed in observability.py);
-// we overfetch 30d and slice client-side per RESEARCH §11.
+// we overfetch 30d and slice client-side per design notes.
 
 import {
   Bar,
@@ -24,7 +24,7 @@ import { sliceLast14Days } from './ChartsStrip.utils'
 
 export function ChartsStrip() {
   // /api/usage/tokens does not accept '14d' (Literal closed in observability.py);
-  // we overfetch 30d and slice client-side per RESEARCH §11.
+  // we overfetch 30d and slice client-side per design notes.
   const query = useTokens('30d')
   return (
     <PanelCard<TokenUsageResponse>

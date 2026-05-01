@@ -1,8 +1,4 @@
-"""Pytest fixtures for Phase 1.
-
-Plans 04-06 will extend this with engine/session/app fixtures. For Plan 02
-we just need test settings and a tmp-path fixture for db_path.
-"""
+"""Shared pytest fixtures for backend tests."""
 
 import os
 from pathlib import Path
@@ -16,10 +12,9 @@ from cmc.config import Settings
 def clean_env(monkeypatch):
     """Strip CMC-related env vars so Settings() falls back to defaults.
 
-    Phase 11 (Pitfall A): also strip ANTHROPIC_API_KEY and TELEGRAM_* so
-    tests don't pick up developer-machine values via Settings's broadened
-    env_file tuple. Belt-and-suspenders alongside the per-call-site
-    `_env_file=None` audit.
+    Also strip ANTHROPIC_API_KEY and TELEGRAM_* so tests don't pick up
+    developer-machine values via Settings's env_file tuple. Belt-and-suspenders
+    alongside the per-call-site `_env_file=None` audit.
     """
     for k in list(os.environ.keys()):
         if k.upper() in {
@@ -40,19 +35,18 @@ def clean_env(monkeypatch):
 
 @pytest.fixture
 def tmp_db_path(tmp_path: Path) -> Path:
-    """Per-test fresh DB path. Plans 04-06 use this."""
+    """Per-test fresh DB path."""
     return tmp_path / "cmc.db"
 
 
 @pytest.fixture
 def test_settings(clean_env, tmp_db_path) -> Settings:
-    """Settings instance with a tmp DB path. Plans 04-06 use this.
+    """Settings instance with a tmp DB path.
 
     Note: tmp_db_path is absolute, so Settings' repo-root resolver leaves it untouched.
 
-    Phase 11 (Pitfall A): pass `_env_file=None` so the broadened env_file tuple
-    in Settings.model_config (which now includes ~/.command-centre/.env) cannot
-    leak the developer's real install env into test runs.
+    Pass `_env_file=None` so Settings.model_config.env_file cannot leak the
+    developer's real install env into test runs.
     """
     return Settings(_env_file=None, db_path=tmp_db_path)
 
@@ -83,7 +77,7 @@ def test_settings_with_static(test_settings, tmp_static_dir) -> Settings:
     return test_settings.model_copy(update={"static_dir": tmp_static_dir})
 
 
-# ---- Phase 2 fixtures ----
+# ---- Ingestion fixtures ----
 
 import json
 from datetime import UTC, datetime, timedelta
@@ -94,7 +88,7 @@ def fake_jsonl_dir(tmp_path: Path) -> Path:
     """Mimic the ~/.claude/projects/<project-hash>/<session>.jsonl layout.
 
     Returns a directory that contains one or more `<hash>/<session>.jsonl` files.
-    Plan 04 (scheduler) overrides Settings.jsonl_root to this dir for hermetic testing.
+    Scheduler tests override Settings.jsonl_root to this dir for hermetic testing.
     """
     root = tmp_path / "projects"
     root.mkdir()
@@ -302,14 +296,13 @@ def otlp_metric_payload() -> dict:
     }
 
 
-# ---- Phase 3 Wave 0 fixtures (Plan 03-01 Task 3) ----
+# ---- Shared app/client fixtures ----
 #
-# Promotes the Phase 2 _bootstrap_app helper to a shared `seeded_app` fixture
-# and adds a httpx ASGITransport-backed `client` fixture so all five Phase 3
-# router test files can exercise endpoints without re-bootstrapping. The
-# four `make_*` factories return plain dicts suitable for either ORM
-# construction OR raw INSERT statements (they are NOT fixtures — just module-
-# level helpers callable from any test).
+# Provides a shared `seeded_app` fixture and a httpx ASGITransport-backed
+# `client` fixture so router test files can exercise endpoints without
+# re-bootstrapping. The `make_*` factories return plain dicts suitable for
+# either ORM construction OR raw INSERT statements (they are NOT fixtures,
+# just module-level helpers callable from any test).
 
 
 import httpx
@@ -318,8 +311,7 @@ import pytest_asyncio
 
 @pytest_asyncio.fixture
 async def seeded_app(test_settings):
-    """Phase 3 shared fixture: a FastAPI app with the full router set wired in
-    via cmc.app.factory.create_app and lifespan ready to enter.
+    """FastAPI app with the full router set wired in and lifespan ready to enter.
 
     Returns (app, lifespan_cm) — caller wraps `async with cm:` to start the
     lifespan (which runs alembic upgrade + boot-time sync_once + starts the
@@ -327,8 +319,7 @@ async def seeded_app(test_settings):
 
     Hermetic guarantees:
       - jsonl_root is auto-redirected to a tmp nonexistent path when it
-        defaults to `~/.claude/projects` (mirrors Phase 2 _bootstrap_app's
-        BLOCKER-3-style protection).
+        defaults to `~/.claude/projects`.
       - static_dir is left as-is — factory.create_app skips the SPA mount
         when the directory has no index.html, which is the test default.
       - boot_time defensive write: lifespan ALREADY sets app.state.boot_time
@@ -338,7 +329,7 @@ async def seeded_app(test_settings):
         a sensible value. The lifespan WILL overwrite this on startup with
         the true `datetime.now(timezone.utc)`.
 
-    Wave 1 plans (03-02..03-05) typically destructure this fixture as:
+    Tests typically destructure this fixture as:
         app, cm = seeded_app
         async with cm:
             ... # use app.state.sessions, app.state.engine, etc.
@@ -348,8 +339,7 @@ async def seeded_app(test_settings):
     """
     from cmc.app.factory import create_app
 
-    # Mirror the Phase 2 _bootstrap_app jsonl_root override (Pitfall: never
-    # ingest user data in tests). Detect the default and replace with a
+    # Never ingest user data in tests. Detect the default and replace with a
     # tmp-path nonexistent dir so sync_once early-returns harmlessly.
     if str(test_settings.jsonl_root).endswith(".claude/projects"):
         test_settings = test_settings.model_copy(update={
@@ -365,8 +355,7 @@ async def seeded_app(test_settings):
 
 @pytest_asyncio.fixture
 async def client(seeded_app):
-    """Phase 3 shared fixture: httpx.AsyncClient bound to seeded_app via
-    ASGITransport so the lifespan is properly entered.
+    """httpx.AsyncClient bound to seeded_app via ASGITransport.
 
     Yields an httpx.AsyncClient pinned to base_url='http://testserver'.
     The lifespan runs alembic upgrade + boot-time sync (against the
@@ -475,7 +464,7 @@ def make_token_usage_bucket(
     """Return a dict suitable for TokenUsageDaily ORM construction.
 
     `day` defaults to today's date in system tz, matching the local-day bucket
-    convention from Plan 02-04.
+    convention used by ingestion rollups.
     """
     from datetime import date as _date
 
@@ -526,7 +515,7 @@ def make_tool_call(
     }
 
 
-# ---- Phase 4 factories + fixtures (Plan 04-01) ----
+# ---- Workflow factories + fixtures ----
 
 
 def make_decision_row(
@@ -603,9 +592,8 @@ def make_task_row(
 ) -> dict:
     """Return a dict suitable for Task ORM construction or raw insert.
 
-    Phase 8 addition: `timeout_s` (Optional[int]) is forwarded for DISP-05
-    classic-timeout tests. Default None preserves backward compatibility for
-    every Phase 4 caller.
+    `timeout_s` is forwarded for dispatcher classic-timeout tests. Default
+    None preserves backward compatibility for callers that do not set it.
     """
     return {
         "title": title,
@@ -696,20 +684,16 @@ def mock_anthropic_client(monkeypatch):
     return fake_client
 
 
-# ---- Phase 8 dispatcher fixtures (additive — do NOT replace Phase 4 helpers) ----
+# ---- Dispatcher fixtures ----
 
 
 @pytest.fixture
 def tmp_pid_dir_monkey(tmp_path, monkeypatch):
-    """Phase 8 variant of tmp_pid_dir: also monkeypatches cmc.core.process.pid_dir
-    AND cmc.dispatcher.state._phase4_pid_dir so dispatcher modules see the tmp
-    directory regardless of which import binding they use. Distinct from
-    Phase 4's tmp_pid_dir(tmp_path) which only returns a path without
-    monkeypatching."""
+    """PID dir fixture that also monkeypatches dispatcher PID-dir bindings."""
     d = tmp_path / "pids"
     d.mkdir()
     monkeypatch.setattr("cmc.core.process.pid_dir", lambda: d)
-    monkeypatch.setattr("cmc.dispatcher.state._phase4_pid_dir", lambda: d)
+    monkeypatch.setattr("cmc.dispatcher.state._process_pid_dir", lambda: d)
     return d
 
 
@@ -733,11 +717,7 @@ def mock_psutil_pids(monkeypatch):
 
 
 def make_task_orm(**overrides):
-    """Phase 8 variant: returns a Task ORM instance (not a dict).
-
-    Phase 4's `make_task_row` returns a dict — kept intact for Phase 4 tests.
-    New Phase 8 tests that need an ORM instance use this helper.
-    """
+    """Return a Task ORM instance instead of a dict."""
     from cmc.db.models.tasks import Task
 
     defaults = dict(
@@ -755,7 +735,7 @@ def make_task_orm(**overrides):
 
 
 def make_schedule_orm(**overrides):
-    """Phase 8 variant — Schedule ORM instance (sibling of make_task_orm)."""
+    """Return a Schedule ORM instance."""
     from cmc.db.models.schedules import Schedule
 
     now = datetime.now(UTC)

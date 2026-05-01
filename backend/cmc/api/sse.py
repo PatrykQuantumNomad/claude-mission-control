@@ -1,7 +1,6 @@
 """Shared SSE helpers for SAPI-05 firehose and SESS-05 live stream.
 
-Per RESEARCH §3 + Pitfall 1 (memory leak from un-disposed generators) and
-Pitfall 3 (cursor lifetime in long-running SSE generator):
+Generator safety rules:
   - Always check `await request.is_disconnected()` each loop iteration.
   - Exhaust query results to a list before sleeping (no held cursors).
   - Cap loop duration (60 minutes) — clients reconnect.
@@ -19,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from cmc.db.models.otel_events import OtelEvent
 
 SSE_POLL_INTERVAL_S = 1.0
-SSE_MAX_DURATION_S = 60 * 60  # 1 hour cap (Pitfall 1)
+SSE_MAX_DURATION_S = 60 * 60  # 1 hour cap
 SSE_BATCH_LIMIT = 100
 
 

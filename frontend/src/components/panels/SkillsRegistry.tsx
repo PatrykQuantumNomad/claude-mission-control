@@ -1,9 +1,9 @@
-// SkillsRegistry — SKLP-04 (Phase 7 Plan 02 / Wave 1).
+// SkillsRegistry — SKLP-04 (current).
 //
 // DataTable of skills with name / environment / autonomy columns. The
 // autonomy column is a per-row <select> dispatching usePatchSkillAutonomy
 // (OPTIMISTIC with onMutate snapshot + onError rollback + onSettled
-// invalidation — RESEARCH §Pattern 2). The component just dispatches; the
+// invalidation — design notes). The component just dispatches; the
 // optimistic logic + 60s polling cadence live in lib/queries.ts.
 
 import { DataTable, PanelCard } from '../ui'

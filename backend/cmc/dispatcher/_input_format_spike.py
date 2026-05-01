@@ -1,14 +1,14 @@
-"""Wave-2 spike for RESEARCH §A2 / §Open Q2 — stdin NDJSON shape verification.
+"""One-time stdin NDJSON shape verification for the claude CLI.
 
 Verifies the claude CLI accepts the SYMMETRIC NDJSON shape on stdin so DISP-09's
-follow-up pump (Plan 04) can rely on it. The verified shape is:
+follow-up pump can rely on it. The verified shape is:
 
     {"type":"user","message":{"role":"user","content":"<text>"}}\\n
 
-If this returns ('rejected', ...), Plan 04 falls back to RESEARCH §A2 contingency:
+If this returns ('rejected', ...), fallback options are:
   (a) introduce claude-agent-sdk dep,
   (b) use `claude --resume` per follow-up, or
-  (c) defer DISP-09 to a later phase.
+  (c) defer follow-up injection.
 
 This module is NOT a runtime dependency of run_stream — it is a one-time
 operator/CI verification. run_stream uses the shape DIRECTLY (no spike call).

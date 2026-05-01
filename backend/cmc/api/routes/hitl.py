@@ -15,10 +15,10 @@ Seven endpoints under /api:
   POST   /inbox/{inbox_id}/read              — HITL-06 idempotent mark-read
   POST   /inbox/{inbox_id}/reply             — HITL-07 file-then-DB reply
 
-Pitfall 1 — file-then-DB ordering invariant
+File-then-DB ordering invariant
   HITL-03 and HITL-07 write the JSONL queue line FIRST, then issue the DB
   UPDATE. If the file write raises (FS full, EPERM, etc.), the DB UPDATE
-  never happens, so the dispatcher (Phase 8) can safely resend. The reverse
+  never happens, so the dispatcher can safely resend. The reverse
   order is the bug pattern: a successful DB UPDATE followed by a failed file
   write would mark a decision answered with no queue record for downstream
   consumers.
@@ -27,14 +27,14 @@ Queue path layout (cmc.core.queue is the single source of truth):
   repo_root() / .tmp/mission-control-queue/decisions/{decision_id}.jsonl
   repo_root() / .tmp/mission-control-queue/inbox/{inbox_id}.jsonl
 
-Pitfall 6 — partial-unique conflict refetch
+Partial-unique conflict refetch
   When the SQLite ON CONFLICT DO NOTHING path elides the insert, .returning()
   yields no row. The fallback SELECT MUST include `status='pending'` in its
   WHERE clause to land on the live row (the partial-unique scope) — without
   it, an answered row with the same dedup_key would shadow the pending one.
 
 Error contract — the app HTTPException handler emits {error: detail}, NOT
-the FastAPI default {detail: ...}. See STATE.md Plan 03-03 note.
+the FastAPI default {detail: ...}.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -128,7 +128,7 @@ async def create_decision(
     row = result.scalar_one_or_none()
     if row is None:
         # Conflict: the partial-unique index suppressed the INSERT.
-        # Pitfall 6: MUST scope to status='pending' or an answered row could shadow.
+        # MUST scope to status='pending' or an answered row could shadow.
         existing = (
             await db.execute(
                 select(Decision).where(
@@ -155,8 +155,8 @@ async def answer_decision(
 ) -> DecisionAnswerResponse:
     """HITL-03: append answer to queue file FIRST, then UPDATE the DB row.
 
-    File-then-DB ordering (Pitfall 1): if the queue write raises, the DB row
-    stays in `pending` so the dispatcher can resend.
+    File-then-DB ordering: if the queue write raises, the DB row stays in
+    `pending` so the dispatcher can resend.
     """
     row = (
         await db.execute(select(Decision).where(Decision.id == decision_id))
@@ -271,8 +271,8 @@ async def reply_inbox(
 ) -> InboxReplyResponse:
     """HITL-07: append reply to queue file FIRST, then UPDATE the DB row.
 
-    File-then-DB ordering (Pitfall 1) mirrors HITL-03. Phase 8 dispatcher
-    consumes .tmp/mission-control-queue/inbox/{id}.jsonl.
+    File-then-DB ordering mirrors HITL-03. The dispatcher consumes
+    .tmp/mission-control-queue/inbox/{id}.jsonl.
     """
     row = (
         await db.execute(select(InboxMessage).where(InboxMessage.id == inbox_id))

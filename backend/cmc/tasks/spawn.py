@@ -1,4 +1,4 @@
-"""TASK-07 dispatcher trigger. RESEARCH §Pattern 6 + Pitfalls 2 + 10."""
+"""TASK-07 dispatcher trigger."""
 
 import subprocess
 from datetime import UTC, datetime
@@ -13,11 +13,10 @@ if TYPE_CHECKING:
 def spawn_dispatcher_oneshot(settings: "Settings") -> int:
     """Spawn a detached one-shot dispatcher run, return its PID. Does NOT wait.
 
-    Pitfall 2: start_new_session=True isolates the dispatcher from FastAPI's
-    signal disposition (Ctrl+C on uvicorn no longer kills the dispatcher).
-    Pitfall 10: stdout/stderr file handle is opened, passed to Popen, then
-    CLOSED locally in finally — subprocess keeps its own dup so the FD does
-    not leak.
+    start_new_session=True isolates the dispatcher from FastAPI's signal
+    disposition (Ctrl+C on uvicorn no longer kills the dispatcher). The
+    stdout/stderr file handle is opened, passed to Popen, then closed locally in
+    finally; subprocess keeps its own dup so the FD does not leak.
     """
     log_dir = repo_root() / ".tmp" / "mission-control-queue" / "dispatcher-logs"
     log_dir.mkdir(parents=True, exist_ok=True)

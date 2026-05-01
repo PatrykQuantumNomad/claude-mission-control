@@ -1,6 +1,6 @@
 """Response schemas for SAPI-* (system) routes.
 
-DTOs supplied here for Wave 1 plan 03-02 to consume:
+DTOs supplied here:
   - SystemHealthResponse: GET /api/system/health (SAPI-02)
   - SystemStateResponse:  GET /api/system/state  (SAPI-03)
   - AttentionResponse:    GET /api/system/attention (SAPI-04)
@@ -54,9 +54,8 @@ class AttentionItem(BaseModel):
 class AttentionResponse(BaseModel):
     """SAPI-04: aggregate attention snapshot.
 
-    Per Pitfall 7: Phase-4-deferred fields are present but explicitly zero
-    (pending_decisions, failed_tasks, stuck_sessions, stale_dispatcher_seconds)
-    so frontend can render the tray shape without conditional schema branches.
+    Optional aggregate fields are present even when their backing tables are
+    empty, so frontend can render the tray without conditional schema branches.
     """
 
     items: list[AttentionItem]
@@ -82,7 +81,7 @@ class FirehoseEvent(BaseModel):
     attrs_mcp_tool: str | None = None
 
 
-# ---- Phase 4 ESTOP extension (Plan 04-01) ----
+# ---- Emergency stop extension ------------------------------------------------
 
 
 class EmergencyStopResponse(BaseModel):

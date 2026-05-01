@@ -1,16 +1,13 @@
-"""Phase 8 entry point: `python -m cmc.dispatcher.oneshot`.
+"""Dispatcher entry point: `python -m cmc.dispatcher.oneshot`.
 
-Invoked by launchd every 120s (see RESEARCH §Pattern 3 plist + DISP-12) or
-on-demand via TASK-07's subprocess.Popen trigger (Phase 4). Runs ONE
-heartbeat cycle and exits.
+Invoked by launchd every 120s or on-demand via TASK-07's subprocess.Popen
+trigger. Runs ONE heartbeat cycle and exits.
 
 Exit codes:
   0 — cycle ran (possibly with no work; emergency-stop counts as 0 too).
   1 — uncaught exception during cycle setup or run; tick stamp may be missing.
 
-Replaces the Phase 4 stub. See 08-01-SUMMARY for the full Wave-1 contract that
-run_one_cycle implements; Plan 08-04 wires the per-task fan-out (currently
-claim flips status='running' but no subprocess is spawned by the cycle itself).
+run_one_cycle owns claiming work, autonomy checks, and per-task runner fan-out.
 """
 
 import asyncio

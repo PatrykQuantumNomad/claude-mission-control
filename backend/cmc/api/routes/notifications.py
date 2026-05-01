@@ -12,7 +12,7 @@ The /_resolve indirection exists because Telegram callback_data is capped at
 the callback. Instead, the snooze button encodes (kind, entity_id) and the
 handler GETs /_resolve to find the matching notif_id, then PATCHes /snooze.
 The (kind, entity_id, chat_id) triple maps to a unique row via the
-notification_log UNIQUE constraint already in place from Phase 1.
+notification_log UNIQUE constraint.
 
 Duration whitelist (Q7 = single 30m for v1; the table is wider so tests can
 exercise alternates without code change):

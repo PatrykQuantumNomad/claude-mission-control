@@ -1,7 +1,7 @@
-// SchedulesCard — TPNL-03 (Phase 7 Plan 04 / Wave 4).
+// SchedulesCard — TPNL-03 (current).
 //
 // Lists schedules with cronstrue-rendered preview, enabled toggle (optimistic
-// via usePatchSchedule per Plan 07-01 hooks), next/last run RelativeTime, and
+// via usePatchSchedule per implementation hooks), next/last run RelativeTime, and
 // per-row inline run-history disclosure. The history pulls via
 // useScheduleRuns(id, open) — Pitfall 9 lock: we only fetch /runs once the
 // user expands the row, so 50 schedules don't trigger 50 GETs on mount.

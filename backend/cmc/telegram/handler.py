@@ -6,9 +6,9 @@ Pitfall P2: persist telegram_offset BEFORE processing batch (crash safety
 already-processed updates because Telegram's getUpdates contract is "give
 me everything with update_id >= offset").
 
-Pitfall P12 (Phase 11 update): shell-inherited ANTHROPIC_API_KEY is
-scrubbed (untrusted); Settings-sourced ANTHROPIC_API_KEY is re-injected
-(trusted). Trust boundary is Settings, not os.environ.
+Shell-inherited ANTHROPIC_API_KEY is scrubbed (untrusted); Settings-sourced
+ANTHROPIC_API_KEY is re-injected (trusted). Trust boundary is Settings, not
+os.environ.
 
 Pitfall P3: reply text is sent via api.send_message which deliberately
 does NOT accept a parse_mode parameter (plain text only). Do not bypass
@@ -16,7 +16,7 @@ this by adding a parse_mode here.
 
 The loop:
   1. Read system_state.telegram_offset (default 0).
-  2. Long-poll api.get_updates(token, offset, timeout=25).
+  2. Long-poll api.get_updates(token, offset, poll_timeout_s=25).
   3. For each non-empty batch:
        - Compute new_offset = max(update_id) + 1.
        - UPSERT it BEFORE processing the updates (Pitfall P2).
@@ -99,12 +99,11 @@ def is_user_allowed(from_id: int | str, settings: Settings) -> bool:
 def relay_text_to_claude(text: str, settings: Settings) -> str:
     """Spawn `claude -p TEXT --bare --output-format text` synchronously.
 
-    Pitfall P12 (Phase 11 trust-boundary refinement): shell-inherited
-    ANTHROPIC_API_KEY values are scrubbed (untrusted source). Settings-sourced
-    values (loaded from ~/.command-centre/.env via Settings.env_file tuple)
-    are then re-injected because Settings IS the trust boundary. Dispatcher
-    run_classic.py intentionally does NOT do this re-inject — it uses
-    subscription auth via ~/.claude/, not API key.
+    Shell-inherited ANTHROPIC_API_KEY values are scrubbed as untrusted input.
+    Settings-sourced values (loaded from ~/.command-centre/.env via
+    Settings.env_file tuple) are then re-injected because Settings is the trust
+    boundary. Dispatcher run_classic.py intentionally does NOT do this re-inject;
+    it uses subscription auth via ~/.claude/, not API key.
 
     Returns the stdout text (or a friendly error string on
     timeout/non-zero exit). Always returns a string — never raises —
@@ -346,7 +345,7 @@ async def run_handler_loop(
                 updates = await api.get_updates(
                     token,
                     offset=offset,
-                    timeout=settings.telegram_poll_timeout_s,
+                    poll_timeout_s=settings.telegram_poll_timeout_s,
                     client=telegram_client,
                 )
             except Exception as exc:

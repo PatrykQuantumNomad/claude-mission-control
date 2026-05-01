@@ -1,7 +1,7 @@
 """Skill scanner package — walks ~/.claude/skills/ and project skills/.
 
-Pitfall 5 hardening: scanner is symlink-safe, one-level deep, capped at
-MAX_SKILLS=1000 entries.
+The scanner is symlink-safe, one-level deep, and capped at MAX_SKILLS=1000
+entries.
 
 Public surface:
     find_skill_files(root)          -> Iterator[Path]

@@ -1,7 +1,6 @@
-"""Phase 3 sessions-router tests (SESS-*).
+"""Sessions router tests (SESS-*).
 
-Phase 3 per-router convention: every SESS-* test lives in this file.
-See test_phase3_system.py module docstring for the full convention.
+Every SESS-* test lives in this file.
 """
 
 import json
@@ -24,7 +23,7 @@ from .conftest import (
     make_tool_call,
 )
 
-# ---------- Wave 0 smoke (kept) ----------
+# ---------- Schema smoke ----------
 
 
 def test_sessions_schemas_importable() -> None:
@@ -184,7 +183,7 @@ async def test_sess02_unknown_session_returns_404(client) -> None:
 async def test_sess03_live_fallback_no_live_state(client) -> None:
     """SESS-03: derive live from sessions table when no live_state row exists.
 
-    Pitfall 8 fallback per RESEARCH Open Q1.
+    Fallback behavior when live_state has no row for the session.
     """
     now = datetime.now(UTC)
     live_sid = _new_uuid()

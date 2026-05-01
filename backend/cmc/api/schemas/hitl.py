@@ -1,8 +1,6 @@
-"""Phase 4 HITL request/response schemas — HITL-01..07.
+"""HITL request/response schemas.
 
-Wave 1 plan 04-02 router consumes these as already-defined contracts.
-
-DTOs that wrap ORM rows inherit ORMBase (Pitfall 5: needs from_attributes=True).
+DTOs that wrap ORM rows inherit ORMBase so Pydantic can validate from ORM attributes.
 Plain BaseModel only for request bodies and synthetic responses.
 """
 
@@ -47,7 +45,7 @@ class DecisionCreate(BaseModel):
 
 class DecisionAnswerRequest(BaseModel):
     answer: str = Field(min_length=1, max_length=10000)
-    # Per RESEARCH A7: Literal beats free-text for cleaner UI typing.
+    # Literal beats free-text for cleaner UI typing.
     answered_by: Literal["dashboard", "telegram", "cli"] = "dashboard"
 
 

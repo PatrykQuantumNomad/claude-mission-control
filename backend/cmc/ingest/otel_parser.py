@@ -4,7 +4,7 @@ INGST-08: MCP attribute extraction has TWO paths:
   1. `tool_parameters` attribute (only set when client-side OTEL_LOG_TOOL_DETAILS=1)
      contains a JSON-stringified blob with `mcp_server_name` and `mcp_tool_name` keys.
   2. Fallback: split `tool_name` on `__` (works without OTEL_LOG_TOOL_DETAILS=1)
-     using cmc.ingest.jsonl_parser.split_mcp (Plan 02-02).
+     using cmc.ingest.jsonl_parser.split_mcp.
 
 These helpers are deliberately pure: no DB, no FastAPI, no async. They make
 the router layer trivial to unit-test without a TestClient.
@@ -14,7 +14,7 @@ import json
 import logging
 from datetime import UTC, datetime
 
-from cmc.ingest.jsonl_parser import split_mcp  # reuse Plan 02-02 helper
+from cmc.ingest.jsonl_parser import split_mcp
 
 log = logging.getLogger(__name__)
 
@@ -56,12 +56,12 @@ def parse_unix_nano(s: str | int | None) -> datetime | None:
 def extract_mcp_attrs(record: dict) -> tuple[str | None, str | None]:
     """Return (mcp_server, mcp_tool) for an OTLP log record, or (None, None).
 
-    Strategy (research §2 + INGST-08):
+    Strategy:
       1. Read `tool_name` attribute. If it doesn't start with `mcp__`, return (None, None).
       2. Try `tool_parameters` attribute (JSON-stringified) — present only when
          the client-side env var `OTEL_LOG_TOOL_DETAILS=1` is set. Pull
          `mcp_server_name` + `mcp_tool_name` from that JSON if present.
-      3. Fallback: split `tool_name` on `__` via Plan 02-02's split_mcp helper.
+      3. Fallback: split `tool_name` on `__` via split_mcp helper.
     """
     attrs = iter_attrs(record.get("attributes"))
     tool_name = (attrs.get("tool_name") or {}).get("stringValue") or ""

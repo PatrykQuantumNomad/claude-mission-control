@@ -1,4 +1,4 @@
-// TokenUsageCard — OPNL-05 (Phase 6 Plan 03 / Wave 3).
+// TokenUsageCard — OPNL-05 (current).
 //
 // Stacked daily bar chart of token usage broken out by token TYPE
 // (input/output/cache_read/cache_create). Pulls /api/usage/tokens at the
@@ -6,7 +6,7 @@
 // owned by lib/queries.ts, NEVER inlined here.
 //
 // Accessibility: chart wraps in <figure aria-label="Daily token breakdown">
-// with a screen-reader-only fallback table (06-RESEARCH §risk register).
+// with a screen-reader-only fallback table (06-design notes).
 // Model/source-axis stacking deferred to v2.
 
 import { useState } from 'react'

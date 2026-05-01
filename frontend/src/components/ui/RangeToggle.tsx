@@ -1,11 +1,11 @@
-// RangeToggle — Phase 6 Plan 01. Segmented control for switching between
+// RangeToggle — current. Segmented control for switching between
 // today / 7d / 30d windows. Controlled component (value + onChange); when
 // `persistKey` is provided the selection round-trips through lib/storage
 // under `cmc.filter.<key>.range` so reloading the page returns to the same
 // window the user last picked.
 //
 // className-passthrough + variant modifier for the active button matches
-// the Phase 5 forwardRef shape (Plan 05-02 entry contract).
+// the current forwardRef shape (implementation entry contract).
 
 import { useEffect } from 'react'
 import { storage } from '../../lib/storage'

@@ -23,13 +23,12 @@ Manual edits over autogenerate output:
 - Added _column_exists helper for FOUND-03 (idempotent ADD COLUMN check)
 """
 
-from typing import Sequence
+from collections.abc import Sequence
 
 import sqlalchemy as sa
 import sqlmodel
 from alembic import op
 from sqlalchemy import inspect
-
 
 # revision identifiers, used by Alembic.
 revision: str = "0001_initial"

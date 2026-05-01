@@ -25,6 +25,7 @@ FRONTEND_PORT ?= 5173
 # shells can pin tool paths without editing the Makefile.
 UV ?= uv
 PNPM ?= pnpm
+PRE_COMMIT ?= pre-commit
 CMC_HOME ?= $(CURDIR)
 INSTALL_PREFIX ?= $(HOME)/.command-centre
 
@@ -118,8 +119,19 @@ typecheck-backend: ## Run backend Python typecheck.
 .PHONY: lint
 lint: lint-backend typecheck ## Run backend lint and frontend typecheck.
 
+.PHONY: hooks-install
+hooks-install: ## Install git pre-commit quality hooks.
+	cd "$(BACKEND_DIR)" && "$(UV)" run "$(PRE_COMMIT)" install --config ../.pre-commit-config.yaml
+
+.PHONY: pre-commit
+pre-commit: ## Run pre-commit quality hooks across all files.
+	cd "$(BACKEND_DIR)" && "$(UV)" run "$(PRE_COMMIT)" run --all-files --config ../.pre-commit-config.yaml
+
 .PHONY: lint-backend
-lint-backend: typecheck-backend ## Run backend Ruff checks and Python typecheck.
+lint-backend: typecheck-backend ruff-backend ## Run backend Ruff checks and Python typecheck.
+
+.PHONY: ruff-backend
+ruff-backend: ## Run backend Ruff checks.
 	cd "$(BACKEND_DIR)" && "$(UV)" run ruff check $(RUFF_ARGS)
 
 .PHONY: security-backend

@@ -1,4 +1,4 @@
-// SchedulesCard — TPNL-03 (Phase 7 Plan 04 / Wave 4).
+// SchedulesCard — TPNL-03 (current).
 //
 // Strategy: setQueryData seeds qk.schedules() with a fixture so PanelCard
 // resolves synchronously to its data branch. useScheduleRuns is verified to

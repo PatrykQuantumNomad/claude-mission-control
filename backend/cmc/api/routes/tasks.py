@@ -15,17 +15,17 @@ Seven endpoints in two URL families:
 
 Status transition validation
   TASK-03 delegates legal-target validation to the pure-function state machine
-  in cmc.tasks.transitions (Wave 0 — Plan 04-01). The matrix is the single
-  source of truth; router code never inlines its own allow-list. TASK-05
-  (approve) and TASK-06 (rerun) bypass the matrix because their target state
-  is fixed (always 'pending') and they validate the SOURCE state explicitly:
+  in cmc.tasks.transitions. The matrix is the single source of truth; router
+  code never inlines its own allow-list. TASK-05 (approve) and TASK-06 (rerun)
+  bypass the matrix because their target state is fixed (always 'pending') and
+  they validate the SOURCE state explicitly:
   TASK-05 requires 'awaiting_approval', TASK-06 requires 'failed'.
 
 Subprocess detachment (TASK-07)
   cmc.tasks.spawn.spawn_dispatcher_oneshot uses subprocess.Popen with
-  start_new_session=True (RESEARCH Pattern 6 + Pitfalls 2 + 10) so that
-  Ctrl+C on the FastAPI server does NOT propagate to the dispatcher. argv
-  comes from Settings.dispatcher_oneshot_cmd (list[str], NEVER shell=True —
+  start_new_session=True so Ctrl+C on the FastAPI server does NOT propagate
+  to the dispatcher. argv comes from Settings.dispatcher_oneshot_cmd (list[str],
+  NEVER shell=True —
   T-04-03-01 mitigation: no command injection surface).
 
   The trigger endpoint takes NO body in v1; TaskTriggerRequest was deliberately
@@ -33,7 +33,7 @@ Subprocess detachment (TASK-07)
   anti-pattern. Handler signature is `request: Request` only.
 
 Error contract — the app HTTPException handler emits {error: detail}, NOT
-the FastAPI default {detail: ...}. See STATE.md Plan 03-03 note.
+the FastAPI default {detail: ...}.
 """
 
 from datetime import UTC, datetime
@@ -211,7 +211,7 @@ async def approve_task(
     return TaskApproveResponse(id=task_id, status="pending", approved_at=now)
 
 
-# ---------- TASK-08 (Phase 10): POST /api/tasks/{id}/reject ----------
+# ---------- TASK-08: POST /api/tasks/{id}/reject ----------
 
 
 @router.post("/tasks/{task_id}/reject", response_model=TaskRejectResponse)
@@ -219,12 +219,11 @@ async def reject_task(
     task_id: int,
     db: AsyncSession = Depends(get_session),
 ) -> TaskRejectResponse:
-    """Phase 10: cancel an awaiting_approval task — used by Telegram approval-card 🛑 Reject.
+    """Cancel an awaiting_approval task — used by Telegram approval-card Reject.
 
     400 when the source state is not 'awaiting_approval' — the dashboard / Telegram
     should never offer Reject outside that state, but the server enforces defensively.
-    Bypasses validate_transition (matches approve_task / rerun_task convention; see
-    Phase 10 RESEARCH §"Audit Correction").
+    Bypasses validate_transition to match the approve_task / rerun_task convention.
     """
     row = (
         await db.execute(select(Task).where(Task.id == task_id))
@@ -250,8 +249,8 @@ async def rerun_task(
     """TASK-06: reset failed -> pending and clear run-state columns.
 
     Cleared on rerun: started_at, ended_at, error_message. `pid` and
-    `stdout_path` are intentionally NOT cleared here — the dispatcher (Phase 8)
-    will overwrite them on the next run; preserving the previous values gives
+    `stdout_path` are intentionally NOT cleared here — the dispatcher will
+    overwrite them on the next run; preserving the previous values gives
     operators a chance to inspect the failed run's logs even after the rerun
     button is clicked.
     """
@@ -282,8 +281,8 @@ async def rerun_task(
 async def trigger_dispatcher(request: Request) -> TaskTriggerResponse:
     """TASK-07: spawn a detached one-shot dispatcher run, return its PID.
 
-    No body — the action is parameterless in v1. (TaskTriggerRequest was
-    deliberately omitted from Wave 0 — see schemas/tasks.py docstring.)
+    No body — the action is parameterless in v1. TaskTriggerRequest is
+    deliberately omitted; see schemas/tasks.py docstring.
 
     202 Accepted because the dispatcher runs ASYNC of this response: by the
     time the JSON returns, the subprocess is already detached (start_new_session=True)

@@ -1,8 +1,8 @@
 """Test fake of stream-mode `claude` for DISP-06/07/08 tests.
 
 Emits NDJSON events on stdout (one event per line, mirroring the production
-shape captured in RESEARCH §Pattern 4). Reads NDJSON from stdin so a future
-follow-up pump (Plan 04) can echo a user-message back into the stream.
+stream shape). Reads NDJSON from stdin so the follow-up pump can echo a
+user-message back into the stream.
 
 Invocation contract (mirrors fake_claude_classic where applicable):
   argv: -p PROMPT [--output-format stream-json] [--input-format stream-json]

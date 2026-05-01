@@ -14,7 +14,7 @@ import { NavBar } from '../NavBar'
 // We bootstrap the routes programmatically (not via file-route convention) to
 // keep the test self-contained.
 //
-// Plan 07-01: NavBar now mounts <EmergencyStopBanner /> which calls
+// Note: NavBar now mounts <EmergencyStopBanner /> which calls
 // useSystemState — needs a QueryClientProvider to mount. We wrap the
 // RouterProvider with a fresh QC and stub fetch to a 200/empty response.
 function makeRouter() {
@@ -79,7 +79,7 @@ describe('NavBar', () => {
     expect(getByText('Skills')).toBeInTheDocument()
     expect(getByLabelText('Open command palette (Cmd+K)')).toBeInTheDocument()
     expect(getByRole('navigation', { name: 'Primary' })).toBeInTheDocument()
-    // Plan 07-01 — TPNL-05 banner mounted globally, visible from boot.
+    // implementation — TPNL-05 banner mounted globally, visible from boot.
     expect(getByRole('button', { name: /Emergency stop/i })).toBeInTheDocument()
   })
 })

@@ -1,17 +1,17 @@
-// AlertDialog — Phase 7 Plan 01 (Wave 0). Radix wrapper for destructive
-// confirmation dialogs (initial consumer: TaskBoard delete, Wave 2). Mirrors
+// AlertDialog — current. Radix wrapper for destructive
+// confirmation dialogs (initial consumer: TaskBoard delete, later work). Mirrors
 // Sheet.tsx's structure but uses @radix-ui/react-alert-dialog (NOT
 // react-dialog) — AlertDialog enforces an action+cancel button pattern and
 // applies role="alertdialog" so screen readers announce the entire content
 // immediately rather than just the title.
 //
-// Aria contract (Pitfall 5 — RESEARCH §accessibility):
+// Aria contract (Pitfall 5 — design notes):
 //   - aria-labelledby is auto-wired via useId() to the Title id
 //   - aria-describedby is conditional on a description being passed
 //   - Radix portals to document.body so test queries MUST go via
 //     document.body.querySelectorAll('[role="alertdialog"]')
 //
-// CSS classes hook into the styles.css "Phase 7 Wave 0" section
+// CSS classes hook into the styles.css "current" section
 // (.cmc-alertdialog-overlay / .cmc-alertdialog / __title / __desc / __actions).
 // actionVariant defaults to 'destructive' — the common case is a delete-confirm.
 

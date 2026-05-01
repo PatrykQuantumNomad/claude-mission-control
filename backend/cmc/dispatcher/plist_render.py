@@ -1,17 +1,15 @@
-"""DISP-12: render the launchd LaunchAgent plist with per-machine paths.
+"""Render the dispatcher launchd LaunchAgent plist with per-machine paths.
 
-Runs at install time (manual or scripted via Phase 9). Output is written to
-~/Library/LaunchAgents/com.cmc.dispatcher.plist by the operator after
-inspection.
+Runs at install time. Output is written to
+~/Library/LaunchAgents/com.cmc.dispatcher.plist by the operator after inspection.
 
 Why string.Template (not Jinja2): adding Jinja2 just for a few placeholders
 would inflate the runtime dependency graph. The template only needs three
 substitutions (python_path, python_path_dir, repo_root); string.Template's
 $var syntax covers it without escaping headaches inside the XML.
 
-The template file uses the .j2 suffix as a CONVENTION — it is NOT processed
-by Jinja2. (Renaming to .tmpl would be cleaner; left as .j2 to match the
-file_modified contract in the plan.)
+The template file uses the .j2 suffix as a convention — it is NOT processed by
+Jinja2.
 
 Pitfall 8 reminder: ANTHROPIC_API_KEY is intentionally absent from the
 template's EnvironmentVariables. Operators set it via `launchctl setenv` if
@@ -62,11 +60,9 @@ def render_plist(python_path: str | Path, repo_root_path: str | Path) -> str:
 def main() -> None:
     """CLI entry: `python -m cmc.dispatcher.plist_render <python> <root>`.
 
-    Phase-9 deviation against Plan 08-02 (additive, non-behavior-breaking):
-    existing `from cmc.dispatcher.plist_render import render_plist` callers
-    are unaffected. The retrofit gives Phase 9 install.sh a uniform
-    `python -m cmc.<x>.plist_render` CLI surface across all four renderers
-    (server, dispatcher, telegram-notifier, telegram-handler).
+    Existing `from cmc.dispatcher.plist_render import render_plist` callers are
+    unaffected. The CLI gives install scripts a uniform
+    `python -m cmc.<x>.plist_render` surface across all renderers.
     """
     import sys
 

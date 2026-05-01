@@ -1,4 +1,4 @@
-// AgentFanoutCard — OPNL-11 (Phase 6 Plan 03 / Wave 3).
+// AgentFanoutCard — OPNL-11 (current).
 //
 // Lists sessions running the Agent tool with fanout count + RelativeTime.
 // When `title` is null, falls back to `session_id.slice(0,8)…` rendered in

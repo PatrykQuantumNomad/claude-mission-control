@@ -1,9 +1,9 @@
-// Phase 6 Plan 01: typed query-key factory + per-panel hooks + follow-up
+// Typed query-key factory + per-panel hooks + follow-up
 // mutation. Polling cadences (refetchInterval / staleTime) are encoded HERE,
 // never inlined in panel components — so the cadence policy lives in exactly
 // one observable site.
 //
-// Cadence buckets (RESEARCH §Polling Cadence Policy):
+// Cadence buckets:
 //   5s   — live system: SystemHealth ticker, LiveSessions
 //   10s  — Attention bar
 //   15s  — Today summary KPIs
@@ -67,7 +67,7 @@ export const qk = {
   heatmap: (range: Range) => ['activity', 'heatmap', range] as const,
   failures: (range: Range) => ['sessions', 'failures', range] as const,
   sessionsList: (params: SessionsListParams) => ['sessions', 'list', params] as const,
-  // Phase 7 Plan 01 (Wave 0) — keys for HITL/Tasks/Schedules/Skills/Context/SystemState
+  // current — keys for HITL/Tasks/Schedules/Skills/Context/SystemState
   decisions: (status?: string) =>
     ['decisions', { status: status ?? 'pending' }] as const,
   inbox: (unread?: boolean) =>
@@ -292,16 +292,16 @@ export function useFollowUpMessage() {
 }
 
 // ============================================================================
-// Phase 7 Plan 01 (Wave 0) — HITL / Tasks / Schedules / Skills / Context /
+// current — HITL / Tasks / Schedules / Skills / Context /
 // SystemState hooks + mutations. Cadence + optimistic policy are encoded
 // HERE (single source of truth — panels never inline refetchInterval or
-// optimistic config). Cadence buckets locked from RESEARCH §Polling Cadence:
+// optimistic config). Cadence buckets locked from Design note:
 //   5_000ms  — useDecisions, useTasks, useSystemState (live decision queue)
 //   10_000ms — useInbox (less-urgent agent-to-user messages)
 //   30_000ms — useSchedules, useScheduleRuns (drawer-open lazy)
 //   60_000ms — useSkills, useContextHealth (slow-changing catalog state)
 //
-// Optimistic policy (Pitfall 2 — RESEARCH §Patterns):
+// Optimistic policy (Pitfall 2 — design notes):
 //   - useReadInbox: idempotent "mark as read" → optimistic, snapshot rollback
 //   - usePatchTask (status only): idempotent transition → optimistic
 //   - usePatchSchedule (enabled toggle only): idempotent → optimistic
@@ -515,7 +515,7 @@ export function useRerunTask() {
 }
 
 /** TASK-07 — trigger dispatcher (NOT per-task; backend dispatches whatever
- * is ready). RESEARCH §Summary correction 3. */
+ * is ready). design notes. */
 export function useTriggerDispatcher() {
   const qc = useQueryClient()
   return useMutation({
@@ -535,7 +535,7 @@ export function useCreateSchedule() {
   })
 }
 
-/** SCHD-03 — patch. Optimistic for `enabled` toggle ONLY (per plan behavior). */
+/** SCHD-03 — patch. Optimistic for `enabled` toggle ONLY. */
 export function usePatchSchedule() {
   const qc = useQueryClient()
   return useMutation({
@@ -577,7 +577,7 @@ export function useDeleteSchedule() {
 }
 
 /** SCHD-06 — NL→cron via Claude Haiku. Surfaces 503 body literal verbatim
- * on error (V11 — RESEARCH §Open Q6). */
+ * on error (V11 — design notes). */
 export function useParseNlCron() {
   return useMutation({
     mutationFn: (body: NLCronRequest) => api.schedulesParseNl(body),
@@ -586,7 +586,7 @@ export function useParseNlCron() {
 
 // ---- Mutations: Skills ----------------------------------------------------
 
-/** SKILL-03 — patch autonomy. OPTIMISTIC with rollback (RESEARCH §Pattern 2). */
+/** SKILL-03 — patch autonomy. OPTIMISTIC with rollback (design notes). */
 export function usePatchSkillAutonomy() {
   const qc = useQueryClient()
   return useMutation({
@@ -653,8 +653,7 @@ export function useEmergencyResume() {
   })
 }
 
-// Suppress unused-import warning for DecisionListItem / InboxListItem when
-// Phase 7 panels (Plans 07-02..) don't yet consume them — Phase 7 plans
-// add panels that import these row types alongside the response types.
+// Suppress unused-import warning for DecisionListItem / InboxListItem until
+// panels need these row types alongside the response types.
 // Compile-time noop: re-export under a private alias.
-export type _Phase7Reexports = DecisionListItem | InboxListItem
+export type _PanelRowReexports = DecisionListItem | InboxListItem

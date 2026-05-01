@@ -1,4 +1,4 @@
-// McpPanel — OPNL-15 (Phase 6 Plan 03 / Wave 3).
+// McpPanel — OPNL-15 (current).
 //
 // Server list with per-server CollapsibleSection drill-down to the per-tool
 // table. Each row shows server name + counts + percentile latency + Slow/Fast
@@ -13,15 +13,15 @@
 // expires.
 //
 // Path-traversal hardening: encodeURIComponent(server_name) lives inside
-// api.mcpServerTools (Plan 06-01 task 1). No additional sanitization here.
+// api.mcpServerTools (implementation task 1). No additional sanitization here.
 //
-// File location at components/panels/McpPanel.tsx so Phase 7 SKLP-01 can
+// File location at components/panels/McpPanel.tsx so current SKLP-01 can
 // import the same component without moving files.
 //
-// Plan 07-02 deviation (Rule 1): added optional `reqId` prop with default
+// implementation deviation (Rule 1): added optional `reqId` prop with default
 // "OPNL-15" so /skills can pass `reqId="SKLP-01"` to surface the SKLP-01
 // kicker in the panel header. Existing callers (routes/index.tsx) continue
-// to work without modification — the default preserves the Phase 6 contract.
+// to work without modification — the default preserves the current contract.
 
 import { Badge, CollapsibleSection, DataTable, PanelCard } from '../ui'
 import type { DataTableColumn } from '../ui'

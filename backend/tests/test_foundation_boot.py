@@ -1,10 +1,7 @@
-"""Phase 1 boot tests. Each Plan in Phase 1 appends tests here.
+"""Foundation boot tests.
 
-Plan 02 (this file): FOUND-04 (Settings load + pretty error + repo-root path resolution)
-Plan 04 (DB engine): FOUND-02 (engine, pragmas, table creation)
-Plan 05 (models + migration): FOUND-02 (15 tables present), FOUND-03 (column-exists helper)
-Plan 06 (app factory + lifespan): FOUND-01 (app factory), FOUND-05 (lifespan disposes engine)
-Plan 07 (smoke): FOUND-06 (SPA root + deep link + /api/health not shadowed)
+Coverage includes settings, database engine setup, migrations, app factory,
+lifespan startup/shutdown, health routes, and SPA routing behavior.
 """
 
 from pathlib import Path
@@ -85,7 +82,7 @@ def test_settings_absolute_db_path_preserved(clean_env, monkeypatch, tmp_path):
     assert s.db_path == abs_db
 
 
-# ---- Phase 11 (Plan 11-01): SC3+SC4 root — env_file tuple + anthropic_api_key ----
+# ---- Settings: env_file tuple + anthropic_api_key ----
 
 
 def _write_env(p: Path, content: str) -> None:
@@ -94,13 +91,13 @@ def _write_env(p: Path, content: str) -> None:
 
 
 def test_settings_anthropic_api_key_default_none():
-    """SC4 (Phase 11): anthropic_api_key field exists with default None when no env file loads."""
+    """anthropic_api_key defaults to None when no env file loads."""
     s = Settings(_env_file=None)
     assert s.anthropic_api_key is None
 
 
 def test_settings_model_config_includes_command_centre_env():
-    """SC3+SC4 root (Phase 11): Settings.model_config.env_file is a tuple
+    """Settings.model_config.env_file is a tuple
     containing both the repo `.env` AND a string ending in
     `.command-centre/.env` resolved against the operator's actual home.
 
@@ -161,7 +158,7 @@ def test_settings_env_file_tuple_rightmost_wins(tmp_path, monkeypatch):
     assert s.anthropic_api_key == "sk-from-install"
 
 
-# ---- FOUND-02 (Plan 04): engine + pragmas ----
+# ---- FOUND-02: engine + pragmas ----
 
 
 @pytest.mark.asyncio
@@ -213,7 +210,7 @@ async def test_sessionmaker_yields_working_session(test_settings):
         await engine.dispose()
 
 
-# ---- FOUND-02 + FOUND-03 (Plan 05): all 15 tables created via Alembic ----
+# ---- FOUND-02 + FOUND-03: all 15 tables created via Alembic ----
 
 
 @pytest.mark.asyncio
@@ -288,7 +285,7 @@ def test_column_exists_helper_signature():
     assert list(sig.parameters.keys()) == ["table", "column"]
 
 
-# ---- FOUND-05 (Plan 06): lifespan ----
+# ---- FOUND-05: lifespan ----
 
 
 @pytest.mark.asyncio
@@ -350,9 +347,9 @@ async def test_lifespan_disposes_on_shutdown(test_settings):
 async def test_lifespan_uses_repo_root_anchored_alembic_ini(test_settings, monkeypatch, tmp_path):
     """BLOCKER 1 regression: lifespan finds alembic.ini regardless of cwd.
 
-    Plan 02's model_validator makes settings.alembic_ini_path absolute. The
-    lifespan must trust that path even when cwd has been changed (e.g., when
-    started from `cd backend && uvicorn ...`).
+    The settings model_validator makes settings.alembic_ini_path absolute.
+    The lifespan must trust that path even when cwd has been changed (e.g.,
+    when started from `cd backend && uvicorn ...`).
     """
     from fastapi import FastAPI
 
@@ -369,7 +366,7 @@ async def test_lifespan_uses_repo_root_anchored_alembic_ini(test_settings, monke
         assert app.state.engine is not None
 
 
-# ---- FOUND-01 (Plan 06): app factory + health route ----
+# ---- FOUND-01: app factory + health route ----
 
 
 def test_create_app_returns_fastapi(test_settings):
@@ -409,7 +406,7 @@ async def test_health_route_returns_ok(test_settings):
             assert resp.json() == {"status": "ok"}
 
 
-# ---- FOUND-06 (Plan 07): SPA mount ----
+# ---- FOUND-06: SPA mount ----
 
 
 @pytest.mark.asyncio
@@ -498,11 +495,10 @@ def test_create_app_skips_mount_if_static_dir_missing(test_settings, tmp_path):
 def test_static_mount_after_routers(test_settings_with_static):
     """BLOCKER 2 + Pitfall 8 regression: SPA mount at "/" exists AND comes AFTER
     BOTH `/api/health` AND the OTLP routes (/v1/logs, /v1/metrics) in the route
-    table. Replaces Plan 06's `test_routers_registered_before_static_mount_slot`.
+    table.
 
-    Plan 02-03 extension: after raw_routers() landed, OTLP routes mount at the
-    ROOT path (no /api prefix). They MUST still register before the SPA mount
-    or the static handler at "/" shadows them.
+    OTLP routes mount at the ROOT path (no /api prefix). They MUST still
+    register before the SPA mount or the static handler at "/" shadows them.
     """
     from cmc.app import create_app
     app = create_app(settings=test_settings_with_static)
@@ -523,10 +519,10 @@ def test_static_mount_after_routers(test_settings_with_static):
             spa_mount_idx = i
     assert health_idx is not None, "Expected /api/health route to be registered"
     assert otlp_logs_idx is not None, (
-        "Expected /v1/logs to be registered (Plan 02-03 raw_routers)"
+        "Expected /v1/logs to be registered as a raw router"
     )
     assert otlp_metrics_idx is not None, (
-        "Expected /v1/metrics to be registered (Plan 02-03 raw_routers)"
+        "Expected /v1/metrics to be registered as a raw router"
     )
     assert spa_mount_idx is not None, "Expected SPA Mount (name='spa') to be registered"
     assert health_idx < spa_mount_idx, (

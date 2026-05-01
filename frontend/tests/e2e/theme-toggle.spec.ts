@@ -1,6 +1,6 @@
 // TEST-04 — Theme toggle persists across reload.
 //
-// The Phase 9 Plan 05 / Q1=A contract is "theme toggle persists" — tested
+// The current / Q1=A contract is "theme toggle persists" — tested
 // here by:
 //   1. Open `/` with a clean localStorage (default = dark).
 //   2. Assert <html data-theme="dark">.

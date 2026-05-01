@@ -1,8 +1,8 @@
-// SkillCostCard — SKLP-02 v2 placeholder (Phase 7 Plan 02 / Wave 1).
+// SkillCostCard — SKLP-02 v2 placeholder (current).
 //
-// SCOPED TO V2. Decision rationale (07-RESEARCH §Open Q-Defer):
-//   - Phase 2 ingest does not emit a `claude_code.skill_invoked` OTEL event.
-//   - The TopSkills v2-deferral pattern (Phase 6 Plan 05) is canonical for
+// SCOPED TO V2. Decision rationale (07-design notes):
+//   - ingestion does not emit a `claude_code.skill_invoked` OTEL event.
+//   - The TopSkills v2-deferral pattern (current) is canonical for
 //     placeholder cards that preserve reqId traceability without speculative
 //     ingest changes. SkillCostCard mirrors that shape exactly.
 //

@@ -4,7 +4,7 @@
 // activity the operator currently produces.
 //
 // Token choice: styles.css defines a single var(--cmc-accent-blue) (no
-// status-green-2..5 token ladder). Per Plan 06-04 §Step 1, fall back to the
+// status-green-2..5 token ladder). Per implementation §Step 1, fall back to the
 // blue accent with progressive opacity. Zero-value cells use the surface-2
 // neutral so the calendar negative space stays visually quiet.
 

@@ -1,4 +1,4 @@
-// LiveSessionsCard — OPNL-04 (Phase 6 Plan 02 / Wave 2).
+// LiveSessionsCard — OPNL-04 (current).
 //
 // Lists active sessions and opens a Sheet drawer with the tool timeline +
 // follow-up message form when a row is clicked. Cadences are owned by

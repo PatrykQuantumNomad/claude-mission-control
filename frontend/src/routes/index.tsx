@@ -1,5 +1,4 @@
-// Command page (`/`) — Phase 5 Plan 04 (Wave 3 page grids) +
-// Phase 6 Plans 02 (Wave 2 top-strip) and 03 (Wave 3 analytical grid).
+// Command page (`/`) with the top-strip and analytical-grid panels.
 //
 // Layout:
 //   1. Page header (gradient title)
@@ -8,7 +7,7 @@
 //   4. AttentionBar      (OPNL-03)  │  (AttentionBar disappears via
 //   5. LiveSessionsCard  (OPNL-04)  ┘   PanelCard hiddenWhenEmpty)
 //   6. .cmc-card-grid containing OPNL-05..15 live analytical panels
-//      (the Plan 05-04 placeholder helper is no longer used here — its last
+//      (the placeholder helper is no longer used here — its last
 //       consumer for / was the OPNL-05..15 slot list, now superseded.)
 
 import { createFileRoute } from '@tanstack/react-router'

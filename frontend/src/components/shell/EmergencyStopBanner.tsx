@@ -1,7 +1,7 @@
 // EmergencyStopBanner — TPNL-05. Inline 2-step arm-and-confirm button mounted
 // globally in NavBar (visible from boot on every route).
 //
-// State machine (Pitfall 1 — RESEARCH §Pattern 3):
+// State machine (Pitfall 1 — design notes):
 //   idle    -> click -> armed     (start 5_000ms re-disarm timer)
 //   armed   -> click -> firing    (POST /api/system/emergency-stop)
 //   armed   -> 5_000ms timer fires -> idle (auto-rearm; user must reconfirm intent)
@@ -38,7 +38,7 @@ export function EmergencyStopBanner() {
   const resumeMut = useEmergencyResume()
 
   // SystemStateResponse.items is Record<string, unknown>; the backend returns
-  // emergency_stop as the literal '1' / '0' string per Plan 04-01 schema.
+  // emergency_stop as the literal '1' / '0' string per implementation schema.
   const engaged =
     (flag.data?.items?.emergency_stop as unknown as string | undefined) === '1'
 

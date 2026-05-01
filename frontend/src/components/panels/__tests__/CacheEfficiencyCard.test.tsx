@@ -50,7 +50,7 @@ describe('CacheEfficiencyCard', () => {
     expect(screen.getByText('Cache Efficiency')).toBeInTheDocument()
     await waitFor(() => expect(screen.getByText('84.2%')).toBeInTheDocument())
     // ResponsiveContainer gets width: 0 in happy-dom; assert on container class
-    // instead of svg (Wave 3 deviation — Rule 1 test infra).
+    // instead of svg (test-infra deviation — Rule 1 test infra).
     expect(container.querySelector('.recharts-responsive-container')).not.toBeNull()
   })
 

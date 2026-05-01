@@ -1,9 +1,6 @@
-"""Phase 3 observability-router tests (OBSV-*).
+"""Observability router tests (OBSV-*).
 
-Phase 3 per-router convention: every OBSV-* test lives in this file.
-See test_phase3_system.py module docstring for the full convention.
-
-Plan 03-04 appended OBSV-01..10 endpoint tests below the Wave-0 smoke.
+Every OBSV-* test lives in this file.
 """
 
 from datetime import UTC, date, datetime, timedelta
@@ -43,7 +40,7 @@ def test_observability_schemas_importable() -> None:
     )
 
 
-# ---- Plan 03-04 helper utilities ----
+# ---- Helper utilities ----
 
 
 async def _seed_rows(app, table_name: str, rows: list[dict]) -> None:
@@ -57,11 +54,10 @@ async def _seed_rows(app, table_name: str, rows: list[dict]) -> None:
     SQLite Date column type requires actual `date` instances.
 
     For `otel_events` and `tools`, auto-seeds missing parent `sessions` rows
-    so FK enforcement (PRAGMA foreign_keys=1 from Phase 1 engine listener)
-    doesn't reject the insert. The auto-seeded sessions use `started_at` set
-    to `datetime.now(UTC)` minus 5 minutes so they fall inside any reasonable
-    test range. Real ingestion always creates the session row before the
-    event row, so this matches production semantics.
+    so FK enforcement doesn't reject the insert. The auto-seeded sessions use
+    `started_at` set to `datetime.now(UTC)` minus 5 minutes so they fall inside
+    any reasonable test range. Real ingestion always creates the session row
+    before the event row, so this matches production semantics.
     """
     from cmc.db.base import SQLModel
 
@@ -109,7 +105,7 @@ async def _seed_rows(app, table_name: str, rows: list[dict]) -> None:
             await conn.execute(insert(table).values(**row))
 
 
-# ---- Plan 03-04: OBSV-01..05 (Task 1) ----
+# ---- OBSV-01..05 ----
 
 
 async def test_obsv_01_usage_tokens_range_filter(client) -> None:
@@ -439,7 +435,7 @@ async def test_obsv_05_hook_cross_session_no_pairing(client) -> None:
         assert it["paired_duration_ms_p50"] is None
 
 
-# ---- Plan 03-04: OBSV-06..10 (Task 2) ----
+# ---- OBSV-06..10 ----
 
 
 async def test_obsv_06_sessions_by_project_rollup(client) -> None:

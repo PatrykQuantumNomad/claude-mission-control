@@ -1,13 +1,13 @@
-// ActivityHeatmap — ACTV-01 (Phase 6 Plan 04 / Wave 4).
+// ActivityHeatmap — ACTV-01 (current).
 //
 // 30-day GitHub-style daily activity grid. Each cell is one day; color is
 // scaled by sessions count (5 buckets via heatmapColorScale). Hover shows
 // day + sessions + tokens_effective in a Tooltip. Refreshes every 300s
 // (cadence owned by lib/queries.ts useHeatmap — never inlined here).
 //
-// Composition rules (entry contract for Wave 1+):
+// Composition rules (entry contract for later work):
 //   - Wraps PanelCard<HeatmapResponse>
-//   - Renders the <HeatmapGrid> primitive (Plan 06-01) for the cell layout
+//   - Renders the <HeatmapGrid> primitive for the cell layout
 //   - Imports useHeatmap from lib/queries (refetchInterval lives there)
 
 import { PanelCard, HeatmapGrid } from '../ui'

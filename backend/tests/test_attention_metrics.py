@@ -1,14 +1,7 @@
-"""Phase 7 Plan 03 — SAPI-04 real-data tweak (decisions + tasks counts).
+"""Attention metric tests for decision and task counts.
 
-Plan 06-02 deferred populating `pending_decisions` and `failed_tasks` in the
-/api/attention payload (STATE.md L227 — `routes/system.py L231-232`). Plan
-07-03 closes that deferral: the two literal `= 0` values are replaced with
-real SELECT COUNT(*) queries scoped WHERE status='pending' (decisions) and
-WHERE status='failed' (tasks).
-
-The frontend AttentionBar render extension lands atomically with this
-backend change so the UI can never sit in a "renders zeros but no data"
-drift state (RESEARCH §Pitfall 7 + Open Q3 — single-plan atomic landing).
+The /api/attention payload reports real SELECT COUNT(*) values scoped WHERE
+status='pending' for decisions and WHERE status='failed' for tasks.
 """
 
 import pytest

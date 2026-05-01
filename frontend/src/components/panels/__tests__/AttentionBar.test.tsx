@@ -101,8 +101,8 @@ describe('AttentionBar', () => {
     expect(container.querySelector('.cmc-attention-bar')).not.toBeNull()
   })
 
-  // Plan 07-03 — pending_decisions + failed_tasks render extension.
-  it('renders "N pending decisions" badge when pending_decisions > 0 (Plan 07-03)', async () => {
+  // implementation — pending_decisions + failed_tasks render extension.
+  it('renders "N pending decisions" badge when pending_decisions > 0', async () => {
     const client = makeClient()
     client.setQueryData(qk.attention(), {
       ...empty,
@@ -118,7 +118,7 @@ describe('AttentionBar', () => {
     )
   })
 
-  it('renders "1 failed task" badge when failed_tasks=1 (Plan 07-03)', async () => {
+  it('renders "1 failed task" badge when failed_tasks=1', async () => {
     const client = makeClient()
     client.setQueryData(qk.attention(), {
       ...empty,

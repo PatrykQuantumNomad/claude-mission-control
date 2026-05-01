@@ -1,8 +1,8 @@
 """TELE-02 + TELE-04 — notifier dispatch + dedup + snooze + rerun cleanup.
 
-Uses the Phase 8 `_bootstrap_db` helper pattern (alembic-upgrade a fresh
-engine, return engine + sessionmaker) rather than `seeded_app` because the
-notifier is a DB-only module — no FastAPI lifespan needed.
+Uses a local `_bootstrap_db` helper (alembic-upgrade a fresh engine, return
+engine + sessionmaker) rather than `seeded_app` because the notifier is a
+DB-only module — no FastAPI lifespan needed.
 
 Pitfall P6 enforcement: dedup test re-runs the cycle against the same DB
 state and asserts ZERO new sendMessage calls; rowcount-driven INSERT
@@ -30,7 +30,7 @@ from cmc.telegram import notifier
 async def _bootstrap_db(test_settings):
     """Per-test fresh engine + alembic upgrade + sessionmaker.
 
-    Mirrors backend/tests/test_phase8_dispatcher.py::_bootstrap_db. Caller is
+    Mirrors backend/tests/test_dispatcher.py::_bootstrap_db. Caller is
     responsible for awaiting engine.dispose() at teardown.
     """
     from alembic import command
@@ -59,18 +59,17 @@ async def _bootstrap_db(test_settings):
 def _mock_client(captured: list):
     """httpx.AsyncClient backed by MockTransport.
 
-    Captures Telegram /sendMessage calls into `captured` (the test contract
-    pre-Phase-11). Phase 11 SC5 added a GET /api/inbox?unread=true probe
-    inside notifier._gather_candidates — that probe is answered with an
-    empty {items: []} payload here so it is invisible to tests that count
-    Telegram sends. Fall-through 200 OK for everything else preserves the
-    catch-all behavior pre-Phase-11 tests rely on.
+    Captures Telegram /sendMessage calls into `captured`. The notifier also
+    probes GET /api/inbox?unread=true; that probe is answered with an empty
+    {items: []} payload here so it is invisible to tests that count Telegram
+    sends. Fall-through 200 OK for everything else preserves the catch-all
+    behavior existing tests rely on.
     """
 
     def handler(req: httpx.Request) -> Response:
-        # Phase 11 SC5: serve the notifier's inbox probe with an empty
-        # response so existing dedup/snooze/full-cycle tests that don't
-        # exercise the inbox path stay deterministic.
+        # Serve the notifier's inbox probe with an empty response so existing
+        # dedup/snooze/full-cycle tests that don't exercise the inbox path stay
+        # deterministic.
         if req.url.path == "/api/inbox" and req.method == "GET":
             return Response(200, json={"items": [], "total": 0})
         body = req.content.decode("utf-8") if req.content else ""
@@ -219,7 +218,7 @@ async def test_notifier_snooze_blocks_resend(test_settings):
 async def test_notifier_rerun_cleanup_allows_resend(test_settings):
     """failed→running transition deletes stale failure row; second failure re-notifies.
 
-    Sequence (RESEARCH §D3):
+    Sequence:
       1. Task fails → notification_log row {kind=failure, status=sent}.
       2. User reruns → task status flips back to 'running'.
       3. Notifier cycle A: cleanup_rerun_failures sees task.status='running'
@@ -476,7 +475,7 @@ def test_oneshot_notifier_module_imports_clean():
 
 
 # =========================================================================
-# Phase 11 — SC5 (interp A): HTTP-symmetric inbox discovery
+# HTTP-symmetric inbox discovery
 # =========================================================================
 
 

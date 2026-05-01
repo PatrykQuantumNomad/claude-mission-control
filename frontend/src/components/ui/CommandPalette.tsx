@@ -2,14 +2,14 @@
 // Cmd+K (and Ctrl+K) hotkey. Mounted once at AppShell level so the binding
 // fires regardless of the active route.
 //
-// Effect cleanup is mandatory (RESEARCH §Pitfall 3) — React 19 StrictMode
+// Effect cleanup is mandatory (design notes) — React 19 StrictMode
 // double-invokes effects in dev, and without removeEventListener we'd register
 // the handler twice and Cmd+K would toggle twice per press.
 //
 // "Quick task" opens the global TaskComposer (TPNL-02) via the
-// TaskComposerProvider context that AppShell wraps the tree with. Phase 7
-// Plan 03 wired this — earlier comments referenced "TPNL-03" by mistake;
-// the composer is TPNL-02 (Schedules slide-out is TPNL-04, Wave 3 territory).
+// TaskComposerProvider context that AppShell wraps the tree with. current
+// implementation wired this — earlier comments referenced "TPNL-03" by mistake;
+// the composer is TPNL-02 (Schedules slide-out is TPNL-04, later work).
 //
 // Empty-state body and input placeholder copy are verbatim from
 // UI-SPEC §Copywriting — do not paraphrase without re-reading the spec.

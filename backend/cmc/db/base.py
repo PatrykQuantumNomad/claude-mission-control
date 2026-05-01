@@ -1,6 +1,4 @@
-"""Base SQLModel re-export. Plan 05 will populate `cmc.db.models` with table classes
-that inherit from SQLModel. Alembic env.py imports this module to access metadata.
-"""
+"""Base SQLModel re-export used by model classes and Alembic metadata."""
 from sqlmodel import SQLModel
 
 __all__ = ["SQLModel"]

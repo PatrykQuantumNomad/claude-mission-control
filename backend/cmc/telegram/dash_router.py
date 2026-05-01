@@ -1,7 +1,7 @@
 """Telegram callback_data → backend HTTP route mapper. Pure function — no IO.
 
-The handler (Plan 09-03) decodes each callback_query's `data` field via
-`decode_callback`, then maps the verb to a backend route via `route()`.
+The handler decodes each callback_query's `data` field via `decode_callback`,
+then maps the verb to a backend route via `route()`.
 The handler is responsible for the actual HTTP dispatch against
 http://127.0.0.1:8765 (or whatever Settings.host:port resolves to).
 

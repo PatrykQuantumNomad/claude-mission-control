@@ -1,9 +1,9 @@
-"""Phase 7 Plan 01 — SKLP-03 GET /api/context/health.
+"""Context router tests for GET /api/context/health.
 
 Read-only endpoint that scans ~/.claude/settings.json + ~/.claude/CLAUDE.md
 and returns aggregate counts + redacted secret-key NAMES (never values).
 
-Threat model (PLAN.md <threat_model>):
+Threat model:
   - T-07-01-01 (Information Disclosure): redact case-insensitive matches of
     *KEY* / *TOKEN* / *SECRET* / *PASSWORD* in key names; defense-in-depth
     schema has NO field that carries values.

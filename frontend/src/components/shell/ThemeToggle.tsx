@@ -1,11 +1,11 @@
-// ThemeToggle — Phase 9 Plan 05 Task 1 (TEST-04).
+// ThemeToggle — current Task 1 (TEST-04).
 //
 // Single-button dark/light toggle, mounted in NavBar's right-side action
 // area. Round-trips through lib/theme.ts so the localStorage key (`cmc.theme`)
 // and the data-theme attribute stay in sync.
 //
-// Q1=A locked: this is the minimal palette flip per the plan. Light theme is
-// functional, not polished; visual polish is deferred to v2.
+// This is the minimal palette flip. Light theme is functional, not polished;
+// visual polish is deferred to v2.
 //
 // Inline SVGs (sun + moon) — keep the bundle small and avoid a new icon
 // dependency. The existing Lucide library could supply icons, but for ~30 LOC

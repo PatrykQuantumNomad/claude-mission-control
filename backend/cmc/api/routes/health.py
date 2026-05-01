@@ -18,7 +18,7 @@ infrastructure_router = APIRouter()
 async def health(session: AsyncSession = Depends(get_session)) -> dict:
     """Liveness check — confirms the DB is reachable.
 
-    Phase 1: minimal. Phase 3 (SAPI-02) adds /api/system/health with uptime/memory/etc.
+    Use /api/system/health for the richer uptime, memory, and daemon-age snapshot.
     """
     await session.execute(text("SELECT 1"))
     return {"status": "ok"}

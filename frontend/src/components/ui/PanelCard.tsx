@@ -1,6 +1,6 @@
-// PanelCard — Phase 6 Plan 01. Generic panel shell that wraps Card and owns
+// PanelCard — current. Generic panel shell that wraps Card and owns
 // the four canonical render branches (skeleton / error / empty / data) keyed
-// off a TanStack Query result. Every Phase 6/7 panel composes this primitive
+// off a TanStack Query result. Every current panel composes this primitive
 // so loading + empty + error copy lives at exactly ONE observable site
 // instead of being duplicated per panel.
 //

@@ -1,4 +1,4 @@
-"""PID-file scan + ps validation — RESEARCH Pattern 7 + Pitfall 4."""
+"""PID-file scan + ps validation for emergency stop."""
 
 import os
 import signal
@@ -55,10 +55,9 @@ def emergency_stop_all(pid_directory: Path | None = None) -> StopSummary:
     """Scan pid_directory (default: repo .tmp/.../pids/), validate via ps,
     SIGTERM matching PIDs. Returns {terminated, skipped, missing} lists.
 
-    ESTOP-01: SIGTERM (NOT SIGKILL) so the dispatcher's own shutdown
-    handler can run. Pitfall 4: race window between validate + kill is
-    partly mitigated by treating ProcessLookupError as 'missing'; full
-    mitigation deferred to Phase 9.
+    ESTOP-01: SIGTERM (NOT SIGKILL) so the dispatcher's own shutdown handler
+    can run. The race window between validate + kill is partly mitigated by
+    treating ProcessLookupError as 'missing'.
 
     `pid_directory` parameter exists for tests (override to tmp dir).
     """

@@ -1,17 +1,16 @@
 """Sessions router — SESS-01..07.
 
-Decisions locked here (no CONTEXT.md exists for Phase 3):
+Design notes:
   - SESS-03 (live) derives from `sessions` table (ended_at IS NULL AND started_at
-    > now-5min) per RESEARCH Pitfall 8 + Open Question 1. Phase 8 dispatcher
-    will write live_state once it ships; this router prefers live_state when
-    present and falls back gracefully.
+    > now-5min). When live_state exists, this router prefers it; otherwise it
+    falls back gracefully to session timestamps.
   - SESS-04 returns 404 when no live_state row.
   - SESS-05 emits SSE with empty heartbeat / current_message poll based on
     live_state presence.
   - SESS-06 queue path: repo_root() / .tmp/mission-control-queue/messages/{sid}.jsonl
-    per Open Question 8.
+    so the dispatcher can pick it up.
   - SESS-07 today summary uses STRFTIME(..., 'localtime') for the bucket key
-    (Pitfall 4 mitigation: single source of truth for the local-day window).
+    as the single source of truth for the local-day window.
 """
 
 import asyncio
@@ -45,7 +44,7 @@ from cmc.db.models.tools import ToolCall
 router = APIRouter(tags=["sessions"])
 
 # UUID format guard for any session_id path param. Path traversal mitigation
-# per RESEARCH Security Domain V11: rejects `../` / non-hex characters with 400.
+# rejects `../` / non-hex characters with 400.
 _UUID_RE = re.compile(
     r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 )
@@ -135,9 +134,8 @@ async def session_details(
 async def live_sessions(db: AsyncSession = Depends(get_session)):
     """SESS-03: sessions active in the last 5 minutes.
 
-    Per RESEARCH Pitfall 8 + Open Question 1: Phase 2 doesn't write live_state;
-    Phase 8 dispatcher will. Until then, derive "live" from the sessions table:
-    a session is live if it hasn't ended (ended_at IS NULL) AND started recently
+    Derive "live" from the sessions table when live_state is absent: a session
+    is live if it hasn't ended (ended_at IS NULL) AND started recently
     (started_at > now-5min). When a live_state row exists for the session,
     prefer its last_activity_at + state + current_tool.
 
@@ -174,7 +172,7 @@ async def today_summary(db: AsyncSession = Depends(get_session)):
 
     Uses STRFTIME(..., 'localtime') as the SINGLE source of truth for the
     today-window bucket key — both the WHERE clauses and the response.date
-    field derive from the same call (Pitfall 4 mitigation).
+    field derive from the same call.
     """
     today_q = text(
         """
@@ -226,8 +224,7 @@ async def live_session_state(
 ):
     """SESS-04: snapshot of a session's live_state row.
 
-    Returns 400 for malformed session_id, 404 when no live_state row exists
-    (graceful degradation while Phase 8 dispatcher is unimplemented).
+    Returns 400 for malformed session_id, 404 when no live_state row exists.
     """
     if not _UUID_RE.match(session_id):
         raise HTTPException(status_code=400, detail="invalid session_id format")
@@ -250,8 +247,7 @@ def _format_sse(event: str, data: dict, *, retry: int | None = None) -> bytes:
     Per the SSE spec each frame ends with a blank line (\\n\\n). FastAPI's
     EventSourceResponse helper has its own format helper but is awkward to
     use without `response_class=`; we emit StreamingResponse with manual SSE
-    formatting for full control over disconnect-detection and the
-    no-row-fallback (Pitfall 8).
+    formatting for full control over disconnect detection and the no-row fallback.
     """
     lines: list[str] = []
     if retry is not None:
@@ -274,11 +270,11 @@ async def live_session_stream(
     Behavior:
       - When a live_state row exists: emit `event: live_state` whenever
         updated_at advances; poll every 1s.
-      - When NO live_state row (Pitfall 8 / Open Q1 fallback): emit
+      - When NO live_state row: emit
         `event: heartbeat` with a 5000ms retry hint; close after 3 missed
         polls so the client reconnects rather than holding the connection.
-      - Always honors `request.is_disconnected()` per Pitfall 1.
-      - Caps generator lifetime at 60min (Pitfall 1) — clients reconnect.
+      - Always honors `request.is_disconnected()`.
+      - Caps generator lifetime at 60min; clients reconnect.
 
     Validates UUID format before opening the stream (V11).
     """
@@ -286,7 +282,7 @@ async def live_session_stream(
         raise HTTPException(status_code=400, detail="invalid session_id format")
 
     POLL_S = 1.0
-    MAX_S = 60 * 60  # 1 hour cap (Pitfall 1)
+    MAX_S = 60 * 60  # 1 hour cap; clients reconnect
     MISS_LIMIT = 3   # close after this many consecutive missing-row polls
 
     async def gen():
@@ -304,8 +300,8 @@ async def live_session_stream(
                 )
             ).scalar_one_or_none()
             if row is None:
-                # No writer yet (Pitfall 8): heartbeat + retry hint, then
-                # close after MISS_LIMIT polls so the client reconnects.
+                # No live_state writer yet: heartbeat + retry hint, then close
+                # after MISS_LIMIT polls so the client reconnects.
                 consecutive_misses += 1
                 yield _format_sse(
                     "heartbeat",
@@ -361,7 +357,7 @@ async def queue_follow_up(
         repo_root() / .tmp/mission-control-queue/messages/{session_id}.jsonl
 
     The path is repo-root-anchored so it is independent of the process cwd
-    (Pitfall: relative path drift). Phase 8 dispatcher tails this directory.
+    so relative cwd drift cannot move it. The dispatcher tails this directory.
     The queue dir is gitignored at the repo root (`.tmp/`).
     """
     if not _UUID_RE.match(session_id):

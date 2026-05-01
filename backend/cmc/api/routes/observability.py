@@ -1,21 +1,21 @@
 """Observability router — OBSV-01..10.
 
-All daily aggregates use STRFTIME(..., 'localtime') (RESEARCH Pattern 3 +
-Pitfall 4) to match the local-time day buckets the JSONL parser writes.
+All daily aggregates use STRFTIME(..., 'localtime') to match the local-time day
+buckets the JSONL parser writes.
 
-Percentile aggregations use Pattern 4 (offset-based) with Pitfall 2
-mitigation (MAX(..., 0) wrapper).
+Percentile aggregations are offset-based with a MAX(..., 0) wrapper so small
+sample sizes never produce negative offsets.
 
-Decisions locked by Plan 03-04:
-  - OBSV-03 computes outcome at READ time (Pitfall 9 fallback). Phase 2 doesn't
-    populate sessions.outcome; we derive via CASE on otel_events EXISTS.
-  - OBSV-04 percentile via Pattern 4 (LIMIT 1 OFFSET MAX(CAST(COUNT*P AS INT)-1, 0))
+Design notes:
+  - OBSV-03 computes outcome at read time; we derive via CASE on otel_events
+    EXISTS instead of depending on sessions.outcome.
+  - OBSV-04 percentile via LIMIT 1 OFFSET MAX(CAST(COUNT*P AS INT)-1, 0)
     — gracefully handles N=0 / N=1 without OFFSET=-1 errors.
   - OBSV-05 paired_duration_ms_p50 computed by Python FIFO pairing per session_id,
     each pair capped at 60_000 ms; cleaner than nested SQL window functions and
-    well within the read budget for Phase 3.
+    well within the read budget.
   - OBSV-08 reads BOTH tools.decision and otel_events tool_decision events
-    (whichever Phase 2 ingestor wrote first wins; we sum both sources by tool_name).
+    (whichever source wrote first wins; we sum both sources by tool_name).
   - OBSV-09 productivity uses claude_code.commit.count, claude_code.pull_request.count,
     and claude_code.lines_of_code.count (with attrs.type='added'/'removed').
   - OBSV-10 pressure consumes claude_code.api_retries_exhausted, claude_code.compaction,
@@ -150,7 +150,7 @@ async def usage_cache(
     )
 
 
-# ---- OBSV-03: outcome breakdown (Pitfall 9 read-time CASE) ------------------
+# ---- OBSV-03: outcome breakdown (read-time CASE) -----------------------------
 
 _OUTCOMES_SQL = text("""
     WITH classified AS (
@@ -206,12 +206,12 @@ async def sessions_outcomes(
     return OutcomesResponse(items=items, range=RangeWindow(range_))
 
 
-# ---- OBSV-04: tool latency (Pattern 4 + Pitfall 2 wrapper) ------------------
+# ---- OBSV-04: tool latency ---------------------------------------------------
 
-# Pattern 4 percentile via window function: rank rows per tool by duration_ms
-# ASC (1-indexed), pre-compute the per-tool count, then pick row at the
-# Pitfall-2-wrapped offset position (1-indexed: max(int(N*p), 1) so N=1 yields
-# rank=1 instead of rank=0). SQLite 3.47 supports window functions natively.
+# Percentile via window function: rank rows per tool by duration_ms ASC
+# (1-indexed), pre-compute the per-tool count, then pick row at a clamped
+# offset position (1-indexed: max(int(N*p), 1) so N=1 yields rank=1 instead of
+# rank=0). SQLite 3.47 supports window functions natively.
 _TOOL_LATENCY_SQL = text("""
     WITH tc AS (
       SELECT tool_name, duration_ms, status
@@ -332,7 +332,7 @@ def _classify_hook(event_name: str) -> tuple[str, str] | None:
 
 
 def _percentile(sorted_values: list[int], p: float) -> int | None:
-    """Pattern 4 offset percentile (Pitfall 2 wrapper): max(int(N*p) - 1, 0)."""
+    """Offset percentile with max(int(N*p) - 1, 0) for one-item samples."""
     if not sorted_values:
         return None
     idx = max(int(len(sorted_values) * p) - 1, 0)
@@ -550,8 +550,8 @@ async def edit_decisions(
 ):
     """Read decisions from BOTH tools.decision and otel_events tool_decision.
 
-    Phase 2's parser may write either path depending on which signal arrives
-    first; we sum both sources by tool_name. low_sample = (acc+rej) < 10.
+    The parser may write either path depending on which signal arrives first;
+    we sum both sources by tool_name. low_sample = (acc+rej) < 10.
     """
     since = _RANGE_TO_SINCE[range_]
     tool_rows = (
@@ -682,7 +682,7 @@ async def system_pressure(db: AsyncSession = Depends(get_session)):
     )
 
 
-# ---- Phase 6 Plan 01 — ACTV-01: 30-day session-activity heatmap ------------
+# ---- ACTV-01: 30-day session-activity heatmap -------------------------------
 
 _HEATMAP_SQL = text("""
     SELECT
@@ -717,10 +717,10 @@ async def activity_heatmap(
     return HeatmapResponse(items=items, range=range_)
 
 
-# ---- Phase 6 Plan 01 — ACTV-05: unified failures ---------------------------
+# ---- ACTV-05: unified failures ----------------------------------------------
 
 # Outcome is computed inline matching OBSV-03's read-time CASE so we don't
-# depend on Phase 2 ingest populating sessions.outcome (Pitfall 9 fallback).
+# depend on sessions.outcome being populated.
 # The outer query joins to a subquery that pulls the latest api_error message
 # per session.
 _FAILURES_SQL = text("""

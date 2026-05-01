@@ -1,7 +1,4 @@
-"""Phase 4 Schedule request/response schemas — SCHD-01..06.
-
-Wave 1 plan 04-04 router consumes these as already-defined contracts.
-"""
+"""Schedule request/response schemas."""
 
 from datetime import datetime
 from typing import Any

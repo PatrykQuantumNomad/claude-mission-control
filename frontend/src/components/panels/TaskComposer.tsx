@@ -1,9 +1,9 @@
-// TaskComposer — TPNL-02 (Phase 7 Plan 03 / Wave 2).
+// TaskComposer — TPNL-02 (current).
 //
 // Sheet-wrapped bespoke form for creating tasks with all 9 fields surfaced.
 // Drafts persist to localStorage under 'cmc.composer.task.draft' (Pitfall 6 —
 // distinct namespace so a future Schedule composer using its own key cannot
-// collide). Submit dispatches useCreateTask which is NOT optimistic (RESEARCH
+// collide). Submit dispatches useCreateTask which is NOT optimistic (design notes
 // §Anti-patterns: schedules/tasks 422 risk) — on 422 the body literal renders
 // inline AND the form is preserved so the user can edit and retry.
 //

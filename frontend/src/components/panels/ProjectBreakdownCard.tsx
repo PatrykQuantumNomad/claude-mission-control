@@ -1,4 +1,4 @@
-// ProjectBreakdownCard — OPNL-10 (Phase 6 Plan 03 / Wave 3).
+// ProjectBreakdownCard — OPNL-10 (current).
 //
 // DataTable rollup of sessions/tokens/tool_calls per project cwd. Pulls
 // /api/sessions/by-project at 120s cadence via useByProject(range).

@@ -1,6 +1,6 @@
-"""Idempotent SQLAlchemy upsert helpers for Phase 2 ingestion.
+"""Idempotent SQLAlchemy upsert helpers for ingestion.
 
-Per research §4 + Open Question 4 (locked: Option B):
+Token rollup strategy:
   - Sessions: upsert on PK session_id; immutable fields (started_at) are NOT
     overwritten; mutable fields (totals, ended_at, synced_at, jsonl_mtime) are.
   - Tools: upsert on the unique constraint tool_use_id; pending → ok/error
@@ -9,11 +9,11 @@ Per research §4 + Open Question 4 (locked: Option B):
     accepts the SESSION's previous totals (or None on first parse) so re-parses
     don't double-count.
 
-Caveat (Phase 2 v1 simplification, see 02-04-PLAN.md interfaces block):
+Caveat:
   Sessions are attributed to a SINGLE primary (day, model) bucket on re-parse
   (the latest sync date in the system tz). Multi-day sessions therefore land
   their tokens under the latest day they were observed; small smear is
-  acceptable for v1 — revisit in Phase 3+ if multi-day flows become common.
+  acceptable for v1 — revisit if multi-day flows become common.
 
 All functions DO NOT commit. The caller wraps the unit-of-work in a single
 commit (sync_once does this per file).
@@ -131,7 +131,7 @@ async def accumulate_token_usage(
 
     Args:
       session_id: identifies the session whose contribution is being adjusted.
-        Reserved for future per-session bucket tracking; unused in Phase 2 v1.
+        Reserved for future per-session bucket tracking; currently unused.
       previous_totals: None on first parse; otherwise a dict with keys
         tokens_input/output/cache_read/cache_create representing what the
         existing session row ALREADY contributed to the rollup.
@@ -139,8 +139,7 @@ async def accumulate_token_usage(
         Each dict has keys: day, model, source, tokens_input, tokens_output,
         tokens_cache_read, tokens_cache_create.
       primary_day, primary_model: identify the (day, model, source='claude-code')
-        bucket that should have previous_totals subtracted (Phase 2 v1
-        simplification — see module docstring).
+        bucket that should have previous_totals subtracted (see module docstring).
 
     Effect:
       - First parse: all new buckets are added; sessions_count incremented by 1
@@ -188,8 +187,8 @@ async def _adjust_bucket(
     Negative deltas are valid (used by Option B subtract step). Pattern:
       1. UPDATE ... SET col = col + :delta WHERE (day, model, source) match.
       2. If rowcount == 0, INSERT a fresh row with the deltas as the values.
-         (For Phase 2's single-writer scheduler we don't need an ON CONFLICT
-         retry — the loop is single-writer per cycle.)
+         (For the single-writer scheduler we don't need an ON CONFLICT retry —
+         the loop is single-writer per cycle.)
     """
     upd = (
         update(TokenUsage)
@@ -214,8 +213,8 @@ async def _adjust_bucket(
         return
 
     # Row didn't exist: insert it. Use ON CONFLICT DO UPDATE as a safety net in
-    # case a concurrent insert raced us (ignored under single-writer Phase 2,
-    # but cheap insurance).
+    # case a concurrent insert raced us (cheap insurance under the current
+    # single-writer scheduler).
     stmt = insert(TokenUsage).values(
         day=day, model=model, source=source,
         tokens_input=tokens_input, tokens_output=tokens_output,

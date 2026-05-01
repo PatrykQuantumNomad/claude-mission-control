@@ -1,4 +1,4 @@
-"""Phase 7 Plan 01 — SKLP-03 GET /api/context/health.
+"""Context health endpoint for GET /api/context/health.
 
 Read-only scan of the developer's ~/.claude/ configuration directory:
 returns aggregate counts (claude_md line count, mcp server count, hook
@@ -6,7 +6,7 @@ count) and a list of REDACTED setting key NAMES so the dashboard can
 warn when the operator is missing critical context (e.g. an empty
 mcpServers map) without ever surfacing secret VALUES.
 
-Threat model (PLAN.md <threat_model>):
+Threat model:
   T-07-01-01 (Information Disclosure): Backend redacts keys matching
     *KEY*/*TOKEN*/*SECRET*/*PASSWORD* (case-insensitive) before
     serialization. Response schema (cmc.api.schemas.context) does NOT
@@ -35,7 +35,7 @@ router = APIRouter(prefix="/context", tags=["context"])
 
 # HARDCODED at module level — T-07-01-02 mitigation. The route never reads
 # a path from a query/body parameter; tests redirect this binding via
-# monkeypatch (see tests/test_phase7_context.py::fake_claude_dir).
+# monkeypatch (see tests/test_context_router.py::fake_claude_dir).
 HOME_CLAUDE_DIR = Path.home() / ".claude"
 
 # Case-insensitive regex matching common secret-key name patterns. The

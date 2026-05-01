@@ -5,9 +5,10 @@ circumstances. The DB content (decision prompts, error messages, schedule
 names) contains unescaped backticks, asterisks, and underscores; sending
 those as MarkdownV2 routinely produces 400 Bad Request from Telegram and
 swallows the notification. A `test_api_no_parse_mode_argument` test in
-test_phase9_telegram_unit.py asserts this contract via inspect.signature().
+test_telegram_units.py asserts this contract via inspect.signature().
 """
 
+import asyncio
 from typing import Any
 
 import httpx
@@ -105,20 +106,21 @@ async def edit_message_reply_markup(
 async def get_updates(
     token: str,
     offset: int,
-    timeout: int = 25,
+    poll_timeout_s: int = 25,
     *,
     client: httpx.AsyncClient | None = None,
 ) -> list[dict[str, Any]]:
-    """Long-poll for updates starting from offset. timeout=25 fits inside launchd cycle."""
+    """Long-poll for updates starting from offset. poll_timeout_s=25 fits inside launchd cycle."""
     url = BASE_URL.format(token=token) + "/getUpdates"
-    params = {"offset": int(offset), "timeout": int(timeout)}
-    # client timeout MUST exceed long-poll timeout (httpx default 5s would
-    # hang up before Telegram responds when the queue is empty).
+    params = {"offset": int(offset), "timeout": int(poll_timeout_s)}
+    request_timeout_s = poll_timeout_s + 5
     if client is not None:
-        r = await client.get(url, params=params)
+        async with asyncio.timeout(request_timeout_s):
+            r = await client.get(url, params=params)
         r.raise_for_status()
         return r.json().get("result", [])
-    async with httpx.AsyncClient(timeout=timeout + 5) as c:
-        r = await c.get(url, params=params)
-        r.raise_for_status()
-        return r.json().get("result", [])
+    async with httpx.AsyncClient(timeout=None) as c:
+        async with asyncio.timeout(request_timeout_s):
+            r = await c.get(url, params=params)
+            r.raise_for_status()
+            return r.json().get("result", [])

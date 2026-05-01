@@ -18,7 +18,7 @@ import { TaskComposerProvider } from '../../panels/TaskComposer'
 // because file-route helpers expect a file-system convention that vitest
 // cannot model in-memory.
 //
-// Phase 7 Plan 03: CommandPalette now consumes useTaskComposer() (Quick task
+// current: CommandPalette now consumes useTaskComposer() (Quick task
 // → opens TaskComposer Sheet via context). Every test wraps the palette in
 // TaskComposerProvider + QueryClientProvider — the provider mounts the
 // composer Sheet which uses useCreateTask() and therefore needs a QC.
@@ -123,7 +123,7 @@ describe('CommandPalette', () => {
   })
 
   it('selecting "Quick task" opens TaskComposer (Sheet visible) and closes the palette', async () => {
-    // Phase 7 Plan 03 wiring — selecting the Quick task item flips
+    // current wiring — selecting the Quick task item flips
     // composerOpen=true via the TaskComposerProvider context that wraps every
     // test (see TestWrap above) AND closes the palette in one click.
     const router = makeRouter()

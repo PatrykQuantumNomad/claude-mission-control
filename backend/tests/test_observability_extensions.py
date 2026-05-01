@@ -1,14 +1,13 @@
-"""Phase 6 Plan 01 backend extension tests — ACTV-01 + ACTV-05.
+"""Observability extension tests — ACTV-01 + ACTV-05.
 
 Two new GET routes added to cmc.api.routes.observability:
   - GET /api/activity/heatmap?range={today|7d|30d} (ACTV-01)
   - GET /api/sessions/failures?range={today|7d|30d} (ACTV-05)
 
-Pattern matches test_phase3_observability.py: uses the conftest seeded_app +
+Pattern matches test_observability_router.py: uses the conftest seeded_app +
 client fixture and the make_session_row / make_otel_event factory helpers.
-The local _seed_rows helper is duplicated from test_phase3_observability.py
-(self-contained module so future Phase-6 plans can extend it without coupling
-back to the Phase-3 file).
+The local _seed_rows helper is duplicated from test_observability_router.py
+to keep this module self-contained.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -19,8 +18,8 @@ from tests.conftest import make_otel_event, make_session_row
 
 
 async def _seed_rows(app, table_name: str, rows: list[dict]) -> None:
-    """Mirror of test_phase3_observability._seed_rows minus the token_usage
-    branch (Phase 6 routes don't touch token_usage).
+    """Mirror of test_observability_router._seed_rows minus the token_usage
+    branch (these routes don't touch token_usage).
 
     Auto-seeds parent sessions for any FK-referenced session_id when seeding
     otel_events so PRAGMA foreign_keys=1 doesn't reject the insert.

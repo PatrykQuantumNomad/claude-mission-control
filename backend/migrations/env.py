@@ -3,23 +3,22 @@
 Supports two invocation modes:
 1. Standalone CLI: `alembic upgrade head` — creates its own async engine.
 2. Shared connection: lifespan injects a connection via `config.attributes['connection']`
-   so migrations run against the same engine the app uses (per RESEARCH.md Pattern 5).
+   so migrations run against the same engine the app uses.
 """
 
 import asyncio
 from logging.config import fileConfig
 
+from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from alembic import context
+import cmc.db.models  # noqa: F401  (populates metadata)
 
 # Import the models package so SQLModel.metadata is populated.
-# Plan 05 will add modules to cmc/db/models/ — those imports happen in
-# cmc/db/models/__init__.py which is imported here.
+# cmc/db/models/__init__.py imports every model module for side effects.
 from cmc.db.base import SQLModel
-import cmc.db.models  # noqa: F401  (populates metadata; per Pitfall 2)
 
 target_metadata = SQLModel.metadata
 
@@ -32,7 +31,7 @@ def do_run_migrations(connection: Connection) -> None:
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
-        render_as_batch=True,  # SQLite ALTER TABLE workaround per RESEARCH.md
+        render_as_batch=True,  # SQLite ALTER TABLE workaround
     )
     with context.begin_transaction():
         context.run_migrations()

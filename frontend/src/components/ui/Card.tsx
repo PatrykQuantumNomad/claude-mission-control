@@ -1,7 +1,7 @@
 // Card family — UI-SPEC FESH-05 + DESG-04. Compound API; pass-through className.
 // 14px radius default, 24px padding, surface bg. The Card root uses <article>
-// for landmark accessibility — every panel-style card in Phase 6/7 inherits
-// this semantic. All six exports forward refs (Phase 6 will use refs for
+// for landmark accessibility — every panel-style card in current inherits
+// this semantic. All six exports forward refs (current will use refs for
 // scroll-to-card patterns triggered by AttentionBar focus).
 
 import { HTMLAttributes, forwardRef } from 'react'

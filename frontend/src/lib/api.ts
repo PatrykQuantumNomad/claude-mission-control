@@ -1,11 +1,7 @@
-// Typed fetcher infrastructure for backend endpoints shipped in Phases 3 + 4.
-// Phase 5 ships infra only; bare header (CONTEXT decision) means no useQuery
-// calls execute in v1. Phase 6 (Plan 06-01) tightens response types for the
-// endpoints downstream waves consume and adds two new fetchers (heatmap +
-// failures). Phase 7 (Plan 07-01) tightens the HITL/Tasks/Schedules/Skills/
-// MCP-write/ESTOP families against backend Pydantic schemas verbatim and
-// adds five new fetchers (contextHealth, emergencyResume, dispatcherTrigger,
-// schedulesParseNl, plus the typed schedules-with-params variant).
+// Typed fetcher infrastructure for backend endpoints.
+// These interfaces mirror backend Pydantic schemas so UI callers stay aligned
+// with the API surface, including analytical panels, HITL, task, schedule,
+// skills, MCP write paths, emergency stop, context health, and manual sync.
 
 // ============================================================================
 // Range type aliases — encoded once, reused across every range-aware endpoint
@@ -15,7 +11,7 @@ export type Range = 'today' | '7d' | '30d'
 export type RangeAll = Range | 'all'
 
 // ============================================================================
-// Health (Phase 1)
+// Health
 // ============================================================================
 
 export interface HealthResponse {
@@ -25,7 +21,7 @@ export interface HealthResponse {
 }
 
 // ============================================================================
-// System (Phase 3 SAPI-* + Phase 4 ESTOP)
+// System (SAPI-* + ESTOP)
 // ============================================================================
 
 export interface DaemonAge {
@@ -62,7 +58,7 @@ export interface AttentionResponse {
   stuck_sessions: number
 }
 
-// Phase 4 ESTOP — Plan 07-01 narrows from `unknown`. Mirror
+// ESTOP — typed from backend schema. Mirror
 // backend/cmc/api/schemas/system.py EmergencyStopResponse / EmergencyResumeResponse.
 export interface EmergencyStopResponse {
   emergency_stop: boolean
@@ -77,13 +73,12 @@ export interface EmergencyResumeResponse {
 }
 
 // ============================================================================
-// Sessions (Phase 3 SESS-* + Phase 6 ACTV-05)
+// Sessions (SESS-* + ACTV-05)
 // ============================================================================
 
 export interface SessionListItem {
-  // Phase 5 baseline shape — kept for historical compatibility with consumers
-  // that imported the loose Phase-5 type. Phase 6 binds against
-  // SessionListItemFull below for the full SESS-01 surface.
+  // Baseline shape kept for historical compatibility with consumers that
+  // imported the loose type. New code should use SessionListItemFull below.
   id?: string
   project?: string
   model?: string | null
@@ -172,7 +167,7 @@ export interface TodaySummaryResponse {
   error_count: number
 }
 
-// Plan 06-01 ACTV-05: unified failures
+// ACTV-05: unified failures
 export interface FailureRow {
   session_id: string
   started_at: string
@@ -186,7 +181,7 @@ export interface FailuresResponse {
 }
 
 // ============================================================================
-// Observability (Phase 3 OBSV-* + Phase 6 ACTV-01)
+// Observability (OBSV-* + ACTV-01)
 // ============================================================================
 
 export interface TokenUsageDailyRow {
@@ -320,7 +315,7 @@ export interface PressureResponse {
   recent_api_errors: ApiErrorEntry[]
 }
 
-// Plan 06-01 ACTV-01: heatmap
+// ACTV-01: heatmap
 export interface HeatmapDayRow {
   day: string
   sessions: number
@@ -333,7 +328,7 @@ export interface HeatmapResponse {
 }
 
 // ============================================================================
-// MCP (Phase 3 MCP-*)  — Plan 07-01 narrows mcpSync + mcpMeasure responses
+// MCP (MCP-*)  — typed from backend schema mcpSync + mcpMeasure responses
 // ============================================================================
 
 export interface McpServerRow {
@@ -368,7 +363,7 @@ export interface McpToolsResponse {
   items: McpToolRow[]
 }
 
-// MCP-03 / MCP-04 — Plan 07-01 narrows from `unknown`. Mirror
+// MCP-03 / MCP-04 — typed from backend schema. Mirror
 // backend/cmc/api/schemas/mcp.py.
 export interface McpSyncResponse {
   status: 'ok' | 'conflict'
@@ -385,7 +380,7 @@ export interface McpMeasureResponse {
 }
 
 // ============================================================================
-// Skills (Phase 3 SKILL-*)  — Plan 07-01 narrows from `unknown`
+// Skills (SKILL-*)  — typed from backend schema
 // Mirror backend/cmc/api/schemas/skills.py verbatim.
 // ============================================================================
 
@@ -423,7 +418,7 @@ export interface SkillAutonomyResponse {
 }
 
 // ============================================================================
-// HITL (Phase 4 HITL-*) — Plan 07-01 narrows from `unknown`
+// HITL (HITL-*) — typed from backend schema
 // Mirror backend/cmc/api/schemas/hitl.py verbatim.
 // ============================================================================
 
@@ -492,7 +487,7 @@ export interface InboxReplyResponse {
 }
 
 // ============================================================================
-// Tasks (Phase 4 TASK-*) — Plan 07-01 narrows from `unknown`
+// Tasks (TASK-*) — typed from backend schema
 // Mirror backend/cmc/api/schemas/tasks.py verbatim.
 // ============================================================================
 
@@ -593,7 +588,7 @@ export interface InboxListParams {
 }
 
 // ============================================================================
-// Schedules (Phase 4 SCHD-*) — Plan 07-01 narrows from `unknown`
+// Schedules (SCHD-*) — typed from backend schema
 // Mirror backend/cmc/api/schemas/schedules.py verbatim.
 // ============================================================================
 
@@ -646,7 +641,7 @@ export interface NLCronResponse {
 }
 
 // ============================================================================
-// Context (Phase 7 SKLP-03) — Plan 07-01 NEW
+// Context (SKLP-03) — new endpoint
 // Mirror backend/cmc/api/schemas/context.py.
 // Defense in depth: schema deliberately has NO field that carries values.
 // ============================================================================
@@ -678,7 +673,7 @@ export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T>
   return r.json() as Promise<T>
 }
 
-/** Plan 07-01: 204 No Content endpoints (TASK-04 DELETE, SCHD-04 DELETE).
+/** 204 No Content endpoints (TASK-04 DELETE, SCHD-04 DELETE).
  * Calling r.json() on a 204 throws because there is no body. fetchVoid
  * preserves the ApiError shape on non-2xx and returns void on success. */
 export async function fetchVoid(path: string, init?: RequestInit): Promise<void> {
@@ -728,24 +723,24 @@ function buildInboxQs(params: InboxListParams = {}): string {
 
 /**
  * Typed fetcher map keyed by endpoint nickname.
- * Plan 07-01: HITL/Tasks/Schedules/Skills/MCP-write/ESTOP/Sync families
- * tightened from `unknown` to backend Pydantic schemas.
+ * HITL/Tasks/Schedules/Skills/MCP-write/ESTOP/Sync families are typed from
+ * backend Pydantic schemas.
  */
 export const api = {
-  // System (Phase 1 + 3)
+  // System
   health: () => fetchJson<HealthResponse>('/api/health'),
   systemHealth: () => fetchJson<SystemHealthResponse>('/api/system/health'),
-  // FIX (Plan 06-01): backend route is GET /api/system/state with `key` as a
+  // FIX: backend route is GET /api/system/state with `key` as a
   // QUERY param (verified backend/cmc/api/routes/system.py SAPI-03), not a
   // path segment. Old `/api/system/state/${key}` returned 404.
   systemState: (key: string) =>
     fetchJson<SystemStateResponse>(`/api/system/state?key=${encodeURIComponent(key)}`),
   attention: () => fetchJson<AttentionResponse>('/api/attention'),
 
-  // Sessions (Phase 3 + Phase 6)
+  // Sessions
   sessions: (params: SessionsListParams | string = {}) => {
     // Backwards-compatible: accept either the new typed params object OR a
-    // raw query string (Phase 5 callers may have passed a pre-built qs).
+    // raw query string (callers may have passed a pre-built qs).
     const qs = typeof params === 'string' ? params : buildSessionsQs(params)
     return fetchJson<SessionListResponse>(`/api/sessions${qs ? `?${qs}` : ''}`)
   },
@@ -761,19 +756,19 @@ export const api = {
       body: JSON.stringify(body),
     }),
   summary: () => fetchJson<TodaySummaryResponse>('/api/summary'),
-  // Plan 06-01 ACTV-05: unified failures
+  // ACTV-05: unified failures
   sessionsFailures: (range: Range) =>
     fetchJson<FailuresResponse>(`/api/sessions/failures?range=${range}`),
 
-  // Observability (Phase 3)
+  // Observability
   usageTokens: (range: Range) =>
     fetchJson<TokenUsageResponse>(`/api/usage/tokens?range=${range}`),
   usageCache: (range: Range) =>
     fetchJson<CacheResponse>(`/api/usage/cache?range=${range}`),
   sessionsOutcomes: (range: Range) =>
     fetchJson<OutcomesResponse>(`/api/sessions/outcomes?range=${range}`),
-  // Plan 06-01: range param added (was previously unparam'd; backend has always
-  // accepted ?range=, defaulting to 7d). The Phase 6 panel layer always passes
+  // Note: range param added (was previously unparam'd; backend has always
+  // accepted ?range=, defaulting to 7d). The current panel layer always passes
   // a range so the cadence cache key is range-scoped.
   toolsLatency: (range: Range) =>
     fetchJson<ToolLatencyResponse>(`/api/tools/latency?range=${range}`),
@@ -788,11 +783,11 @@ export const api = {
   activityProductivity: (range: Range) =>
     fetchJson<ProductivityResponse>(`/api/activity/productivity?range=${range}`),
   systemPressure: () => fetchJson<PressureResponse>('/api/system/pressure'),
-  // Plan 06-01 ACTV-01: 30-day heatmap
+  // ACTV-01: 30-day heatmap
   activityHeatmap: (range: Range) =>
     fetchJson<HeatmapResponse>(`/api/activity/heatmap?range=${range}`),
 
-  // MCP (Phase 3) — Plan 07-01 narrows write paths
+  // MCP
   mcp: () => fetchJson<McpServerListResponse>('/api/mcp'),
   mcpServerTools: (server: string) =>
     fetchJson<McpToolsResponse>(`/api/mcp/${encodeURIComponent(server)}/tools`),
@@ -800,7 +795,7 @@ export const api = {
   mcpMeasure: () =>
     fetchJson<McpMeasureResponse>('/api/mcp/measure', { method: 'POST' }),
 
-  // Skills (Phase 3) — Plan 07-01 narrows
+  // Skills
   skills: (qs?: string) =>
     fetchJson<SkillListResponse>(`/api/skills${qs ? `?${qs}` : ''}`),
   skillsSync: () =>
@@ -815,7 +810,7 @@ export const api = {
       },
     ),
 
-  // HITL (Phase 4) — Plan 07-01 narrows
+  // HITL
   decisions: (params: DecisionListParams = {}) => {
     const qs = buildDecisionsQs(params)
     return fetchJson<DecisionListResponse>(`/api/decisions${qs ? `?${qs}` : ''}`)
@@ -832,7 +827,7 @@ export const api = {
       headers: jsonHeaders,
       body: JSON.stringify(body),
     }),
-  /** @deprecated Plan 07-01 — use decisionAnswer. Kept as alias to ease migration. */
+  /** @deprecated use decisionAnswer. Kept as alias to ease migration. */
   answerDecision: (id: number, body: DecisionAnswerRequest) =>
     fetchJson<DecisionAnswerResponse>(`/api/decisions/${id}/answer`, {
       method: 'POST',
@@ -851,7 +846,7 @@ export const api = {
     }),
   inboxRead: (id: number) =>
     fetchJson<InboxReadResponse>(`/api/inbox/${id}/read`, { method: 'POST' }),
-  /** @deprecated Plan 07-01 — alias of inboxRead. */
+  /** @deprecated alias of inboxRead. */
   readInbox: (id: number) =>
     fetchJson<InboxReadResponse>(`/api/inbox/${id}/read`, { method: 'POST' }),
   inboxReply: (id: number, body: InboxReplyRequest) =>
@@ -860,7 +855,7 @@ export const api = {
       headers: jsonHeaders,
       body: JSON.stringify(body),
     }),
-  /** @deprecated Plan 07-01 — alias of inboxReply. */
+  /** @deprecated alias of inboxReply. */
   replyInbox: (id: number, body: InboxReplyRequest) =>
     fetchJson<InboxReplyResponse>(`/api/inbox/${id}/reply`, {
       method: 'POST',
@@ -868,7 +863,7 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  // Tasks (Phase 4) — Plan 07-01 narrows. taskDelete uses fetchVoid because
+  // Tasks. taskDelete uses fetchVoid because
   // TASK-04 returns 204 No Content (Pitfall: don't call r.json() on 204).
   tasks: (params: TaskListParams = {}) => {
     const qs = buildTasksQs(params)
@@ -880,7 +875,7 @@ export const api = {
       headers: jsonHeaders,
       body: JSON.stringify(body),
     }),
-  /** @deprecated Plan 07-01 — alias of taskCreate. */
+  /** @deprecated alias of taskCreate. */
   createTask: (body: TaskCreate) =>
     fetchJson<TaskListItem>('/api/tasks', {
       method: 'POST',
@@ -893,7 +888,7 @@ export const api = {
       headers: jsonHeaders,
       body: JSON.stringify(body),
     }),
-  /** @deprecated Plan 07-01 — alias of taskPatch. */
+  /** @deprecated alias of taskPatch. */
   patchTask: (id: number, body: TaskPatch) =>
     fetchJson<TaskListItem>(`/api/tasks/${id}`, {
       method: 'PATCH',
@@ -902,28 +897,27 @@ export const api = {
     }),
   taskDelete: (id: number) =>
     fetchVoid(`/api/tasks/${id}`, { method: 'DELETE' }),
-  /** @deprecated Plan 07-01 — alias of taskDelete. */
+  /** @deprecated alias of taskDelete. */
   deleteTask: (id: number) =>
     fetchVoid(`/api/tasks/${id}`, { method: 'DELETE' }),
   taskApprove: (id: number) =>
     fetchJson<TaskApproveResponse>(`/api/tasks/${id}/approve`, { method: 'POST' }),
-  /** @deprecated Plan 07-01 — alias of taskApprove. */
+  /** @deprecated alias of taskApprove. */
   approveTask: (id: number) =>
     fetchJson<TaskApproveResponse>(`/api/tasks/${id}/approve`, { method: 'POST' }),
   taskRerun: (id: number) =>
     fetchJson<TaskRerunResponse>(`/api/tasks/${id}/rerun`, { method: 'POST' }),
-  /** @deprecated Plan 07-01 — alias of taskRerun. */
+  /** @deprecated alias of taskRerun. */
   rerunTask: (id: number) =>
     fetchJson<TaskRerunResponse>(`/api/tasks/${id}/rerun`, { method: 'POST' }),
-  // Plan 07-01 NEW (RESEARCH §Summary correction 3): the dispatcher trigger
-  // is /api/dispatcher/trigger, NOT /api/tasks/{id}/trigger.
+  // Dispatcher trigger is /api/dispatcher/trigger, NOT /api/tasks/{id}/trigger.
   dispatcherTrigger: () =>
     fetchJson<TaskTriggerResponse>('/api/dispatcher/trigger', { method: 'POST' }),
-  /** @deprecated Plan 07-01 — alias of dispatcherTrigger. */
+  /** @deprecated alias of dispatcherTrigger. */
   triggerDispatcher: () =>
     fetchJson<TaskTriggerResponse>('/api/dispatcher/trigger', { method: 'POST' }),
 
-  // Schedules (Phase 4) — Plan 07-01 narrows
+  // Schedules
   schedules: () => fetchJson<ScheduleListResponse>('/api/schedules'),
   scheduleCreate: (body: ScheduleCreate) =>
     fetchJson<ScheduleListItem>('/api/schedules', {
@@ -931,7 +925,7 @@ export const api = {
       headers: jsonHeaders,
       body: JSON.stringify(body),
     }),
-  /** @deprecated Plan 07-01 — alias of scheduleCreate. */
+  /** @deprecated alias of scheduleCreate. */
   createSchedule: (body: ScheduleCreate) =>
     fetchJson<ScheduleListItem>('/api/schedules', {
       method: 'POST',
@@ -944,7 +938,7 @@ export const api = {
       headers: jsonHeaders,
       body: JSON.stringify(body),
     }),
-  /** @deprecated Plan 07-01 — alias of schedulePatch. */
+  /** @deprecated alias of schedulePatch. */
   patchSchedule: (id: number, body: SchedulePatch) =>
     fetchJson<ScheduleListItem>(`/api/schedules/${id}`, {
       method: 'PATCH',
@@ -953,20 +947,20 @@ export const api = {
     }),
   scheduleDelete: (id: number) =>
     fetchVoid(`/api/schedules/${id}`, { method: 'DELETE' }),
-  /** @deprecated Plan 07-01 — alias of scheduleDelete. */
+  /** @deprecated alias of scheduleDelete. */
   deleteSchedule: (id: number) =>
     fetchVoid(`/api/schedules/${id}`, { method: 'DELETE' }),
   scheduleRuns: (id: number) =>
     fetchJson<ScheduleRunsResponse>(`/api/schedules/${id}/runs`),
-  // Plan 07-01 NEW (RESEARCH §Summary correction 1): backend route is
-  // POST /api/schedules/parse-nl, NOT /api/schedules/nl-to-cron.
+  // Natural-language cron route is POST /api/schedules/parse-nl, NOT
+  // /api/schedules/nl-to-cron.
   schedulesParseNl: (body: NLCronRequest) =>
     fetchJson<NLCronResponse>('/api/schedules/parse-nl', {
       method: 'POST',
       headers: jsonHeaders,
       body: JSON.stringify(body),
     }),
-  /** @deprecated Plan 07-01 — alias of schedulesParseNl. */
+  /** @deprecated alias of schedulesParseNl. */
   parseNlSchedule: (body: NLCronRequest) =>
     fetchJson<NLCronResponse>('/api/schedules/parse-nl', {
       method: 'POST',
@@ -974,8 +968,8 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  // Emergency stop (Phase 4) — Plan 07-01 narrows + adds resume.
-  // RESEARCH §Summary correction 2: resume is its own POST endpoint at
+  // Emergency stop and resume.
+  // Design note: resume is its own POST endpoint at
   // /api/system/emergency-resume; it is NOT a DELETE on /emergency-stop.
   emergencyStop: () =>
     fetchJson<EmergencyStopResponse>('/api/system/emergency-stop', {
@@ -986,9 +980,9 @@ export const api = {
       method: 'POST',
     }),
 
-  // Context (Phase 7 SKLP-03) — Plan 07-01 NEW
+  // Context
   contextHealth: () => fetchJson<ContextHealthResponse>('/api/context/health'),
 
-  // Sync (Phase 2)
+  // Sync
   sync: () => fetchJson<unknown>('/api/sync', { method: 'POST' }),
 } as const

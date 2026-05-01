@@ -1,18 +1,14 @@
-// SessionsTable — ACTV-06 (Phase 6 Plan 04 / Wave 4).
+// SessionsTable — ACTV-06 (current).
 //
 // Paginated /api/sessions list with range/source/model filters in the panel
 // header chrome and a client-side search filter on session_id + cwd. Cadence
 // (30s) and placeholderData (snappy page transitions) live in lib/queries.ts
 // useSessionsList — never inlined here.
 //
-// Rule 1 deviation note (Plan §Task 2 Step 1): the plan text uses the field
-// names `id` + `project` but SessionListItemFull / backend SESS-01 expose
-// `session_id` and `cwd`. Columns + searchKeys + cell renders use the real
-// field names. The pagination strip lives below the DataTable and is keyed
-// off `data.total` (the backend total) — not the in-memory filtered length —
-// because the search filter is page-local (RESEARCH §gotcha 9 — no `q=`
-// param backend-side; client search narrows whatever the current page
-// returned).
+// SessionListItemFull / backend SESS-01 expose `session_id` and `cwd`, so
+// columns, searchKeys, and cell renders use those real field names. The
+// pagination strip is keyed off `data.total` (the backend total), not the
+// in-memory filtered length, because the search filter is page-local.
 
 import { useState, ChangeEvent } from 'react'
 import { Button, DataTable, PanelCard, RelativeTime } from '../ui'

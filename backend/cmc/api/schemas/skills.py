@@ -1,6 +1,6 @@
 """Response schemas for SKILL-* (skills catalog) routes.
 
-DTOs supplied here for Wave 1 plan 03-05's skills router to consume:
+DTOs supplied here:
   - GET   /api/skills                 -> SkillListResponse        (SKILL-01)
   - POST  /api/skills/sync             -> SkillSyncResponse        (SKILL-02)
   - PATCH /api/skills/{name}/autonomy -> SkillAutonomyResponse    (SKILL-03)

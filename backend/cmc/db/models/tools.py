@@ -4,8 +4,8 @@ Per 01-01-SCHEMA.md (table 3). Drives INGST-03 / SESS-02 / OBSV-04,07,08 /
 MCP-02 / OPNL-04,08,12.
 
 NOTE: 01-01-SCHEMA.md uses table name `tools` and the row covers a single
-"tool call" (paired tool_use + tool_result). Class name is `ToolCall` per the
-Plan 05 entry contract (matches __init__.py aggregator).
+"tool call" (paired tool_use + tool_result). Class name is `ToolCall` to match
+how callers talk about individual rows.
 
 NOTE: SCHEMA flags `decision` column linkage as [NEEDS USER CONFIRMATION] —
 accepted as-is per APPROVED 2026-04-25 (column on this row, not separate

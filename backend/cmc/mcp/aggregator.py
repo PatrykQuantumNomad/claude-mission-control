@@ -1,6 +1,6 @@
 """Three-source MCP aggregator (MCP-03 sync target).
 
-Priority order (locked per Plan 03-05 + RESEARCH §2.5 Open Q2/A3):
+Priority order:
     1. tool_decision otel_events  — highest fidelity (decision + duration)
     2. tools table rows           — paired tool_use/tool_result with duration
     3. otel_events with attrs_mcp_* — lowest fidelity (no duration)
@@ -21,12 +21,11 @@ Latency percentiles (SQLite 3.47+ window functions):
     - Pick the row at rank ceil(N * 0.5) for p50, ceil(N * 0.95) for p95.
       We use MAX(CAST(N * frac AS INTEGER), 1) so single-row partitions
       yield rank 1 (the only row) instead of rank 0 (no row).
-    - Plan 03-05 originally specified a correlated-subquery LIMIT 1 OFFSET
-      pattern that mixed COUNT() across the inner/outer query — SQLite
-      rejects that with "misuse of aggregate function COUNT()". Fixed to
-      window-function form here (Rule 1 - Bug auto-fix; Plan SQL was broken
-      against SQLite). Numerically equivalent for N >= 2; for N == 1 both
-      forms return the single value.
+    - Use window functions rather than a correlated-subquery LIMIT/OFFSET
+      pattern; SQLite rejects COUNT() mixed across inner/outer queries with
+      "misuse of aggregate function COUNT()". Window functions are clearer and
+      numerically equivalent for N >= 2; for N == 1 both forms return the
+      single value.
 """
 
 import time

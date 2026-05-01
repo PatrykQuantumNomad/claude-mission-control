@@ -1,4 +1,4 @@
-// InboxCard — HPNL-02 (Phase 7 Plan 02 / Wave 1).
+// InboxCard — HPNL-02 (current).
 //
 // Strategy mirrors DecisionsCard tests: setQueryData seeds qk.inbox(true)
 // with a fixture; mutation tests use a URL-aware fetch mock to assert URL +

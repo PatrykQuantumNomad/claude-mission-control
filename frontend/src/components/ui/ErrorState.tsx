@@ -1,4 +1,4 @@
-// ErrorState — Phase 6 Plan 01. In-card error block with retry button.
+// ErrorState — current. In-card error block with retry button.
 // Used by PanelCard's `query.isError` branch and any future panel that needs
 // to render a recoverable error inside a Card without bouncing the whole
 // dashboard to ShellErrorBoundary.

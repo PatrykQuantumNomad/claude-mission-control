@@ -4,9 +4,9 @@ Spawns `claude -p PROMPT --bare --output-format json --model MODEL` as a
 synchronous subprocess and updates the task row to done|failed when the child
 exits or times out.
 
-Synchronous on purpose: Plan 08-04 will spawn this from a `threading.Thread`
-inside the heartbeat fan-out (see RESEARCH §Pattern 4). The DB writes happen
-via `asyncio.run(_mark_status(...))` because each thread gets its own loop.
+Synchronous on purpose: heartbeat spawns this from a `threading.Thread`. The DB
+writes happen via `asyncio.run(_mark_status(...))` because each thread gets its
+own loop.
 
 Pitfalls covered:
 - Pitfall 8 (env scrub): ANTHROPIC_API_KEY is removed from the child's env so a
@@ -71,9 +71,8 @@ def run_classic(
     log_dir.mkdir(parents=True, exist_ok=True)
     log_path = log_dir / f"task-{task_id}-{int(datetime.now().timestamp())}.log"
 
-    # Pitfall 8: scrub ANTHROPIC_API_KEY before spawn. The skill router
-    # (Plan 03) will inject ANTHROPIC_API_KEY into stream-mode subprocesses
-    # only when explicitly required; classic mode never needs it.
+    # Scrub ANTHROPIC_API_KEY before spawn. Stream mode can inject credentials
+    # explicitly when required; classic mode never needs them.
     env = os.environ.copy()
     env.pop("ANTHROPIC_API_KEY", None)
 
@@ -146,9 +145,8 @@ def run_classic(
 def _mark_failed_sync(task_id: int, error_message: str, sessions) -> None:
     """Sync wrapper around an async DB update.
 
-    Uses asyncio.run because run_classic is invoked from a Thread (Plan 04
-    fan-out). Each thread gets its own event loop. Standard sync→async bridge
-    pattern — verified safe in Phase 4 spawn tests.
+    Uses asyncio.run because run_classic is invoked from a thread. Each thread
+    gets its own event loop.
     """
     import asyncio
 

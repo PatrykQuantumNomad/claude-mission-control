@@ -1,15 +1,15 @@
 """Periodic JSONL sync orchestration.
 
-Phase 2 contract:
+Contract:
   - `sync_once(sessionmaker, settings)` is the unit-of-work used by both
-    cmc.app.lifespan (boot-time + periodic) and Plan 02-05's manual
-    POST /api/sync route. Returns a summary dict for logs / API response.
+    cmc.app.lifespan (boot-time + periodic) and the manual POST /api/sync route.
+    Returns a summary dict for logs / API response.
   - `periodic_sync_loop(sessionmaker, settings, interval_s=120)` wraps
     sync_once in a never-ending while True loop with cancellation hygiene
-    per research §3 + Pitfall 7: bare `except Exception` (NOT BaseException)
-    so cancellation propagates while transient errors don't kill the loop.
+    using bare `except Exception` (NOT BaseException) so cancellation propagates
+    while transient errors don't kill the loop.
 
-Key rules (research §1, §3, §5 + Pitfalls 5/7):
+Key rules:
   - Glob `*/*.jsonl` (ONE level) — never `**/*.jsonl` (would scoop subagents).
   - Heavy parsing offloaded via `await asyncio.to_thread(parse_session_file, p)`.
   - One AsyncSession per file (transaction boundary = one file's unit-of-work).
@@ -63,7 +63,7 @@ async def sync_once(sessionmaker: async_sessionmaker, settings: Settings) -> dic
         summary["duration_ms"] = 0
         return summary
 
-    # ONE LEVEL ONLY — never **/*.jsonl (would scoop subagents per Pitfall 5).
+    # ONE LEVEL ONLY — never **/*.jsonl (would scoop subagents).
     for jsonl_path in sorted(root.glob("*/*.jsonl")):
         summary["files_seen"] += 1
         try:
@@ -97,13 +97,13 @@ async def _sync_one_file(
         ):
             return False
 
-        # Heavy parsing happens off the event loop (research §5 / Pitfall 5).
+        # Heavy parsing happens off the event loop.
         parsed = await asyncio.to_thread(parse_session_file, jsonl_path)
         sess = dict(parsed["session"])
         if not sess.get("session_id"):
             return False  # empty / unparseable file
 
-        # ended_at decision via mtime heuristic (research §1).
+        # ended_at decision via mtime heuristic.
         last_ts = sess.pop("_last_message_ts", None)
         idle = timedelta(minutes=settings.session_idle_minutes)
         is_stale = (datetime.now(UTC) - mtime) > idle
@@ -129,8 +129,8 @@ async def _sync_one_file(
                 "tokens_cache_read": existing.tokens_cache_read or 0,
                 "tokens_cache_create": existing.tokens_cache_create or 0,
             }
-            # Phase 2 v1 simplification: attribute previous-totals to the
-            # latest sync-date in the system tz (see repository.py docstring).
+            # Attribute previous-totals to the latest sync-date in the system tz
+            # (see repository.py docstring).
             primary_day = (existing.synced_at or datetime.now(UTC)).date()
             primary_model = existing.model or "unknown"
 
@@ -158,9 +158,8 @@ async def periodic_sync_loop(
     Sleeps FIRST so a boot-time sync_once call (in lifespan startup) isn't
     immediately duplicated by the loop's first iteration.
 
-    Pitfall 7: catch Exception (NOT BaseException) so transient errors
-    (DB lock, FS hiccup) don't kill the loop, while CancelledError
-    propagates for clean shutdown.
+    Catch Exception (NOT BaseException) so transient errors (DB lock, FS hiccup)
+    don't kill the loop, while CancelledError propagates for clean shutdown.
     """
     while True:
         try:

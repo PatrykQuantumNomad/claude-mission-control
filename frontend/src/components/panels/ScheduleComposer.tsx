@@ -1,16 +1,14 @@
-// ScheduleComposer — TPNL-04 (Phase 7 Plan 04 / Wave 4).
+// ScheduleComposer — TPNL-04 (current).
 //
 // Sheet-wrapped form for creating schedules. Composes:
 //   - native time picker (input type='time')
-//   - 7 day-of-week chips (bespoke <button aria-pressed> — RESEARCH §Day-of-week
-//     chips: bespoke for v1; not Radix toggle group)
+//   - 7 day-of-week chips (bespoke <button aria-pressed> — design notes//     chips: bespoke for v1; not Radix toggle group)
 //   - live cronstrue preview from cron-utils.partsToCron + prettyCron
 //   - advanced cron textarea (manual override; non-empty wins over chips)
 //   - NL-cron secondary entry (calls useParseNlCron; on 503 surfaces body
 //     literal "natural-language schedules unavailable" verbatim — V11)
 //   - inline task_template fields (title/description/model/mode/priority/
-//     quadrant/risk/approval/dry_run) — RESEARCH §thing-6 chose embedded
-//     over nested Sheet for v1
+//     quadrant/risk/approval/dry_run) — design notes//     over nested Sheet for v1
 //   - skill picker (uses useSkills cache — already polled at 60_000ms)
 //
 // Pitfall 3: cron preview uses "Keep typing…" fallback while user is mid-edit
@@ -21,7 +19,7 @@
 // (storage helper auto-prefixes 'cmc.', so we pass the suffix). Distinct from
 // TaskComposer's 'cmc.composer.task.draft' so the two composers can't collide.
 //
-// skipPersistRef pattern reused from TaskComposer (Plan 07-03): after onSuccess
+// skipPersistRef pattern reused from TaskComposer: after onSuccess
 // clears the draft AND resets the form, the next change-effect would clobber
 // the cleared key with the empty default — the ref flag swallows that one tick.
 //

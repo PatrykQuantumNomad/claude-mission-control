@@ -1,8 +1,8 @@
-// SkillsRegistry — SKLP-04 (Phase 7 Plan 02 / Wave 1).
+// SkillsRegistry — SKLP-04 (current).
 //
 // Strategy: setQueryData seeds qk.skills() with skill rows; mutation tests
 // use a URL-aware fetch mock to drive the optimistic+rollback path. The
-// optimistic logic lives in usePatchSkillAutonomy (RESEARCH §Pattern 2);
+// optimistic logic lives in usePatchSkillAutonomy (design notes);
 // this test exercises the *user-observable* contract — onSettled invalidate
 // causes the cache to converge on server truth, but onError must restore
 // the snapshotted value so the select snaps back.

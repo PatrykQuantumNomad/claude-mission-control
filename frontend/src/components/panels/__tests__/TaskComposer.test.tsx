@@ -1,4 +1,4 @@
-// TaskComposer — TPNL-02 (Phase 7 Plan 03 / Wave 2).
+// TaskComposer — TPNL-02 (current).
 //
 // Strategy: TaskComposer is a Sheet (Radix Dialog portal) with a bespoke form
 // that drafts to localStorage under 'cmc.composer.task.draft'. Tests render
@@ -56,7 +56,7 @@ describe('TaskComposer', () => {
     )
     // Title input is present
     expect(screen.getByLabelText(/title/i)).toBeInTheDocument()
-    // execution_mode select with 3 options (interactive default + classic + stream — RESEARCH §Open Q4)
+    // execution_mode select with 3 options (interactive default + classic + stream — design notes)
     const modeSelect = screen.getByLabelText(/execution mode/i) as HTMLSelectElement
     expect(modeSelect).toBeInTheDocument()
     const optionValues = Array.from(modeSelect.options).map((o) => o.value)

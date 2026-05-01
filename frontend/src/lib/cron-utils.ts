@@ -1,10 +1,10 @@
-// Phase 7 Plan 01 (Wave 0) — pure helpers for the ScheduleComposer Wave 2
+// current — pure helpers for the ScheduleComposer later work
 // will land. partsToCron renders a 5-field POSIX cron from a discrete
 // {minute, hour, days[]} composer state; prettyCron wraps cronstrue so the
 // Composer can render a human-readable preview without try/catch noise at
 // the call site.
 //
-// Pitfall 12 (RESEARCH §): cronstrue defaults assume Mon=1 / Sun=0 (matches
+// Pitfall 12 (design notes): cronstrue defaults assume Mon=1 / Sun=0 (matches
 // croniter's `standard` mode used by backend SCHD-* validation), so we do
 // NOT toggle `dayOfWeekStartIndexZero`. Toggling it would create a frontend
 // cron string that backend croniter rejects.

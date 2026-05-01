@@ -1,9 +1,9 @@
-"""Skill filesystem scanner — Pitfall 5 hardened (no symlinks, 1-level deep, capped).
+"""Skill filesystem scanner — no symlinks, 1-level deep, capped.
 
 Frontmatter format: ``---\\nyaml\\n---\\n<body>`` (matches the SKILL.md
 convention used by Claude's skills system).
 
-Hardening per Plan 03-05 threat model:
+Hardening:
   - find_skill_files skips symlinks at BOTH the directory AND the SKILL.md
     file levels (defense against symlink-pointing-at-/etc/passwd attacks).
   - Only one-level deep: <root>/<skill_name>/SKILL.md. Nested skills are

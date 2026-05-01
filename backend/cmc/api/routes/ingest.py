@@ -1,6 +1,6 @@
 """OTLP/HTTP JSON ingest endpoints — POST /v1/logs and POST /v1/metrics.
 
-CRITICAL CONTRACT (INGST-07/INGST-09 + Pitfalls.md Pitfall 4):
+CRITICAL CONTRACT:
   These handlers ALWAYS return 200 with body `{}` once the request body has
   been read. Any 4xx/5xx causes Claude Code's OTLP exporter to drop the batch
   permanently and disable itself for the session — observability data is lost
@@ -13,10 +13,9 @@ CRITICAL CONTRACT (INGST-07/INGST-09 + Pitfalls.md Pitfall 4):
 Per-record exceptions are logged and skipped (one bad record never blocks the
 batch). DB commit failures are rolled back and we still return 200.
 
-OTLP/HTTP supports both JSON and protobuf encodings; Phase 2 accepts JSON only.
-A protobuf request (Content-Type: application/x-protobuf) will fail JSON
-parsing here and return 200 anyway — supporting protobuf is deferred per
-research §A3.
+OTLP/HTTP supports both JSON and protobuf encodings; this receiver accepts JSON
+only. A protobuf request (Content-Type: application/x-protobuf) will fail JSON
+parsing here and return 200 anyway.
 """
 
 import logging

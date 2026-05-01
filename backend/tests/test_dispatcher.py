@@ -1,14 +1,12 @@
-"""Phase 8 dispatcher tests — single-file convention (mirrors Phase 4).
+"""Dispatcher tests.
 
-Plan 08-01 ships:
+Coverage includes:
   - Settings: 7 dispatcher fields + env override round-trip
   - state.py: pid_dir(), write_pid_file/unlink_pid_file/list_live_pids/stamp_tick
   - sweep.py: sweep_stale_pids() (DISP-03)
   - claim.py: claim_pending_tasks(engine, slots) (DISP-01 atomic claim half)
   - materialize.py: materialize_due_schedules(db) (DISP-01 fan-out half)
   - heartbeat.py: run_one_cycle() async orchestrator (DISP-01/02/03/04 wiring)
-
-Plans 08-02..04 will append DISP-05..12 cases here.
 """
 
 import asyncio
@@ -38,7 +36,7 @@ def test_settings_dispatcher_fields_present(clean_env):
 
 def test_settings_env_overrides(clean_env, monkeypatch):
     """Pydantic-Settings derives env names from field names (no CMC_ prefix —
-    matches existing PORT/DB_PATH/LOG_LEVEL convention from Phase 1)."""
+    matches existing PORT/DB_PATH/LOG_LEVEL convention)."""
     from cmc.config import Settings
 
     monkeypatch.setenv("CLAUDE_BIN", "/usr/local/bin/claude")
@@ -520,10 +518,9 @@ async def test_disp01_one_cycle_smoke(
         monkeypatch.setattr(
             "cmc.dispatcher.heartbeat.make_sessionmaker", lambda e: sessions
         )
-        # Plan-04 finalized the fan-out — without mocking the runner, the
-        # actual /opt/homebrew/bin/claude would be invoked. Stub run_classic
-        # to keep this smoke test focused on its original Plan-01 invariants
-        # (materialize + claim + tick stamp).
+        # Fan-out now invokes a runner; without mocking, the actual
+        # /opt/homebrew/bin/claude would be invoked. Stub run_classic to keep
+        # this smoke test focused on materialize + claim + tick stamp.
         runner_calls: list[int] = []
 
         def _stub_run_classic(task_row, settings, sessions, *, skill=None):
@@ -547,12 +544,11 @@ async def test_disp01_one_cycle_smoke(
             ).scalar_one_or_none()
         assert len(tasks) == 1
         assert tasks[0].title == "auto-from-sched"
-        # Plan-04 contract: claim flips status to 'running'; the stubbed
-        # runner does NOT mark done/failed, so 'running' is the terminal
-        # state observed in this stubbed cycle.
+        # Claim flips status to 'running'; the stubbed runner does NOT mark
+        # done/failed, so 'running' is the terminal state observed here.
         assert tasks[0].status == "running"
         assert tick is not None
-        # Plan-04: fan-out fired exactly once for the single claimed task.
+        # Fan-out fired exactly once for the single claimed task.
         assert runner_calls == [tasks[0].id]
     finally:
         await engine.dispose()
@@ -612,7 +608,7 @@ async def test_disp04_concurrency_cap(
         # slots = 0 → claim should not be called at all (early return path).
         # Either claim_call_args == [] (early return before claim_pending_tasks call)
         # OR claim_call_args == [0] (defensive call returning []).
-        # The plan's heartbeat skeleton early-returns on slots == 0.
+        # The heartbeat early-returns on slots == 0.
         assert claim_call_args == [] or claim_call_args == [0]
 
         async with sessions() as db:
@@ -670,7 +666,7 @@ async def test_disp_tick_stamp_on_exception(
         await engine.dispose()
 
 
-# ---- Plan 08-02 — DISP-10 model resolver ------------------------------------
+# ---- DISP-10 model resolver --------------------------------------------------
 
 
 def test_disp10_model_resolution_task_wins(clean_env, test_settings):
@@ -742,7 +738,7 @@ def test_disp10_model_resolution_skill_without_frontmatter(clean_env, test_setti
     assert resolve_model(task, skill_no_model_key, test_settings) == "sonnet"
 
 
-# ---- Plan 08-02 — DISP-05 classic runner -----------------------------------
+# ---- DISP-05 classic runner --------------------------------------------------
 
 
 def _classic_cmd_args() -> tuple[str, list[str]]:
@@ -1069,7 +1065,7 @@ async def test_disp05_classic_passes_resolved_model(
         await engine.dispose()
 
 
-# ---- Plan 08-02 — DISP-12 plist template + render helper -------------------
+# ---- DISP-12 plist template + render helper ---------------------------------
 
 
 def test_disp12_plist_template_exists():
@@ -1177,7 +1173,7 @@ def test_disp12_render_uses_venv_not_system_python(tmp_path):
     assert "/usr/bin/python3" not in rendered
 
 
-# ---- Plan 08-02 — oneshot.py replacement ------------------------------------
+# ---- oneshot.py replacement --------------------------------------------------
 
 
 def test_oneshot_main_replaces_stub(monkeypatch, capsys):
@@ -1198,9 +1194,9 @@ def test_oneshot_main_replaces_stub(monkeypatch, capsys):
     assert rc == sentinel
 
     out = capsys.readouterr()
-    # No more Phase-4 stub message.
-    assert "Phase-4 stub" not in out.out
-    assert "Phase-4 stub" not in out.err
+    old_stub_message = "legacy dispatcher stub"
+    assert old_stub_message not in out.out
+    assert old_stub_message not in out.err
 
 
 def test_oneshot_main_handles_exception(monkeypatch, capsys):
@@ -1222,11 +1218,11 @@ def test_oneshot_main_handles_exception(monkeypatch, capsys):
 
 
 # ============================================================================
-# Plan 08-03 — DISP-06/07/08 stream-mode runner + markers + decisions + inbox
+# DISP-06/07/08 stream-mode runner + markers + decisions + inbox
 # ============================================================================
 
 
-# ---- Plan 08-03 — DISP-07 MarkerParser (fenced-code-aware) -----------------
+# ---- DISP-07 MarkerParser (fenced-code-aware) --------------------------------
 
 
 def test_marker_parser_skips_fenced_code():
@@ -1311,7 +1307,7 @@ def test_marker_parser_strips_body_whitespace():
     assert out[0].body == "body text"
 
 
-# ---- Plan 08-03 — DISP-07 wait_for_answer (decision answer poll) -----------
+# ---- DISP-07 wait_for_answer (decision answer poll) --------------------------
 
 
 @pytest.mark.asyncio
@@ -1430,7 +1426,7 @@ async def test_answer_poll_uses_fresh_session_per_poll(test_settings, monkeypatc
         await engine.dispose()
 
 
-# ---- Plan 08-03 — DISP-08 post_inbox_marker (httpx POST /api/inbox) --------
+# ---- DISP-08 post_inbox_marker (httpx POST /api/inbox) -----------------------
 
 
 @pytest.mark.asyncio
@@ -1526,7 +1522,7 @@ async def test_inbox_post_handles_unexpected_status(monkeypatch):
     assert result is None
 
 
-# ---- Plan 08-03 — DISP-06 run_stream (stream-mode runner) ------------------
+# ---- DISP-06 run_stream (stream-mode runner) ---------------------------------
 
 
 def _write_fake_claude_stream_wrapper(tmp_path, fixture_extra_args=()) -> Path:
@@ -2234,7 +2230,7 @@ async def test_disp06_stream_unlinks_pid_on_exception(
         await engine.dispose()
 
 
-# ---- Plan 08-03 Task 3 — Wave-2 stdin-shape spike (RESEARCH §A2 / §Open Q2) -
+# ---- Stream-mode stdin shape -------------------------------------------------
 
 
 def test_input_format_spike_skips_when_claude_missing(monkeypatch):
@@ -2321,7 +2317,7 @@ def test_input_format_spike_returns_accepted_or_rejected(tmp_path):
 
 
 # ============================================================================
-# Plan 08-04 — DISP-09 / DISP-11 / DISP-04 part 2 + heartbeat fan-out + E2E
+# DISP-09 / DISP-11 / DISP-04 heartbeat fan-out + E2E
 # ============================================================================
 
 
@@ -2912,7 +2908,7 @@ def test_disp09_followup_pump_stops_on_event(tmp_path, monkeypatch):
     )
 
 
-# ---- Plan 08-04 Task 2 — heartbeat fan-out + run_stream FollowUpPump --------
+# ---- Heartbeat fan-out + run_stream FollowUpPump -----------------------------
 
 
 @pytest.mark.asyncio
@@ -3249,7 +3245,7 @@ async def test_heartbeat_autonomy_gate_blocks_review_skill(
 async def test_heartbeat_interactive_mode_maps_to_classic(
     test_settings, tmp_path, tmp_pid_dir_monkey, mock_psutil_pids, monkeypatch
 ):
-    """execution_mode='interactive' → run_classic invoked, NOT run_stream (RESEARCH §A8)."""
+    """execution_mode='interactive' -> run_classic invoked, NOT run_stream."""
     from cmc.db.models.tasks import Task
     from cmc.dispatcher import heartbeat as hb
 
@@ -3473,7 +3469,7 @@ async def test_run_stream_pumps_followups(
         await engine.dispose()
 
 
-# ---- Plan 08-04 Task 3 — E2E integration tests (ROADMAP SC1-SC5 coverage) ---
+# ---- E2E integration tests ----------------------------------------------------
 
 
 @pytest.mark.asyncio

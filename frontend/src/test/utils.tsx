@@ -1,5 +1,5 @@
 // Custom RTL render that wraps every component tree in <MotionConfig reducedMotion="always">.
-// Phase 5 component tests MUST import { render, userEvent } from this module — never directly
+// component tests MUST import { render, userEvent } from this module — never directly
 // from @testing-library/react — to keep framer-motion deterministic in tests (Pitfall 2).
 
 import { MotionConfig } from 'framer-motion'

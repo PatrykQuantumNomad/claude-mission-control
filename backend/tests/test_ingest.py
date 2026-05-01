@@ -1,25 +1,18 @@
-"""Phase 2 — Data Ingestion test suite.
+"""Data ingestion test suite.
 
-Single test file per phase (Phase 1 convention). Each plan in Phase 2 appends
-its INGST-* tests below the marker for that plan.
-
-Sections:
-  Plan 02-01 (this file's seed): settings sanity.
-  Plan 02-02 (JSONL parser):       INGST-02, INGST-03, INGST-06 tests appended.
-  Plan 02-03 (OTLP router):        INGST-07, INGST-08, INGST-09 tests appended.
-  Plan 02-04 (scheduler/repo):     INGST-04, INGST-05 tests appended.
-  Plan 02-05 (lifespan/manual):    INGST-01, INGST-10 tests appended.
+Sections cover settings, JSONL parsing, OTLP ingestion, repository idempotence,
+scheduler behavior, lifespan integration, and manual sync.
 """
 
 import json
 from datetime import UTC, datetime, timedelta
 
-# ---- Plan 02-01: settings sanity ----
+# ---- Settings sanity ----
 
-def test_phase2_settings_fields_present(test_settings):
-    """Plan 02-01: confirm the three new settings fields exist with expected defaults.
+def test_ingest_settings_fields_present(test_settings):
+    """Confirm ingestion settings fields exist with expected defaults.
 
-    Downstream plans rely on these defaults; if a future change drops them,
+    Ingestion code relies on these defaults; if a future change drops them,
     this test catches it before the dependent code breaks.
     """
     assert test_settings.session_idle_minutes == 5
@@ -28,7 +21,7 @@ def test_phase2_settings_fields_present(test_settings):
     assert ".claude/projects" in str(test_settings.jsonl_root)
 
 
-# ---- Plan 02-02: JSONL parser (INGST-02, INGST-03, INGST-06) ----
+# ---- JSONL parser (INGST-02, INGST-03, INGST-06) ----
 
 
 def test_jsonl_parser_token_usage_extraction(golden_jsonl_session):
@@ -114,7 +107,7 @@ def test_jsonl_parser_duration_capped_at_ten_minutes(tmp_path):
     tool_result arrives 30 min after the tool_use.
 
     This protects downstream charts from outlier-skewed scales when a tool
-    runs unattended (sleep, long compile) — research §3 calls this out.
+    runs unattended (sleep, long compile).
     """
     from cmc.ingest.jsonl_parser import parse_session_file
 
@@ -188,7 +181,7 @@ def test_jsonl_parser_corrupted_line_skipped(golden_jsonl_session, tmp_path):
     assert parsed[1] == {"b": 2}
 
 
-# ---- Plan 02-03: OTLP /v1/logs + /v1/metrics (INGST-07, INGST-08, INGST-09) ----
+# ---- OTLP /v1/logs + /v1/metrics (INGST-07, INGST-08, INGST-09) ----
 
 import pytest
 from sqlalchemy import select
@@ -405,18 +398,18 @@ async def test_otlp_logs_body_cap_returns_413(test_settings_with_static):
             assert resp.status_code == 413
 
 
-# ---- Plan 02-03 raw_routers wiring ----
+# ---- raw_routers wiring ----
 
 
 def test_raw_routers_function_exposed():
-    """Plan 02-03: cmc.api.routes.raw_routers() returns ≥1 router (the ingest router)."""
+    """cmc.api.routes.raw_routers() returns at least one router."""
     from cmc.api.routes import raw_routers
     routers = raw_routers()
     assert len(routers) >= 1
 
 
 def test_raw_routers_registers_otlp_paths_at_root(test_settings):
-    """Plan 02-03: /v1/logs and /v1/metrics are registered at root (no /api prefix)."""
+    """/v1/logs and /v1/metrics are registered at root (no /api prefix)."""
     from cmc.app import create_app
     app = create_app(settings=test_settings)
     paths = {getattr(r, "path", None) for r in app.routes}
@@ -429,7 +422,7 @@ def test_raw_routers_registers_otlp_paths_at_root(test_settings):
 
 @pytest.mark.asyncio
 async def test_otlp_get_returns_405_proves_router_mounted(test_settings, tmp_path):
-    """Plan 02-03: GET /v1/logs returns 405 (POST-only) — proves the router is
+    """GET /v1/logs returns 405 (POST-only) — proves the router is
     actually mounted (NOT 404, which would mean unregistered).
 
     Disables the SPA mount via a non-existent static_dir, because when the SPA
@@ -453,7 +446,7 @@ async def test_otlp_get_returns_405_proves_router_mounted(test_settings, tmp_pat
             )
 
 
-# ---- Plan 02-04: repository (INGST-04 idempotence + INGST-05 Option B) ----
+# ---- Repository (INGST-04 idempotence + INGST-05 Option B) ----
 
 from datetime import date
 
@@ -463,8 +456,8 @@ async def _bootstrap_app(test_settings):
 
     Returns (app, lifespan_cm) — caller wraps `async with lifespan_cm:` to start.
 
-    Plan 02-05: the lifespan now runs a boot-time sync_once over `jsonl_root`.
-    To keep callers hermetic (they don't want their tests reading the real
+    The lifespan runs a boot-time sync_once over `jsonl_root`. To keep callers
+    hermetic (they don't want their tests reading the real
     `~/.claude/projects/`), this helper ALWAYS overrides jsonl_root to a
     nonexistent path — sync_once will hit its "missing dir" early-return path
     and the test starts with an empty DB. Tests that need real ingestion
@@ -533,8 +526,8 @@ async def test_upsert_tools_pending_to_ok_transition(test_settings):
 
     Uses a fresh AsyncSession per assertion phase so the identity-map cache
     (expire_on_commit=False) doesn't return a stale ORM instance after upsert.
-    The scheduler in Plan 02-04 mirrors this pattern: each file gets its own
-    sessionmaker() context, so cache freshness is naturally bounded per cycle.
+    The scheduler mirrors this pattern: each file gets its own sessionmaker()
+    context, so cache freshness is naturally bounded per cycle.
     """
     from cmc.db.models.tools import ToolCall
     from cmc.ingest.repository import upsert_session, upsert_tools
@@ -542,7 +535,7 @@ async def test_upsert_tools_pending_to_ok_transition(test_settings):
     app, cm = await _bootstrap_app(test_settings)
     async with cm:
         now = datetime.now(UTC)
-        # Phase 1: insert parent + pending tool
+        # First pass: insert parent + pending tool
         async with app.state.sessions() as db:
             await upsert_session(
                 db, session_id="sess-x",
@@ -568,7 +561,7 @@ async def test_upsert_tools_pending_to_ok_transition(test_settings):
             assert rows[0].status == "pending"
             assert rows[0].duration_ms is None
 
-        # Phase 2: re-parse with tool_result → status='ok'.
+        # Second pass: re-parse with tool_result -> status='ok'.
         later = now + timedelta(seconds=5)
         async with app.state.sessions() as db:
             await upsert_tools(db, "sess-x", [{
@@ -742,7 +735,7 @@ async def test_repository_idempotent_full_run(test_settings, golden_jsonl_sessio
         assert sum(b.tokens_output for b in buckets) == 28
 
 
-# ---- Plan 02-04: scheduler (INGST-04 + INGST-05 + INGST-06 e2e + loop hygiene) ----
+# ---- Scheduler (INGST-04 + INGST-05 + INGST-06 e2e + loop hygiene) ----
 
 import asyncio
 import os
@@ -787,7 +780,7 @@ async def test_sync_once_ingests_golden_session(
 @pytest.mark.asyncio
 async def test_sync_once_excludes_subagents(settings_with_jsonl_root, golden_jsonl_session):
     """Glob is `*/*.jsonl` (one level) — must NOT scoop up subagent JSONL files
-    nested deeper. (Pitfall 5 in research §1.)
+    nested deeper.
     """
     from cmc.db.models.sessions import Session as SessionModel
     from cmc.ingest.scheduler import sync_once
@@ -863,7 +856,7 @@ async def test_sync_once_ended_at_heuristic_fresh_file(
 async def test_sync_once_local_day_bucket_uses_system_tz(
     monkeypatch, settings_with_jsonl_root, fake_jsonl_dir,
 ):
-    """INGST-05 + research §6: 04:00 UTC = previous day in Pacific → bucket
+    """INGST-05: 04:00 UTC = previous day in Pacific → bucket
     `day` must be the LOCAL date (2026-04-24), not the UTC date (2026-04-25).
     """
     from cmc.db.models.token_usage import TokenUsage
@@ -872,8 +865,8 @@ async def test_sync_once_local_day_bucket_uses_system_tz(
     monkeypatch.setenv("TZ", "America/Los_Angeles")
     _time.tzset()
     try:
-        # Plan 02-05: lifespan now runs boot-time sync_once. Build the test
-        # file INSIDE the lifespan context (after boot sync ran on the empty
+        # Lifespan runs boot-time sync_once. Build the test file INSIDE the
+        # lifespan context (after boot sync ran on the empty
         # dir) so the explicit sync_once below is the FIRST sync that sees it.
         # Otherwise, boot sync would ingest it first and the explicit call
         # would re-process it under Option B with different primary_day/model
@@ -987,7 +980,7 @@ async def test_periodic_sync_loop_survives_transient_errors(monkeypatch):
     )
 
 
-# ---- Plan 02-05: lifespan boot sync + periodic task (INGST-01) ----
+# ---- Lifespan boot sync + periodic task (INGST-01) ----
 
 
 @pytest.mark.asyncio
@@ -1059,8 +1052,8 @@ async def test_lifespan_boots_when_jsonl_root_missing(
 ):
     """Lifespan boots cleanly when jsonl_root points at a non-existent directory.
 
-    Already covered indirectly by Plan 02-04's "missing dir → log warning" path
-    in sync_once; this is a thin integration check that the lifespan doesn't
+    Already covered indirectly by sync_once's "missing dir -> log warning" path;
+    this is a thin integration check that the lifespan doesn't
     propagate the warning into a boot failure.
     """
     from fastapi import FastAPI
@@ -1080,7 +1073,7 @@ async def test_lifespan_boots_when_jsonl_root_missing(
         assert isinstance(app.state.sync_task, asyncio.Task)
 
 
-# ---- Plan 02-05: POST /api/sync (INGST-10) ----
+# ---- POST /api/sync (INGST-10) ----
 
 
 @pytest.mark.asyncio
@@ -1158,7 +1151,7 @@ async def test_manual_sync_idempotent_under_repeat(
 
 
 def test_sync_route_registered(test_settings):
-    """Plan 02-05: /api/sync exists and lives under the /api prefix.
+    """/api/sync exists and lives under the /api prefix.
 
     Confirms all_routers() picked up the new sync_router AND the factory
     registered it before the SPA mount (Pitfall 8 still satisfied because

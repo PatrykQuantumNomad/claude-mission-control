@@ -1,9 +1,8 @@
 """Response schemas for OBSV-* (observability) routes.
 
-DTOs supplied here for Wave 1 plan 03-04 to consume across all 10 OBSV-*
-endpoints. All aggregate endpoints accept a `range` query param of type
-`RangeWindow` and echo it back in their response so the UI can verify what
-window was actually computed (RangeWindow.today defaults to local-day).
+All aggregate endpoints accept a `range` query param of type `RangeWindow` and
+echo it back in their response so the UI can verify what window was actually
+computed (RangeWindow.today defaults to local-day).
 """
 
 from datetime import datetime
@@ -171,7 +170,7 @@ class PressureResponse(BaseModel):
     recent_api_errors: list[ApiErrorEntry]
 
 
-# ---- Phase 6 Plan 01 — ACTV-01 heatmap + ACTV-05 unified failures ----------
+# ---- ACTV-01 heatmap + ACTV-05 unified failures -----------------------------
 
 
 class HeatmapDayRow(BaseModel):

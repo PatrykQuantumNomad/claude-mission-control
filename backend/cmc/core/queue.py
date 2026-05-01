@@ -1,11 +1,11 @@
-"""File-based queue writer — RESEARCH §Pattern 5.
+"""File-based queue writer.
 
 Single source of truth for `repo_root() / .tmp/mission-control-queue/`
-writes. SESS-06 (Plan 03-03) writes to `messages/`; HITL-03 / HITL-07
-write to `decisions/` / `inbox/`. This module owns the path layout so a
-future change edits one file, not three routers.
+writes. SESS-06 writes to `messages/`; HITL-03 / HITL-07 write to `decisions/`
+/ `inbox/`. This module owns the path layout so a future change edits one file,
+not three routers.
 
-Phase 8 dispatcher reads from these directories — Phase 4 is the writer.
+The dispatcher reads from these directories.
 """
 
 import json

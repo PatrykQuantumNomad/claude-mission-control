@@ -1,6 +1,6 @@
-// DataTable — Phase 6 Plan 01. Generic sortable + paginated + optionally-
+// DataTable — current. Generic sortable + paginated + optionally-
 // filterable table primitive. v1 has no virtualization (sufficient for the
-// ≤200-row workloads Phase 6 panels expose; revisit if a panel needs >500
+// ≤200-row workloads current panels expose; revisit if a panel needs >500
 // rows). Sort + page state are controlled via props so the parent can persist
 // them via lib/storage when desired.
 //

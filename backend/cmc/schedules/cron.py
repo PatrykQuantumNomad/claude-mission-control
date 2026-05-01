@@ -1,4 +1,4 @@
-"""Thin croniter wrappers — RESEARCH Pattern 3 + Pitfall 3.
+"""Thin croniter wrappers.
 
 Two functions:
   validate_cron(expr) -> bool : 5-field cron validity check
@@ -13,8 +13,8 @@ from croniter import croniter
 def validate_cron(expr: str) -> bool:
     """Return True iff `expr` is a valid 5-field cron expression.
 
-    Strips surrounding whitespace before validating (per RESEARCH
-    Anti-Patterns: don't validate raw quoted strings).
+    Strips surrounding whitespace before validating so quoted or padded input
+    does not fail unnecessarily.
     """
     if not isinstance(expr, str):
         return False
@@ -24,7 +24,7 @@ def validate_cron(expr: str) -> bool:
 def next_run(expr: str, base: datetime) -> datetime:
     """Return the next firing datetime after `base`. base MUST be tz-aware.
 
-    Pitfall 3: a naive base silently uses local time; reject naive inputs.
+    A naive base silently uses local time; reject naive inputs.
     """
     if base.tzinfo is None:
         raise ValueError("base must be tz-aware")

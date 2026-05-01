@@ -1,6 +1,6 @@
 """DISP-09 follow-up pump — reads queue files, writes user-message NDJSON to proc.stdin.
 
-Symmetric NDJSON shape locked by Plan 08-03 Wave-2 spike (RESEARCH §A2 / §Open Q2):
+Symmetric NDJSON shape:
 
     {"type":"user","message":{"role":"user","content":"<body>"}}\\n
 
@@ -8,11 +8,11 @@ Atomic read-then-truncate: rename the queue file to a `.tmp-pump` suffix,
 read it, delete the tmp. New writes by the API land in a fresh file at the
 original path so we never lose lines mid-drain.
 
-v1 channel scope (Truth #2): pump polls ONLY `messages/task-{task_id}.jsonl`.
+v1 channel scope: pump polls ONLY `messages/task-{task_id}.jsonl`.
 - Decision answers: handled by `cmc.dispatcher.answer_poll.wait_for_answer`'s
-  DB-read loop (Plan 08-03 run_stream), NOT injected here.
+  DB-read loop, NOT injected here.
 - Inbox replies: not re-injected into the running task in v1. They land at
-  queue_path('inbox', <id>) for downstream consumers (Phase 9+).
+  queue_path('inbox', <id>) for downstream consumers.
 
 Lifecycle:
 - Caller (run_stream) instantiates `FollowUpPump(task_row, proc, settings)` and
@@ -39,11 +39,11 @@ class FollowUpPump:
 
     def __init__(self, task_row: dict[str, Any], proc, settings) -> None:
         self._task_id = int(task_row["id"])
-        # v1: queue is keyed on task-id. Phase 1 Task schema has no session_id
+        # v1: queue is keyed on task-id. The Task schema has no session_id
         # column; senders writing follow-ups MUST write to
         #   queue_path("messages", f"task-{task_id}")
-        # Phase 9+ may rekey on a future session_id column; until then, task-id
-        # IS the queue key.
+        # A future session_id column may allow rekeying; until then, task-id IS
+        # the queue key.
         self._queue_key = f"task-{self._task_id}"
         self._proc = proc
         self._settings = settings
@@ -66,8 +66,8 @@ class FollowUpPump:
                 # operator-side senders MUST write to
                 #   queue_path("messages", f"task-{task_id}").
                 self._drain(queue_path("messages", self._queue_key))
-                # Decision answers: handled by answer_poll's DB read loop
-                # (Plan 03 run_stream), NOT injected here.
+                # Decision answers: handled by answer_poll's DB read loop, NOT
+                # injected here.
                 # Inbox replies: not re-injected into the running task in v1.
             except Exception:
                 log.exception("dispatcher.follow_ups.iteration_error")

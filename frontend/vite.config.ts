@@ -21,7 +21,7 @@ export default defineConfig({
         target: 'http://127.0.0.1:8765',
         changeOrigin: false, // localhost; same origin model
       },
-      // Phase 2 will add /v1/logs and /v1/metrics; for now /api is enough
+      // Future work will add /v1/logs and /v1/metrics; for now /api is enough
     },
   },
   build: {

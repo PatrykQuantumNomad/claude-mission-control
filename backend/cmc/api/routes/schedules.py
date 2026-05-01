@@ -17,7 +17,7 @@ Cron validation + next_run computation
   base would silently use local time (Pitfall 3) and is rejected at the cron
   module boundary.
 
-Recompute matrix (SCHD-03 — Pitfall 7 + Open Q4: clear AND recompute)
+Recompute matrix (SCHD-03: clear AND recompute)
   next_run_at is recomputed (or cleared) on PATCH iff EITHER `cron` OR
   `enabled` changes:
     enabled=True,  cron change -> next_run_at = next_run(new_cron, now)
@@ -27,7 +27,7 @@ Recompute matrix (SCHD-03 — Pitfall 7 + Open Q4: clear AND recompute)
   POST /schedules also follows the same rule on first insert: next_run_at is
   populated when enabled=True, NULL otherwise.
 
-503-graceful NL fallback (SCHD-06 — RESEARCH Pattern 8 + Security V11)
+503-graceful NL fallback (SCHD-06)
   cmc.schedules.nlcron.nl_to_cron returns None for BOTH "ANTHROPIC_API_KEY
   missing" AND "model returned invalid cron". A SINGLE 503 response covers
   both cases with the identical user-facing message
@@ -35,7 +35,7 @@ Recompute matrix (SCHD-03 — Pitfall 7 + Open Q4: clear AND recompute)
   leak environment configuration to localhost callers.
 
 Error contract — the app HTTPException handler emits {error: detail}, NOT
-the FastAPI default {detail: ...}. See STATE.md Plan 03-03 note.
+the FastAPI default {detail: ...}.
 """
 
 from datetime import UTC, datetime
@@ -146,10 +146,10 @@ async def patch_schedule(
 ) -> ScheduleListItem:
     """SCHD-03: partial update with cron-recompute invariant.
 
-    Pitfall 7 (clear-and-recompute): when EITHER `cron` OR `enabled` changes,
-    next_run_at is set to next_run(...) if the row ends up enabled, or
-    cleared to NULL otherwise. Other field-only PATCHes leave next_run_at
-    alone. updated_at always refreshes.
+    Clear-and-recompute invariant: when EITHER `cron` OR `enabled` changes,
+    next_run_at is set to next_run(...) if the row ends up enabled, or cleared
+    to NULL otherwise. Other field-only PATCHes leave next_run_at alone.
+    updated_at always refreshes.
 
     422 on invalid cron — DB row is NOT modified. 409 on UNIQUE name conflict.
     """
@@ -206,8 +206,8 @@ async def delete_schedule(
 ) -> Response:
     """SCHD-04: delete by id. 204 No Content on success, 404 on missing.
 
-    The Task.schedule_id FK is `ON DELETE SET NULL` (Plan 01-05) so deleting
-    a schedule does NOT cascade-delete its historical task runs — they remain
+    The Task.schedule_id FK is `ON DELETE SET NULL` so deleting a schedule does
+    NOT cascade-delete its historical task runs — they remain
     visible in /api/tasks with schedule_id NULL'd out.
     """
     row = (

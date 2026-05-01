@@ -1,4 +1,4 @@
-// EditAcceptanceCard — OPNL-12 (Phase 6 Plan 03 / Wave 3).
+// EditAcceptanceCard — OPNL-12 (current).
 //
 // Always renders 4 fixed rows (Edit/MultiEdit/Write/NotebookEdit) — when the
 // backend returns fewer rows, missing tools render with placeholder zero

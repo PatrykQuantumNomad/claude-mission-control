@@ -1,9 +1,8 @@
 """DISP-01 one-cycle orchestrator.
 
-Plan 08-01 shipped the orchestration shell. Plan 08-04 finalizes the per-task
-fan-out: for each claimed row we resolve the skill (Haiku router for unassigned
-tasks), check the autonomy gate (review/manual → awaiting_approval), then spawn
-either run_classic or run_stream in a thread keyed on `execution_mode`.
+For each claimed row we resolve the skill (Haiku router for unassigned tasks),
+check the autonomy gate (review/manual -> awaiting_approval), then spawn either
+run_classic or run_stream in a thread keyed on `execution_mode`.
 
 Order of operations (see SAPI-04 + Pitfall 5 + Pitfall 7):
   1. Build engine + sessionmaker (per-cycle; FastAPI's engine lives elsewhere).
@@ -95,7 +94,7 @@ async def run_one_cycle() -> int:
             claimed = await claim_pending_tasks(engine, slots)
             log.info("dispatcher.claimed", extra={"count": len(claimed)})
 
-            # 7. Per-task fan-out (Plan 08-04 finalizes the Plan-01 TODO).
+            # 7. Per-task fan-out.
             threads: list[threading.Thread] = []
             for row in claimed:
                 # 7a. Resolve skill (router pick + DB persist for unassigned).
@@ -110,7 +109,7 @@ async def run_one_cycle() -> int:
                     )
                     continue
 
-                # 7c. Mode → runner. RESEARCH §A8: interactive maps to classic.
+                # 7c. Mode -> runner. interactive maps to classic.
                 mode = (row.get("execution_mode") or "classic").lower()
                 if mode == "stream":
                     target = run_stream
@@ -140,8 +139,8 @@ async def run_one_cycle() -> int:
 
             return 0
         finally:
-            # Plan 01 contract: tick stamp at top runs even on exception. No
-            # additional stamp here — sequence kept minimal so the try/finally
+            # Tick stamp at top runs even on exception. No additional stamp
+            # here — sequence kept minimal so the try/finally
             # boundary unambiguously protects the early stamp_tick call.
             pass
     finally:
