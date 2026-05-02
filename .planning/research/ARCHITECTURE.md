@@ -1,583 +1,573 @@
-# Architecture Research
+# Architecture Research — v1.1 Skills & Cost Intelligence
 
-**Domain:** Local developer observability dashboard with task dispatching and HITL workflows
-**Researched:** 2026-04-25
-**Confidence:** HIGH
+**Domain:** Local Claude Code dashboard — adding skill observability, cost intelligence, alerting, and session comparison to a shipped FastAPI + SQLModel + TanStack monolith
+**Researched:** 2026-05-02
+**Confidence:** HIGH for integration with existing patterns (verified against fresh codebase map). MEDIUM for skill event source (depends on a Phase 0 spike — Claude Code's `claude_code.skill_invoked` event was confirmed absent at v1.0 ship time; whether it exists today is the spike question).
 
-## System Overview
+---
+
+## TL;DR
+
+- **No new tables for skill events.** Reuse `otel_events` (extend `ingest.py` recognition) and add a derived/materialized `skill_runs` view-or-table only if rollup queries on `otel_events` JSON prove too slow under measured load — defer that decision until Phase 1 spike measures it.
+- **Two new tables required** — `pricing` (model-source unit prices) and `alert_rules` (user-authored thresholds). Plus one optional `alert_events` table for de-dup history (mirrors `notification_log`).
+- **Cost is computed at read-time, with a stamping fast-path on the daily `token_usage` rollup.** Per-event stamping at ingest is rejected — pricing changes would require backfills, and OTLP ingest must stay fast and crash-tolerant (Pitfall 4).
+- **Alert engine lives in the dispatcher process** as a new `cmc/dispatcher/alerts.py` module that runs at the start of every `run_one_cycle()` (already 120 s cadence, already has DB engine, already has a heartbeat). It emits `Decision` rows + Telegram via the existing `notifier`. **No new launchd job, no new daemon.**
+- **Session comparison is backend-side** — new endpoint `GET /api/sessions/compare?a=...&b=...` returns a paired-metrics payload; client renders a two-column diff. Picker is **Cmd+K** reusing the existing `CommandPalette` shell, with `?compare=a,b` URL params for shareable links.
+- **Skill timeline reuses the existing SSE firehose** with a server-side `event_name=claude_code.skill_invoked` filter (the firehose already accepts `event_name` as a query param — see `system.py:336`). No new SSE endpoint.
+
+---
+
+## System Overview (v1.1 deltas only)
+
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│                     React SPA (TanStack Router)                        │
+│  /  CommandPage     /activity  ActivityPage                            │
+│  /skills  SkillsPage   ←── existing                                    │
+│  /skills/$name  SkillDetailPage           ←── NEW (file-based route)   │
+│  /sessions/compare  SessionCompareView     ←── NEW (URL ?a=&b=)        │
+│  /alerts  AlertRulesPage                  ←── NEW                      │
+└──────────┬──────────────────────────────────────────────────┬──────────┘
+           │  HTTP REST + SSE (event_name filter)             │
+           ▼                                                  ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│              FastAPI Application  `backend/cmc/app/factory.py`         │
+│   /api/skills/{name}/runs          ←── NEW   (rollup)                  │
+│   /api/skills/{name}/timeline      ←── NEW   (paginated event list)    │
+│   /api/skills/{name}/cost          ←── NEW   (cost rollup)             │
+│   /api/cost/summary                ←── NEW   (top-level KPIs)          │
+│   /api/cost/breakdown              ←── NEW   (by model/source/skill)   │
+│   /api/sessions/compare            ←── NEW   (a vs b diff payload)     │
+│   /api/alerts                      ←── NEW   (CRUD rules)              │
+│   /api/alerts/{id}/test            ←── NEW   (dry-run a rule)          │
+│   /api/firehose?event_name=claude_code.skill_invoked  ←── REUSE        │
+│   /v1/logs                         ←── EXTEND ingest.py for skills     │
+└────────┬─────────────────────────┬──────────────────────────┬──────────┘
+         │                         │                          │
+         ▼                         ▼                          ▼
+┌─────────────────┐  ┌──────────────────────┐  ┌──────────────────────────┐
+│  SQLite DB      │  │  Ingest scheduler    │  │  Dispatcher (launchd)    │
+│  +pricing       │  │  (no change for v1.1)│  │  + cmc/dispatcher/alerts │
+│  +alert_rules   │  │                      │  │    runs FIRST in cycle,  │
+│  +alert_events  │  │                      │  │    before claim/sweep    │
+│  (optional)     │  │                      │  │  + writes Decision rows  │
+└─────────────────┘  └──────────────────────┘  │    & lets notifier send  │
+                                                └──────────────────────────┘
+```
+
+---
+
+## Component Responsibilities (new + modified)
+
+| Component | New / Modified | File | Responsibility |
+|-----------|----------------|------|----------------|
+| Skill event recognition | **MODIFIED** | `backend/cmc/api/routes/ingest.py` | When `event_name == "claude_code.skill_invoked"`, also extract `attrs.skill_name` into `OtelEvent.body` (already JSON; no schema change). Optionally promote `skill_name` to a dedicated indexed column in a follow-up if query latency demands. |
+| `Pricing` model | **NEW** | `backend/cmc/db/models/pricing.py` | `(model, source, unit_kind, price_per_million_tokens, effective_from, effective_until)` — supports historical price changes without backfilling existing rows. |
+| `AlertRule` model | **NEW** | `backend/cmc/db/models/alert_rules.py` | Row-per-user-rule. Columns: `name`, `metric` (enum-as-text), `comparator`, `threshold`, `window_minutes`, `severity`, `notify_telegram`, `notify_decision`, `enabled`, timestamps. |
+| `AlertEvent` model | **NEW (optional)** | `backend/cmc/db/models/alert_events.py` | Append-only firing log + dedup ledger. Mirrors `notification_log` shape. Defer if `notification_log.kind='alert'` reuse turns out cleaner (see Phase 5). |
+| Cost engine | **NEW** | `backend/cmc/cost/engine.py` | Pure module. Function `price_tokens(model, source, tokens, at: datetime) -> float`; `summarize(...)` aggregates over `token_usage`. Imported by routes; no I/O. |
+| Cost router | **NEW** | `backend/cmc/api/routes/cost.py` | `/api/cost/summary`, `/api/cost/breakdown` — read-time SQL groupbys against `token_usage` joined with `pricing`. |
+| Skills router (extended) | **MODIFIED** | `backend/cmc/api/routes/skills.py` | Add `GET /skills/{name}/runs`, `/timeline`, `/cost`. Path-traversal regex (`_SKILL_NAME_RE`) reuse — no new validation logic. |
+| Sessions router (extended) | **MODIFIED** | `backend/cmc/api/routes/sessions.py` | Add `GET /sessions/compare?a=...&b=...`. Two `session_id` query params validated against existing 64-char primary-key shape. |
+| Alerts router | **NEW** | `backend/cmc/api/routes/alerts.py` | CRUD on `alert_rules`. `POST /alerts/{id}/test` runs the rule once against current DB and returns whether it would fire (does NOT write a Decision/Telegram). |
+| Alert engine | **NEW** | `backend/cmc/dispatcher/alerts.py` | Function `evaluate_alerts(db_session)` runs at the top of `run_one_cycle()`. For each enabled rule, executes the rule's metric query, checks threshold, writes `Decision` row + `notification_log` row (kind="alert", entity_id=rule_id+window_start) so the existing notifier loop sends it. Idempotent via `notification_log` UNIQUE constraint (Pitfall P6 — same write pattern). |
+| Skill detail route | **NEW** | `frontend/src/routes/skills/$name.tsx` | TanStack file-based route. Renders `SkillDetailView` with cost, runs, timeline panels. |
+| Session compare route | **NEW** | `frontend/src/routes/sessions.compare.tsx` | Reads `?a=&b=` from search params; renders `SessionCompareView`. |
+| Alert rules route | **NEW** | `frontend/src/routes/alerts.tsx` | List + form for `alert_rules`. |
+| Cost panels | **NEW** | `frontend/src/components/panels/CostSummary.tsx`, `CostBreakdown.tsx`, `CostPerSkill.tsx` | Read from `useCostSummary()` / `useCostBreakdown()` hooks. |
+| Replace v2 placeholders | **MODIFIED** | `frontend/src/components/panels/SkillCostCard.tsx`, `TopSkills.tsx` | These already exist as placeholders (`SCOPED TO V2`); replace empty-state with real data once `/api/skills/{name}/cost` and `/api/skills/usage` are live. |
+| Skill timeline panel | **NEW** | `frontend/src/components/panels/SkillTimeline.tsx` | Uses `useFirehose({ event_name: 'claude_code.skill_invoked' })`. The hook's existing query-string passthrough already supports the filter (`useFirehose.ts`). |
+| Session compare picker | **MODIFIED** | `frontend/src/components/shell/CommandPalette.tsx` (extension) | Add a "Compare with…" action that opens a session search modal and routes to `/sessions/compare?a=current&b=picked`. |
+| Cost / alert hooks | **MODIFIED** | `frontend/src/lib/queries.ts` | Add `useCostSummary` (60 s), `useCostBreakdown(range)` (60 s), `useSkillRuns(name, range)` (60 s), `useSkillTimeline(name)` (uses SSE — no polling), `useAlerts()` (30 s), `useAlertEvents()` (10 s — these are user-visible firings). Cadences match existing buckets. |
+
+---
+
+## Architectural Patterns
+
+### Pattern 1: Read-time cost computation with cached pricing snapshots
+
+**What:** Cost is never stamped onto `otel_events` or `token_usage` rows at ingest. Instead, the cost engine joins `token_usage` against `pricing` at query time, picking the price row valid for each `day` via `effective_from <= day AND (effective_until IS NULL OR effective_until > day)`.
+
+**When to use:** Whenever pricing might change (it will — Anthropic adjusts prices) and the dataset is small enough to recompute on read. A single-user local dashboard with ≤ a few thousand `token_usage` rows per month qualifies.
+
+**Trade-offs:**
+- ✅ Pricing edits are immediately reflected with zero backfill.
+- ✅ Ingest stays fast and crash-tolerant (Pitfall 4: `/v1/logs` MUST always 200).
+- ✅ Aligns with the existing read-time pattern in `observability.py` (cache hit-rate, outcomes — both compute on read with `STRFTIME`).
+- ❌ A bad price row affects historical reports retroactively. Mitigated by the `effective_from`/`effective_until` history.
+- ❌ Slightly heavier read query. Negligible at this scale; SQLite handles the join in single-digit ms.
+
+**Example:**
+```python
+# backend/cmc/cost/engine.py
+_COST_SQL = text("""
+    SELECT
+      tu.day, tu.model, tu.source,
+      tu.tokens_input, tu.tokens_output,
+      tu.tokens_cache_read, tu.tokens_cache_create,
+      pr_in.price_per_million  AS price_in,
+      pr_out.price_per_million AS price_out,
+      pr_cr.price_per_million  AS price_cache_read,
+      pr_cw.price_per_million  AS price_cache_create
+    FROM token_usage tu
+    LEFT JOIN pricing pr_in
+      ON pr_in.model = tu.model AND pr_in.source = tu.source
+     AND pr_in.unit_kind = 'input'
+     AND pr_in.effective_from <= tu.day
+     AND (pr_in.effective_until IS NULL OR pr_in.effective_until > tu.day)
+    -- repeat for output / cache_read / cache_create
+    WHERE tu.day >= DATE('now', :since_clause, 'localtime')
+""")
+```
+
+---
+
+### Pattern 2: Alert engine as a dispatcher pre-cycle hook
+
+**What:** `evaluate_alerts(db)` runs as the very first step of `run_one_cycle()`, before `stamp_tick`/`sweep`/`materialize`/`claim`. It is a pure function over the DB — it reads `alert_rules`, runs each rule's metric query, writes `Decision` + `notification_log(kind='alert')` rows when a rule fires.
+
+**When to use:** Whenever you need periodic evaluation of background rules in a system that already has a 120 s heartbeat dispatcher with a DB connection. **Reuse the heartbeat — don't add a new one.**
+
+**Trade-offs:**
+- ✅ Zero new launchd jobs, zero new processes, zero new heartbeat infrastructure.
+- ✅ Failures are observable through the existing `dispatcher_last_tick_at` system_state key — if alerts stop firing, the dispatcher is the failure mode operators already monitor.
+- ✅ Alerts pipe into Decision queue + Telegram **for free** because both surfaces already poll those tables (`useDecisions` 5 s, `notifier` 30 s).
+- ❌ Alert evaluation is bound to the dispatcher's 120 s cadence. For "burn rate" alerts this is more than fine; sub-minute alerts are out of scope (and not requested).
+- ❌ A long-running alert query could slow the dispatcher cycle. Mitigation: cap each rule query at 500 ms via `db.execute(...)` with `asyncio.wait_for`, log+skip on timeout.
+
+**Example skeleton:**
+```python
+# backend/cmc/dispatcher/alerts.py
+async def evaluate_alerts(db: AsyncSession) -> int:
+    rules = (await db.execute(select(AlertRule).where(AlertRule.enabled == True))).scalars().all()
+    fired = 0
+    for rule in rules:
+        try:
+            value = await asyncio.wait_for(_compute_metric(db, rule), timeout=0.5)
+        except asyncio.TimeoutError:
+            log.warning("alert.timeout", extra={"rule_id": rule.id})
+            continue
+        if not _crosses(rule, value):
+            continue
+        # Idempotent: notification_log UNIQUE(kind, entity_id, chat_id) blocks dupes
+        # entity_id is rule.id + bucket-start ISO so re-firing in next bucket works
+        await _insert_decision_and_log(db, rule, value)
+        fired += 1
+    return fired
+```
+
+And in `heartbeat.run_one_cycle()`:
+```python
+# Insert at the very top, BEFORE stamp_tick (no, wait — stamp_tick must
+# come first per Pitfall P5: liveness must always be observable. Insert
+# AFTER stamp_tick but BEFORE emergency_stop_check so a flooding alert
+# doesn't block emergency stop.)
+await stamp_tick(...)
+try:
+    await evaluate_alerts(db)
+except Exception:
+    log.exception("alerts.evaluate_failed")  # never let alerts kill the cycle
+# ... existing flow continues
+```
+
+---
+
+### Pattern 3: Skill timeline via firehose `event_name` filter (no new SSE endpoint)
+
+**What:** `GET /api/firehose?event_name=claude_code.skill_invoked` already streams the right rows — the SSE generator (`api/sse.py:50`) already accepts an `event_name` filter. No backend work; only frontend wiring.
+
+**When to use:** Whenever a per-event-name live timeline is needed. The existing primitive already covers it.
+
+**Trade-offs:**
+- ✅ Zero new backend code — even type definitions are already there.
+- ✅ The 1-second poll cadence on `otel_events` already feeds the firehose; skill events appear in real time as soon as ingest persists them.
+- ❌ Each filtered firehose connection holds an `AsyncSession` for up to 60 minutes. For a single-user local dashboard this is fine; plan to close any unused panel streams (the existing `useFirehose` hook already disconnects on unmount).
+
+**Example:**
+```ts
+// frontend/src/components/panels/SkillTimeline.tsx
+const events = useFirehose({ event_name: 'claude_code.skill_invoked' })
+// existing hook already supports the query string; no new hook needed
+```
+
+---
+
+### Pattern 4: Session comparison as a backend diff endpoint
+
+**What:** `GET /api/sessions/compare?a={session_id_a}&b={session_id_b}` returns a single payload with paired metrics for both sessions:
+
+```json
+{
+  "a": { "session_id": "...", "started_at": "...", "duration_seconds": 412,
+         "tokens_input": 18234, "tokens_output": 4012, "cost_usd": 0.137,
+         "tool_call_count": 23, "outcome": "ok", "skills_used": ["plan", "code"] },
+  "b": { /* same shape */ },
+  "diff": { "duration_seconds": -85, "tokens_input": 1240, "cost_usd": -0.041 }
+}
+```
+
+The frontend renders side-by-side panels with delta callouts. The diff math is in the backend so the same numbers show up in URL-shared comparisons and Telegram quick-share (future hook).
+
+**When to use:** Whenever you want a deterministic, server-computed view of two entities side by side. Doing this client-side would force three round-trips (a, b, and a denormalization step) and fragment the cost-computation logic.
+
+**Trade-offs:**
+- ✅ One round-trip; consistent numbers across surfaces.
+- ✅ Cost computation reuses `cmc/cost/engine.py` — no duplicated price logic in TS.
+- ❌ One more endpoint to test. Mitigated by sharing helpers with `GET /api/sessions/{sid}/details` (already shaped similarly).
+
+**URL contract:** `?a=<sid>&b=<sid>` — both required. Picker UX is the existing `CommandPalette` (Cmd+K) plus a "Compare with…" action button on the live `LiveSessionsCard` rows. No new picker component.
+
+---
+
+### Pattern 5: Skill rollup via `otel_events` JSON queries — defer materialization
+
+**What:** All skill rollups (frequency, latency, error rate, cost) start as ad-hoc SQL against `otel_events.body` JSON + `otel_events.event_name = 'claude_code.skill_invoked'`. The schema already has `idx_otel_events_event_name_ts` (verified `models/otel_events.py:36`), so name-filtered scans are cheap.
+
+**When to use:** Phase 2 (Skill Rollups). Only consider materializing into a dedicated `skill_runs` table if measured query latency exceeds 100 ms p95 on a representative dataset.
+
+**Trade-offs:**
+- ✅ No migration churn for v1.1's first release; ship the panels fast.
+- ✅ Pricing changes propagate automatically (read-time join).
+- ❌ JSON path queries on SQLite are slower than columnar lookups. Tracked via Phase 2 perf-validation gate.
+- ❌ If we DO materialize later, double-write hazard. Mitigation: build the materialized table from a single SQL `INSERT ... SELECT` triggered by the dispatcher (idempotent on `(event_id)` PK).
+
+**Path forward (deferred):** If a `skill_runs` materialized table becomes necessary:
+- Keep `otel_events` as the source of truth.
+- `skill_runs` columns: `event_id PK FK→otel_events.id`, `skill_name`, `session_id`, `ts`, `model`, `tokens_in`, `tokens_out`, `duration_ms`, `error`. All derivable; ON CONFLICT DO NOTHING idempotency.
+- Built by a new dispatcher step `materialize_skill_runs(db)` that processes events from `last_id_processed` (stored in `system_state`).
+
+---
+
+## Recommended Project Structure (deltas only)
 
 ```
-                              macOS localhost
-
- DATA SOURCES                  INGEST LAYER                 STORAGE
- ============                  ============                 =======
-
- ~/.claude/projects/**/*.jsonl                              data/
- (session transcripts,         ┌──────────────────┐         dashboard.db
-  tool calls, tokens,    ──120s──> JSONL Scraper   │──┐      (SQLite WAL)
-  outcomes)                    │  (background task)│  │
-                               └──────────────────┘  │     ┌──────────────┐
-                                                     ├────>│   Database    │
- Claude Code OTEL              ┌──────────────────┐  │     │  (15 tables,  │
- (CLAUDE_CODE_ENABLE_     POST │  OTEL Receiver   │──┘     │  raw SQL,     │
-  TELEMETRY=1)           ────> │  /v1/logs        │        │  aiosqlite)   │
-                               │  /v1/metrics     │        └──────┬───────┘
-                               └──────────────────┘               │
-                                                                  │
- SERVING LAYER                 API LAYER                          │
- =============                 =========                          │
-                                                                  │
- ui/dist/                      ┌──────────────────┐               │
- (pre-built React      <──────│  FastAPI          │<──────────────┘
-  static files)                │  :8765            │
-                               │                  │──── SSE /api/firehose
- Browser                       │  REST endpoints  │──── JSON /api/*
- localhost:8765         <──────│  + static mount   │
-                               └──────────────────┘
-
- DISPATCH LAYER (separate process)          OPTIONAL LAYER
- ====================================      ==============
-
- ┌──────────────────────────────┐           ┌───────────────────┐
- │  Mission Control Dispatcher  │           │  Telegram Bridge   │
- │  (launchd, 120s heartbeat)   │           │  (launchd daemon)  │
- │                              │           │                    │
- │  - Claims pending tasks      │           │  - Polls decisions │
- │  - Spawns claude -p / claude │──writes──>│  - Sends alerts    │
- │  - Parses DECISION:/INBOX:   │  to DB   │  - Inline buttons  │
- │  - PID files for kill        │           │  - Chat routing    │
- │  - Materializes schedules    │           └───────────────────┘
- └──────────────────────────────┘
-```
-
-### Component Responsibilities
-
-| Component | Responsibility | Typical Implementation |
-|-----------|----------------|------------------------|
-| **FastAPI Server** | HTTP API, OTEL receiver, SSE streaming, static file serving, JSONL scraper host | Single uvicorn process on :8765, app factory + builder pattern from fastapi-chassis |
-| **JSONL Scraper** | Scan ~/.claude/projects/, parse session files, upsert sessions/tokens/tools | asyncio background task in lifespan, 120s cycle, tracks file mtimes to skip unchanged |
-| **OTEL Receiver** | Accept OTLP/HTTP JSON at /v1/logs and /v1/metrics, normalize, store | Two FastAPI POST endpoints, parse ExportLogsServiceRequest / ExportMetricsServiceRequest |
-| **Database (SQLite WAL)** | Single source of truth for all dashboard data | Single .db file in data/, aiosqlite for async, raw SQL, idempotent migrations on startup |
-| **React Frontend** | Dense observability UI, HITL decision/inbox, task board, schedule composer | Pre-built Vite output in ui/dist/, TanStack Router (3 pages), React Query polling |
-| **SSE Firehose** | Real-time OTEL event stream to browser | FastAPI EventSourceResponse, fan-out to connected clients |
-| **Mission Control Dispatcher** | Task execution, schedule materialization, subprocess lifecycle | Separate Python process via launchd, 120s heartbeat, reads/writes same SQLite DB |
-| **Telegram Bridge** | Remote notifications and HITL responses | Separate Python process via launchd, polls DB for pending decisions/alerts |
-
-## Recommended Project Structure
-
-```
-claude-mission-control/
-├── main.py                    # Uvicorn entry point, app = create_app()
-├── pyproject.toml             # Dependencies, project metadata
-├── install.sh                 # One-command installer (OTEL wizard, Telegram wizard, launchd plists)
-├── cc                         # CLI shim: start/stop/restart/doctor/setup/sync/logs
-│
-├── src/
-│   └── app/
-│       ├── __init__.py        # create_app() factory
-│       ├── app_builder.py     # Builder pattern: setup_db, setup_otel, setup_routes, etc.
-│       ├── settings.py        # Pydantic BaseSettings (APP_ prefix)
-│       ├── lifespan.py        # LifespanManager: DB init, scraper start, shutdown cleanup
-│       │
-│       ├── db/
-│       │   ├── connection.py  # aiosqlite connection pool (read pool + write serializer)
-│       │   ├── migrations.py  # Idempotent schema: CREATE IF NOT EXISTS + _migrate_add_column
-│       │   ├── queries/       # Raw SQL organized by domain (sessions.py, tokens.py, tasks.py...)
-│       │   └── health.py      # Readiness check: SELECT 1
-│       │
-│       ├── ingest/
-│       │   ├── scraper.py     # JSONL scanner: walk projects dir, parse, upsert
-│       │   ├── parser.py      # JSONL line parser: extract sessions, tools, tokens, outcomes
-│       │   └── otel.py        # OTLP/HTTP receiver: parse log/metric payloads, normalize, store
-│       │
-│       ├── routes/
-│       │   ├── api.py         # Main API router aggregating sub-routers
-│       │   ├── sessions.py    # GET /api/sessions, /api/sessions/{id}, /api/sessions/live
-│       │   ├── tokens.py      # GET /api/tokens (daily stacked bars)
-│       │   ├── tools.py       # GET /api/tools/latency, /api/tools/mcp
-│       │   ├── outcomes.py    # GET /api/outcomes (daily session outcome buckets)
-│       │   ├── cache.py       # GET /api/cache (hit rate, daily trend)
-│       │   ├── tasks.py       # GET/POST/PATCH /api/tasks, /api/tasks/{id}/approve
-│       │   ├── schedules.py   # GET/POST/PATCH/DELETE /api/schedules
-│       │   ├── decisions.py   # GET/POST /api/decisions (HITL queue)
-│       │   ├── inbox.py       # GET/POST /api/inbox (agent-to-user messages)
-│       │   ├── firehose.py    # GET /api/firehose (SSE stream)
-│       │   ├── health.py      # /healthcheck, /ready
-│       │   ├── system.py      # GET /api/system (health strip, KPI, pressure)
-│       │   └── otel.py        # POST /v1/logs, /v1/metrics (OTEL receiver endpoints)
-│       │
-│       ├── services/
-│       │   ├── dashboard.py   # Aggregation logic for KPI, health strip, attention bar
-│       │   ├── sessions.py    # Session query + enrichment logic
-│       │   ├── analytics.py   # Token/cache/outcome aggregation
-│       │   └── mcp.py         # MCP server drill-down: per-server, per-tool latency
-│       │
-│       ├── middleware/
-│       │   ├── request_id.py  # X-Request-ID propagation
-│       │   └── logging.py     # Structured request logging
-│       │
-│       ├── errors/
-│       │   └── handlers.py    # Global exception handlers
-│       │
-│       └── readiness/
-│           └── registry.py    # Readiness check registry (from chassis)
-│
+backend/cmc/
+├── api/routes/
+│   ├── alerts.py            # NEW — CRUD + dry-run for alert_rules
+│   ├── cost.py              # NEW — /api/cost/summary, /breakdown
+│   ├── ingest.py            # MODIFIED — recognize claude_code.skill_invoked
+│   ├── sessions.py          # MODIFIED — add /compare endpoint
+│   └── skills.py            # MODIFIED — add /runs /timeline /cost subroutes
+├── api/schemas/
+│   ├── alerts.py            # NEW
+│   ├── cost.py              # NEW
+│   └── sessions.py          # MODIFIED — add SessionCompareResponse
+├── cost/
+│   ├── __init__.py          # NEW directory
+│   └── engine.py            # NEW — pure pricing engine
+├── db/models/
+│   ├── alert_events.py      # NEW (optional — see Phase 5 decision)
+│   ├── alert_rules.py       # NEW
+│   └── pricing.py           # NEW
 ├── dispatcher/
-│   ├── __init__.py
-│   ├── main.py                # Dispatcher entry point (launchd runs this)
-│   ├── executor.py            # Subprocess management: spawn claude -p / claude, PID tracking
-│   ├── scheduler.py           # Cron evaluation, stale detection, task materialization
-│   ├── stream_parser.py       # Parse DECISION:/INBOX: markers from claude stdout
-│   └── pid_manager.py         # PID file read/write in .tmp/mission-control-queue/pids/
-│
-├── telegram/
-│   ├── __init__.py
-│   ├── main.py                # Telegram bridge entry point (launchd runs this)
-│   ├── notifier.py            # Send decision alerts, approval confirmations, failure notices
-│   ├── handler.py             # Inline button callbacks, chat routing
-│   └── poller.py              # Poll DB for pending notifications
-│
-├── tools/
-│   ├── doctor.py              # Deterministic health check (no LLM), colored output
-│   └── setup.py               # OTEL wizard, Telegram wizard helpers
-│
-├── ui/
-│   ├── dist/                  # Pre-built React app (committed or built via npm run build)
-│   ├── src/
-│   │   ├── routes/
-│   │   │   ├── __root.tsx     # Root layout: health strip, KPI row, attention bar, nav
-│   │   │   ├── index.tsx      # Command page (/)
-│   │   │   ├── activity.tsx   # Activity page (/activity)
-│   │   │   └── skills.tsx     # Skills page (/skills)
-│   │   ├── components/        # Reusable UI components (panels, charts, tables, drawers)
-│   │   ├── hooks/             # React Query hooks per API endpoint
-│   │   └── lib/               # API client, SSE client, utilities
-│   ├── package.json
-│   └── vite.config.ts
-│
-├── data/                      # SQLite database file (gitignored)
-│   └── dashboard.db
-│
-├── plists/                    # launchd plist templates
-│   ├── com.user.claude-dashboard.plist
-│   ├── com.user.claude-dispatcher.plist
-│   └── com.user.claude-telegram.plist
-│
-└── tests/
-    ├── unit/                  # pytest unit tests for services, parsers, queries
-    ├── integration/           # API endpoint tests with test DB
-    └── e2e/                   # Playwright tests for UI
+│   ├── alerts.py            # NEW — evaluate_alerts() pre-cycle hook
+│   └── heartbeat.py         # MODIFIED — call evaluate_alerts() near top
+└── migrations/versions/
+    ├── XXXX_add_pricing_table.py
+    ├── XXXX_add_alert_rules_table.py
+    └── XXXX_add_alert_events_table.py  # only if optional table chosen
+
+frontend/src/
+├── routes/
+│   ├── alerts.tsx                # NEW
+│   ├── sessions.compare.tsx      # NEW (handles ?a=&b=)
+│   └── skills.$name.tsx          # NEW (file-based dynamic route)
+├── components/panels/
+│   ├── AlertRulesList.tsx        # NEW
+│   ├── AlertRuleForm.tsx         # NEW
+│   ├── CostBreakdown.tsx         # NEW
+│   ├── CostSummary.tsx           # NEW
+│   ├── SessionCompareView.tsx    # NEW
+│   ├── SkillCostCard.tsx         # MODIFIED — replace placeholder with real data
+│   ├── SkillDetailView.tsx       # NEW (composes Cost/Runs/Timeline panels)
+│   ├── SkillRunsTable.tsx        # NEW
+│   ├── SkillTimeline.tsx         # NEW (uses useFirehose with filter)
+│   └── TopSkills.tsx             # MODIFIED — replace placeholder with real data
+└── lib/
+    ├── api.ts        # MODIFIED — types + fetchers for new endpoints
+    └── queries.ts    # MODIFIED — useCostSummary, useAlerts, useSkillRuns, etc.
 ```
 
 ### Structure Rationale
 
-- **src/app/:** Follows chassis convention -- everything under a single app package, imported via `from app import create_app`. Builder pattern keeps bootstrap explicit.
-- **src/app/db/queries/:** Raw SQL organized by domain (not by table). Each module exports async functions that take an aiosqlite connection. No ORM abstractions.
-- **src/app/ingest/:** Separates the two ingest paths (scraper + OTEL) from the API layer. Both write to the same DB but through different triggers (timer vs HTTP POST).
-- **src/app/routes/ vs src/app/services/:** Routes handle HTTP concerns (validation, response shaping). Services handle business logic (aggregation, enrichment). One-way dependency: routes call services, never the reverse.
-- **dispatcher/:** Completely separate Python package. Shares only the DB file and settings module. Runs in its own process under launchd. Does not import from `app`.
-- **telegram/:** Same separation as dispatcher. Shares DB path and settings. Independent launchd process.
-- **ui/dist/:** Committed or CI-built. FastAPI mounts this as StaticFiles with html=True. No SSR, no server-side rendering concerns.
+- **`backend/cmc/cost/`:** Cost computation is a coherent domain; lives next to (not inside) `dispatcher/` because cost is consumed by routes AND alerts. Mirrors how `tasks/`, `schedules/`, `skills/`, `mcp/` are top-level domain directories.
+- **`backend/cmc/dispatcher/alerts.py`:** Lives inside the dispatcher because it runs in the dispatcher process. Same pattern as `claim.py`, `autonomy_gate.py`, `materialize.py` — single-purpose modules called from `heartbeat.py`.
+- **`frontend/src/routes/skills.$name.tsx`:** TanStack Router's file-based dynamic-segment convention. Auto-generates the `/skills/{name}` route entry into `routeTree.gen.ts`.
+- **`frontend/src/routes/sessions.compare.tsx`:** Sibling of `sessions.tsx` (if it existed) — TanStack file-based routes use dot-notation for nested non-dynamic paths. The view reads `useSearch()` to get `a` / `b` from the URL.
 
-## Architectural Patterns
-
-### Pattern 1: App Factory + Builder (from fastapi-chassis)
-
-**What:** `create_app()` factory function calls `FastAPIAppBuilder` with chained `.setup_*()` methods. Each setup method owns one concern and returns `self`.
-
-**When to use:** Always -- this is the project's foundational bootstrap pattern. Adapted from the user's existing chassis.
-
-**Trade-offs:** Slightly more code than a flat `app = FastAPI()` script, but makes the boot sequence testable, explicit, and documented.
-
-**Adaptation for this project:**
-```python
-# Stripped chassis setup methods not needed (auth, cache, rate_limit, metrics)
-# Added project-specific setup methods
-app = (
-    FastAPIAppBuilder(settings=settings, logger=logger)
-    .setup_settings()           # from chassis
-    .setup_logging()            # from chassis
-    .setup_database()           # adapted: SQLite + aiosqlite, no SQLAlchemy
-    .setup_otel_receiver()      # NEW: register /v1/logs, /v1/metrics routes
-    .setup_error_handlers()     # from chassis
-    .setup_routes()             # adapted: dashboard-specific routers
-    .setup_static_files()       # NEW: mount ui/dist/ as StaticFiles
-    .setup_middleware()          # simplified: no auth, no rate limiting
-    .build()
-)
-```
-
-### Pattern 2: Write-Serialized / Read-Concurrent SQLite
-
-**What:** A single write connection serializes all mutations. Multiple read connections serve concurrent API requests. All via aiosqlite with WAL mode.
-
-**When to use:** Any SQLite project with concurrent readers and periodic writes. This project has two write sources (scraper + OTEL ingest) and many read sources (API endpoints).
-
-**Trade-offs:** Simple and effective for single-machine use. Cannot scale beyond one machine. WAL file can grow unbounded if reads never quiesce -- needs periodic checkpointing.
-
-**Implementation approach:**
-```python
-# In lifespan startup:
-# 1. Open one write connection (serialized via asyncio.Lock)
-# 2. Open a small pool of read connections (3-5 for a single-user dashboard)
-# 3. Run migrations on the write connection
-# 4. Store both on app.state
-
-class DatabasePool:
-    def __init__(self, db_path: str):
-        self._write_lock = asyncio.Lock()
-        self._write_conn: aiosqlite.Connection | None = None
-        self._read_pool: list[aiosqlite.Connection] = []
-
-    async def write(self, sql: str, params=()) -> int:
-        async with self._write_lock:
-            cursor = await self._write_conn.execute(sql, params)
-            await self._write_conn.commit()
-            return cursor.lastrowid
-
-    async def read(self, sql: str, params=()) -> list[Row]:
-        conn = await self._acquire_reader()
-        try:
-            cursor = await conn.execute(sql, params)
-            return await cursor.fetchall()
-        finally:
-            await self._release_reader(conn)
-```
-
-### Pattern 3: Background Scraper as Lifespan Task
-
-**What:** The JSONL scraper runs as an `asyncio.create_task()` inside the FastAPI lifespan context. It wakes every 120s, walks `~/.claude/projects/`, and upserts new/changed session data.
-
-**When to use:** Periodic background work that must start with the server and stop when it shuts down. Avoids needing a separate process for ingest.
-
-**Trade-offs:** Runs in the same event loop as the API server. A slow scrape cycle could theoretically increase latency for concurrent API requests, but JSONL parsing is CPU-light and 120s intervals are generous. If scraping ever becomes heavy, it could be moved to a thread pool executor.
-
-**Implementation approach:**
-```python
-# In LifespanManager.lifespan():
-scraper_task = asyncio.create_task(
-    run_scraper_loop(app.state.db, settings.scraper_interval_seconds)
-)
-yield
-scraper_task.cancel()
-with contextlib.suppress(asyncio.CancelledError):
-    await scraper_task
-```
-
-### Pattern 4: Dispatcher as Separate Process with Shared DB
-
-**What:** The Mission Control dispatcher is a standalone Python script run by launchd with a 120s heartbeat (StartInterval). It reads tasks/schedules from SQLite, claims them atomically with `UPDATE ... WHERE status='pending' AND claimed_by IS NULL`, spawns `claude -p` or `claude` subprocesses, and writes results back.
-
-**When to use:** When a background worker needs to spawn long-running subprocesses that outlive HTTP request cycles. The dispatcher must survive server restarts and vice versa.
-
-**Trade-offs:** Two processes writing to the same SQLite file. WAL mode handles this safely (one writer at a time, busy_timeout prevents instant failures). The dispatcher and server never need to write simultaneously to the same rows, so contention is minimal.
-
-**Critical detail -- PID tracking:** macOS 12+ restricts environment variable disclosure to root, so the dispatcher cannot identify its children by env var. Instead, it writes PID files to `.tmp/mission-control-queue/pids/{task_id}.pid` immediately after `subprocess.Popen()`. Emergency stop reads these PID files and sends SIGTERM.
-
-### Pattern 5: SSE Firehose with Polling Fallback
-
-**What:** OTEL events stream to the browser via SSE (EventSourceResponse). Everything else uses React Query polling at 30s intervals (5s for decisions, 10s for inbox).
-
-**When to use:** Single-user local dashboards where SSE is sufficient for the only real-time need (live event stream). Polling is simpler and more reliable for dashboard panels that update infrequently.
-
-**Trade-offs:** SSE is unidirectional (server to client) and simpler than WebSockets. For a single-user dashboard, one SSE connection is fine. Polling intervals are tunable per-endpoint. The main risk is stale data in the UI -- 30s is acceptable for observability panels, but HITL decisions need faster polling (5s) to feel responsive.
-
-### Pattern 6: HITL via Stdout Marker Parsing
-
-**What:** The dispatcher reads stdout from `claude` (stream mode) subprocesses line-by-line. Lines matching `DECISION:` or `INBOX:` patterns are parsed and written to the decisions/inbox tables. The React frontend polls these tables and presents approval/reply UI.
-
-**When to use:** When the AI subprocess needs to pause for human input but cannot directly call the dashboard API (it is a spawned CLI process).
-
-**Trade-offs:** Marker-based protocols are fragile -- if Claude's output format changes, parsing breaks. Mitigated by keeping the marker format simple and well-documented. The alternative (MCP tool for HITL) would require the dispatcher to run an MCP server, which is more complex than stdout parsing.
+---
 
 ## Data Flow
 
-### Ingest Flow (JSONL Path)
+### Skill event → DB → panels
 
 ```
-~/.claude/projects/**/*.jsonl
-    |
-    | (120s scraper cycle)
-    v
-Scraper checks file mtimes against last_scan table
-    |
-    | (changed files only)
-    v
-Parser reads JSONL lines, extracts:
-  - Session metadata (id, model, cwd, timestamps)
-  - Token usage per message (input, output, cache_read, cache_create)
-  - Tool calls with duration (tool_use -> tool_result delta)
-  - Session outcome (result event: ok/errored/truncated/rate_limited)
-    |
-    v
-Upsert to SQLite via write connection:
-  sessions, tokens, tools, outcomes tables
+Claude Code subprocess emits OTLP log:
+  event_name = "claude_code.skill_invoked"
+  attrs: { skill_name, session_id, model, duration_ms, tokens_in, tokens_out, ok }
+        ↓
+POST /v1/logs (existing endpoint, NO change to handler)
+        ↓
+ingest.py extracts session_id + mcp attrs (already done) and stores entire
+record in OtelEvent.body (JSON column — already done)
+        ↓
+otel_events row inserted; idx_otel_events_event_name_ts makes name lookup O(log n)
+        ↓
+GET /api/skills/{name}/runs queries:
+  SELECT date(ts), count(*), avg(json_extract(body, '$.record.attributes.duration_ms'))
+  FROM otel_events WHERE event_name='claude_code.skill_invoked'
+    AND json_extract(body, '$.record.attributes.skill_name') = :name
+        ↓
+SkillDetailView renders rollup; SkillTimeline subscribes via firehose w/ filter
 ```
 
-### Ingest Flow (OTEL Path)
+**Spike note:** The exact attribute path inside `OtelEvent.body` is determined by the Phase 0 spike. The structure above assumes the OTLP exporter shape from `iter_attrs()` (`backend/cmc/ingest/otel_parser.py`). If the spike reveals a different shape we adjust the `json_extract` paths, not the table schema.
+
+### Cost summary read flow
 
 ```
-Claude Code (with OTEL enabled)
-    |
-    | POST /v1/logs (tool_result, api_request, api_error, hook, compaction, MCP)
-    | POST /v1/metrics (counters: commits, PRs, lines_of_code)
-    v
-OTEL receiver endpoints parse OTLP/HTTP JSON payload
-    |
-    v
-Normalize: extract event_type, attributes, timestamp, resource labels
-    |
-    v
-Insert to SQLite: otel_events, otel_metrics tables
-    |
-    | (also)
-    v
-Push to in-memory SSE fan-out channel for firehose subscribers
+useCostSummary() → GET /api/cost/summary?range=7d
+        ↓
+cost/engine.py.summarize(db, range='7d')
+  → SQL JOIN token_usage × pricing (with effective_from window)
+  → returns { total_usd, by_model: [...], by_source: [...], delta_vs_prev_period }
+        ↓
+CostSummary panel renders KPIs
 ```
 
-### API Read Flow
+### Alert flow (end-to-end)
 
 ```
-React Frontend (browser)
-    |
-    | React Query: GET /api/sessions/live        (30s poll)
-    | React Query: GET /api/tokens?range=7d      (30s poll)
-    | React Query: GET /api/decisions?status=pending (5s poll)
-    | React Query: GET /api/inbox?unread=true     (10s poll)
-    | EventSource: GET /api/firehose              (SSE stream)
-    v
-FastAPI route handlers
-    |
-    v
-Service layer: aggregation, enrichment, formatting
-    |
-    v
-Raw SQL queries via aiosqlite read connection pool
-    |
-    v
-SQLite WAL (readers never block writers or each other)
+Operator: POST /api/alerts → alert_rules row inserted (enabled=true)
+        ↓
+Dispatcher tick (120s):
+  stamp_tick → evaluate_alerts → ... rest of cycle
+        ↓
+evaluate_alerts loop:
+  per rule: compute metric, compare threshold
+  if fires: INSERT decisions row + INSERT notification_log(kind='alert', ...)
+  ON CONFLICT DO NOTHING blocks duplicate firing in same window
+        ↓
+Frontend: useDecisions() polls 5s → DecisionsCard surfaces it as a checkpoint
+Telegram: notifier 30s loop sees notification_log row → sendMessage with
+          Approve/Snooze/Reject inline buttons (existing pattern, kind='alert')
+        ↓
+Operator answers → file-then-DB write order (Pitfall HITL) → dispatcher
+                   queue file unused for alerts (no subprocess waiting)
 ```
 
-### Task Dispatch Flow
+---
 
-```
-User creates task via UI or Cmd+K
-    |
-    | POST /api/tasks {prompt, mode, skill_id, requires_approval}
-    v
-Task inserted: status=pending (or status=approved if auto-approve)
-    |
-    | (120s dispatcher heartbeat)
-    v
-Dispatcher claims task:
-  UPDATE tasks SET status='running', claimed_by=?, claimed_at=?
-  WHERE status IN ('pending','approved') AND claimed_by IS NULL
-    |
-    v
-Dispatcher spawns subprocess:
-  - Classic: claude -p "prompt" --output-format json
-  - Stream:  claude --stream (reads stdout line-by-line)
-    |
-    | Write PID file: .tmp/mission-control-queue/pids/{task_id}.pid
-    v
-Monitor subprocess:
-  - Parse stdout for DECISION:/INBOX: markers -> insert to DB
-  - Wait for exit code
-  - Update task: status=done/failed, output, exit_code, duration
-    |
-    v
-Cleanup: remove PID file
-```
+## State Management
 
-### HITL Decision Flow
+**Frontend:** All new server state lands in `lib/queries.ts` with cadences from the existing buckets:
 
-```
-Dispatcher parses "DECISION: Should I refactor the auth module?" from stdout
-    |
-    v
-Insert to decisions table: status=pending, task_id, question, options
-    |
-    | (5s poll by React frontend)
-    v
-User sees decision in Attention Bar + Decisions panel
-    |
-    | User clicks "Approve" or types response
-    v
-POST /api/decisions/{id}/answer {choice, comment}
-    |
-    v
-Dispatcher reads answer from DB on next check cycle
-    |
-    v
-Writes answer to subprocess stdin (stream mode) or uses it for next prompt
-```
+| Hook | Cadence | Bucket reason |
+|------|---------|---------------|
+| `useCostSummary` | 60 s | Daily aggregate bucket |
+| `useCostBreakdown(range)` | 60 s | Same |
+| `useSkillRuns(name, range)` | 60 s | Daily aggregate bucket |
+| `useSkillCost(name, range)` | 60 s | Daily aggregate bucket |
+| `useSkillTimeline(name)` | SSE (no polling) | Reuses firehose |
+| `useSessionCompare(a, b)` | none (fetch on demand) | Manually invalidated; hub of comparison view |
+| `useAlerts` | 30 s | Same as schedules — config-shaped |
+| `useAlertEvents(limit)` | 10 s | User-visible firings — closer to attention-bar urgency |
 
-### Emergency Stop Flow
+No inlined `refetchInterval` anywhere; cadence policy stays auditable in `queries.ts`.
 
-```
-User clicks Emergency Stop button
-    |
-    | POST /api/system/emergency-stop
-    v
-Server reads all PID files from .tmp/mission-control-queue/pids/
-    |
-    v
-For each PID: os.kill(pid, signal.SIGTERM)
-    |
-    v
-Update tasks table: status=killed for affected task_ids
-    |
-    v
-Clean up PID files
-```
+---
 
-## Scaling Considerations
+## Key Data Flows
 
-| Scale | Architecture Adjustments |
-|-------|--------------------------|
-| 1 user, 1 machine (target) | Current architecture is ideal. Single SQLite file, single uvicorn worker, no pool tuning needed. |
-| 2-5 concurrent sessions | No changes. WAL handles concurrent reads effortlessly. Write contention between scraper + OTEL is minimal (different tables, short transactions). |
-| Heavy OTEL volume (>100 events/sec) | Batch OTEL inserts (accumulate for 1s, insert as batch). Add WAL checkpoint on a timer. Consider OTEL event retention policy (e.g., drop events older than 30d). |
-| Large session history (>10K sessions) | Add SQLite indexes on sessions(created_at), tokens(day), tools(session_id). Paginate session list API. Consider archiving old sessions to a separate DB file. |
+1. **Skill event ingestion (existing path, zero code change):** OTLP exporter → `/v1/logs` → `OtelEvent` row. The Phase 0 spike validates that `event_name=claude_code.skill_invoked` actually arrives.
+2. **Cost computation (read-time):** `token_usage` × `pricing` JOIN on every cost endpoint hit. Cached at the HTTP layer for 60 s by frontend `useQuery` staleness; backend does no caching.
+3. **Alert firing (dispatcher-driven):** `alert_rules` → `evaluate_alerts` → `decisions` + `notification_log` → existing notifier + decisions surfaces.
+4. **Session comparison (manual fetch):** User opens compare view → `GET /api/sessions/compare` → backend computes both rollups + diff in one transaction.
+5. **Skill timeline (SSE):** Frontend subscribes to `/api/firehose?event_name=claude_code.skill_invoked` → ring-buffer in `useFirehose` → live timeline scroller.
 
-### Scaling Priorities
-
-1. **First bottleneck: WAL file growth.** If the firehose panel stays open while OTEL events stream in, the WAL file grows because the SSE reader holds a snapshot. Mitigate with periodic `PRAGMA wal_checkpoint(PASSIVE)` on a timer and SSE connection timeouts.
-
-2. **Second bottleneck: JSONL scan time.** As the user accumulates thousands of session files over months, the 120s full walk of `~/.claude/projects/` gets slower. Mitigate by tracking file mtimes in a `scan_state` table and only re-parsing changed files. Consider only scanning files modified in the last 7 days by default.
+---
 
 ## Anti-Patterns
 
-### Anti-Pattern 1: ORM Abstraction Layer
+### Don't add a new launchd job for the alert engine
 
-**What people do:** Add SQLAlchemy models, relationship mappings, and session factories for "future flexibility."
-**Why it's wrong:** This project uses 15 tables with known, stable schemas. The read patterns are aggregation-heavy (GROUP BY, window functions, CTEs). An ORM adds a translation layer that obscures the SQL and makes performance tuning harder. The spec explicitly says "raw SQL."
-**Do this instead:** Organize SQL into domain-specific query modules. Use named parameters. Test queries directly against a test DB.
+**What people do:** "Alerts feel like a separate concern, let's give them their own daemon."
+**Why it's wrong:** A new daemon means a new heartbeat to monitor (SAPI-04 already tracks three: dispatcher, telegram, jsonl_sync), a new PID file, a new install step, a new failure mode operators have to learn. The dispatcher already runs at the right cadence and already has a DB engine.
+**Do this instead:** Insert `evaluate_alerts(db)` near the top of `run_one_cycle()` after `stamp_tick`. Wrap in `try/except` so alert failure never kills the dispatcher tick. Reuse `dispatcher_last_tick_at` as the alert engine's liveness signal.
 
-### Anti-Pattern 2: WebSocket for Everything
+### Don't stamp cost on every `otel_events` row at ingest
 
-**What people do:** Use WebSocket connections for all real-time updates (sessions, tokens, decisions).
-**Why it's wrong:** WebSockets are bidirectional and stateful -- overkill for a single-user dashboard. They add connection management complexity, reconnection logic, and make debugging harder. Most panels update every 30s; WebSockets provide no benefit there.
-**Do this instead:** SSE for the one truly real-time need (OTEL firehose). React Query polling with appropriate intervals for everything else. Simpler, more debuggable, no connection state to manage.
+**What people do:** "Compute cost during `/v1/logs` so reads are cheap."
+**Why it's wrong:** (1) Pitfall 4 — `/v1/logs` MUST always 200; adding a price lookup to ingest creates a new failure surface that could drop OTLP batches. (2) Pricing changes require re-stamping every historical row, which means writing a backfill migration on every Anthropic price update. (3) The `token_usage` table is already daily-aggregated; cost on it is already cheap.
+**Do this instead:** Compute at read time using `cmc/cost/engine.py`. Pricing edits take effect immediately across all reports.
 
-### Anti-Pattern 3: Dispatcher Inside FastAPI
+### Don't put a "skill_runs" table in v1.1
 
-**What people do:** Run the task dispatcher as a background task inside the FastAPI process.
-**Why it's wrong:** The dispatcher spawns long-running subprocesses (claude sessions can run for minutes). If the FastAPI process crashes or restarts, those subprocesses become orphans. The dispatcher needs independent lifecycle management.
-**Do this instead:** Separate launchd-managed process. Shares only the SQLite DB. Can be restarted independently. launchd handles crash recovery.
+**What people do:** "Better make a denormalized skill_runs table now in case rollups get slow."
+**Why it's wrong:** Premature; `otel_events` has the `idx_otel_events_event_name_ts` index already; SQLite JSON path lookups are fast enough at the dataset size of a single-user dashboard. Adding a table means a migration, a back-fill plan, a double-write hazard.
+**Do this instead:** Phase 2 includes a perf-validation gate: measure p95 of `/api/skills/{name}/runs` on a 30-day dataset. Only if > 100 ms do we materialize.
 
-### Anti-Pattern 4: Shared Module Imports Between Server and Dispatcher
+### Don't add a parallel SSE endpoint for skills
 
-**What people do:** Import from `app.services` or `app.db` in the dispatcher code.
-**Why it's wrong:** Creates tight coupling between two independently deployed processes. Changes to the server's internal structure break the dispatcher. The dispatcher needs to start without loading FastAPI.
-**Do this instead:** Dispatcher and Telegram bridge import only from a shared `settings.py` and use their own raw SQL queries. They share the DB path, not the codebase.
+**What people do:** "Skills deserve their own `/api/skills/firehose`."
+**Why it's wrong:** The existing firehose already accepts `event_name` as a query parameter (`api/routes/system.py:336`). Adding a parallel endpoint duplicates the SSE generator logic, the disconnect handling, and the 60-min-cap pattern.
+**Do this instead:** `GET /api/firehose?event_name=claude_code.skill_invoked`.
 
-### Anti-Pattern 5: Polling Decisions at Dashboard Refresh Rate
+### Don't compute session-comparison diffs on the client
 
-**What people do:** Poll decisions at the same 30s interval as observability panels.
-**Why it's wrong:** HITL decisions are time-sensitive. A developer waiting 30s to see a decision question feels broken. The whole point of HITL is fast human feedback.
-**Do this instead:** Poll decisions at 5s, inbox at 10s. These are lightweight queries (SELECT WHERE status='pending') and the table is tiny. The cost is negligible.
+**What people do:** Fetch session A, fetch session B, subtract in JS.
+**Why it's wrong:** Cost computation lives in `cmc/cost/engine.py` — duplicating it in TS means two sources of truth. Plus, three round-trips (A, B, denormalize).
+**Do this instead:** One backend endpoint that returns both sessions plus the diff, computed using the same `cost/engine.py` helpers.
+
+### Don't write DB before queue file in any HITL-shaped path
+
+**Existing rule (`api/routes/hitl.py`).** Applies verbatim to alert engine: write `notification_log` row FIRST (it's the queue surrogate for the notifier), THEN insert `Decision`. Same crash-safety reasoning.
+
+---
+
+## Build Order (with dependencies & rationale)
+
+> **Phase numbering is suggested, not mandated.** Roadmap may collapse phases or split.
+
+### Phase 0 — Skill event spike (1 day, MUST GO FIRST)
+
+**Goal:** Confirm whether Claude Code emits `claude_code.skill_invoked` (or a similarly-named event) and document the exact attribute shape.
+
+**Why first:** Every downstream phase depends on the answer. If Claude Code does NOT emit a skill event, v1.1 must derive skill invocations from JSONL transcripts (`backend/cmc/ingest/jsonl_parser.py`) instead of OTLP — a fundamentally different ingest path with different latency characteristics.
+
+**Deliverables:**
+- A captured OTLP log batch from a real session showing the event (or proof of absence).
+- A short note in `.planning/research/SKILL_EVENTS.md` documenting the attribute path.
+- A go/no-go decision: OTLP path (default) vs JSONL-derived (fallback).
+
+**Files touched:** None in production code. Possibly a one-off `backend/scripts/capture_skill_events.py`.
+
+### Phase 1 — Cost foundation (no UI yet)
+
+**Depends on:** Phase 0 if cost includes per-skill numbers (it does — Phase 4 needs them).
+
+**Backend tasks:**
+1. Add `pricing` table + Alembic migration. Seed with current Anthropic public prices.
+2. Build `cmc/cost/engine.py` with `summarize`, `breakdown`, `cost_for_session`.
+3. Wire `GET /api/cost/summary` and `GET /api/cost/breakdown` (read-only).
+4. Unit test the price-window selection logic with `effective_from`/`effective_until`.
+
+**Why before panels:** Panels depend on the engine; the engine is a small pure module; testable in isolation.
+
+### Phase 2 — Skill ingestion + rollups
+
+**Depends on:** Phase 0 (event shape confirmed), Phase 1 (cost engine available for skill cost).
+
+**Tasks:**
+1. Update `backend/cmc/api/routes/ingest.py` to recognize and (if needed) extract `attrs.skill_name` for indexing acceleration. **Defer adding a column until perf demands it.**
+2. Add `GET /api/skills/{name}/runs` and `/cost`.
+3. Perf-validate: run on representative dataset (30 days of events). If p95 > 100 ms, materialize `skill_runs` and reroute the endpoints.
+4. Telemetry on the endpoints (existing OTLP auto-instrumentation handles this).
+
+### Phase 3 — Frontend skill panels + skill detail route
+
+**Depends on:** Phase 2 endpoints live.
+
+**Tasks:**
+1. Add `useSkillRuns`, `useSkillCost`, `useSkillTimeline` hooks in `lib/queries.ts`.
+2. Replace `SkillCostCard.tsx` and `TopSkills.tsx` placeholders with real renderings.
+3. New `SkillDetailView` + `routes/skills.$name.tsx`.
+4. New `SkillTimeline.tsx` using existing `useFirehose` with filter.
+
+### Phase 4 — Cost panels + activity-page wiring
+
+**Depends on:** Phase 1 endpoints live.
+
+**Tasks:**
+1. New `CostSummary` and `CostBreakdown` panels.
+2. Mount on `routes/activity.tsx` next to `TokenUsageCard` (cost is the natural sibling of tokens).
+3. Add per-skill cost row to skill detail view.
+
+### Phase 5 — Alert engine + rules CRUD
+
+**Depends on:** Phase 1 (cost engine — many rules will be cost rules) + Phase 2 (skill rollups — some rules will be skill-frequency rules).
+
+**Tasks:**
+1. Add `alert_rules` table + migration. **Decision point:** add `alert_events` table? Recommended NO — reuse `notification_log` with `kind='alert'` and `entity_id={rule_id}:{bucket_iso}`. Mirrors existing dedup pattern. If audit trail becomes a requirement later, add `alert_events` then.
+2. New `cmc/dispatcher/alerts.py` module.
+3. Hook into `heartbeat.run_one_cycle()` after `stamp_tick` with `try/except` guard.
+4. New `cmc/api/routes/alerts.py` (CRUD + `/test`).
+5. New frontend route `routes/alerts.tsx` + `AlertRulesList` + `AlertRuleForm`.
+6. Integration test: create a rule that always fires, run dispatcher oneshot, assert Decision row exists, assert `useDecisions` surfaces it.
+
+### Phase 6 — Session comparison
+
+**Depends on:** Phase 1 (cost-per-session helper). Independent of skill work.
+
+**Tasks:**
+1. New `GET /api/sessions/compare` endpoint.
+2. New `SessionCompareView` component + `routes/sessions.compare.tsx`.
+3. Extend `CommandPalette` with a "Compare with…" action that opens a session picker.
+4. Add a "Compare" button on `LiveSessionsCard` rows that pre-fills `?a=` and opens the picker for `?b=`.
+
+### Phase 7 — Polish + docs (existing v1 pattern)
+
+Mirror the existing v1.0 pattern (Phase 11 in the v1.0 roadmap): write upgrade docs, env-var reference for `pricing` seeding, screenshots, etc.
+
+---
+
+## Scaling Considerations
+
+This is a single-user, single-machine local dashboard. Realistic load: a few hundred sessions per week, a few thousand `otel_events` per day, a few dozen `alert_rules`.
+
+| Scale | Architecture Adjustments |
+|-------|--------------------------|
+| Current expected | All patterns above hold. SQLite WAL handles it. |
+| 10× current | Validate p95 on `/api/skills/{name}/runs`; consider `skill_runs` materialization (Pattern 5 deferred branch). |
+| 100× current | Add a daily-rollup table for skill events (mirroring `token_usage`). Move alert evaluation to a separate process if dispatcher cycle exceeds 10 s. Neither expected for v1.1. |
+
+### Scaling priorities
+
+1. **First bottleneck:** Skill rollup queries on `otel_events` JSON. Mitigation: deferred materialization (Pattern 5 fallback).
+2. **Second bottleneck:** Alert query timeouts blocking dispatcher cycle. Mitigation: per-rule 500 ms timeout already specified.
+
+---
 
 ## Integration Points
 
-### External Services
+### External Services (no new ones for v1.1)
 
 | Service | Integration Pattern | Notes |
 |---------|---------------------|-------|
-| Claude Code CLI | subprocess.Popen with stdout/stderr pipes | Dispatcher spawns `claude -p` (classic) or `claude` (stream). PID tracked via files. |
-| Claude Code JSONL | File system read (glob + mtime check) | Scraper walks `~/.claude/projects/`. Read-only. Never writes to JSONL files. |
-| Claude Code OTEL | OTLP/HTTP receiver (POST /v1/logs, /v1/metrics) | Dashboard acts as the OTEL collector. Claude Code configured via settings.json env vars. |
-| Telegram Bot API | HTTPS POST to api.telegram.org | Only outbound network call. Optional. Bridge polls DB, sends via Bot API, receives callbacks. |
-| launchd | Plist configuration files | Three plists: dashboard server, dispatcher, telegram bridge. Install.sh generates them. |
+| Anthropic API | Already used by `nlcron.py` and `skill_router.py` | No new use in v1.1 unless alert engine adds NL-rule parsing later (out of scope) |
+| Telegram | Already used by notifier | Alerts ride the existing notifier kind dispatch table — add `'alert'` to `_FORMATTER` in `telegram/notifier.py:217` |
+| OTLP/HTTP `/v1/logs` | Already used | No new endpoints; only event-name recognition extension in ingest |
 
 ### Internal Boundaries
 
 | Boundary | Communication | Notes |
 |----------|---------------|-------|
-| FastAPI server <-> SQLite | aiosqlite (async Python sqlite3) | Write serialized via lock, reads concurrent via pool |
-| Dispatcher <-> SQLite | sqlite3 (sync, single connection) | Atomic UPDATE for task claiming. Short transactions only. |
-| Telegram <-> SQLite | sqlite3 (sync, single connection) | Reads pending notifications, writes delivery status. |
-| FastAPI <-> React Frontend | Static file mount + REST API + SSE | StaticFiles(html=True) for SPA routing. API under /api/. SSE at /api/firehose. |
-| Dispatcher <-> Claude CLI | subprocess stdin/stdout/stderr | PID files for tracking. DECISION:/INBOX: markers parsed from stdout. |
-| React <-> User | Browser | localhost:8765. React Query for data. Cmd+K command palette. localStorage for UI state. |
+| Cost engine ↔ routes | Direct function call | Pure module, no I/O at module scope |
+| Cost engine ↔ session compare | Direct function call | Reuses `cost_for_session(sid)` helper |
+| Alert engine ↔ notifier | Via `notification_log` table | Notifier already polls; add `'alert'` formatter |
+| Alert engine ↔ decisions queue | Via `decisions` table | Existing 5 s polling on `useDecisions` surfaces it |
+| Skill timeline ↔ ingest | Via `otel_events` table + firehose SSE | Existing `event_name` filter on `/api/firehose` |
+| Session compare ↔ frontend | Via URL params `?a=&b=` | Shareable links; bookmarkable; Telegram-pasteable |
 
-## Build Order (Dependency Chain)
-
-The components have clear dependency ordering that determines the recommended build sequence:
-
-```
-Phase 1: Foundation (no dependencies)
-  ├── Settings (Pydantic BaseSettings)
-  ├── Database schema + migrations
-  ├── App factory + builder skeleton
-  └── Health/readiness endpoints
-
-Phase 2: Data Ingest (depends on: Phase 1)
-  ├── JSONL parser + scraper
-  ├── OTEL receiver endpoints
-  └── Background scraper loop in lifespan
-
-Phase 3: API Layer (depends on: Phase 1, 2)
-  ├── Session/token/tool/outcome endpoints
-  ├── Dashboard aggregation service
-  ├── MCP drill-down service
-  └── SSE firehose endpoint
-
-Phase 4: Frontend Shell (depends on: Phase 3)
-  ├── Vite + TanStack Router setup
-  ├── Root layout (health strip, KPI, attention bar)
-  ├── Static file mount in FastAPI
-  └── React Query hooks for API
-
-Phase 5: Frontend Panels (depends on: Phase 4)
-  ├── Observability panels (sessions, tokens, tools, cache, outcomes)
-  ├── MCP centerpiece panel
-  ├── Activity heatmap + token charts
-  └── Sessions table with filters
-
-Phase 6: HITL + Dispatch (depends on: Phase 1, separate from 2-5)
-  ├── Task table + API endpoints
-  ├── Schedule table + API endpoints
-  ├── Decision/inbox tables + API endpoints
-  ├── Dispatcher subprocess executor
-  ├── Stream parser (DECISION:/INBOX:)
-  └── PID manager + emergency stop
-
-Phase 7: HITL Frontend (depends on: Phase 4, 6)
-  ├── Task board (3 columns, composer)
-  ├── Schedule composer (cron, toggle, history)
-  ├── Decision queue panel
-  └── Inbox panel
-
-Phase 8: Polish + Integration (depends on: all above)
-  ├── Telegram bridge
-  ├── Command palette (Cmd+K)
-  ├── install.sh + cc CLI
-  ├── doctor.py
-  └── Playwright e2e tests
-```
-
-**Build order rationale:**
-- **Foundation first** because every other component depends on settings + DB.
-- **Ingest before API** because API endpoints are meaningless without data. The scraper populates the DB with real session data immediately, making all subsequent development testable against real data.
-- **API before frontend** because React Query hooks need working endpoints. Building API first also validates the DB schema and query patterns.
-- **HITL/Dispatch can parallel with frontend panels** (Phases 5-6) because they share only the DB schema, not code paths. The dispatcher is a separate process that does not depend on the API server being complete.
-- **Polish last** because Telegram, install scripts, and e2e tests are integration concerns that benefit from a stable system.
+---
 
 ## Sources
 
-- [SQLite WAL mode documentation](https://www.sqlite.org/wal.html) -- read concurrency and checkpointing behavior
-- [FastAPI SSE (EventSourceResponse)](https://fastapi.tiangolo.com/tutorial/server-sent-events/) -- built-in SSE support since FastAPI 0.135.0
-- [FastAPI lifespan events](https://fastapi.tiangolo.com/advanced/events/) -- async context manager for startup/shutdown
-- [FastAPI static files](https://fastapi.tiangolo.com/tutorial/static-files/) -- StaticFiles mount with html=True for SPA
-- [OTLP HTTP specification](https://opentelemetry.io/docs/specs/otlp/) -- /v1/logs, /v1/metrics endpoint format
-- [Python subprocess module](https://docs.python.org/3/library/subprocess.html) -- Popen for spawning claude CLI
-- [launchd tutorial](https://launchd.info/) -- macOS daemon management with StartInterval
-- [SQLite concurrent writes (Fly.io)](https://fly.io/blog/sqlite-internals-wal/) -- WAL internals and read concurrency
-- [HITL patterns for AI agents (Redis)](https://redis.io/blog/ai-human-in-the-loop/) -- approval gate, checkpoint/resume
-- [React Query + SSE integration](https://fragmentedthought.com/blog/2025/react-query-caching-with-server-side-events) -- combining polling with event streams
-- fastapi-chassis repo (local) -- app factory, builder pattern, settings, lifespan, readiness registry
+- `.planning/codebase/ARCHITECTURE.md` (refreshed 2026-05-02)
+- `.planning/codebase/STRUCTURE.md` (refreshed 2026-05-02)
+- `.planning/codebase/INTEGRATIONS.md` (refreshed 2026-05-02)
+- `.planning/codebase/CONCERNS.md` (refreshed 2026-05-02)
+- `backend/cmc/api/routes/ingest.py` — Pitfall 4 (always-200) constraint
+- `backend/cmc/api/routes/system.py:336` — firehose `event_name` filter already present
+- `backend/cmc/api/sse.py:50` — SSE generator filter wiring
+- `backend/cmc/db/models/otel_events.py:36` — `idx_otel_events_event_name_ts` index already in place
+- `backend/cmc/db/models/notification_log.py` — UNIQUE(kind, entity_id, chat_id) dedup pattern (P6)
+- `backend/cmc/dispatcher/heartbeat.py` — current `run_one_cycle()` ordering
+- `backend/cmc/telegram/notifier.py:217` — `_FORMATTER` dispatch table for new `'alert'` kind
+- `frontend/src/components/panels/SkillCostCard.tsx` and `TopSkills.tsx` — existing v2 placeholders explicitly waiting for `claude_code.skill_invoked`
+- `frontend/src/lib/queries.ts` — locked cadence buckets
 
 ---
-*Architecture research for: Claude Mission Control -- local developer observability dashboard with task dispatching and HITL*
-*Researched: 2026-04-25*
+
+*Architecture research for: v1.1 Skills & Cost Intelligence milestone*
+*Researched: 2026-05-02*
