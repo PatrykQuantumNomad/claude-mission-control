@@ -8,7 +8,7 @@
 
 ### Spike (P0 hard gate)
 
-- [ ] **SPIK-01**: User can confirm via `.planning/research/SPIKE.md` the literal `claude_code.skill_activated` event name + attribute key (`skill_name` vs `skill.name` vs `name`) + presence/absence of `duration_ms` + JSONL cache TTL split (5m vs 1h) — captured from real OTEL data via `SELECT event_name, body FROM otel_events WHERE event_name LIKE '%skill%' LIMIT 50`. Verbatim SQL output, not paraphrased.
+- [x] **SPIK-01**: User can confirm via `.planning/research/SPIKE.md` the literal `claude_code.skill_activated` event name + attribute key (`skill_name` vs `skill.name` vs `name`) + presence/absence of `duration_ms` + JSONL cache TTL split (5m vs 1h) — captured from real OTEL data via `SELECT event_name, body FROM otel_events WHERE event_name LIKE '%skill%' LIMIT 50`. Verbatim SQL output, not paraphrased.
 
 ### Cost Foundation (ANLYT-01)
 
@@ -129,7 +129,7 @@ Which phases cover which requirements. Populated by gsd-roadmapper on 2026-05-02
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SPIK-01 | Phase 12 | Pending |
+| SPIK-01 | Phase 12 | Complete |
 | ANLY-01 | Phase 13 | Pending |
 | ANLY-02 | Phase 13 | Pending |
 | ANLY-03 | Phase 13 | Pending |
