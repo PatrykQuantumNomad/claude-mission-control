@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Skills & Cost Intelligence
-status: ready_to_plan
+status: in_progress
 started_at: "2026-05-02"
 last_updated: "2026-05-02"
 last_activity: 2026-05-02
 progress:
   total_phases: 6
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 1
   percent: 0
 ---
 
@@ -22,24 +22,16 @@ See: .planning/PROJECT.md (updated 2026-05-02 — v1.1 Skills & Cost Intelligenc
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, queue and approve tasks, and kill runaway sessions — all from one browser tab.
 
-**Current focus:** v1.1 Skills & Cost Intelligence — Phase 12 (OTEL Skill Event Spike) ready to plan.
+**Current focus:** v1.1 Skills & Cost Intelligence — Phase 12 Plan 01 complete; Plan 02 (compose locks) ready to execute.
 
 ## Current Position
 
 Phase: 12 of 17 (OTEL Skill Event Spike)
-Plan: — (phase not yet planned)
-Status: Not started — ready to run `/gsd-plan-phase 12`
-Last activity: 2026-05-02 — v1.1 roadmap created (6 phases, 41 reqs mapped, 100% coverage)
+Plan: 12-01 complete; ready to run Plan 12-02 (compose locks)
+Status: In progress — Plan 12-01 captured Q0-Q13 raw appendix + Wave 1 negative finding into SPIKE.md
+Last activity: 2026-05-02 — Plan 12-01 complete (commits b22652b + 8b9682e); Wave 1 yielded a negative finding (skill body fired, zero OTEL events landed); Plan 02 must author skill-scoped locks as TENTATIVE
 
-Progress: v1.1 [░░░░░░░░░░] 0% — Phase 12 ready to plan
-
-## Performance Metrics
-
-**Velocity (v1.0 baseline):**
-- Total plans completed (v1.0): 47
-- v1.0 ship: 4 days (2026-04-25 → 2026-04-28)
-
-**v1.1 metrics:** Will accumulate after first plan completes.
+Progress: v1.1 [▓░░░░░░░░░] 1/2 plans done in Phase 12 — Plan 02 next
 
 ## Accumulated Context
 
@@ -48,6 +40,8 @@ Progress: v1.1 [░░░░░░░░░░] 0% — Phase 12 ready to plan
 Decisions are logged in PROJECT.md Key Decisions table. Recent v1.1 architectural decisions surfaced in research:
 
 - Phase 12 (Spike): OTEL `claude_code.skill_activated` is the canonical event (NOT `_invoked` as the v1.0 placeholder assumed) — verbatim live-data capture before any ingest schema lock.
+- Phase 12 Plan 01 (executed 2026-05-02): Wave 0 confirmed empirical zero `event_name LIKE '%skill%'` rows in 6,392 production otel_events. Wave 1 live invocation produced a NEGATIVE FINDING — skill body fired (`/tmp/spike-skill-fired.txt` written) but ZERO OTEL events of any kind landed. Plan 02 must author skill-scoped attribute locks (skill_name, duration_ms, status, token, session.id) as TENTATIVE with STACK.md / Context7 fallback citations. Ingest-side schema locks (json_each pattern, attributes-array shape, prefix-strip event_name) remain HIGH-confidence — anchored on the 6,392 production rows. Service version of record stamped: claude-code 2.1.116.
+- Phase 12 Plan 01 → Phase 13 follow-up: re-run live invocation with explicit OTEL_EXPORTER_OTLP_ENDPOINT / OTEL_EXPORTER_OTLP_LOGS_ENDPOINT env vars in the spawned `claude` session to disambiguate two non-exclusive root causes for the negative finding: (a) Claude Code 2.1.116 may not emit skill events at all; (b) endpoint mis-config in the spawned session. Cause (b) is favored on current evidence (zero events of ANY type landed in the scope window).
 - Phase 13 (Cost): hand-rolled `cmc/pricing.py` + `Decimal` math, read-time cost compute (no $ stored in DB), `effective_from`/`effective_until` on pricing table for self-correcting historical totals.
 - Phase 13 (Ingest): one Alembic migration adds `otel_events.attrs_skill_name` index + alert tables together (mirrors existing `attrs_mcp_*` pattern).
 - Phase 15 (Alerts): alert engine lives inside the existing 120s dispatcher tick (no new launchd job), emits decisions only (`ALRT-12` — never imports `cmc.dispatcher.tasks`), stable `dedup_key = alert:{rule_id}:{scope_key}` (no timestamps).
@@ -73,11 +67,23 @@ None yet.
 | Platform | PLAT-01 (Linux/systemd) | v2 | 2026-04-28 (carried from v1.0) |
 | Automation | AUTO-01..03 (NL schedules beyond cron, auto-retry, task dependencies) | v2 | 2026-04-28 (carried from v1.0) |
 
+## Performance Metrics
+
+**Velocity (v1.0 baseline):**
+- Total plans completed (v1.0): 47
+- v1.0 ship: 4 days (2026-04-25 → 2026-04-28)
+
+**v1.1 metrics:**
+
+| Phase | Plan | Duration | Tasks | Files | Date |
+|-------|------|----------|-------|-------|------|
+| 12 | 01 | ~37 min (excl. checkpoint pause) | 2 | 1 created (`SPIKE.md`, 762 lines) + 1 SUMMARY | 2026-05-02 |
+
 ## Session Continuity
 
-Last session: 2026-05-02 — v1.1 roadmap created
-Stopped at: ROADMAP.md + REQUIREMENTS.md traceability written; Phase 12 ready to plan
-Resume file: None — next action is `/gsd-plan-phase 12`
+Last session: 2026-05-02 — Plan 12-01 complete (Wave 0 + Wave 1 negative finding captured into SPIKE.md)
+Stopped at: Plan 12-01 SUMMARY + STATE updated; cleanup verified; Plan 12-02 (compose locks) ready to execute
+Resume file: None — next action is `/gsd-execute-phase 12` (continues with Plan 12-02) OR `/gsd-execute-plan 12-02`
 
 ---
 

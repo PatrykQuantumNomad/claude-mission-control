@@ -50,7 +50,7 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
   4. User can rely on the spike doc as the single reference cited by every downstream v1.1 phase plan — no further docs guessing.
 **Plans:** 2 plans
 Plans:
-- [ ] 12-01-PLAN.md — Wave 0/Wave 1 verbatim capture (otel_events + JSONL usage block) into SPIKE.md raw appendix
+- [x] 12-01-PLAN.md — Wave 0/Wave 1 verbatim capture (otel_events + JSONL usage block) into SPIKE.md raw appendix _(complete 2026-05-02; Wave 1 yielded a negative finding — skill body fired, zero OTEL events landed; Plan 02 must author skill-scoped locks as TENTATIVE)_
 - [ ] 12-02-PLAN.md — Author SPIKE.md locks, pitfalls, cross-references, and changelog from raw appendix
 
 ### Phase 13: Cost Foundation & Skill Ingest
