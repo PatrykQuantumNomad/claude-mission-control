@@ -100,8 +100,8 @@ def relay_text_to_claude(text: str, settings: Settings) -> str:
     """Spawn `claude -p TEXT --bare --output-format text` synchronously.
 
     Shell-inherited ANTHROPIC_API_KEY values are scrubbed as untrusted input.
-    Settings-sourced values (loaded from ~/.command-centre/.env via
-    Settings.env_file tuple) are then re-injected because Settings is the trust
+    Settings-sourced values (loaded from the CMC_ENV-selected env file) are
+    then re-injected because Settings is the trust
     boundary. Dispatcher run_classic.py intentionally does NOT do this re-inject;
     it uses subscription auth via ~/.claude/, not API key.
 

@@ -232,10 +232,9 @@ def _check_launchd_jobs(*, settings: Settings | None = None) -> Check:
 
     Telegram daemons are skipped silently if telegram_bot_token is unset.
 
-    telegram_configured is read from Settings (which honors
-    ~/.command-centre/.env via the env_file tuple), NOT bare os.environ, so
-    launchd-spawned `cmc doctor` invocations behave consistently with
-    interactive shell invocations.
+    telegram_configured is read from Settings (using the CMC_ENV-selected
+    env file), NOT bare os.environ, so launchd-spawned `cmc doctor`
+    invocations behave consistently with interactive shell invocations.
     """
     if settings is None:
         settings = load_settings()
@@ -288,8 +287,7 @@ def _check_launchd_jobs(*, settings: Settings | None = None) -> Check:
 
 
 def _check_telegram(*, settings: Settings | None = None) -> Check:
-    """Read TELEGRAM_BOT_TOKEN via Settings so launchd-spawned daemons and
-    `cmc doctor` invocations from arbitrary cwds both honor ~/.command-centre/.env."""
+    """Read TELEGRAM_BOT_TOKEN via Settings so cwd does not change config source."""
     if settings is None:
         settings = load_settings()
     token = settings.telegram_bot_token

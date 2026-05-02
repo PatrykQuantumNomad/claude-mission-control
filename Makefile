@@ -66,7 +66,7 @@ frontend-install: ## Install frontend dependencies via pnpm.
 
 .PHONY: dev-backend
 dev-backend: ## Run the FastAPI backend on HOST:PORT.
-	cd "$(BACKEND_DIR)" && "$(UV)" run uvicorn "$(UVICORN_APP)" --factory --host "$(HOST)" --port "$(PORT)"
+	cd "$(BACKEND_DIR)" && CMC_ENV=dev "$(UV)" run uvicorn "$(UVICORN_APP)" --factory --host "$(HOST)" --port "$(PORT)"
 
 .PHONY: dev-frontend
 dev-frontend: ## Run the Vite frontend dev server.
@@ -165,7 +165,7 @@ setup-otel: ## Merge Claude Code OTEL settings into ~/.claude/settings.json.
 
 .PHONY: setup-telegram
 setup-telegram: ## Run the Telegram BotFather setup wizard.
-	CMC_HOME="$(CMC_HOME)" "$(SCRIPTS_DIR)/cmc" setup telegram
+	CMC_ENV=dev CMC_HOME="$(CMC_HOME)" "$(SCRIPTS_DIR)/cmc" setup telegram
 
 # ---------------------------------------------------------------------------
 # Install and launchd lifecycle

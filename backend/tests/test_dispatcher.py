@@ -1114,6 +1114,8 @@ def test_disp12_render_includes_required_keys(tmp_path):
         "<key>ProgramArguments</key>",
         "<key>WorkingDirectory</key>",
         "<key>EnvironmentVariables</key>",
+        "<key>CMC_ENV</key>",
+        "<string>install</string>",
     ]
     for marker in required:
         assert marker in rendered, f"missing required marker {marker!r}"

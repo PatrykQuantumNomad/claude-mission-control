@@ -27,6 +27,8 @@ def test_server_plist_renders_uvicorn_command() -> None:
     assert "com.cmc.server" in out
     assert "/opt/homebrew/bin/uvicorn" in out
     assert "cmc.app.factory:create_app" in out
+    assert "<key>CMC_ENV</key>" in out
+    assert "<string>install</string>" in out
     assert "--factory" in out
     assert "<key>KeepAlive</key>" in out
     # Server binds to localhost:8765.
@@ -73,7 +75,9 @@ def test_dispatcher_plist_module_cli_entry(tmp_path) -> None:
         timeout=10,
     )
     assert res.returncode == 0, res.stderr.decode()
-    assert "com.cmc.dispatcher" in res.stdout.decode()
+    out = res.stdout.decode()
+    assert "com.cmc.dispatcher" in out
+    assert "<key>CMC_ENV</key>" in out
 
 
 # =========================================================================

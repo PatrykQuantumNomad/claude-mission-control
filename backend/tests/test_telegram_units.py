@@ -313,6 +313,8 @@ def test_plist_render_no_secrets_in_environment(tmp_path):
         out = render_plist(variant, py, tmp_path)
         assert "TELEGRAM_BOT_TOKEN" not in out
         assert "ANTHROPIC_API_KEY" not in out
+        assert "<key>CMC_ENV</key>" in out
+        assert "<string>install</string>" in out
 
 
 # ---------- notifications router ----------

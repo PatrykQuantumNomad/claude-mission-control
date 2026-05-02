@@ -1,9 +1,11 @@
 """Configurable fixed-window rate limiting middleware."""
 
 import hashlib
+import importlib
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Any
 
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.responses import JSONResponse
@@ -51,21 +53,27 @@ class MemoryRateLimitStore(RateLimitStore):
         )
 
     def _prune_expired_buckets(self, current_bucket: int) -> None:
-        for bucket_key, (bucket, _) in list(self._buckets.items()):
-            if bucket < current_bucket:
-                self._buckets.pop(bucket_key, None)
+        expired_keys = [
+            bucket_key
+            for bucket_key, (bucket, _) in self._buckets.items()
+            if bucket < current_bucket
+        ]
+        for bucket_key in expired_keys:
+            self._buckets.pop(bucket_key, None)
 
 
 class RedisRateLimitStore(RateLimitStore):
     def __init__(self, storage_url: str) -> None:
         try:
-            from redis import asyncio as redis_asyncio
+            redis_asyncio = importlib.import_module("redis.asyncio")
         except ImportError:
             raise ImportError(
                 "The 'redis' package is required for Redis-backed rate limiting. "
                 "Install it with: uv sync --extra redis"
             ) from None
-        self._client = redis_asyncio.from_url(storage_url, encoding="utf-8", decode_responses=True)
+        self._client: Any = redis_asyncio.from_url(
+            storage_url, encoding="utf-8", decode_responses=True
+        )
 
     async def hit(self, key: str, limit: int, window_seconds: int) -> RateLimitDecision:
         now = int(time.time())

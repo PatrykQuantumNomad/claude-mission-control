@@ -13,7 +13,7 @@ def clean_env(monkeypatch):
     """Strip CMC-related env vars so Settings() falls back to defaults.
 
     Also strip ANTHROPIC_API_KEY and TELEGRAM_* so tests don't pick up
-    developer-machine values via Settings's env_file tuple. Belt-and-suspenders
+    developer-machine values via Settings's env-file selection. Belt-and-suspenders
     alongside the per-call-site `_env_file=None` audit.
     """
     for k in list(os.environ.keys()):
@@ -23,6 +23,7 @@ def clean_env(monkeypatch):
             "DB_PATH",
             "DB_ECHO",
             "LOG_LEVEL",
+            "CMC_ENV",
             "STATIC_DIR",
             "ALEMBIC_INI_PATH",
             "ANTHROPIC_API_KEY",

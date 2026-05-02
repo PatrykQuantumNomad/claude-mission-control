@@ -37,6 +37,18 @@ else
     VENV_PY=""
 fi
 
+# Default config isolation:
+# - dev checkout reads backend/.env
+# - installed copy reads ~/.command-centre/.env
+# Callers can still override CMC_ENV explicitly.
+if [[ -z "${CMC_ENV:-}" ]]; then
+    if [[ -x "$ROOT/venv/bin/python" && ! -x "$ROOT/backend/.venv/bin/python" ]]; then
+        export CMC_ENV=install
+    else
+        export CMC_ENV=dev
+    fi
+fi
+
 LAUNCH_AGENTS="$HOME/Library/LaunchAgents"
 LABELS=(
     "com.cmc.server"

@@ -4,8 +4,8 @@ State machine (linear; each step exits 1 on failure with friendly stderr):
   1. prompt_token     — input bot token, validate via api.get_me
   2. prompt_chat_id   — input target chat_id (positive=user, negative=group)
   3. send_test_msg    — sendMessage("Mission Control connected")
-  4. write_env        — append/update ~/.command-centre/.env
-                         (or ./.env when running from repo root in dev)
+  4. write_env        — append/update backend/.env in dev, or
+                         ~/.command-centre/.env in install mode
 
 Pitfall P8: atomic-write via tmp-in-same-dir + os.replace; never
 os.rename across filesystems (would error on cross-FS).
@@ -26,10 +26,11 @@ from pathlib import Path
 
 import httpx
 
+from cmc.config.settings import INSTALL_CONFIG_MODES, dev_env_path
 from cmc.telegram import api
 
 INSTALL_ENV = Path.home() / ".command-centre" / ".env"
-DEV_ENV = Path.cwd() / ".env"
+DEV_ENV = dev_env_path()
 
 BOTFATHER_HELP = """
 To get a bot token:
@@ -59,10 +60,8 @@ async def _send_test(token: str, chat_id: str) -> int:
 
 
 def _resolve_env_path() -> Path:
-    """Return ~/.command-centre/.env when the install dir already exists,
-    otherwise repo-root .env (dev mode). install.sh creates the install
-    dir before invoking the wizard so production always lands here."""
-    if INSTALL_ENV.parent.exists():
+    """Return the env path matching the selected CMC_ENV runtime mode."""
+    if (os.environ.get("CMC_ENV") or "dev").strip().lower() in INSTALL_CONFIG_MODES:
         return INSTALL_ENV
     return DEV_ENV
 

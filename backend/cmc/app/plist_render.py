@@ -10,11 +10,10 @@ install.sh invokes this via the CLI entry below:
 Output is written to ~/Library/LaunchAgents/com.cmc.server.plist by
 install.sh.
 
-Pitfall reminder: ANTHROPIC_API_KEY (and other secrets) intentionally absent
-from the template's EnvironmentVariables — server reads config via
-cmc.config.Settings, which loads ~/.command-centre/.env at process startup.
-Baking secrets into a plist would persist them in plain text on disk inside
-~/Library.
+Pitfall reminder: secrets are intentionally absent from the template's
+EnvironmentVariables. The plist only sets CMC_ENV=install; Settings then reads
+~/.command-centre/.env at process startup. Baking secrets into a plist would
+persist them in plain text on disk inside ~/Library.
 """
 
 from importlib.resources import files

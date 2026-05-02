@@ -2,7 +2,7 @@
 
 Locked decisions:
 - All fields have sensible defaults; nothing required (see CONTEXT.md).
-- A single `.env` is auto-loaded if present, gitignored.
+- Dev loads `backend/.env`; install loads `~/.command-centre/.env`.
 - On invalid env values, print a clean per-field message and `sys.exit(1)` —
   no Python traceback, no leaked rejected values (Security Domain V7).
 - Path-shaped fields (db_path, static_dir, alembic_ini_path) are resolved against
@@ -11,27 +11,52 @@ Locked decisions:
   or from `backend/`.
 """
 
+import os
 import sys
 from pathlib import Path
-from typing import Annotated, Self
+from typing import Annotated, Any, Self
 
 from pydantic import Field, ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
-from cmc.core.paths import resolve_under_repo_root
+from cmc.core.paths import repo_root, resolve_under_repo_root
+
+CONFIG_ENV_VAR = "CMC_ENV"
+DEV_CONFIG_MODES = {"dev", "local", "development"}
+INSTALL_CONFIG_MODES = {"install", "installed", "prod", "production"}
+
+
+def dev_env_path() -> Path:
+    """Local development env file loaded by make/uvicorn workflows."""
+    return repo_root() / "backend" / ".env"
+
+
+def install_env_path() -> Path:
+    """Installed launchd env file. Resolved at call time so HOME overrides work."""
+    return Path.home() / ".command-centre" / ".env"
+
+
+def env_file_for_mode(mode: str | None = None) -> str:
+    """Return the single env file for the selected runtime mode.
+
+    Default is dev so ad-hoc `uv run` and `make dev-backend` cannot silently
+    inherit secrets from an installed `~/.command-centre/.env`.
+    """
+    raw = (mode or os.environ.get(CONFIG_ENV_VAR) or "dev").strip().lower()
+    if raw in DEV_CONFIG_MODES:
+        return str(dev_env_path())
+    if raw in INSTALL_CONFIG_MODES:
+        return str(install_env_path())
+    valid = ", ".join(sorted(DEV_CONFIG_MODES | INSTALL_CONFIG_MODES))
+    raise ValueError(f"{CONFIG_ENV_VAR} must be one of: {valid}")
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        # env_file is a TUPLE so BOTH the repo-mode `.env` AND the install-mode
-        # `~/.command-centre/.env` resolve. pydantic-settings loads files
-        # left-to-right with rightmost-wins precedence — install env overrides
-        # repo env when both define the same var (mirrors
-        # cmc.cli.setup_telegram._resolve_env_path precedence).
-        # NOTE: pydantic-settings does NOT auto-expand `~`; pass an already-
-        # resolved Path. Path.home() is process-bound; tests can override via
-        # monkeypatch.setattr(Path, "home", ...).
-        env_file=(".env", str(Path.home() / ".command-centre" / ".env")),
+        # Direct Settings() is dev-safe. load_settings() passes an explicit
+        # env file based on CMC_ENV so install daemons read only the install
+        # env and local dev reads only backend/.env.
+        env_file=str(dev_env_path()),
         env_file_encoding="utf-8",
         extra="ignore",          # don't error on unknown vars
         case_sensitive=False,
@@ -219,7 +244,7 @@ class Settings(BaseSettings):
     )
 
     # ANTHROPIC_API_KEY surface for the Telegram handler relay. Loaded via
-    # Settings (env_file tuple) so launchd-spawned daemons can read it without
+    # Settings so launchd-spawned daemons can read it without
     # the operator's shell env. Dispatcher run_classic.py intentionally does not
     # use this; it scrubs the key for subscription-auth runs.
     anthropic_api_key: str | None = Field(
@@ -278,9 +303,13 @@ class Settings(BaseSettings):
 def load_settings() -> Settings:
     """Load Settings, render a pretty error and exit(1) on invalid config."""
     try:
-        return Settings()
+        settings_kwargs: dict[str, Any] = {"_env_file": env_file_for_mode()}
+        return Settings(**settings_kwargs)
     except ValidationError as e:
         _render_pretty(e)
+        sys.exit(1)
+    except ValueError as e:
+        print(f"Configuration error: {e}", file=sys.stderr)
         sys.exit(1)
 
 

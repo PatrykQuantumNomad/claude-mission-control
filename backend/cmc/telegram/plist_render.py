@@ -12,10 +12,10 @@ Output is written to ~/Library/LaunchAgents/com.cmc.telegram-notifier.plist
 and com.cmc.telegram-handler.plist by install.sh.
 
 Pitfall reminder: TELEGRAM_BOT_TOKEN is intentionally absent from the
-templates' EnvironmentVariables. install.sh writes it to
-~/.command-centre/.env which the daemons load via cmc.config.Settings.
-Baking the token into a plist would persist it in plain text on disk
-inside ~/Library.
+templates' EnvironmentVariables. The plist only sets CMC_ENV=install;
+install.sh writes secrets to ~/.command-centre/.env, which the daemons load via
+cmc.config.Settings. Baking the token into a plist would persist it in plain
+text on disk inside ~/Library.
 """
 
 from importlib.resources import files
