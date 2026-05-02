@@ -472,9 +472,10 @@ SQL
 | A4 | The body shape (`{record, resource, scope}`) and ingest behavior (event_name = `event.name` attribute) won't change before Phase 13 lands. | §1, §2 | Low risk — `cmc/api/routes/ingest.py` would have to change. Phase 13 plan should not modify the body envelope; only add a generated/indexed column on top. |
 | A5 | `service.version` will be the only version axis until Phase 17. | Pitfall 6 | Low risk — Claude Code 2.1.116 → 2.1.117 might ship attribute changes. Spike re-run cadence should be one-time for v1.1; future versions trigger spike re-runs (which is why locks are stamped with version-of-record). |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Does Claude Code 2.1.116 emit `skill_activated` events at all?**
+   - **RESOLVED:** answer produced at execution time via 12-01 Task 2 (Wave 1 conditional)
    - What we know: `.planning/research/STACK.md` claims it does, sourced from `Context7 /ericbuess/claude-code-docs/monitoring-usage.md` (HIGH confidence per that research). v1.0 deferred ACTV-04/SKLP-02 specifically because the event wasn't seen in production at v1.0 ship time (`PROJECT.md:87`).
    - What's unclear: Whether the event lands in *this* user's `otel_events` when a skill is invoked. The user has no skills installed today; we have no live evidence.
    - Recommendation: Wave 1 of the spike installs a one-shot SKILL.md, drives a Claude Code session that summons it, and watches ingest. If the event lands → HIGH confidence lock. If it doesn't land within 60s of invocation → record as TENTATIVE with `[CITED: STACK.md → Context7]` provenance and surface as a v1.1 risk.
