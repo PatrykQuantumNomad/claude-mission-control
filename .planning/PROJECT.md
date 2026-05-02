@@ -10,6 +10,21 @@ A solo Claude Code developer can see what every agent session is doing, how toke
 
 (Verified at v1.0 ship: shipping the full observability + command centre + dispatcher + Telegram bridge confirmed this remains the right framing. Core value did not shift during the milestone.)
 
+## Current Milestone: v1.1 Skills & Cost Intelligence
+
+**Goal:** Close v1 deferred skill panels (ACTV-04 / SKLP-02), light up the full skills observability suite (frequency, cost, latency, timeline), add skill-level alerts + session comparison, and lay the ANLYT-01 cost-estimation foundation.
+
+**Target features:**
+
+- Spike: investigate `claude_code.skill_invoked` OTEL event status — confirm signal source before locking ingest
+- Top skills panel (frequency, 14/30-day rollup with drill-in) — closes ACTV-04
+- Skill cost card (tokens / dollars per skill on the Skills page) — closes SKLP-02
+- Per-skill latency + error rate panel (p50/p95/max + failures, mirroring per-tool latency)
+- Skill timeline / event firehose (live stream of skill invocations with project context)
+- Skill-level alerts (anomaly / threshold → Telegram + decisions queue)
+- Session comparison view (pick 2 sessions, diff their skill usage / cost / outcomes)
+- ANLYT-01 cost estimation foundation (token-pricing math reused by skill cost card)
+
 ## Requirements
 
 ### Validated
@@ -56,7 +71,7 @@ A solo Claude Code developer can see what every agent session is doing, how toke
 
 ### Active
 
-(Empty — define next milestone via `/gsd:new-milestone`)
+(v1.1 requirements defined in `.planning/REQUIREMENTS.md` — see Current Milestone section above)
 
 ### Out of Scope
 
@@ -136,4 +151,4 @@ Mission Control runs via launchd (120s heartbeat). It claims pending tasks atomi
 
 ---
 
-*Last updated: 2026-04-28 after v1.0 milestone*
+*Last updated: 2026-05-02 — v1.1 Skills & Cost Intelligence milestone started*

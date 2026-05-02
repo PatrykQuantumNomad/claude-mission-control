@@ -1,37 +1,37 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: MVP
-status: shipped
-shipped_at: "2026-04-28"
-last_updated: "2026-04-28"
-last_activity: 2026-04-28
+milestone: v1.1
+milestone_name: Skills & Cost Intelligence
+status: defining_requirements
+started_at: "2026-05-02"
+last_updated: "2026-05-02"
+last_activity: 2026-05-02
 progress:
-  total_phases: 11
-  completed_phases: 11
-  total_plans: 47
-  completed_plans: 47
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-28 after v1.0 milestone)
+See: .planning/PROJECT.md (updated 2026-05-02 — v1.1 Skills & Cost Intelligence started)
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, queue and approve tasks, and kill runaway sessions — all from one browser tab.
 
-**Current focus:** v1.0 shipped. Planning next milestone via `/gsd:new-milestone`.
+**Current focus:** v1.1 Skills & Cost Intelligence — defining requirements (research → REQs → roadmap).
 
 ## Current Position
 
-Phase: — (no active milestone)
-Plan: Not started
-Status: Ready to plan next milestone
-Last activity: 2026-04-28 — v1.0 milestone complete
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-05-02 — Milestone v1.1 started
 
-Progress: v1.0 [██████████] 100% — 47/47 plans across 11 phases
+Progress: v1.1 [░░░░░░░░░░] 0% — research and REQs in flight
 
 ## Accumulated Context
 
@@ -49,10 +49,12 @@ Progress: v1.0 [██████████] 100% — 47/47 plans across 11 p
 
 To resume work after `/clear`:
 
-1. Read `.planning/PROJECT.md` for current core value, validated requirements, and key decisions
-2. Read `.planning/MILESTONES.md` for shipped milestone history
-3. Run `/gsd:new-milestone` to start next milestone (questioning → research → requirements → roadmap)
+1. Read `.planning/PROJECT.md` for current core value, v1.1 milestone goals, and validated requirements
+2. Read `.planning/REQUIREMENTS.md` (once defined) for v1.1 REQ-IDs
+3. Read `.planning/ROADMAP.md` (once defined) for v1.1 phase plan
+4. Run `/gsd:plan-phase [N]` for the next phase, or `/gsd:discuss-phase [N]` first
 
 ---
 
 *v1.0 shipped 2026-04-28 — see `.planning/milestones/v1.0-ROADMAP.md` for full phase history.*
+*v1.1 Skills & Cost Intelligence started 2026-05-02.*
