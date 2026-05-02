@@ -8,7 +8,9 @@
 
 ## Appendix A — Raw Capture Output
 
-> **Wave 0 outcome: zero skill events. Wave 1 (live invocation per RESEARCH.md Appendix B) REQUIRED before HIGH-confidence locks.**
+> **Wave 1 outcome: skill body executed but NO OTEL event emitted. Locks must be TENTATIVE; cite STACK.md / Context7 docs as fallback source.**
+>
+> _Previous state (preserved for history):_ **Wave 0 outcome: zero skill events. Wave 1 (live invocation per RESEARCH.md Appendix B) REQUIRED before HIGH-confidence locks.**
 
 **Captured:** 2026-05-02T21:29:55Z
 **Service version of record:** 2.1.116
@@ -683,3 +685,77 @@ Output:
 - Service version of record: **2.1.116**
 - Cache TTL split surface: **JSONL only** (`message.usage.cache_creation.ephemeral_{5m,1h}_input_tokens`); OTEL `api_request` events do NOT carry these keys in 2.1.116.
 - Wave 1 (live invocation per RESEARCH.md Appendix B): **REQUIRED** before HIGH-confidence locks.
+
+---
+
+### Wave 1 — Post-invocation event scan
+
+**Captured:** 2026-05-02T22:05:00Z (post-checkpoint resume)
+**Pre-invocation timestamp (scope boundary):** `2026-05-02T21:44:51Z` (saved to `/tmp/spike-pre-invocation.ts` before checkpoint)
+**User prompt to Claude Code session:** `"Use the spike-test-skill to record a marker."`
+**Marker file content (proves skill body fired):** `2026-05-02T22:04:46Z` (i.e. `/tmp/spike-skill-fired.txt` — written by the Bash tool call inside the skill body, AFTER `$PRE`).
+
+Command:
+```bash
+PRE=$(cat /tmp/spike-pre-invocation.ts)
+sqlite3 -header data/cmc.db \
+  "SELECT id, ts, event_name FROM otel_events
+   WHERE ts >= '$PRE' ORDER BY ts DESC LIMIT 20;"
+```
+
+Output (verbatim, after `sleep 5` for OTLP flush):
+```
+(zero rows)
+```
+
+Broader probe — ALL event types since pre-invocation timestamp (no `LIKE '%skill%'` filter):
+```bash
+sqlite3 -header data/cmc.db \
+  "SELECT DISTINCT event_name, COUNT(*) AS n FROM otel_events
+   WHERE ts >= '$PRE' GROUP BY event_name ORDER BY n DESC;"
+```
+
+Output (verbatim):
+```
+(zero rows)
+```
+
+Total events count since pre-invocation:
+```bash
+sqlite3 -header data/cmc.db "SELECT COUNT(*) AS total_events_since_pre FROM otel_events WHERE ts >= '$PRE';"
+```
+
+Output (verbatim):
+```
+total_events_since_pre
+0
+```
+
+### Wave 1 — No event landed (negative finding)
+
+**Outcome:** The skill body executed (marker file `/tmp/spike-skill-fired.txt` exists with timestamp `2026-05-02T22:04:46Z`, which is 19m55s after the pre-invocation scope boundary `2026-05-02T21:44:51Z`), but ZERO OTEL events of ANY kind landed in `data/cmc.db.otel_events` since the scope boundary. No `event_name LIKE '%skill%'` row was emitted. No `api_request`, `tool_decision`, or any other event type was emitted either — the post-scope event count is 0.
+
+Confirmation commands and verbatim output:
+
+```bash
+ls -la /tmp/spike-skill-fired.txt
+```
+```
+-rw-r--r--@ 1 patrykattc  wheel  21 May  2 18:04 /tmp/spike-skill-fired.txt
+```
+
+```bash
+cat /tmp/spike-skill-fired.txt
+```
+```
+2026-05-02T22:04:46Z
+```
+
+**Implications for Plan 02 (lock authorship):**
+
+1. **Skill OTEL emission cannot be verified empirically against this codebase's ingest path on 2026-05-02 with Claude Code 2.1.116.** Zero rows landed despite a confirmed skill-body execution.
+2. **Two non-exclusive root causes are possible** (Plan 02 must footnote both):
+   - (a) Claude Code 2.1.116 may not emit `claude_code.skill_activated` (or any skill-scoped) OTEL event at all in the user's session configuration. STACK.md / Context7 docs for `@anthropic-ai/claude-code` are the authoritative source for whether the event is documented at this version.
+   - (b) The session that fired the skill may not have been pointed at the local FastAPI ingest at `127.0.0.1:8765`. Even though `OTEL_LOG_TOOL_DETAILS=1` is set in `~/.claude/settings.json`, the OTLP exporter endpoint env vars (`OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT`) may not have been configured in the new shell that ran `claude` for the live invocation. Note: total event count since pre-invocation is 0 across ALL event types, which favors cause (b) — if any OTEL events were being delivered, we'd expect at least `api_request` rows from the assistant turn that fired the skill.
+3. **Lock confidence:** Plan 02 MUST author all skill-scoped attribute locks (`skill_name`, `duration_ms`, status taxonomy, token attribution, session correlation) as **TENTATIVE** with explicit `source: STACK.md / Context7` citations rather than `source: SPIKE.md Appendix A live capture`. The `event_name = 'skill_activated'` lock itself is also TENTATIVE pending direct verification (see Phase 13 follow-up: re-verify with proper OTLP endpoint env in the spawned `claude` session).
+4. **The ingest-side schema locks (json_each pattern, attributes-array shape, prefix-strip behavior on `event_name`) remain HIGH-confidence** — those are anchored on the 6,392 production rows already captured in Q1-Q13, NOT on the absent skill rows.
