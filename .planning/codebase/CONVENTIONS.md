@@ -5,138 +5,155 @@
 ## Naming Patterns
 
 **Files:**
-- `snake_case.py` for all Python modules: `jsonl_parser.py`, `plist_render.py`, `rate_limit.py`
-- Test files prefixed `test_`: `test_tasks_router.py`, `test_foundation_boot.py`
-- Fixture helpers in `tests/fixtures/` named by purpose: `fake_claude_stream.py`, `fake_claude_classic.py`
-- Jinja2 templates in `*/templates/` with `.j2` extension: `com.cmc.server.plist.j2`
+- React components: PascalCase — `Button.tsx`, `PanelCard.tsx`, `TaskBoard.tsx`
+- Test files: co-located `__tests__/` subdirectory, named after subject — `Button.test.tsx`, `TaskBoard.test.tsx`
+- Python modules: snake_case — `settings.py`, `request_logging.py`, `otel_parser.py`
+- Python test files: `test_<subject>.py` prefix — `test_tasks_router.py`, `test_foundation_boot.py`
 
-**Classes:**
-- `PascalCase` for all classes: `Task`, `TaskCreate`, `TaskListItem`, `FastAPIAppBuilder`
-- SQLModel ORM models use short nouns matching table names: `Task`, `Schedule`, `Session`
-- Pydantic schemas use noun + role suffix: `TaskCreate`, `TaskUpdate`, `TaskListResponse`, `TaskApproveResponse`
+**Functions (TypeScript):**
+- React components: PascalCase — `Button`, `PanelCard`, `AppShell`
+- Custom hooks: `use` prefix, camelCase — `useFirehose`, `useAttention`, `useSystemHealth`
+- Event handlers: `handle` prefix — `handleSubmit`, or inline arrow
+- Utility functions: camelCase — `formatRelative`, `sliceLast14Days`, `defaultIsEmpty`
 
-**Functions:**
-- `snake_case` everywhere: `create_app()`, `load_settings()`, `parse_session_file()`
-- Private helpers prefixed `_`: `_resolve_repo_root_paths()`, `_render_pretty()`, `_bootstrap_db()`
-- Test factories prefixed `make_`: `make_task_row()`, `make_session_row()`, `make_decision_row()`
-- Async route handlers named after HTTP action + resource: `list_tasks()`, `create_task()`, `patch_task()`
+**Variables (TypeScript):**
+- camelCase for all variables — `queryClient`, `fetchMock`, `makeClient`
+- SCREAMING_SNAKE_CASE for module-level constants — `CONFIG_ENV_VAR`, `DEV_CONFIG_MODES`
 
-**Variables:**
-- `snake_case` throughout; single-letter names only in very local scope (`r` for response in tests, `t` for temp ORM object)
-- Module-level logger always named `log`: `log = logging.getLogger(__name__)`
+**Types/Interfaces (TypeScript):**
+- PascalCase interfaces: `ButtonProps`, `PanelCardProps`, `PanelCardEmpty<TData>`
+- Response types suffixed with `Response`: `AttentionResponse`, `SystemHealthResponse`
+- Item types suffixed with `Item` or `Row`: `AttentionItem`, `TaskListItem`, `SessionListItem`
+- Range types aliased explicitly: `type Range = 'today' | '7d' | '30d'`
 
-**Modules / Packages:**
-- Package names are short domain nouns: `cmc/api/`, `cmc/db/`, `cmc/dispatcher/`, `cmc/telegram/`
-- Schema files grouped under `cmc/api/schemas/` by domain: `tasks.py`, `sessions.py`, `hitl.py`
-- Route files grouped under `cmc/api/routes/` by domain
+**Functions (Python):**
+- snake_case for all functions — `configure_logging`, `load_settings`, `register_error_handlers`
+- Private helpers: `_` prefix — `_render_pretty`, `_resolve_repo_root_paths`, `_parse_telegram_allowed_user_ids`
+- Factory helpers in tests: `make_` prefix — `make_task_row`, `make_session_row`, `make_client`
+
+**Classes (Python):**
+- PascalCase — `Settings`, `FastAPIAppBuilder`, `ReadinessRegistry`
+
+**CSS Classes:**
+- BEM-style with `cmc-` prefix — `.cmc-btn`, `.cmc-btn--primary`, `.cmc-btn--sm`
+- Block: `.cmc-<component>` — `.cmc-badge`, `.cmc-panel-card`
+- Modifier: `.cmc-<component>--<variant>` — `.cmc-badge--warning`, `.cmc-task-board__banner`
+- Element: `.cmc-<block>__<element>` — `.cmc-task-board__columns`, `.cmc-btn__icon-left`
 
 ## Code Style
 
-**Formatting:**
-- Tool: Ruff (configured in `backend/pyproject.toml`)
+**Formatting (TypeScript):**
+- No dedicated prettier config detected — TypeScript strict mode enforced via `tsconfig.json`
+- Single quotes in imports/strings
+- Trailing commas in multi-line structures
+
+**Linting (Python):**
+- Tool: `ruff`
 - Line length: 100 characters
-- Target Python version: 3.13
+- Target: Python 3.13
+- Selected rules: `E`, `F`, `I`, `UP`, `B`, `PERF`, `RUF` (errors, pyflakes, isort, modernize, bugbear, performance, ruff-native)
+- FastAPI `Depends`, `Query`, `Path`, `Body` declared as immutable calls to silence bugbear B008
 
-**Linting:**
-- Ruff rule sets: `E` (pycodestyle), `F` (pyflakes), `I` (isort), `UP` (pyupgrade), `B` (bugbear), `PERF` (perflint), `RUF` (Ruff-specific)
-- `B` (bugbear) immutable-calls extended for FastAPI dependency injection: `fastapi.Depends`, `fastapi.Query`, `fastapi.Path`, `fastapi.Body`
-- `E402` (module-level import not at top) suppressed for `tests/conftest.py`, `tests/test_ingest.py`, `tests/test_system_router.py`
+**Type checking (TypeScript):**
+- TypeScript ~6.0 with `tsc --noEmit` for typecheck pass
+- Strict mode enforced; generics used throughout: `PanelCard<T>`, `qk.tokens(range: Range)`
 
-**Type Checking:**
-- Pyright in `basic` mode, Python 3.13
-- Applied to `cmc/` root; explicitly excluded: `cmc/api`, `cmc/db`, `cmc/dispatcher`, `cmc/ingest/repository.py`, `cmc/telegram`, `migrations`, `tests`
-- Use `from typing import` for `Literal`, `Any`, `Annotated`, `cast` as needed; Python 3.10+ union syntax (`X | Y`) preferred over `Optional[X]`
+**Type checking (Python):**
+- `pyright` in `basic` mode
+- Includes: `cmc/` (core, config, middleware, app, auth)
+- Excludes from pyright: `cmc/api`, `cmc/db`, `cmc/dispatcher`, `cmc/telegram`, `migrations`, `tests`
 
 ## Import Organization
 
-**Order (enforced by Ruff `I`):**
-1. Standard library imports
-2. Third-party packages
-3. Local `cmc.*` imports
+**TypeScript order:**
+1. External packages — `import { describe, it } from 'vitest'`, `import { useQuery } from '@tanstack/react-query'`
+2. Internal lib — `import { qk } from '../../../lib/queries'`
+3. Internal types — `import type { TaskListItem } from '../../../lib/api'`
+4. Component imports — `import { render } from '../../../test/utils'`
 
-**Path Aliases:**
-- No path aliases; all internal imports use absolute `cmc.*` paths: `from cmc.config import Settings`, `from cmc.db import get_session`
+**Python order (ruff `I` enforces isort):**
+1. stdlib — `import logging`, `from pathlib import Path`
+2. Third-party — `from fastapi import FastAPI`, `from pydantic import Field`
+3. Local — `from cmc.config import Settings`, `from cmc.core import configure_logging`
 
-**Deferred imports in tests:**
-- Module-level fixture helpers may use deferred imports after the fixture body comment block (conftest.py uses `E402` suppression for this pattern)
-- Test functions often import inside the function body to scope module loading: `from cmc.dispatcher.state import write_pid_file`
+**Path Aliases (TypeScript):**
+- None configured; all imports use relative paths: `../../../lib/queries`, `'./Card'`
+
+**Component imports:**
+- Always import from barrel `src/components/ui/index.ts` (the `./` alias), never individual files: `import { Button, Badge } from './'`
 
 ## Error Handling
 
-**HTTP errors:**
-- All HTTP errors raised with `raise HTTPException(status_code=NNN, detail="message")` in route handlers
-- The global error handler in `cmc/core/errors.py` wraps `HTTPException` into `{"error": exc.detail, "request_id": ...}` — NOT `{"detail": ...}`
-- **Critical:** test assertions must use `r.json()["error"]`, never `r.json()["detail"]`
-- Unhandled exceptions caught by `_unexpected` handler: logs with `log.exception()` and returns `{"error": "internal server error"}`
+**TypeScript frontend:**
+- `ShellErrorBoundary` wraps the full app shell in `src/components/ui/ErrorBoundary.tsx`; shows fallback with "Couldn't reach the dashboard server." heading
+- `PanelCard` renders `ErrorState` on `query.isError` with retry button calling `void query.refetch()`
+- `ErrorState` component at `src/components/ui/ErrorState.tsx` accepts `message`, `dataNoun`, `onRetry`
+- Async functions: `void` prefix on fire-and-forget calls to suppress unhandled promise lint warnings
 
-**Configuration errors:**
-- `load_settings()` in `cmc/config/settings.py` catches `ValidationError`, renders a per-field error message via `_render_pretty()`, then calls `sys.exit(1)`
-- `_render_pretty()` deliberately omits the rejected value (Security Domain V7): only field name + message are printed
-
-**Settings mutation:**
-- Use `settings.model_copy(update={...})` to create modified Settings without triggering Pydantic env re-loading — NEVER construct a new `Settings(...)` from an existing instance when only changing one field
+**Python backend:**
+- Centralized exception handlers in `backend/cmc/core/errors.py`
+- `HTTPException` → `{"error": exc.detail, "request_id": ...}` (NOT `{"detail": ...}`)
+- Unhandled `Exception` → `log.exception(...)` + `{"error": "internal server error", "request_id": ...}` with 500
+- Validators use early return with clean messages; `sys.exit(1)` on `ValidationError` in `load_settings()`
+- Tests assert on `r.json()["error"]` not `r.json()["detail"]`
 
 ## Logging
 
-**Framework:** Python stdlib `logging` with structlog configured at startup
+**Python Framework:** `structlog` + stdlib `logging`
 
 **Pattern:**
-- All modules acquire a module-level logger: `log = logging.getLogger(__name__)`
-- Structlog configured in `cmc/core/logging.py` via `configure_logging(settings)` at app startup
-- Log format switches between `"text"` (dev) and `"json"` (production) based on `settings.log_format`
-- Structlog processors: `merge_contextvars`, `add_log_level`, `TimeStamper(fmt="iso")`, `ConsoleRenderer(colors=False)`
-- **Not used:** `structlog.get_logger()` — the codebase exclusively uses `logging.getLogger(__name__)`
-
-**What to log:**
-- Unexpected/unhandled exceptions: `log.exception("unhandled_exception", extra={...})`
-- SPA mount skipped: `log.warning("Static dir %s missing...", static_dir)`
-- Build success: `log.info("%s v%s built successfully", ...)`
+- Module-level logger: `log = logging.getLogger(__name__)`
+- Structured log calls: `log.exception("unhandled_exception", extra={"request_id": ..., "path": ...})`
+- Configuration: `configure_logging(settings)` in `backend/cmc/core/logging.py`
+- Text format (dev): `"%(message)s"` — message only
+- JSON format (prod): ISO timestamp + level + logger + message via `python-json-logger`
+- `structlog` uses `ConsoleRenderer(colors=False)` for dev; merges contextvars
 
 ## Comments
 
-**Module docstrings:**
-- Every module has a docstring explaining its purpose, coverage area, and key decisions: see `cmc/api/routes/tasks.py` (explains 7 endpoints, transition design, subprocess safety, error contract)
-- Schema files document intent decisions inline: see `cmc/api/schemas/tasks.py` (explains why `TaskTriggerRequest` is absent)
+**When to Comment:**
+- File-level docstrings in every Python module: `"""FastAPI exception handlers."""`
+- File-level block comments in TypeScript: `// Button — UI-SPEC FESH-06 + DESG-05. variant=primary uses...`
+- Inline decision comments with spec/pitfall references: `// Pitfall 5 mitigation — IS_REACT_ACT_ENVIRONMENT bridge`
+- Locked decisions documented inline: `// Locked decisions per Design note:`
+- `NOTE:` prefix for non-obvious caveats in config: `# NOTE: claude_bin is INTENTIONALLY OMITTED...`
 
-**Inline comments:**
-- Inline `# ...` comments on fields explain domain logic, accepted values, and cross-cutting concerns
-- `# Pitfall N:` and `# BLOCKER N:` inline markers flag known traps for future readers
-- Security notes tagged `# Security Domain VN:`
-
-**Fixture docstrings:**
-- All pytest fixtures have docstrings stating what they provide, setup invariants, and usage notes
+**Docstrings (Python):**
+- All public functions/methods have docstrings
+- Pattern: short summary sentence, then blank line, then detail with `Pitfall` or `BLOCKER` references
+- Class docstrings on fixtures describe purpose, hermetic guarantees, and usage
 
 ## Function Design
 
-**Size:** Route handlers are kept small — validation logic delegated to pure functions (e.g., `validate_transition()` in `cmc/tasks/transitions.py`)
+**Size:** Functions kept focused; `PanelCard` and `FastAPIAppBuilder` are the largest at ~80 lines
 
 **Parameters:**
-- FastAPI route handlers inject dependencies via `Depends(get_session)`, `Depends(get_current_principal)`
-- Pure domain functions take explicit positional args; no hidden global state
+- TypeScript: Prop interfaces with optional fields defaulted: `variant?: 'primary' | 'secondary' | 'ghost'`
+- Python: Keyword arguments with explicit defaults throughout `conftest.py` factory helpers
 
 **Return Values:**
-- Route handlers always return Pydantic response models (validated via `model_validate(orm_row)`)
-- `model_dump(exclude_unset=True)` used in PATCH handlers to avoid overwriting unset fields
+- TypeScript: Explicit return types on hooks and utilities; `void` for side-effect functions
+- Python: Return type annotations on all public functions; `-> None`, `-> Self`, `-> Settings`
+- `forwardRef` used on all interactive UI primitives to expose the DOM ref: `forwardRef<HTMLButtonElement, ButtonProps>`
 
 ## Module Design
 
-**Exports:**
-- `__init__.py` files re-export public symbols: `cmc/core/__init__.py` exposes `SPAStaticFiles`, `configure_logging`, `register_error_handlers`
-- Internal helpers are prefixed `_` and not re-exported
+**TypeScript Exports:**
+- Named exports only — no default exports in component files
+- `displayName` set on all `forwardRef` components: `Button.displayName = 'Button'`
+- Barrel file `src/components/ui/index.ts` re-exports all primitives with both value and type exports: `export { PanelCard }` and `export type { PanelCardEmpty }`
 
-**Builder pattern:**
-- `FastAPIAppBuilder` in `cmc/app/factory.py` exposes a fluent builder: each setup method returns `Self` so calls chain as `builder.setup_logging().setup_settings()...build()`
-- `create_app(settings)` is the public entry point wrapping the builder
+**Python Exports:**
+- `__init__.py` aggregates public API from submodules
+- Private helpers prefixed with `_` are not exposed in `__init__.py`
 
-**Settings isolation:**
-- `Settings(_env_file=None)` is the canonical pattern for test-safe instantiation (prevents loading `backend/.env` in tests)
-- `load_settings()` is for production startup only; never call it in tests
+## Query Key Management
 
-## Datetime Conventions
-
-- All datetimes are timezone-aware UTC: `datetime.now(UTC)` — **never** `datetime.utcnow()` (deprecated)
-- Exception: `Task.created_at` uses `default_factory=datetime.utcnow` (known issue — see CONCERNS.md)
-- `datetime.now(UTC)` imported as `from datetime import UTC, datetime`
+**Pattern:**
+- All TanStack Query cache keys are defined on the `qk` factory object in `src/lib/queries.ts`
+- Keys use `as const` for type inference
+- Polling cadences are encoded in `queries.ts` — never inlined in panel components
+- Cache invalidation uses partial key prefixes: `['sessions']` invalidates all session queries
 
 ---
 

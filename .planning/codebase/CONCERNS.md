@@ -4,192 +4,190 @@
 
 ## Tech Debt
 
-**Naive `datetime.utcnow()` across all DB models:**
-- Issue: Every SQLModel default uses `datetime.utcnow` (deprecated in Python 3.12+); stored datetimes are tz-naive, requiring defensive `.replace(tzinfo=UTC)` patches at read-time.
-- Files: `backend/cmc/db/models/activities.py:25`, `backend/cmc/db/models/decisions.py:45`, `backend/cmc/db/models/schedules.py:30-31`, `backend/cmc/db/models/skills.py:28`, `backend/cmc/db/models/system_state.py:23`, `backend/cmc/db/models/sessions.py:17`, `backend/cmc/db/models/tasks.py:47`, `backend/cmc/db/models/otel_events.py:31`, `backend/cmc/db/models/mcp_stats.py:27`, `backend/cmc/db/models/token_usage.py:26`, `backend/cmc/db/models/notification_log.py:21`, `backend/cmc/db/models/inbox.py:41`, `backend/cmc/db/models/live_state.py:30`, `backend/cmc/db/models/otel_metrics.py:23`
-- Impact: Tz-naive values silently round-trip through SQLite. Routes defensively coerce on read (`replace(tzinfo=UTC)`) in several places — e.g. `backend/cmc/api/routes/system.py:141-145`, `backend/cmc/api/routes/observability.py:764-769`. Any new code that forgets the coerce will produce wrong comparisons.
-- Fix approach: Replace all `default_factory=datetime.utcnow` with `default_factory=lambda: datetime.now(UTC)` in models. Single-pass change; test suite will surface any missed sites.
+**Deprecated `datetime.utcnow()` in every ORM model:**
+- Issue: All SQLModel model files use `Field(default_factory=datetime.utcnow)` — a deprecated form that returns a naive datetime (no tzinfo). The rest of the codebase uses the correct `datetime.now(UTC)` pattern.
+- Files: `backend/cmc/db/models/tasks.py:47`, `backend/cmc/db/models/decisions.py:45`, `backend/cmc/db/models/sessions.py:17`, `backend/cmc/db/models/otel_events.py:31`, `backend/cmc/db/models/otel_metrics.py:23`, `backend/cmc/db/models/schedules.py:30-31`, `backend/cmc/db/models/skills.py:28`, `backend/cmc/db/models/mcp_stats.py:27`, `backend/cmc/db/models/system_state.py:23`, `backend/cmc/db/models/notification_log.py:21`, `backend/cmc/db/models/live_state.py:30`, `backend/cmc/db/models/token_usage.py:26`, `backend/cmc/db/models/activities.py:25`, `backend/cmc/db/models/inbox.py:41`
+- Impact: Python 3.12 deprecated `datetime.utcnow()`; Python 3.14 may remove it. All DB `created_at` / `updated_at` / `synced_at` defaults produce naive datetimes, which forces compensating `.replace(tzinfo=UTC)` calls at read time (seen in routes and observability helpers). Inconsistency between naive defaults and UTC-aware in-flight values can cause comparison bugs.
+- Fix approach: Replace every `default_factory=datetime.utcnow` with `default_factory=lambda: datetime.now(UTC)` in all model files. Add `from datetime import UTC` import. Low-risk, purely additive.
 
-**`otel_events` / `tools` tables grow without retention policy:**
-- Issue: `otel_events` and `tools` are append-only with no DELETE, VACUUM, or partition scheme. High-activity installs accumulate unbounded rows.
-- Files: `backend/cmc/db/models/otel_events.py`, `backend/cmc/db/models/tools.py`, `backend/cmc/ingest/repository.py`
-- Impact: SQLite file grows indefinitely. Observability queries at `backend/cmc/api/routes/observability.py` (790 lines, 10+ raw SQL blocks) run full-table scans and will degrade over time. PRAGMA `journal_size_limit` and `synchronous=NORMAL` mitigate I/O but not row count.
-- Fix approach: Add a background retention job (Alembic migration + periodic task) that deletes `otel_events` and `tools` rows older than N days. Configurable via a `retention_days` settings field.
+**`@deprecated` API method aliases in `api.ts`:**
+- Issue: `backend/cmc/api/routes/system.py` comments state `status` is hard-coded to `"ok"` pending a degradation heuristic. Simultaneously, `frontend/src/lib/api.ts` contains 13 `@deprecated` method aliases (e.g. `deleteTask`, `approveTask`, `rerunTask`, `triggerDispatcher`, `createSchedule`, `patchSchedule`, `deleteSchedule`, `parseNlSchedule`, `answerDecision`, `readInbox`, `replyInbox`) that duplicate every write-path function.
+- Files: `frontend/src/lib/api.ts:830-963`
+- Impact: New feature work must be careful not to accidentally call deprecated aliases. The aliases cannot be removed until all callers are audited — which has not happened.
+- Fix approach: Grep for usage of deprecated names across frontend source, migrate callers to canonical names, then delete the alias block.
 
-**`ANTHROPIC_API_KEY` read from `os.environ` instead of `Settings` in two LLM helpers:**
-- Issue: `backend/cmc/schedules/nlcron.py:27` and `backend/cmc/dispatcher/skill_router.py:54` read `ANTHROPIC_API_KEY` directly from `os.environ` — bypassing the `Settings` trust boundary that launchd-spawned daemons rely on.
-- Files: `backend/cmc/schedules/nlcron.py`, `backend/cmc/dispatcher/skill_router.py`
-- Impact: In install mode the key is stored in `~/.command-centre/.env` and surfaced through `Settings.anthropic_api_key`. If the daemon process does not inherit the shell env (launchd does not), these two callers silently degrade to `None` and emit 503/skill-router-skips instead of surfacing the key correctly.
-- Fix approach: Thread `settings.anthropic_api_key` into `nl_to_cron()` and `pick_skill()` callers rather than re-reading `os.environ`.
+**`tasks.skill` is a free-text column with no FK enforcement:**
+- Issue: `backend/cmc/db/models/tasks.py:34` notes `skill` is a free-text reference to `skills.name` with no foreign-key constraint, accepted deliberately to avoid migration churn. A typo in skill assignment is silently accepted.
+- Files: `backend/cmc/db/models/tasks.py`, `backend/cmc/dispatcher/heartbeat.py:163`
+- Impact: Tasks whose `skill` is misspelled will silently receive `None` when the dispatcher resolves the skill, then fall through to `run_classic` without the intended configuration.
+- Fix approach: Add a DB-level CHECK constraint, or at minimum add a validation in the task-create route that queries the skills table for name existence before persisting.
 
-**`Task.skill` is a free-text column with no FK enforcement:**
-- Issue: `backend/cmc/db/models/tasks.py:34` stores skill as `Optional[str]` with a comment noting this was accepted as-is. Nothing prevents a task from referencing a deleted or renamed skill.
-- Files: `backend/cmc/db/models/tasks.py`, `backend/cmc/dispatcher/heartbeat.py`
-- Impact: `_resolve_skill_for_task` in `backend/cmc/dispatcher/heartbeat.py:188` will simply return `skill=None` when the name is stale — the task falls back to auto-routing. This is silent; no error or attention item surfaces the dangling reference.
-- Fix approach: Add an Alembic migration to convert `tasks.skill` to a real FK with `ON DELETE SET NULL`. A pre-migration data audit to fix existing orphan rows may be required.
+**Hardcoded `LOCAL_API` URL in Telegram handler and notifier:**
+- Issue: `backend/cmc/telegram/handler.py:54` and `backend/cmc/telegram/notifier.py:33` both declare `LOCAL_API = "http://127.0.0.1:8765"` as a module-level constant rather than reading from `Settings.host` / `Settings.port`.
+- Files: `backend/cmc/telegram/handler.py:54`, `backend/cmc/telegram/notifier.py:33`
+- Impact: If the operator changes the default port (`CMC_PORT=9000`), the Telegram subsystem silently fails to reach the API without an obvious error — the address is wrong even though settings load correctly.
+- Fix approach: Pass `settings.port` (and `settings.host`) into the notifier and handler, construct the base URL at call time. Settings are already available in both call paths.
 
-**Duplicate `MAX_CONCURRENT` constant shadowing `Settings.dispatcher_max_concurrent`:**
-- Issue: `backend/cmc/dispatcher/heartbeat.py:49` defines `MAX_CONCURRENT = 3` as a "historical constant" while the code correctly reads `settings.dispatcher_max_concurrent` at runtime. The constant is never used but creates misleading dead code.
-- Files: `backend/cmc/dispatcher/heartbeat.py:49`
-- Impact: Low — purely a readability / misleading artifact. A future author reading the file top-to-bottom might assume that constant is the effective limit.
-- Fix approach: Delete the `MAX_CONCURRENT = 3` line.
+**Dispatcher log files accumulate indefinitely:**
+- Issue: `backend/cmc/tasks/spawn.py` and `backend/cmc/dispatcher/run_stream.py` and `backend/cmc/dispatcher/run_classic.py` all write per-task log files under `.tmp/mission-control-queue/dispatcher-logs/` but no cleanup or rotation is implemented. At analysis time 1,030 files are present.
+- Files: `backend/cmc/tasks/spawn.py:21-25`, `backend/cmc/dispatcher/run_stream.py:86-88`, `backend/cmc/dispatcher/run_classic.py:70-73`
+- Impact: Unbounded disk growth. On a system processing many tasks the logs directory will eventually consume significant disk space. The `.tmp/` directory is not in `.gitignore`-equivalent cleanup (it is tracked as a runtime directory).
+- Fix approach: Add a log rotation or prune step in the dispatcher oneshot cycle — delete files older than N days at the start of `run_one_cycle`. Alternatively, use a fixed-count rolling window.
 
-**Token attribution smear for multi-day sessions:**
-- Issue: `backend/cmc/ingest/repository.py:13-15` documents that multi-day sessions attribute all tokens to the latest sync date in the system tz, not to the actual usage day.
-- Files: `backend/cmc/ingest/repository.py`
-- Impact: Token usage charts (`/api/usage/tokens`) will show incorrect per-day breakdowns for sessions that span midnight or are synced days after they ended. Acknowledged as "acceptable for v1" in the docstring.
-- Fix approach: Revisit accumulate_token_usage to attribute tokens by parser-derived daily buckets rather than primary sync date.
+**`_input_format_spike.py` left in production module tree:**
+- Issue: `backend/cmc/dispatcher/_input_format_spike.py` is a one-time verification script that was never removed. Its docstring explicitly says "This module is NOT a runtime dependency of run_stream — it is a one-time operator/CI verification."
+- Files: `backend/cmc/dispatcher/_input_format_spike.py`
+- Impact: Misleads readers about what is production code. The file is importable and could accidentally be included in coverage reports or linting checks.
+- Fix approach: Move to `backend/scripts/` or `backend/tools/` and update its docstring reference, or delete it if the verification is no longer needed.
 
----
-
-## Known Bugs
-
-**Telegram inbox reply is a NOOP in v1:**
-- Symptoms: Pressing "reply" on an inbox notification in Telegram sends `"reply via dashboard"` feedback and does nothing to the inbox record.
-- Files: `backend/cmc/telegram/handler.py:215-218`, `backend/cmc/telegram/dash_router.py:15`, `backend/cmc/telegram/dash_router.py:66`
-- Trigger: Any Telegram callback_query with `reply_inbox:<id>` verb.
-- Workaround: User must visit the dashboard to reply to inbox messages.
-
-**`system_health` status field hardcoded to `"ok"`:**
-- Symptoms: `GET /api/system/health` always returns `"status": "ok"` even when daemons are stale or database is unhealthy.
-- Files: `backend/cmc/api/routes/system.py:118-120` (comment: `"status" is hard-coded to "ok" until a degradation heuristic lands`)
-- Trigger: Checking system health via the API or dashboard SystemHealthStrip when a daemon has crashed.
-- Workaround: Check `daemon_ages[*].age_seconds` and compare manually against thresholds.
-
----
+**`status` field in `SystemHealthResponse` is permanently hard-coded to `"ok"`:**
+- Issue: `backend/cmc/api/routes/system.py:118` documents: `"status" is hard-coded to "ok" until a degradation heuristic lands`. The field type is `'ok' | 'degraded'` in the schema but the route never returns `'degraded'`.
+- Files: `backend/cmc/api/routes/system.py:118`, `backend/cmc/api/schemas/system.py`
+- Impact: Consumers (including `SystemHealthStrip` frontend panel) that rely on this field for actual health signals will never receive a degradation signal, defeating the purpose of the field.
+- Fix approach: Implement degradation heuristic based on daemon stale thresholds (already computed as `daemon_ages` in the same handler) and last otel event age.
 
 ## Security Considerations
 
-**Authentication disabled by default (`auth_enabled: bool = False`):**
-- Risk: The API is unauthenticated out of the box. Anyone with network access to port 8765 can read session transcripts, HITL decisions, task data, and trigger dispatcher actions.
-- Files: `backend/cmc/config/settings.py:131`, `backend/.env.example`
-- Current mitigation: `HOST=127.0.0.1` binds only to loopback; `TrustedHostMiddleware` rejects non-localhost `Host` headers by default; `CORS_ALLOWED_ORIGINS` restricts origins to `http://127.0.0.1:5173` and `http://localhost:5173`.
-- Recommendations: Document that `HOST` must never be changed to `0.0.0.0` without also enabling `AUTH_ENABLED=true`. Add a `cmc doctor` check that warns when `HOST != 127.0.0.1` and `auth_enabled=False`.
+**Authentication is opt-in and disabled by default:**
+- Risk: `Settings.auth_enabled` defaults to `False` (`backend/cmc/config/settings.py:131`). Every API endpoint is publicly accessible on the default installation. The system is designed for `localhost`-only use, but a misconfigured proxy or network exposure could expose all data and write operations without authentication.
+- Files: `backend/cmc/config/settings.py:131`, `backend/cmc/auth/service.py`
+- Current mitigation: Default `trusted_hosts` is `["127.0.0.1", "localhost", ...]`. TrustedHostMiddleware and CORS are configured to localhost-only origins by default.
+- Recommendations: Add a `settings.auth_enabled=True` recommendation in setup docs for any non-localhost deployment. Consider logging a startup warning when `auth_enabled=False` and `host != "127.0.0.1"`.
 
-**API docs and OpenAPI schema enabled by default:**
-- Risk: `docs_enabled=True` and `openapi_enabled=True` expose `/api/docs` and `/api/openapi.json` to anyone with network access. On a machine where the server is inadvertently exposed (e.g. misconfigured firewall), the full API surface is discoverable.
-- Files: `backend/cmc/config/settings.py:76-78`
-- Current mitigation: Localhost-only binding (see above).
-- Recommendations: Default `docs_enabled=False` and `openapi_enabled=False` in production/install mode; document how to re-enable for development.
+**Rate limiting is opt-in and disabled by default:**
+- Risk: `Settings.rate_limit_enabled` defaults to `False` (`backend/cmc/config/settings.py:152`). Without rate limiting, the OTLP ingest endpoints (`/v1/logs`, `/v1/metrics`) and all API write paths are unbounded.
+- Files: `backend/cmc/config/settings.py:152`, `backend/cmc/middleware/rate_limit.py`
+- Current mitigation: Body size cap (`max_request_body_bytes=10MB`) is always applied. OTLP endpoints cap at `otlp_max_body_bytes`.
+- Recommendations: Same as auth — document and consider enabling for non-loopback deployments.
 
-**`ANTHROPIC_API_KEY` surface in `Settings.anthropic_api_key`:**
-- Risk: The key is printed to stderr on `ValidationError` via `_render_pretty`. The code currently only prints field names, not values (Security Domain V7), but a future contributor could accidentally add `err["input"]` in the error renderer.
-- Files: `backend/cmc/config/settings.py:316-330`
-- Current mitigation: `_render_pretty` explicitly avoids `err["input"]`; the field name `ANTHROPIC_API_KEY` is printed, not the value.
-- Recommendations: Add a unit test that asserts the rejected value does not appear in `_render_pretty` output for sensitive fields.
+**`TELEGRAM_ALLOWED_USER_IDS` is the sole Telegram authorization gate:**
+- Risk: If `telegram_allowed_user_ids` is left empty AND `telegram_chat_id` is unset, the `is_user_allowed` check in `backend/cmc/telegram/handler.py:86-96` will return `False` for every message — silently dropping all Telegram messages rather than raising an error. A misconfigured (empty) allowlist effectively disables Telegram routing without any operator warning.
+- Files: `backend/cmc/telegram/handler.py:86-96`
+- Current mitigation: Handler drops unauthorized messages with a `log.info`, not a `log.warning`, making misconfiguration quiet.
+- Recommendations: Log a `warning` (not `info`) when a message is dropped due to empty allowlist, or on startup when Telegram is enabled but both `telegram_chat_id` and `telegram_allowed_user_ids` are unset.
 
----
+**`queue_path` helper does not validate path traversal:**
+- Risk: `backend/cmc/core/queue.py:20-28` includes the comment: "Caller MUST sanitize `key`... — this helper does NOT path-traversal-check." Callers pass `str(int(decision_id))` which is safe, but the contract relies on caller discipline rather than enforced validation.
+- Files: `backend/cmc/core/queue.py:20-28`
+- Current mitigation: All current callers cast to `int` before passing. Pydantic models validate integer IDs at API boundary.
+- Recommendations: Add a `Path.resolve()` check inside `queue_path` to assert the resolved path stays under `QUEUE_ROOT` as a defense-in-depth measure.
+
+**`anthropic_api_key` stored in `.env` and loaded into `Settings`:**
+- Risk: `Settings.anthropic_api_key` (`backend/cmc/config/settings.py:250-258`) exposes the API key as a Python string in process memory. The field docstring acknowledges this is intentional for launchd subprocess injection. If Settings state were accidentally logged or serialized, the key would be exposed.
+- Files: `backend/cmc/config/settings.py:250-258`, `backend/cmc/telegram/handler.py:113-115`
+- Current mitigation: `_render_pretty` explicitly avoids logging field values (`settings.py:316-329`). Rejected env values are never printed.
+- Recommendations: Override `__repr__`/`__str__` on Settings (or use `SecretStr` for the key field) to prevent accidental logging in future debug code.
 
 ## Performance Bottlenecks
 
-**`observability.py` router is a single 790-line file with 10+ full-table SQL scans:**
-- Problem: Each of the 10 observability endpoints issues one or more raw `SELECT` queries against `otel_events`, `sessions`, `tools`, and `token_usage`. No query-level caching or materialized views. At scale (months of data), cold queries on `otel_events` without narrow date filters will be slow.
-- Files: `backend/cmc/api/routes/observability.py`
-- Cause: All aggregate computations are read-time. The `activities` table exists as a precomputed cache (per `backend/cmc/db/models/activities.py:8`) but most OBSV routes don't use it.
-- Improvement path: Extend the periodic sync loop to maintain the `activities` table as a proper materialized rollup so observability reads query the small aggregation table instead of the full `otel_events` set.
+**`answer_poll` uses DB polling at 2-second intervals for up to 1 hour:**
+- Problem: `backend/cmc/dispatcher/answer_poll.py` opens a fresh DB session every 2 seconds per pending decision for up to `dispatcher_decision_timeout_s=3600` seconds (1 hour). With `dispatcher_max_concurrent=3` tasks, this can produce 1.5 DB queries/second sustained.
+- Files: `backend/cmc/dispatcher/answer_poll.py`, `backend/cmc/config/settings.py:200-210`
+- Cause: No event/notification primitive is available from SQLite. The fresh-session-per-iteration approach is documented as intentional to avoid connection pool exhaustion.
+- Improvement path: Replace polling with a lightweight in-process asyncio `Event` stored in app state (keyed by decision_id). HITL answer endpoint sets the event; `wait_for_answer` awaits it. This removes all DB polling while the dispatcher is co-located with the API process (oneshot mode). For cross-process use the file-queue `decisions/{id}.jsonl` already provides the notification path.
 
-**Hook activity FIFO pairing is pure Python in the request path:**
-- Problem: `backend/cmc/api/routes/observability.py:370-396` loads all hook events in the time window into memory, then pairs them with a Python FIFO per `(session_id, pair_key)`. For large windows (30d) with high hook volume this could be hundreds of thousands of rows.
-- Files: `backend/cmc/api/routes/observability.py:360-399`
-- Cause: The comment says "cleaner than nested SQL window functions" — this was a deliberate trade-off for OBSV-05.
-- Improvement path: Move the pairing to a SQL window-function CTE similar to the MCP aggregator at `backend/cmc/mcp/aggregator.py`.
+**Observability router issues 2–3 raw SQL queries with correlated subqueries per request:**
+- Problem: Several endpoints in `backend/cmc/api/routes/observability.py` (notably `sessions_failures` at line 724 and `sessions_outcomes` at line 153) use CTEs with `EXISTS (SELECT 1 FROM otel_events WHERE session_id = ...)` — a correlated subquery per session row. As `otel_events` grows this becomes an O(sessions * otel_events) scan without index coverage on `(session_id, event_name)`.
+- Files: `backend/cmc/api/routes/observability.py:153-184`, `backend/cmc/api/routes/observability.py:724-754`
+- Cause: Read-time outcome classification avoids a denormalized `outcome` column but pays the query cost on every request.
+- Improvement path: Add a compound index on `otel_events(session_id, event_name)` in a new Alembic migration. Alternatively, materialize the outcome on `sessions.outcome` during JSONL ingest.
 
-**`sync_once` processes all JSONL files sequentially:**
-- Problem: `backend/cmc/ingest/scheduler.py:67-75` iterates `*/*.jsonl` files sequentially. Each file's parse is off-thread via `asyncio.to_thread`, but the overall loop still serializes file processing.
-- Files: `backend/cmc/ingest/scheduler.py`
-- Cause: One `AsyncSession` per file (transaction boundary). Sequential design is safe but slow for users with hundreds of session files.
-- Improvement path: Use `asyncio.gather` with a semaphore (concurrency cap) to process files in parallel. Each file already has its own session so there is no shared state to protect.
+**MCP aggregator (`aggregator.py`) runs window-function queries on entire `otel_events` and `tools` tables:**
+- Problem: `backend/cmc/mcp/aggregator.py` runs three large SQL queries with `ROW_NUMBER()` window functions across full table scans for each `/api/mcp/stats` sync. As `otel_events` grows (each Claude Code session emits many events), these queries will become the slowest operations in the system.
+- Files: `backend/cmc/mcp/aggregator.py`
+- Cause: No pre-materialization; stats are recomputed on demand.
+- Improvement path: The aggregator already writes results to `mcp_stats` table. Schedule aggregation as a background task on a time interval rather than per-request, and serve reads from `mcp_stats` directly.
 
----
+**JSONL ingest scans all files every 120 seconds regardless of modification:**
+- Problem: `backend/cmc/ingest/scheduler.py:67` globs `*/*.jsonl` and checks each file's mtime. With a large `~/.claude/projects` directory containing many old sessions, this is an O(files) filesystem scan every 2 minutes.
+- Files: `backend/cmc/ingest/scheduler.py:41-78`
+- Cause: Simple glob-all approach with skip-if-unchanged logic. Documented as intentional for simplicity.
+- Improvement path: Use `inotify`/`FSEvents` for filesystem watching, or maintain a mtime-indexed cache to skip unmodified directories entirely.
 
 ## Fragile Areas
 
-**`run_stream` threading model (mixed asyncio + threads):**
+**`run_stream` threading model — 3 concurrent threads per task:**
 - Files: `backend/cmc/dispatcher/run_stream.py`
-- Why fragile: Creates a dedicated `asyncio.new_event_loop()` in a thread, uses `asyncio.run_coroutine_threadsafe` from the reader thread back into that loop, and coordinates teardown across 4 threads (loop thread, reader thread, pump thread, and the calling thread). The teardown sequence is carefully ordered and documented but any future modification risks a deadlock or resource leak.
-- Safe modification: Read the teardown comment block (lines 280-327) in full before touching teardown order. Always stop pump before closing stdin. Never call `reader.join` before closing `proc.stdin`.
-- Test coverage: `backend/tests/test_dispatcher.py` has extensive stream-mode tests (~3786 lines) but integration tests requiring a real `claude` binary are skipped.
+- Why fragile: Each stream-mode task spawns a dedicated asyncio loop thread (`loop_thread`), a reader thread (`reader`), and a follow-up pump thread (`pump_thread`). The teardown sequence is carefully ordered (pump.stop → close stdin → reader.join → pump_thread.join → loop.stop → loop_thread.join). Any exception or hang in one thread can leave others stuck since `join(timeout=10)` silently proceeds on timeout.
+- Safe modification: Do not reorder the teardown sequence documented in `run_stream.py:281-292`. When adding new features that need to write to `proc.stdin`, they MUST route through `FollowUpPump`, never write directly.
+- Test coverage: `backend/tests/test_dispatcher.py` is 3786 lines and covers the main paths. Edge cases around teardown ordering and concurrent decision timeouts are tested but the thread synchronization logic itself is hard to mock exhaustively.
 
-**SQLite WAL on iCloud / NFS will silently corrupt data:**
-- Files: `backend/.env.example:11` (comment: "WAL does NOT work on NFS / iCloud"), `backend/cmc/db/engine.py`
-- Why fragile: The default `data/cmc.db` path is under the repo root. If the repo is stored on iCloud Drive or a network share, WAL mode will fail or corrupt. There is no startup check.
-- Safe modification: Add a `cmc doctor` check (alongside check #5 for port) that verifies the `DB_PATH` filesystem supports WAL by probing `PRAGMA journal_mode`.
-
-**Dispatcher `claim.py` uses raw `BEGIN IMMEDIATE` which conflicts with SQLAlchemy session auto-begin:**
+**Dispatcher concurrency relies on SQLite WAL serialization:**
 - Files: `backend/cmc/dispatcher/claim.py`
-- Why fragile: Takes `AsyncEngine` (not `AsyncSession`) specifically to avoid auto-BEGIN interference. If a future refactor passes a session or wraps the call in a session context manager, the double-transaction will cause silent claim failures rather than a runtime error.
-- Safe modification: The module docstring explicitly states "Locked pattern: takes the AsyncEngine". Do not change the calling convention without re-reading the docstring and updating tests.
+- Why fragile: The `BEGIN IMMEDIATE` pattern in `claim_pending_tasks` depends on SQLite WAL mode being active and `busy_timeout=5000` being set. If the pragma application at connect time silently fails (the pragma listener is in `backend/cmc/db/engine.py` and has a known workaround for the `isolation_level` issue), two concurrent dispatcher cycles could double-claim a row.
+- Safe modification: Never change the WAL pragma setup in `backend/cmc/db/engine.py` without verifying the `BEGIN IMMEDIATE` claim contract still holds. The `isolation_level=None` toggle for pragma execution is a documented non-obvious pattern.
+- Test coverage: `backend/tests/test_dispatcher.py` tests atomic claim but uses an in-process test DB, not a multi-process concurrent setup.
 
-**`heartbeat.py` imports `asyncio` inside the function body:**
-- Files: `backend/cmc/dispatcher/heartbeat.py:136`
-- Why fragile: `import asyncio as _asyncio` inside `run_one_cycle()` is unusual and will confuse linters or static analysis. The module-level `import asyncio` is absent; the local import is the only one.
-- Safe modification: Hoist `import asyncio` to the module level.
+**Telegram `relay_text_to_claude` is synchronous and blocks the event loop:**
+- Files: `backend/cmc/telegram/handler.py:99-139`
+- Why fragile: `relay_text_to_claude` calls `subprocess.run(..., timeout=120)` synchronously inside `async def run_handler_loop`. This blocks the asyncio event loop for up to 120 seconds per message. Under launchd (the intended deployment), only one handler runs at a time, so the impact is limited — but it's architecturally incorrect and would cause severe problems if the handler were ever moved to a shared event loop.
+- Safe modification: Wrap the `subprocess.run` call with `await asyncio.to_thread(relay_text_to_claude, ...)` if `run_handler_loop` is ever converted to a true async function.
+- Test coverage: `backend/tests/test_telegram_handler.py` mocks `subprocess.run`, so the blocking nature is not caught by tests.
 
----
+**`queue_path` creates directories as a side effect in hot paths:**
+- Files: `backend/cmc/core/queue.py:20-28`
+- Why fragile: `queue_path()` calls `qdir.mkdir(parents=True, exist_ok=True)` every time it is called, including in the answer-poll hot path. On most filesystems `mkdir` with `exist_ok=True` on an existing directory is cheap, but on network filesystems or under high contention it can be unexpectedly slow.
+- Safe modification: Consider caching the directory existence check, or splitting the concern: create directories during startup, not per-call.
 
 ## Scaling Limits
 
-**SQLite single-writer:**
-- Current capacity: One concurrent writer at a time; `busy_timeout=5000ms` queues concurrent writes.
-- Limit: Under high concurrent task dispatch (>3 tasks), the `BEGIN IMMEDIATE` lock in `claim.py` plus the ingestion scheduler's per-file sessions will contend. Observed as 5s timeouts in the PRAGMA settings.
-- Scaling path: SQLite is appropriate for this single-user, local tool; a migration to PostgreSQL would be required for multi-user or team-scale deployments.
+**SQLite single-writer constraint:**
+- Current capacity: Single SQLite file at `data/cmc.db`. WAL mode allows one writer at a time with busy_timeout=5000ms.
+- Limit: Under high OTLP ingestion load (many concurrent `POST /v1/logs` requests) combined with active dispatcher writes, write contention will surface as 5-second stalls. The OTLP ingest contract (`backend/cmc/api/routes/ingest.py:9-18`) states it always returns 200, so stalls are invisible to the Claude Code exporter.
+- Scaling path: Not a concern for single-user local deployment. If multi-user or high-throughput is needed, migrate to PostgreSQL (SQLAlchemy dialect is already async, so driver swap is the primary change).
 
-**`MemoryRateLimitStore` is not shared between processes:**
-- Current capacity: Rate limit state is in-process memory. The dispatcher is a separate process; launchd runs multiple processes.
-- Limit: Each process gets its own bucket; rate limits are not enforced across process boundaries.
-- Scaling path: Configure `RATE_LIMIT_STORAGE_URL` with a Redis URL for cross-process enforcement (`backend/cmc/middleware/rate_limit.py:65-91`).
-
----
+**Dispatcher concurrency cap is a global in-code constant:**
+- Current capacity: `Settings.dispatcher_max_concurrent = 3`
+- Limit: The constant `MAX_CONCURRENT = 3` on `backend/cmc/dispatcher/heartbeat.py:48` is a historical artifact — the runtime reads from `settings.dispatcher_max_concurrent` correctly. However, the live-PID sweep (`sweep_stale_pids`) uses OS-level `psutil.pid_exists`, which returns `True` for any process with that PID — not specifically a dispatcher subprocess. A PID collision (unlikely but possible) could falsely reduce available slots.
+- Scaling path: Write the subprocess `start_time` alongside the PID in the `.pid` file and validate both with `psutil.Process(pid).create_time()` in the sweep.
 
 ## Dependencies at Risk
 
-**`SQLModel` dual-ORM surface:**
-- Risk: `SQLModel` wraps both SQLAlchemy and Pydantic, which can produce surprising behaviour when Pydantic validation and SQLAlchemy column definitions diverge. The project uses `sa_column=Column(...)` overrides in several models to bypass SQLModel's defaults — a pattern that is fragile across SQLModel version bumps.
-- Impact: Model field definitions may silently change meaning after SQLModel upgrades.
-- Migration plan: Pin `sqlmodel` strictly in `pyproject.toml` and run the full test suite before upgrading.
+**`sqlmodel==0.0.38` pins an old pre-1.0 release:**
+- Risk: SQLModel 0.0.x is a pre-stable release series. The project has been slow to reach 1.0 and the API has had breaking changes between minor versions. Pinning to `0.0.38` means the codebase could lag behind security fixes or require significant migration effort if SQLAlchemy 3.x is released.
+- Impact: `backend/cmc/db/models/` — all 14 model files use SQLModel's `Field` and table classes.
+- Migration plan: Watch for SQLModel 0.1.x / 1.0 release. The migration is primarily updating `Field` imports and potentially `__table_args__` syntax.
 
-**Single Alembic migration (`0001_initial`) for all 15 tables:**
-- Risk: All 15 tables are created in one revision with no intermediate checkpoints. Future schema changes must add revision `0002+`. If the initial migration is applied to a database that already has some tables (partial install), `alembic upgrade head` will fail on the first `CREATE TABLE` for the existing table.
-- Impact: Installs that manually created tables before running the migration will fail on upgrade.
-- Migration plan: The `_column_exists` helper in `backend/migrations/versions/0001_initial.py:40-54` exists for this scenario but is only documented, not used in the current migration. Future revisions should use `IF NOT EXISTS` guards.
-
----
+**`pydantic-settings==2.14.0` pinned tight:**
+- Risk: Pinned to an exact version while `pydantic==2.13.3` is also pinned. Cross-version compatibility between exact pydantic and pydantic-settings pins can cause conflicts when either upstream releases a breaking change.
+- Impact: `backend/cmc/config/settings.py` — all settings parsing.
+- Migration plan: Convert pins to `>=` lower bounds with an upper cap (e.g. `pydantic>=2.13,<3`).
 
 ## Missing Critical Features
 
-**No data retention / cleanup for append-only tables:**
-- Problem: `otel_events`, `tools`, and `otel_metrics` accumulate indefinitely with no purge mechanism.
-- Blocks: Long-running installs will experience progressively slower observability queries and growing disk usage.
+**No log / JSONL file cleanup for `.tmp/mission-control-queue/`:**
+- Problem: The `.tmp/mission-control-queue/` directory accumulates `dispatcher-logs/*.log`, `decisions/*.jsonl`, `inbox/*.jsonl`, and `messages/task-*.jsonl` files indefinitely. Only `unlink_pid_file` provides any cleanup (for `.pid` files only).
+- Blocks: Long-running deployments will fill disk.
 
-**Telegram inbox reply not implemented (`NOOP`):**
-- Problem: The Telegram callback router returns `"NOOP"` for `reply_inbox` verbs; replies from Telegram do not reach the backend.
-- Blocks: Full bidirectional Telegram interaction for inbox messages.
-
-**No `cmc doctor` check for WAL-incompatible DB path:**
-- Problem: If `DB_PATH` is on iCloud Drive or NFS, WAL mode silently fails but the server starts without error.
-- Blocks: Early detection of a common macOS install mistake.
-
----
+**No health degradation signal from `GET /system/health`:**
+- Problem: The `status` field in `SystemHealthResponse` is permanently `"ok"`. The `daemon_ages` field contains stale-daemon data that the `AttentionBar` component uses, but the top-level health endpoint never surfaces `"degraded"`.
+- Blocks: Automated monitoring or alerting that keys on the health endpoint status field will never receive a degradation alert even when daemons are completely stale.
 
 ## Test Coverage Gaps
 
-**Dispatcher stream-mode integration tests require real `claude` binary:**
-- What's not tested: Full end-to-end stream dispatch with actual subprocess output, real NDJSON parsing, and live decision callbacks.
-- Files: `backend/tests/test_dispatcher.py` (3786 lines — largest test file)
-- Risk: The reader thread, FollowUpPump, and decision wait logic interact across 4 threads; unit-level mocking may miss race conditions.
-- Priority: Medium — unit coverage is extensive but the threading model is inherently hard to test without the subprocess.
+**Dispatcher teardown race conditions:**
+- What's not tested: The ordered teardown sequence in `run_stream` (pump.stop → stdin close → reader.join → pump_thread.join → loop teardown) under conditions where one step hangs or raises. The `join(timeout=10)` failure path (reader still alive after 10 seconds) is not tested.
+- Files: `backend/cmc/dispatcher/run_stream.py:279-326`
+- Risk: A reader-thread hang would silently leave the task in `running` state indefinitely.
+- Priority: Medium
 
-**Frontend E2E tests exist but have unknown scope:**
-- What's not tested: Whether `frontend/tests/e2e/` covers the full dashboard flow (task creation, HITL decision, Telegram callback).
-- Files: `frontend/tests/e2e/`
-- Risk: UI regressions in panel interactions (e.g. `TaskBoard`, `DecisionsCard`, `InboxCard`) are only caught at the component test level.
-- Priority: Low — the backend API surface has good coverage; UI regressions are visual.
+**Telegram blocking event loop in `relay_text_to_claude`:**
+- What's not tested: The asyncio event-loop blocking behavior when `subprocess.run` takes the full 120-second timeout inside an async function.
+- Files: `backend/cmc/telegram/handler.py:99-139`
+- Risk: Under a real slow claude invocation the entire `run_handler_loop` stalls.
+- Priority: Low (single-process launchd deployment mitigates impact)
 
-**No test for `system_health` degradation path:**
-- What's not tested: The `status` field in `SystemHealthResponse` is hardcoded `"ok"`. There is no test verifying that it changes to `"degraded"` when thresholds are exceeded (because the behaviour does not yet exist).
-- Files: `backend/tests/test_system_router.py`, `backend/cmc/api/routes/system.py:118`
-- Risk: When the degradation heuristic is eventually implemented, there will be no existing test scaffolding for it.
-- Priority: Low — placeholder behaviour is tested; the risk is future.
+**Frontend integration tests use a mock API only:**
+- What's not tested: `frontend/src/__tests__/integration.test.tsx` tests component integration against mocked API responses. There are no end-to-end tests (Playwright tests exist at `frontend/playwright.config.ts` but require a running backend).
+- Files: `frontend/src/__tests__/integration.test.tsx`, `frontend/playwright.config.ts`
+- Risk: API shape drift between backend Pydantic schemas and frontend TypeScript interfaces (`frontend/src/lib/api.ts`) goes undetected until runtime.
+- Priority: Medium
+
+**OTLP ingest protobuf path:**
+- What's not tested: `backend/cmc/api/routes/ingest.py:18` notes "A protobuf request (Content-Type: application/x-protobuf) will fail JSON parsing here and return 200 anyway." This silent acceptance of malformed protobuf data is tested nowhere.
+- Files: `backend/cmc/api/routes/ingest.py`
+- Risk: Operators using protobuf-encoded OTLP exporters receive a 200 OK but no data is ingested. Difficult to diagnose.
+- Priority: Low
 
 ---
 

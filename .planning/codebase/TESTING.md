@@ -4,328 +4,466 @@
 
 ## Test Framework
 
+### Frontend
+
 **Runner:**
-- pytest 9.0+
-- Config: `backend/pyproject.toml` under `[tool.pytest.ini_options]`
+- Vitest 4.x
+- Config: `frontend/vitest.config.ts`
+- Environment: `happy-dom` (NOT jsdom — Node 25 Web Storage API interference)
+- Globals: enabled (`describe`, `it`, `expect` available without imports, though tests import explicitly)
 
-**Key configuration:**
-```toml
-testpaths = ["tests"]
-asyncio_mode = "auto"      # all async tests run without @pytest.mark.asyncio decorator
-addopts = "-q"
-```
+**Assertion Library:**
+- `@testing-library/jest-dom` matchers via `@testing-library/jest-dom/vitest` import in setup
+- Vitest built-in `expect`
 
-**Async:**
-- pytest-asyncio 0.24+ in `auto` mode — `async def test_*` functions run automatically without decoration
-- When explicit decoration is present (`@pytest.mark.asyncio`), it is redundant but not harmful
-
-**Additional plugins:**
-- `pytest-cov` 7.1.0+ — coverage reporting
-- `pytest-freezer` 0.4 — deterministic time for local-day bucket tests
-- `pytest-asyncio` 0.24+
+**Component Renderer:**
+- `@testing-library/react` 16.x
+- `@testing-library/user-event` 14.x for interaction testing
+- Custom wrapper at `frontend/src/test/utils.tsx` — ALWAYS import from here, not directly from `@testing-library/react`
 
 **Run Commands:**
 ```bash
-cd backend && uv run pytest                   # Run all tests
-cd backend && uv run pytest -x                # Stop on first failure
-cd backend && uv run pytest tests/test_tasks_router.py  # Single file
-make test-backend                             # Via Makefile
-make test-backend PYTEST_ARGS="-x tests/test_foundation_boot.py"  # Scoped run
+# From frontend/
+NODE_OPTIONS=--no-experimental-webstorage vitest run        # Run all tests (single pass)
+NODE_OPTIONS=--no-experimental-webstorage vitest            # Watch mode
+NODE_OPTIONS=--no-experimental-webstorage vitest run --coverage   # With coverage (v8 provider)
+```
+
+### Backend
+
+**Runner:**
+- pytest 9.x
+- Config: `backend/pyproject.toml` `[tool.pytest.ini_options]`
+- Async mode: `asyncio_mode = "auto"` (all async tests auto-discovered)
+- Test path: `backend/tests/`
+
+**Run Commands:**
+```bash
+# From backend/
+uv run pytest              # Run all tests
+uv run pytest -q           # Quiet mode (default via addopts)
+uv run pytest --cov        # With coverage (pytest-cov)
+uv run pytest tests/test_tasks_router.py   # Single file
+```
+
+**HTTP Client for API tests:**
+- `httpx.AsyncClient` with `httpx.ASGITransport` — no real network; exercises full ASGI stack
+- Base URL: `http://testserver`
+
+### E2E (Frontend)
+
+**Runner:**
+- Playwright 1.x
+- Config: `frontend/playwright.config.ts`
+- Browser: Chromium only (single-developer macOS dashboard; multi-browser is v2)
+- Target: `vite preview` production build at `http://127.0.0.1:4173` (NOT `vite dev`)
+- Backend: real uvicorn on `http://127.0.0.1:8765`
+- Serial execution (`fullyParallel: false`, `workers: 1`) — schedule tests mutate server state
+
+```bash
+# From frontend/
+npm run test:e2e          # Run all E2E tests
+npm run test:e2e:ui       # Interactive Playwright UI
 ```
 
 ## Test File Organization
 
-**Location:** All tests in `backend/tests/` — separate from source, not co-located
+**Frontend Location:**
+- Co-located `__tests__/` subdirectory within each component category
+- `frontend/src/components/ui/__tests__/` — UI primitive tests
+- `frontend/src/components/shell/__tests__/` — shell/navigation tests
+- `frontend/src/components/panels/__tests__/` — panel component tests
+- `frontend/src/lib/__tests__/` — lib/hook/utility tests
+- `frontend/src/__tests__/` — integration tests (boots full router)
+- `frontend/src/test/__tests__/` — test harness smoke tests
+- E2E tests: `frontend/tests/e2e/*.spec.ts`
 
-**Naming:** `test_{domain}.py` where domain mirrors the code area:
-- `test_foundation_boot.py` — settings, engine, migrations, app factory, lifespan
-- `test_tasks_router.py` — tasks CRUD API (TASK-01..08)
-- `test_dispatcher.py` — dispatcher settings, state, sweep, claim, materialize, heartbeat
-- `test_ingest.py` — JSONL parsing, OTLP ingestion, repository, scheduler
-- `test_telegram_units.py` — Telegram API helpers, formatters, plist rendering
-- `test_telegram_handler.py` — Telegram update handler integration
-- `test_telegram_notifier.py` — Telegram notifier
-- `test_telegram_setup.py` — Telegram setup wizard CLI
-- `test_emergency_stop.py` — ESTOP-01..04 system stop/resume
-- `test_production_chassis.py` — FastAPI builder, readiness, security headers, rate limit
-- `test_hitl_router.py` — HITL decisions + inbox
-- `test_sessions_router.py` — sessions read API
-- `test_observability_router.py` — OTLP ingestion endpoints
-- `test_observability_extensions.py` — observability extensions
-- `test_schedules_router.py` — schedule CRUD
-- `test_skills_router.py` — skills scan/list
-- `test_mcp_router.py` — MCP aggregator
-- `test_system_router.py` — system state read
-- `test_context_router.py` — context API
-- `test_attention_metrics.py` — attention/metrics
+**Backend Location:**
+- Flat `backend/tests/` directory
+- One test file per router or subsystem: `test_tasks_router.py`, `test_dispatcher.py`
+- Shared fixtures in `backend/tests/conftest.py`
+- Subprocess fixtures in `backend/tests/fixtures/`
 
-**Fixtures directory:** `backend/tests/fixtures/` contains fake subprocess binaries:
-- `fake_claude_classic.py` — fake `claude` CLI for classic-mode dispatcher tests
-- `fake_claude_stream.py` — fake `claude` CLI for stream-mode dispatcher tests (emits NDJSON events)
-
-**Shared fixtures:** `backend/tests/conftest.py`
+**Naming:**
+- Frontend unit/integration: `<ComponentName>.test.tsx` or `<util>.test.ts`
+- Frontend E2E: `<subject>.spec.ts`
+- Backend: `test_<router_or_system>.py`
 
 ## Test Structure
 
-**Module docstring convention:**
-```python
-"""Tasks router tests — TASK-01..07.
+### Frontend Suite Organization
 
-Coverage includes:
-  - TASK-01: list with filters
-  - TASK-02: create
-  ...
+```typescript
+// Standard pattern for component tests
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { ReactNode } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { render, screen, waitFor, userEvent } from '../../../test/utils'   // ALWAYS this path
+import { ComponentUnderTest } from '../ComponentUnderTest'
+import { qk } from '../../../lib/queries'
+import type { SomeResponse } from '../../../lib/api'
 
-Pitfall awareness:
-  - r.json()["error"] (NOT "detail") — the error handler emits {error: ...}.
-  - tz-aware UTC datetimes when seeding (Pitfall 4).
-"""
+// Local QueryClient factory — consistent settings across all panel tests
+function makeClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, refetchInterval: false, refetchOnWindowFocus: false },
+      mutations: { retry: false },
+    },
+  })
+}
+
+// Wrapper component providing required providers
+function Wrap({ client, children }: { client: QueryClient; children: ReactNode }) {
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>
+}
+
+// Data factory — overrides pattern
+function makeItem(overrides: Partial<SomeItem> = {}): SomeItem {
+  return { id: 1, title: 'default', status: 'pending', ...overrides }
+}
+
+describe('ComponentName', () => {
+  beforeEach(() => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    )
+  })
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('renders skeleton while loading', () => { ... })
+  it('renders data when query resolves', async () => { ... })
+  it('renders empty state when items array is empty', async () => { ... })
+})
 ```
 
-**Test function docstrings:**
-```python
-async def test_task03_patch_illegal_transition(client) -> None:
-    """done is terminal — cannot transition to anything (including pending)."""
-```
-
-**Naming:** `test_{spec_id}_{description}` where spec_id is the requirement code:
-- `test_task01_list_default`
-- `test_task03_patch_illegal_transition`
-- `test_estop01_stop_with_no_pids_or_running_tasks`
-- `test_estop02_validate_pid_is_claude_positive`
-
-**Section markers:** Tests within a file are grouped with `# ---------- TASK-01: GET /api/tasks ----------` divider comments.
-
-## Fixtures
-
-### Core fixtures (defined in `backend/tests/conftest.py`)
-
-**`clean_env`** — strips all CMC/Anthropic/Telegram env vars via `monkeypatch.delenv()` so Settings falls back to defaults. Use in any test that constructs `Settings()`.
-
-**`tmp_db_path`** — per-test fresh `Path` object pointing to a tmp SQLite file. Never shared across tests.
-
-**`test_settings`** — `Settings(_env_file=None, db_path=tmp_db_path)` — the standard settings object for unit tests. Chains `clean_env`.
-
-**`test_settings_with_static`** — variant of `test_settings` with a real `static_dir` pointing to a minimal `index.html`. Uses `model_copy(update=...)` — NOT a new `Settings(...)` construction.
-
-**`seeded_app`** — async fixture returning `(app, lifespan_context_manager)`. Wires the full router set, redirects `jsonl_root` to a nonexistent tmp dir (so sync_once never touches real user data), and pre-seeds `app.state.boot_time`.
-
-**`client`** — `httpx.AsyncClient` backed by `httpx.ASGITransport` against `seeded_app`. The lifespan runs automatically, so Alembic migrations and startup sync execute before the first request. Use for all HTTP-level router tests.
+### Backend Suite Organization
 
 ```python
-@pytest_asyncio.fixture
-async def client(seeded_app):
-    app, cm = seeded_app
-    async with cm:
-        transport = httpx.ASGITransport(app=app)
-        async with httpx.AsyncClient(
-            transport=transport, base_url="http://testserver"
-        ) as ac:
-            yield ac
-```
+"""Router tests — TASK-01..07."""
 
-**`tmp_pid_dir`** / **`tmp_pid_dir_monkey`** — PID directory fixtures for dispatcher and ESTOP tests. `_monkey` variant also monkeypatches `cmc.core.process.pid_dir` and `cmc.dispatcher.state._process_pid_dir`.
+import pytest
+from .conftest import make_task_row   # import factory helpers directly
 
-**`mock_psutil_pids`** — returns a callable `_register(pids: set[int])` that controls which PIDs `psutil.pid_exists()` reports as alive. Patches the global `psutil` module object.
+# ---- Schema smoke (synchronous, no DB) ----
 
-**`mock_anthropic_client`** — replaces `AsyncAnthropic` constructor via `__import__` patching. Yields a `MagicMock` whose `messages.create` is an `AsyncMock`.
+def test_schema_validates():
+    t = TaskCreate(title="hello")
+    assert t.title == "hello"
 
-**`fake_jsonl_dir`** / **`golden_jsonl_session`** / **`otlp_log_payload`** / **`otlp_metric_payload`** — ingestion fixtures providing synthetic JSONL and OTLP payloads.
+# ---- Async router tests ----
 
-### Factory helpers (module-level functions, NOT fixtures)
-
-Factory helpers return plain dicts suitable for ORM construction or raw INSERT. All are defined in `conftest.py` and imported in test files via `from .conftest import make_task_row`.
-
-```python
-make_session_row(**overrides) -> dict
-make_otel_event(**overrides) -> dict
-make_token_usage_bucket(**overrides) -> dict
-make_tool_call(**overrides) -> dict
-make_decision_row(**overrides) -> dict
-make_inbox_row(**overrides) -> dict
-make_task_row(**overrides) -> dict
-make_schedule_row(**overrides) -> dict
-make_task_orm(**overrides) -> Task   # returns ORM instance, not dict
-make_schedule_orm(**overrides) -> Schedule
-```
-
-**Usage in tests:**
-```python
-from .conftest import make_task_row
-
-async def _seed_task(client_fixture, **overrides) -> int:
-    sessionmaker = client_fixture._transport.app.state.sessions
-    row = make_task_row(**overrides)
+@pytest.mark.asyncio
+async def test_list_endpoint(client) -> None:
+    """TASK-01: GET /api/tasks — all rows returned."""
+    # seed via sessionmaker directly
+    sessionmaker = client._transport.app.state.sessions
     async with sessionmaker() as db:
-        t = Task(**row)
-        db.add(t)
+        db.add(Task(**make_task_row(title="t1")))
         await db.commit()
-        await db.refresh(t)
-        return t.id
+
+    r = await client.get("/api/tasks")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["total"] == 1
+    assert body["items"][0]["title"] == "t1"
 ```
+
+**Patterns:**
+- `beforeEach`/`afterEach` with `vi.restoreAllMocks()` in every frontend describe block that spies
+- `beforeAll`/`afterAll` used only for console error silencing
+- `async with cm:` lifespan entry in backend `seeded_app`/`client` fixtures — DB migrations run before first request
 
 ## Mocking
 
-**Framework:** `unittest.mock` — `MagicMock`, `AsyncMock`, `patch` (via `monkeypatch` fixture)
+### Frontend — fetch mocking
 
-**Pattern — pytest monkeypatch (preferred):**
-```python
-def test_task07_trigger_calls_subprocess_popen(client, tmp_path, monkeypatch) -> None:
-    fake_proc = MagicMock(pid=12345)
-    mock_popen = MagicMock(return_value=fake_proc)
-    monkeypatch.setattr("cmc.tasks.spawn.repo_root", lambda: tmp_path)
-    monkeypatch.setattr("cmc.tasks.spawn.subprocess.Popen", mock_popen)
+**Primary pattern:** `vi.spyOn(globalThis, 'fetch')` with per-test `vi.restoreAllMocks()` in `afterEach`
+
+```typescript
+// Idle mock (prevents real network calls, returns {} for unmatched)
+vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+  new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }),
+)
+
+// URL-discriminating mock for complex tests
+vi.spyOn(globalThis, 'fetch').mockImplementation(
+  async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const url = String(input)
+    const method = init?.method ?? 'GET'
+    if (method === 'DELETE' && /\/api\/tasks\/\d+$/.test(url)) {
+      return new Response(null, { status: 204 })
+    }
+    return new Response(JSON.stringify(defaultData), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  },
+)
 ```
 
-**Critical rule:** Always patch where the name is IMPORTED, not where it is defined:
-```python
-# CORRECT — patches the router's local binding
-monkeypatch.setattr("cmc.api.routes.system.emergency_stop_all", ...)
+**Cache seeding — preferred over fetch mocking for data rendering tests:**
 
-# WRONG — patches definition site; router already holds its own reference
-monkeypatch.setattr("cmc.core.process.emergency_stop_all", ...)
+```typescript
+const client = makeClient()
+client.setQueryData(qk.tasks(), mockData)   // pre-seeds cache; component skips fetch
+render(<Wrap client={client}><TaskBoard /></Wrap>)
 ```
 
-**HTTP client mocking (httpx.MockTransport):**
-```python
-def handler(req: httpx.Request) -> Response:
-    return Response(200, json={"ok": True, "result": {...}})
+**EventSource mocking (SSE/firehose tests):**
 
-async with httpx.AsyncClient(transport=MockTransport(handler)) as client:
-    res = await api.send_message("TKN", "1", "hello", client=client)
+```typescript
+class MockEventSource extends EventTarget {
+  url: string; closed = false
+  constructor(url: string) { super(); this.url = url }
+  close() { this.closed = true }
+}
+// Install before test, restore after
+;(globalThis as unknown as { EventSource: unknown }).EventSource = MockEventSource
 ```
 
-All Telegram API functions (`send_message`, `get_me`, `get_updates`) accept an optional `client=` kwarg, making them injectable for testing without needing monkeypatching.
+**Motion mocking:**
+- Handled automatically by custom `render` wrapper in `src/test/utils.tsx`
+- Wraps all rendered trees in `<MotionConfig reducedMotion="always">` — never mock framer-motion manually
+
+**Console silencing:**
+```typescript
+let errSpy: ReturnType<typeof vi.spyOn>
+beforeAll(() => { errSpy = vi.spyOn(console, 'error').mockImplementation(() => {}) })
+afterAll(() => { errSpy.mockRestore() })
+```
+
+### Backend — monkeypatch/unittest.mock
+
+```python
+# monkeypatch for env vars
+monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+monkeypatch.delenv("CMC_ENV", raising=False)
+
+# unittest.mock for subprocess
+from unittest.mock import MagicMock
+mock_popen = MagicMock()
+monkeypatch.setattr("cmc.tasks.spawn.subprocess.Popen", mock_popen)
+monkeypatch.setattr("cmc.tasks.spawn.repo_root", lambda: tmp_path)
+
+# AsyncMock for async service calls
+from unittest.mock import AsyncMock
+fake_client.messages.create = AsyncMock(return_value=fake_msg)
+
+# psutil mocking via shared fixture
+mock_psutil_pids({1234, 5678})   # registers live PIDs; patches psutil.pid_exists globally
+```
 
 **What to Mock:**
-- `subprocess.Popen` / `subprocess.run` — never spawn real processes in tests
-- `psutil.pid_exists` — use `mock_psutil_pids` fixture
-- `emergency_stop_all` — stub at the router import site
-- `AsyncAnthropic` — use `mock_anthropic_client` fixture
-- External HTTP calls — use `httpx.MockTransport`
+- `globalThis.fetch` in all frontend component/panel tests
+- `EventSource` in firehose/OtelPanel tests
+- `subprocess.Popen` in dispatcher spawn tests
+- `psutil.pid_exists` in ESTOP/process tests
+- `ANTHROPIC_API_KEY` env var in tests that call external AI APIs
 
 **What NOT to Mock:**
-- SQLite database — real in-memory/tmp SQLite via `test_settings.db_path`
-- Alembic migrations — run real migrations via `_bootstrap_db()` helper or `client` fixture
-- FastAPI app / router wiring — use `seeded_app` and `client` fixtures against the full app
+- The SQLite database — real in-memory/tmp SQLite used in all backend tests
+- TanStack Query — real `QueryClient` instance used; only fetch is mocked
+- React Router — real `RouterProvider` with `createMemoryHistory` in integration tests
+- Alembic migrations — real migrations run in `client` fixture lifespan
 
-## DB Seeding Pattern
+## Fixtures and Factories
 
-For router tests, data is seeded directly via the app's sessionmaker (accessed through `client._transport.app.state.sessions`), bypassing the API:
+### Frontend — Local factory functions
 
-```python
-async def _seed_task(client_fixture, **overrides) -> int:
-    sessionmaker = client_fixture._transport.app.state.sessions
-    row = make_task_row(**overrides)
-    async with sessionmaker() as db:
-        t = Task(**row)
-        db.add(t)
-        await db.commit()
-        await db.refresh(t)
-        return t.id
+```typescript
+// Per-file factory functions with overrides pattern
+function makeTask(overrides: Partial<TaskListItem> = {}): TaskListItem {
+  return {
+    id: 1, title: 'task-default', status: 'pending',
+    priority: 3, quadrant: null, approval: 'auto',
+    // ... all required fields ...
+    ...overrides,
+  }
+}
+
+function makeClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, refetchInterval: false, refetchOnWindowFocus: false },
+      mutations: { retry: false },
+    },
+  })
+}
 ```
 
-Post-action DB verification also goes direct to sessionmaker (not through the API):
-```python
-async with sessionmaker() as db:
-    row = (await db.execute(select(Task).where(Task.id == task_id))).scalar_one()
-    assert row.status == "pending"
+**Location:** Defined locally at the top of each test file. No shared fixture files for component tests.
+
+### Backend — conftest.py factories
+
+Plain module-level helper functions (NOT pytest fixtures) in `backend/tests/conftest.py`:
+
+- `make_session_row(**overrides) -> dict` — returns dict for `Session(**row)` or raw INSERT
+- `make_task_row(**overrides) -> dict`
+- `make_schedule_row(**overrides) -> dict`
+- `make_decision_row(**overrides) -> dict`
+- `make_inbox_row(**overrides) -> dict`
+- `make_otel_event(**overrides) -> dict`
+- `make_token_usage_bucket(**overrides) -> dict`
+- `make_tool_call(**overrides) -> dict`
+- `make_task_orm(**overrides) -> Task` — returns ORM instance
+- `make_schedule_orm(**overrides) -> Schedule`
+
+**Pitfall 4:** All datetime defaults use `datetime.now(UTC)` — NEVER `datetime.utcnow()`
+
+### Backend — pytest fixtures
+
+Defined in `backend/tests/conftest.py`:
+
+- `clean_env` — strips all CMC/ANTHROPIC/TELEGRAM env vars via `monkeypatch`
+- `tmp_db_path` — per-test fresh SQLite path in `tmp_path`
+- `test_settings` — `Settings(_env_file=None, db_path=tmp_db_path)`; hermetic
+- `test_settings_with_static` — variant with real static_dir for SPA tests
+- `fake_jsonl_dir` — mimics `~/.claude/projects/<hash>/` layout
+- `golden_jsonl_session` — synthetic JSONL with known event mix (used by INGST tests)
+- `otlp_log_payload`, `otlp_metric_payload` — minimal valid OTLP payloads
+- `seeded_app` — full FastAPI app via `create_app(test_settings)`; returns `(app, lifespan_cm)`
+- `client` — `httpx.AsyncClient` bound to `seeded_app` with real lifespan + migrations
+- `tmp_pid_dir` — per-test PID directory for ESTOP tests
+- `mock_anthropic_client` — patches `AsyncAnthropic` constructor; configurable response
+- `tmp_pid_dir_monkey` — PID dir + monkeypatches dispatcher bindings
+- `mock_psutil_pids` — returns callable to register live PIDs; patches `psutil.pid_exists`
+- `pytest_freezer` (from `pytest-freezer`) — deterministic time for local-day bucket tests
+
+Subprocess fixtures in `backend/tests/fixtures/`:
+- `fake_claude_classic.py` — simulates classic mode claude binary output
+- `fake_claude_stream.py` — simulates streaming mode output
+
+## Coverage
+
+**Frontend:**
+- Provider: `@vitest/coverage-v8`
+- Reporters: `text` + `html`
+- Includes: `src/**/*.{ts,tsx}`
+- Excludes: `src/**/__tests__/**`, `src/routeTree.gen.ts`, `src/**/*.test.{ts,tsx}`
+- Target: Not enforced numerically
+
+**Backend:**
+- Tool: `pytest-cov`
+- Target: Not enforced numerically
+
+**View Coverage:**
+```bash
+# Frontend
+NODE_OPTIONS=--no-experimental-webstorage vitest run --coverage
+# Backend
+uv run pytest --cov=cmc --cov-report=html
 ```
 
 ## Test Types
 
-**Unit Tests:**
-- Pure function tests: settings defaults, transitions matrix, JSONL parser, plist renderer, Telegram formatters
-- No DB, no app, no HTTP — import the function and call it directly
-- Examples: `test_settings_defaults_with_no_env`, `test_estop02_validate_pid_is_claude_positive`, `test_format_decision_returns_plain_text_and_kb`
+**Unit Tests (Frontend):**
+- Scope: Individual components in isolation with mocked fetch
+- Location: `src/components/ui/__tests__/`, `src/components/panels/__tests__/`, `src/lib/__tests__/`
+- Data: Cache pre-seeded via `client.setQueryData(qk.key(), data)`
+- Assertions: RTL `screen.getByRole`, `screen.getByText`, `container.querySelector('.cmc-class')`
 
-**Integration Tests (Router Tests):**
-- HTTP-level via `httpx.AsyncClient` against the full ASGI app
-- Real SQLite DB with real Alembic migrations via `client` fixture
-- Examples: all `test_task01_*` through `test_task08_*`, `test_sessions_router.py`, `test_hitl_router.py`
+**Integration Tests (Frontend):**
+- Scope: Full app with real `RouterProvider` over generated `routeTree`
+- Location: `src/__tests__/integration.test.tsx`
+- Data: URL-discriminating `globalThis.fetch` mock returns non-empty payloads for all endpoints
+- Assertions: `screen.findByText` (async), heading presence, no error boundary fallback
+
+**Unit Tests (Backend):**
+- Schema smoke tests (synchronous, no DB): `test_tasks_schemas_smoke()`
+- Service unit tests: `test_foundation_boot.py` settings/engine tests
+- Pure function tests: `validate_transition`, `sliceLast14Days`
+
+**Integration Tests (Backend):**
+- Router tests: full ASGI stack via `httpx.AsyncClient` + `ASGITransport`
+- Lifespan tests: real alembic migrations, real SQLite, real session lifecycle
+- All tests in `backend/tests/test_*_router.py` are integration tests
 
 **E2E Tests:**
-- Playwright-based frontend E2E in `frontend/` (via `pnpm run test:e2e`)
-- Backend has no E2E test infrastructure — integration tests exercise the full backend stack
-
-**Subprocess Integration Tests:**
-- Dispatcher tests spawn real subprocesses using `fake_claude_classic.py` / `fake_claude_stream.py` as the `claude` binary
-- Controlled via `settings.claude_bin` monkeypatched to point to the fake binary
-
-## Coverage
-
-**Requirements:** No enforced coverage threshold configured
-
-**Run Coverage:**
-```bash
-cd backend && uv run pytest --cov=cmc --cov-report=term-missing
-```
-
-**Coverage tool:** pytest-cov 7.1.0+
+- Scope: Real backend + real Vite preview build
+- Location: `frontend/tests/e2e/*.spec.ts`
+- Files: `routes.spec.ts`, `command-palette.spec.ts`, `schedule-composer.spec.ts`, `theme-toggle.spec.ts`
 
 ## Common Patterns
 
-**Async testing (auto mode — no decorator needed):**
+**Async Testing (Frontend):**
+```typescript
+// Waiting for async render
+await waitFor(() => {
+  expect(container.querySelector('.cmc-task-board__columns')).not.toBeNull()
+})
+
+// findBy* queries have built-in waitFor
+expect(await screen.findByText('Task Board')).toBeInTheDocument()
+
+// User interactions require setup()
+const user = userEvent.setup()
+await user.click(screen.getByRole('button', { name: /^Delete$/i }))
+```
+
+**Async Testing (Backend):**
 ```python
-async def test_task01_list_default(client) -> None:
+@pytest.mark.asyncio          # applied per-test; asyncio_mode=auto means it's optional
+async def test_endpoint(client) -> None:
     r = await client.get("/api/tasks")
     assert r.status_code == 200
 ```
 
-**Error response assertions — use `"error"` key, never `"detail"`:**
-```python
-assert r.status_code == 404
-assert r.json()["error"] == "task not found"
+**Radix Portal Assertions:**
+```typescript
+// AlertDialog content is portaled outside test container — use document.body
+expect(document.body.querySelector('[role="alertdialog"]')).not.toBeNull()
+const dialog = document.body.querySelector('[role="alertdialog"]')! as HTMLElement
+const confirmBtn = Array.from(dialog.querySelectorAll('button')).find(
+  (b) => /^Delete$/i.test(b.textContent ?? ''),
+)!
+```
 
+**Error Testing (Frontend):**
+```typescript
+// Silence React's caught-error console output in ErrorBoundary tests
+beforeAll(() => { errSpy = vi.spyOn(console, 'error').mockImplementation(() => {}) })
+afterAll(() => { errSpy.mockRestore() })
+```
+
+**Error Testing (Backend):**
+```python
+# Error shape is {"error": ...} not {"detail": ...}
 assert r.status_code == 400
-assert "invalid status transition" in r.json()["error"].lower()
+assert "error" in r.json()    # NOT r.json()["detail"]
 ```
 
-**Verifying side effects in DB after API call:**
-```python
-sessionmaker = client._transport.app.state.sessions
-from sqlalchemy import select as _sel
-async with sessionmaker() as db:
-    row = (await db.execute(_sel(Task).where(Task.id == task_id))).scalar_one()
-    assert row.status == "pending"
+**Hook Testing:**
+```typescript
+import { renderHook, act } from '@testing-library/react'
+const { result } = renderHook(() => useFirehose({ bufferSize: 2 }))
+const es = MockEventSource.instances.at(-1)!
+act(() => { es.dispatchEvent(new MessageEvent('otel', { data: JSON.stringify(data) })) })
+expect(result.current.events).toHaveLength(1)
 ```
 
-**Settings clean-up in unit tests:**
-```python
-def test_settings_defaults_with_no_env(clean_env):
-    s = Settings(_env_file=None)
-    assert s.host == "127.0.0.1"
-```
+## Test Setup Infrastructure
 
-**Lifespan tests (without `client` fixture):**
-```python
-async def test_lifespan_initializes_engine_and_sessions(test_settings):
-    app = FastAPI()
-    app.state.settings = test_settings
-    async with lifespan(app):
-        assert app.state.engine is not None
-```
+**`frontend/src/test/setup.ts`** — global setup loaded by `vitest.config.ts`:
+- Installs `IS_REACT_ACT_ENVIRONMENT` bridge on both `globalThis` and `self` (React 19 + RTL 16 compatibility)
+- Shims `HTMLElement.prototype.hasPointerCapture/releasePointerCapture/setPointerCapture/scrollIntoView`
+- Shims `window.ResizeObserver` (Radix UI requirement)
+- Shims `window.matchMedia` (framer-motion requirement)
+- `afterEach` calls `cleanup()` and `window.localStorage.clear()` — RTL 16 does NOT auto-cleanup
 
-**Testing SystemExit + stderr output:**
-```python
-def test_settings_pretty_error_on_invalid(clean_env, monkeypatch, capsys):
-    monkeypatch.setenv("PORT", "not-a-number")
-    with pytest.raises(SystemExit) as exc_info:
-        load_settings()
-    assert exc_info.value.code == 1
-    captured = capsys.readouterr()
-    assert "port" in captured.err.lower()
-    assert "not-a-number" not in captured.err  # Security: no leaked values
-```
+**`frontend/src/test/utils.tsx`** — custom render wrapper:
+- Wraps all renders in `<MotionConfig reducedMotion="always">` for deterministic animation state
+- Re-exports all `@testing-library/react` exports and `userEvent`
+- All component tests MUST import `{ render, userEvent }` from `'../../../test/utils'`
 
-**Signature/introspection tests:**
-```python
-def test_api_no_parse_mode_argument():
-    """Pitfall P3: send_message MUST NOT accept parse_mode — grep gate."""
-    import inspect
-    sig = inspect.signature(api.send_message)
-    assert "parse_mode" not in sig.parameters
+**Node version flag:**
+```bash
+NODE_OPTIONS=--no-experimental-webstorage
 ```
+Required on Node 25.x: disables experimental Web Storage API that shadows happy-dom's `localStorage` proxy,
+leaving `window.localStorage.setItem` undefined.
 
 ---
 

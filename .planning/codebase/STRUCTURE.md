@@ -5,308 +5,281 @@
 ## Directory Layout
 
 ```
-claude-mission-control/
-├── backend/                    # Python FastAPI server + dispatcher + CLI
-│   ├── cmc/                    # Main Python package
-│   │   ├── api/                # HTTP layer: routes + Pydantic schemas
-│   │   │   ├── routes/         # 13 FastAPI routers (one file per domain)
-│   │   │   ├── schemas/        # Pydantic I/O schemas (mirror frontend api.ts)
-│   │   │   └── sse.py          # SSE helper for /api/firehose
-│   │   ├── app/                # FastAPI application builder + lifespan
-│   │   │   ├── factory.py      # FastAPIAppBuilder + create_app()
-│   │   │   ├── lifespan.py     # Startup/shutdown: migrations, sync, JWT warmup
-│   │   │   └── templates/      # Jinja2 plist template for app service
-│   │   ├── auth/               # Optional JWT auth (disabled by default)
-│   │   │   ├── dependencies.py # get_current_principal FastAPI dependency
-│   │   │   ├── models.py       # Principal/token types
-│   │   │   └── service.py      # JWTAuthService + JWKS cache
-│   │   ├── cli/                # cmc CLI sub-commands
-│   │   │   ├── doctor.py       # `cmc doctor` health checks
-│   │   │   └── setup_telegram.py # `cmc setup telegram` wizard
-│   │   ├── config/             # Pydantic-settings configuration
-│   │   │   └── settings.py     # Settings class + load_settings()
-│   │   ├── core/               # Shared utilities (no domain logic)
-│   │   │   ├── errors.py       # Global FastAPI exception handlers
-│   │   │   ├── logging.py      # configure_logging()
-│   │   │   ├── paths.py        # repo_root() + resolve_under_repo_root()
-│   │   │   ├── process.py      # PID file helpers, emergency_stop_all
-│   │   │   ├── queue.py        # File-based queue writer (.tmp/mission-control-queue/)
-│   │   │   └── static.py       # SPAStaticFiles (SPA catch-all)
-│   │   ├── db/                 # Database: models, engine, sessions
-│   │   │   ├── models/         # 14 SQLModel ORM models
-│   │   │   ├── base.py         # SQLModel re-export
-│   │   │   ├── engine.py       # create_engine_for_settings()
-│   │   │   ├── health.py       # check_database_readiness()
-│   │   │   └── session.py      # make_sessionmaker() + get_session dep
-│   │   ├── dispatcher/         # Task execution engine
-│   │   │   ├── oneshot.py      # Entry point: python -m cmc.dispatcher.oneshot
-│   │   │   ├── heartbeat.py    # run_one_cycle() orchestrator
-│   │   │   ├── claim.py        # Atomic task claim (BEGIN IMMEDIATE)
-│   │   │   ├── materialize.py  # Schedules → Task rows
-│   │   │   ├── sweep.py        # PID file GC
-│   │   │   ├── autonomy_gate.py# auto/review/manual skill gate
-│   │   │   ├── run_classic.py  # Classic-mode subprocess runner
-│   │   │   ├── run_stream.py   # Stream-mode subprocess + NDJSON reader
-│   │   │   ├── marker_parser.py# DECISION/INBOX marker extraction
-│   │   │   ├── answer_poll.py  # Poll DB for decision answers
-│   │   │   ├── follow_ups.py   # FollowUpPump (stdin injection)
-│   │   │   ├── inbox_post.py   # POST /api/inbox from stream runner
-│   │   │   ├── model_resolve.py# Resolve claude model for task
-│   │   │   ├── skill_router.py # Haiku-powered skill assignment
-│   │   │   ├── state.py        # PID file ops + stamp_tick + max_concurrent
-│   │   │   └── templates/      # Jinja2 plist template for dispatcher daemon
-│   │   ├── ingest/             # JSONL ingestion pipeline
-│   │   │   ├── scheduler.py    # sync_once() + periodic_sync_loop()
-│   │   │   ├── jsonl_parser.py # Claude Code JSONL file parser
-│   │   │   ├── otel_parser.py  # OTel log/metric payload parser
-│   │   │   └── repository.py   # upsert_session, upsert_tools, accumulate_token_usage
-│   │   ├── mcp/                # MCP server aggregation
-│   │   │   └── aggregator.py   # Aggregate MCP stats across sessions
-│   │   ├── middleware/         # Starlette ASGI middleware
-│   │   │   ├── body_size.py
-│   │   │   ├── rate_limit.py
-│   │   │   ├── request_id.py
-│   │   │   ├── request_logging.py
-│   │   │   ├── security_headers.py
-│   │   │   └── timeout.py
-│   │   ├── observability/      # OTel tracing + Prometheus metrics
-│   │   │   ├── metrics.py
-│   │   │   └── tracing.py
-│   │   ├── readiness/          # Readiness check registry
-│   │   ├── schedules/          # Cron schedule helpers
-│   │   ├── skills/             # Skill scanner (CLAUDE.md skill discovery)
-│   │   │   └── scanner.py
-│   │   ├── tasks/              # Task domain logic
-│   │   │   ├── spawn.py        # spawn_dispatcher_oneshot()
-│   │   │   └── transitions.py  # Status state machine
-│   │   └── telegram/           # Telegram bot integration
-│   │       ├── handler.py      # Long-poll update loop
-│   │       ├── notifier.py     # Proactive notification sender
-│   │       ├── api.py          # Telegram Bot API HTTP calls
-│   │       ├── dash_router.py  # Decode callback queries → local API
-│   │       ├── messages.py     # Message formatting
-│   │       └── templates/      # Jinja2 plist templates (4 daemon plists)
-│   ├── migrations/             # Alembic migration scripts
-│   │   └── versions/           # 0001_initial.py (single migration)
-│   ├── tests/                  # pytest test suite
-│   │   └── fixtures/           # Test fixture data
-│   └── alembic.ini             # Alembic configuration
-├── frontend/                   # React SPA
+claude-mission-control/          # repo root (detected by repo_root() via backend/+frontend/ siblings)
+├── backend/                     # Python FastAPI backend
+│   ├── cmc/                     # Main package
+│   │   ├── api/                 # HTTP interface layer
+│   │   │   ├── routes/          # FastAPI route handlers (one file per resource)
+│   │   │   ├── schemas/         # Pydantic request/response models
+│   │   │   └── sse.py           # Shared SSE generator for firehose + session stream
+│   │   ├── app/                 # Application assembly
+│   │   │   ├── factory.py       # FastAPIAppBuilder + create_app()
+│   │   │   ├── lifespan.py      # Startup/shutdown: engine, migrations, ingest loop
+│   │   │   └── templates/       # Jinja2 HTML templates (plist rendering)
+│   │   ├── auth/                # Optional JWT authentication
+│   │   │   ├── service.py       # JWTAuthService (shared-secret / JWKS)
+│   │   │   ├── dependencies.py  # FastAPI get_current_principal dependency
+│   │   │   └── models.py        # Principal dataclass
+│   │   ├── cli/                 # CLI subcommands (setup_telegram, setup_otel, doctor)
+│   │   ├── config/
+│   │   │   └── settings.py      # Pydantic-settings Settings class
+│   │   ├── core/                # Cross-cutting utilities
+│   │   │   ├── errors.py        # Global exception handlers
+│   │   │   ├── logging.py       # configure_logging()
+│   │   │   ├── paths.py         # repo_root() (lru_cache), resolve_under_repo_root()
+│   │   │   ├── process.py       # emergency_stop_all(), pid_dir()
+│   │   │   ├── queue.py         # File-based JSONL queue writer (.tmp/mission-control-queue/)
+│   │   │   └── static.py        # SPAStaticFiles (SPA catch-all)
+│   │   ├── db/                  # Data layer
+│   │   │   ├── engine.py        # create_engine_for_settings() + WAL/pragma listener
+│   │   │   ├── session.py       # make_sessionmaker(), get_session() FastAPI dependency
+│   │   │   ├── base.py          # SQLModel base
+│   │   │   ├── health.py        # check_database_readiness()
+│   │   │   └── models/          # SQLModel ORM table definitions (one file per table)
+│   │   ├── dispatcher/          # Out-of-process task orchestrator
+│   │   │   ├── heartbeat.py     # run_one_cycle() — full dispatcher loop
+│   │   │   ├── claim.py         # claim_pending_tasks() — BEGIN IMMEDIATE atomic claim
+│   │   │   ├── autonomy_gate.py # check_autonomy() — skill autonomy enforcement
+│   │   │   ├── run_classic.py   # run_classic() — sync claude -p subprocess
+│   │   │   ├── run_stream.py    # run_stream() — bidirectional NDJSON subprocess
+│   │   │   ├── marker_parser.py # MarkerParser — DECISION/INBOX extractor
+│   │   │   ├── skill_router.py  # pick_skill() — Haiku-4.5 skill assignment
+│   │   │   ├── state.py         # PID files, tick stamp, max_concurrent()
+│   │   │   ├── materialize.py   # Materialise due schedules into Task rows
+│   │   │   ├── sweep.py         # sweep_stale_pids()
+│   │   │   ├── answer_poll.py   # wait_for_answer() — polls queue file
+│   │   │   ├── follow_ups.py    # FollowUpPump — inject follow-up files to stdin
+│   │   │   ├── inbox_post.py    # post_inbox_marker() — POST to /api/inbox
+│   │   │   ├── model_resolve.py # resolve_model() — skill → model name
+│   │   │   ├── oneshot.py       # Entry point: python -m cmc.dispatcher.oneshot
+│   │   │   └── templates/       # Jinja2 launchd plist template for dispatcher daemon
+│   │   ├── ingest/              # JSONL transcript ingestion
+│   │   │   ├── scheduler.py     # sync_once(), periodic_sync_loop()
+│   │   │   ├── jsonl_parser.py  # parse_session_file() — pure, off-thread
+│   │   │   ├── repository.py    # upsert_session/tools/token_usage DB helpers
+│   │   │   └── otel_parser.py   # OTLP JSON parser helpers
+│   │   ├── mcp/
+│   │   │   └── aggregator.py    # Three-source MCP latency aggregator (window functions)
+│   │   ├── middleware/          # Starlette middleware (one file per concern)
+│   │   ├── observability/       # OTLP tracing + Prometheus metrics setup
+│   │   ├── readiness/           # ReadinessRegistry + ReadinessCheckResult
+│   │   ├── schedules/           # cron.py, nlcron.py (NL → cron via Haiku)
+│   │   ├── skills/
+│   │   │   └── scanner.py       # find_skill_files(), parse_skill(), scan_all()
+│   │   ├── tasks/
+│   │   │   ├── transitions.py   # validate_transition() — pure state machine
+│   │   │   └── spawn.py         # spawn_dispatcher_oneshot() — detached Popen
+│   │   └── telegram/            # Telegram bot integration
+│   │       ├── handler.py       # Long-poll update loop
+│   │       ├── api.py           # Telegram HTTP API wrappers
+│   │       ├── dash_router.py   # Callback query → local API routing
+│   │       ├── notifier.py      # Outgoing Telegram notifications
+│   │       ├── oneshot_handler.py # Launchd entry point for telegram handler
+│   │       └── templates/       # Jinja2 launchd plist templates
+│   ├── migrations/              # Alembic migration scripts
+│   │   └── versions/            # Migration version files
+│   ├── tests/                   # Backend test suite
+│   │   └── fixtures/            # Shared test fixtures
+│   ├── alembic.ini              # Alembic configuration
+│   └── pyproject.toml           # Python project + dependency config
+├── frontend/                    # React TypeScript SPA
 │   ├── src/
-│   │   ├── main.tsx            # React root entry point
-│   │   ├── styles.css          # Design system CSS (~51k lines, CSS custom props)
-│   │   ├── routeTree.gen.ts    # Auto-generated by TanStack Router
-│   │   ├── vite-env.d.ts       # Vite type declarations
-│   │   ├── routes/             # File-based routes
-│   │   │   ├── __root.tsx      # Root layout: QueryClientProvider + ErrorBoundary
-│   │   │   ├── index.tsx       # / — Command page
-│   │   │   ├── activity.tsx    # /activity — Activity page
-│   │   │   └── skills.tsx      # /skills — Skills registry page
+│   │   ├── main.tsx             # App bootstrap: router + theme pre-paint
+│   │   ├── routeTree.gen.ts     # Auto-generated TanStack Router route tree
+│   │   ├── styles.css           # Global CSS design system (CSS custom properties)
+│   │   ├── vite-env.d.ts        # Vite env type declaration
+│   │   ├── routes/              # File-based route components
+│   │   │   ├── __root.tsx       # Root: QueryClientProvider + ErrorBoundary + AppShell
+│   │   │   ├── index.tsx        # `/` — Command page (live panels)
+│   │   │   ├── activity.tsx     # `/activity` — Activity page (historical)
+│   │   │   └── skills.tsx       # `/skills` — Skills registry page
 │   │   ├── components/
-│   │   │   ├── panels/         # ~35 domain-specific panel widgets
-│   │   │   ├── shell/          # AppShell, NavBar, EmergencyStopBanner, ThemeToggle
-│   │   │   └── ui/             # ~20 primitive UI components
+│   │   │   ├── panels/          # 30+ panel components (one per dashboard panel)
+│   │   │   ├── shell/           # AppShell, NavBar, EmergencyStopBanner, ThemeToggle
+│   │   │   └── ui/              # Primitive UI components (Button, Card, Badge, etc.)
 │   │   ├── lib/
-│   │   │   ├── api.ts          # Typed fetcher map (all backend endpoints)
-│   │   │   ├── queries.ts      # TanStack Query hooks + cadence policy + mutations
-│   │   │   ├── useFirehose.ts  # Native EventSource hook for SSE firehose
-│   │   │   ├── storage.ts      # localStorage helpers
-│   │   │   ├── theme.ts        # Theme persistence
-│   │   │   └── cron-utils.ts   # Cron string formatting
-│   │   └── test/               # Vitest test setup
-│   ├── tests/e2e/              # Playwright E2E tests
-│   └── dist/                   # Built SPA (served by backend)
-├── data/                       # SQLite database
-│   └── cmc.db                  # Primary data store (+ WAL files at runtime)
-├── scripts/                    # Shell utilities
-│   ├── cmc                     # Main CLI launcher (wraps Python CLI)
-│   ├── install.sh              # launchd installation helper
-│   ├── start.sh / stop.sh      # Service control
-│   ├── doctor.py               # System health diagnostics
-│   └── setup_telegram.py       # Telegram setup wizard
-├── .tmp/mission-control-queue/ # Cross-process file bus (gitignored)
-│   ├── decisions/              # {decision_id}.jsonl — HITL decision answers
-│   ├── inbox/                  # {inbox_id}.jsonl — inbox replies
-│   ├── messages/               # {session_id}.jsonl — follow-up messages
-│   └── dispatcher-logs/        # task-{id}-stream-*.log — subprocess logs
-├── .planning/                  # GSD planning documents
-│   ├── codebase/               # Architecture/stack documents (this file)
-│   ├── milestones/             # Milestone definitions
-│   └── phases/                 # Per-phase implementation plans
-├── .claude/                    # Claude Code configuration
-│   ├── commands/               # Slash commands
-│   └── hooks/                  # Claude Code hook scripts
-├── Makefile                    # Dev workflow targets
-├── package.json                # Root package.json (pre-commit tooling)
-└── README.md                   # User-facing documentation
+│   │   │   ├── api.ts           # Typed fetch client + all backend TS interfaces
+│   │   │   ├── queries.ts       # TanStack Query hooks; all polling cadences live here
+│   │   │   ├── useFirehose.ts   # Native EventSource SSE hook
+│   │   │   ├── theme.ts         # applyTheme() / toggleTheme() / localStorage
+│   │   │   ├── storage.ts       # localStorage wrappers
+│   │   │   └── cron-utils.ts    # Cron expression utilities
+│   │   └── test/                # Frontend test utilities + setup
+│   ├── tests/e2e/               # Playwright end-to-end tests
+│   └── package.json             # Frontend dependencies (Vite, React, TanStack)
+├── data/                        # Runtime data (gitignored; cmc.db lives here)
+│   └── cmc.db                   # SQLite database (WAL mode; auto-created by lifespan)
+├── scripts/                     # Shell install/start/stop scripts + Python setup helpers
+│   ├── install.sh               # One-shot install script
+│   ├── start.sh / stop.sh       # Service management
+│   ├── setup_telegram.py        # Python setup helper (mirrors CLI)
+│   └── setup_otel.py
+├── .tmp/mission-control-queue/  # File-based IPC queue (runtime; gitignored)
+│   ├── decisions/               # HITL decision answers: {decision_id}.jsonl
+│   ├── inbox/                   # Inbox replies: {inbox_id}.jsonl
+│   └── messages/                # Session follow-ups: {session_id}.jsonl
+├── .planning/                   # GSD project planning documents
+│   ├── codebase/                # Codebase maps (this file and siblings)
+│   ├── milestones/
+│   ├── phases/                  # Per-phase implementation plans
+│   └── research/
+├── Makefile                     # Dev workflow targets (dev-backend, dev-frontend, test, etc.)
+├── package.json                 # Root package.json (workspace root; minimal)
+└── .pre-commit-config.yaml      # Pre-commit hooks (ruff, etc.)
 ```
 
 ## Directory Purposes
 
 **`backend/cmc/api/routes/`:**
-- Purpose: One FastAPI `APIRouter` per domain resource
-- Contains: `health.py`, `sessions.py`, `tasks.py`, `hitl.py`, `schedules.py`, `skills.py`, `mcp.py`, `sync.py`, `system.py`, `observability.py`, `context.py`, `notifications.py`, `ingest.py`
-- Key files: `__init__.py` (aggregates via `all_routers()` and `raw_routers()`)
-
-**`backend/cmc/api/schemas/`:**
-- Purpose: Pydantic v2 request/response models (single source of truth for wire shape)
-- Contains: One file per domain matching the route files
-- Key files: `tasks.py`, `sessions.py`, `hitl.py`, `schedules.py`, `system.py`
+- Purpose: One FastAPI router per resource
+- Contains: `sessions.py`, `tasks.py`, `skills.py`, `hitl.py`, `schedules.py`, `notifications.py`, `system.py`, `observability.py`, `sync.py`, `mcp.py`, `context.py`, `health.py`, `ingest.py`
+- Key files: `__init__.py` — `all_routers()` and `raw_routers()` aggregators
 
 **`backend/cmc/db/models/`:**
-- Purpose: SQLModel ORM models (one file per table)
-- Contains: `sessions.py`, `tasks.py`, `schedules.py`, `skills.py`, `decisions.py`, `inbox.py`, `tools.py`, `token_usage.py`, `otel_events.py`, `otel_metrics.py`, `activities.py`, `live_state.py`, `mcp_stats.py`, `system_state.py`, `notification_log.py`
+- Purpose: SQLModel ORM table definitions, one file per DB table
+- Contains: `sessions.py`, `tasks.py`, `skills.py`, `decisions.py`, `inbox.py`, `schedules.py`, `tools.py`, `token_usage.py`, `live_state.py`, `system_state.py`, `otel_events.py`, `otel_metrics.py`, `mcp_stats.py`, `notification_log.py`, `activities.py`
+- Key files: All imported by Alembic `env.py` for migration generation
 
 **`backend/cmc/dispatcher/`:**
-- Purpose: Task execution engine; runs as a separate process
-- Key files: `oneshot.py` (entry), `heartbeat.py` (cycle), `run_stream.py` (HITL-capable runner)
+- Purpose: Self-contained task execution engine; runs out-of-process
+- Key files: `heartbeat.py` (orchestration), `claim.py` (atomic DB), `run_stream.py` (HITL-capable)
 
-**`backend/cmc/telegram/templates/`:**
-- Purpose: Jinja2 templates for launchd property list files
-- Contains: `com.cmc.telegram-handler.plist.j2`, `com.cmc.telegram-notifier.plist.j2` and two others
+**`frontend/src/lib/`:**
+- Purpose: All shared frontend logic — no business logic in components
+- Key files: `api.ts` (types + fetch), `queries.ts` (all hooks + cadences), `useFirehose.ts` (SSE)
 
 **`frontend/src/components/panels/`:**
-- Purpose: Observable panels consuming TanStack Query hooks
-- Contains: ~35 panel components; exports collected via `index.ts`
-- Key files: `TaskBoard.tsx`, `DecisionsCard.tsx`, `LiveSessionsCard.tsx`, `SystemHealthStrip.tsx`
-
-**`frontend/src/components/shell/`:**
-- Purpose: Application chrome (nav, error banner, theme)
-- Key files: `AppShell.tsx`, `NavBar.tsx`, `EmergencyStopBanner.tsx`
-
-**`frontend/src/components/ui/`:**
-- Purpose: Reusable primitive components (no domain logic)
-- Contains: `Button`, `Card`, `Badge`, `Sheet`, `DataTable`, `PanelCard`, `KpiTile`, `Skeleton`, `Tooltip`, `RangeToggle`, etc.
-
-**`.tmp/mission-control-queue/`:**
-- Purpose: Cross-process JSONL file bus between API server and dispatcher
-- Generated: Yes (created at runtime)
-- Committed: No (gitignored)
+- Purpose: Dashboard panel components; each is a self-contained display unit
+- Key files: `index.ts` barrel re-exports all panels; individual files named after the panel (e.g., `TaskBoard.tsx`, `DecisionsCard.tsx`, `LiveSessionsCard.tsx`)
 
 ## Key File Locations
 
 **Entry Points:**
-- `backend/cmc/app/factory.py`: FastAPI `create_app()` factory
-- `backend/cmc/dispatcher/oneshot.py`: Dispatcher `__main__` entry
-- `frontend/src/main.tsx`: React DOM render root
-- `scripts/cmc`: Shell CLI launcher
+- `backend/cmc/app/factory.py`: `create_app()` — uvicorn factory target
+- `backend/cmc/dispatcher/oneshot.py`: `main()` — dispatcher launchd entry point
+- `backend/cmc/telegram/oneshot_handler.py`: Telegram daemon launchd entry point
+- `frontend/src/main.tsx`: SPA bootstrap
 
 **Configuration:**
-- `backend/cmc/config/settings.py`: All application settings (`Settings` class)
-- `backend/.env.example`: Documented env var reference
+- `backend/cmc/config/settings.py`: All `Settings` fields with defaults
+- `backend/.env`: Dev environment overrides (gitignored)
+- `~/.command-centre/.env`: Installed environment overrides (gitignored)
 - `backend/alembic.ini`: Alembic migration config
-- `frontend/vite.config.ts`: Vite build config (if present)
 
 **Core Logic:**
-- `backend/cmc/core/paths.py`: `repo_root()` — used by everything that resolves paths
-- `backend/cmc/core/queue.py`: File-based HITL/follow-up bus
-- `backend/cmc/tasks/transitions.py`: Task status state machine
-- `backend/cmc/dispatcher/heartbeat.py`: Dispatcher cycle orchestrator
-- `backend/cmc/ingest/scheduler.py`: JSONL ingestion entry point
-
-**Frontend Infrastructure:**
-- `frontend/src/lib/api.ts`: All typed API fetchers (mirrors Pydantic schemas)
-- `frontend/src/lib/queries.ts`: All TanStack Query hooks + cadence policy
-- `frontend/src/routeTree.gen.ts`: Auto-generated route tree (do not edit)
+- `backend/cmc/app/lifespan.py`: Startup sequence (migrations, ingest loop, auth warmup)
+- `backend/cmc/dispatcher/heartbeat.py`: Task dispatch cycle
+- `backend/cmc/ingest/scheduler.py`: JSONL sync orchestration
+- `backend/cmc/core/paths.py`: `repo_root()` — all path resolution anchors here
+- `backend/cmc/core/queue.py`: File queue paths — single source of truth for `.tmp/` layout
 
 **Testing:**
-- `backend/tests/conftest.py`: pytest fixtures
-- `backend/tests/fixtures/`: JSONL fixture files
-- `frontend/src/test/`: Vitest setup
-- `frontend/tests/e2e/`: Playwright tests
+- `backend/tests/`: Python test suite (pytest)
+- `backend/tests/fixtures/`: Shared fixtures
+- `frontend/src/**/__tests__/`: Co-located unit tests
+- `frontend/tests/e2e/`: Playwright end-to-end tests
+
+**DB Models:**
+- `backend/cmc/db/models/`: All ORM models; changes here require a new Alembic migration
+- `backend/migrations/versions/`: Migration files (auto-generated with `alembic revision --autogenerate`)
 
 ## Naming Conventions
 
-**Backend Files:**
-- Modules use `snake_case.py` matching their domain (`tasks.py`, `run_stream.py`)
-- ORM models use `snake_case.py` matching table name (`system_state.py`, `otel_events.py`)
-- Template files use the full launchd identifier with `.j2` suffix (`com.cmc.server.plist.j2`)
+**Files (backend):**
+- Python modules: `snake_case.py`
+- One resource per file in `api/routes/` and `api/schemas/`
+- Models named after DB table (singular): `tasks.py` → `class Task`
+- Entry point scripts: `oneshot.py`, `oneshot_handler.py`
 
-**Frontend Files:**
-- React components: `PascalCase.tsx` (`TaskBoard.tsx`, `DecisionsCard.tsx`)
-- Non-component TypeScript: `camelCase.ts` (`api.ts`, `queries.ts`, `useFirehose.ts`)
-- Test files: co-located in `__tests__/` subdirectories (e.g., `components/panels/__tests__/`)
+**Files (frontend):**
+- React components: `PascalCase.tsx`
+- Utility/hook files: `camelCase.ts`
+- Auto-generated: `routeTree.gen.ts` (never edit manually)
+- Test directories: `__tests__/` co-located with source
 
-**Python Identifiers:**
-- Classes: `PascalCase` (`FastAPIAppBuilder`, `JWTAuthService`)
-- Functions/methods: `snake_case` (`create_app`, `run_one_cycle`, `claim_pending_tasks`)
-- Constants: `UPPER_SNAKE_CASE` (`MAX_CONCURRENT`, `QUEUE_ROOT_REL`)
-- Module-level loggers: `log = logging.getLogger(__name__)`
+**Directories:**
+- Backend: all lowercase, topic-named (`dispatcher/`, `ingest/`, `tasks/`)
+- Frontend: lowercase for utility dirs (`lib/`, `routes/`, `test/`), lowercase for component category dirs (`panels/`, `shell/`, `ui/`)
+
+**Classes (backend):**
+- ORM models: `PascalCase` matching table concept (`Task`, `Skill`, `Decision`)
+- Settings: `Settings` (single class)
+- Services: `PascalCaseService` (`JWTAuthService`)
+- Builder: `FastAPIAppBuilder`
+
+**Variables/functions:**
+- Backend: `snake_case` throughout
+- Frontend: `camelCase` for functions and variables; `PascalCase` for components and types
 
 ## Where to Add New Code
 
-**New API endpoint (new resource domain):**
-- Router: `backend/cmc/api/routes/{domain}.py` (new file)
-- Schema: `backend/cmc/api/schemas/{domain}.py` (new file)
-- Register router: add to `all_routers()` list in `backend/cmc/api/routes/__init__.py`
-- Frontend types: add interfaces to `frontend/src/lib/api.ts`
-- Frontend hook: add hook + query key to `frontend/src/lib/queries.ts`
+**New API endpoint:**
+1. Add route handler: `backend/cmc/api/routes/<resource>.py` (new file or extend existing)
+2. Add Pydantic schemas: `backend/cmc/api/schemas/<resource>.py`
+3. Register router in: `backend/cmc/api/routes/__init__.py` → `all_routers()` or `raw_routers()`
+4. Add TS types: `frontend/src/lib/api.ts`
+5. Add query hook: `frontend/src/lib/queries.ts` (with cadence)
 
-**New API endpoint (existing resource):**
-- Add route handler to existing `backend/cmc/api/routes/{domain}.py`
-- Add schema types to existing `backend/cmc/api/schemas/{domain}.py`
-- Add fetcher function to `frontend/src/lib/api.ts`
-- Add query hook to `frontend/src/lib/queries.ts`
+**New DB table:**
+1. Add SQLModel: `backend/cmc/db/models/<table>.py`
+2. Import in Alembic `env.py` (or ensure all models are imported before `target_metadata`)
+3. Generate migration: `alembic revision --autogenerate -m "add <table>"`
+4. Run migration: applied automatically by lifespan on next startup
 
-**New database model:**
-- Create `backend/cmc/db/models/{name}.py` with SQLModel class
-- Import in Alembic's `env.py` (or the initial migration) so metadata is visible
-- Add Alembic migration under `backend/migrations/versions/`
+**New dispatcher feature:**
+- Self-contained module in `backend/cmc/dispatcher/`
+- Import in `heartbeat.py` at the appropriate cycle step
 
-**New panel component:**
-- Create `frontend/src/components/panels/{PanelName}.tsx`
-- Export from `frontend/src/components/panels/index.ts`
-- Hook into existing query from `queries.ts` or add a new hook there
-- Add to the appropriate route file (`routes/index.tsx` or `routes/activity.tsx`)
+**New dashboard panel:**
+1. Component: `frontend/src/components/panels/<PanelName>.tsx`
+2. Export from: `frontend/src/components/panels/index.ts`
+3. Query hook: `frontend/src/lib/queries.ts` (with explicit cadence comment)
+4. Mount in route: `frontend/src/routes/index.tsx` or `activity.tsx`
 
-**New UI primitive:**
-- Create `frontend/src/components/ui/{ComponentName}.tsx`
-- Export from `frontend/src/components/ui/index.ts`
+**New frontend utility/hook:**
+- Place in: `frontend/src/lib/<utilName>.ts`
+- No business logic in components; shared logic always goes in `lib/`
 
-**New dispatcher capability:**
-- Add module to `backend/cmc/dispatcher/{feature}.py`
-- Call from `heartbeat.run_one_cycle()` or from `run_stream.py`/`run_classic.py`
+**New Telegram command/callback:**
+- Handler logic: `backend/cmc/telegram/handler.py` or `dash_router.py`
+
+**New CLI subcommand:**
+- Module: `backend/cmc/cli/<subcommand>.py` with `main()` callable
 
 **New middleware:**
-- Create `backend/cmc/middleware/{name}.py`
-- Export from `backend/cmc/middleware/__init__.py`
-- Register in `FastAPIAppBuilder.setup_middleware()` (`backend/cmc/app/factory.py`)
-
-**New Settings field:**
-- Add to `Settings` class in `backend/cmc/config/settings.py`
-- If path-shaped: add field name to `_resolve_repo_root_paths` validator
-- Document in `backend/.env.example`
+- Module: `backend/cmc/middleware/<name>.py`
+- Register: `backend/cmc/app/factory.py` → `setup_middleware()`
 
 ## Special Directories
 
-**`.tmp/mission-control-queue/`:**
-- Purpose: Cross-process JSONL file bus
-- Generated: Yes, at runtime
-- Committed: No — gitignored; created lazily by `core/queue.py`
-
 **`data/`:**
-- Purpose: SQLite database files
-- Generated: Yes, at runtime (migrated on app startup)
-- Committed: No — gitignored (`.db`, `.db-shm`, `.db-wal`)
+- Purpose: Runtime SQLite database (`cmc.db` + WAL files)
+- Generated: Yes (by lifespan on first startup)
+- Committed: No (gitignored)
+
+**`.tmp/mission-control-queue/`:**
+- Purpose: File-based IPC between FastAPI (writer) and dispatcher (reader)
+- Generated: Yes (by `cmc.core.queue.queue_path()` at runtime)
+- Committed: No (gitignored)
 
 **`frontend/dist/`:**
-- Purpose: Production-built SPA served by `SPAStaticFiles`
+- Purpose: Vite production build output; served by FastAPI SPA mount
 - Generated: Yes (`cd frontend && npm run build`)
-- Committed: No — gitignored
+- Committed: No (gitignored)
 
 **`frontend/.tanstack/`:**
-- Purpose: TanStack Router codegen cache
-- Generated: Yes
-- Committed: No
+- Purpose: TanStack Router code-gen cache
+- Generated: Yes (by `vite-plugin-tanstack-router`)
+- Committed: No (gitignored)
 
-**`.planning/`:**
-- Purpose: GSD planning artifacts (milestones, phases, codebase maps)
-- Generated: By GSD commands
+**`backend/migrations/versions/`:**
+- Purpose: Alembic migration scripts (auto-generated, then reviewed)
+- Generated: Partially (auto-generated skeleton, human-reviewed content)
 - Committed: Yes
 
-**`.claude/`:**
-- Purpose: Claude Code slash commands, agent configs, hooks
-- Generated: Partially (some files are authored, some generated)
+**`.planning/`:**
+- Purpose: GSD project planning — milestones, phase plans, codebase maps
+- Generated: By GSD commands
 - Committed: Yes
 
 ---

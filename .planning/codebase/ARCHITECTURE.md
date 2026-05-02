@@ -6,305 +6,305 @@
 ## System Overview
 
 ```text
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                          React SPA (TanStack Router + Query)                 │
-│   `frontend/src/routes/`  ──  `frontend/src/components/panels/`             │
-│   `frontend/src/lib/api.ts` (typed fetchers)                                 │
-│   `frontend/src/lib/queries.ts` (cadenced hooks + mutations)                │
-└──────────────────────────────┬───────────────────────────────────────────────┘
-                               │  HTTP/SSE  (same-origin: SPA served by backend)
-                               ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                      FastAPI Server  (single process)                        │
-│   Entry: `backend/cmc/app/factory.py::create_app()`                         │
-│   ┌──────────────────┬────────────────────┬───────────────────────────────┐  │
-│   │  API layer       │  Ingestion layer   │  Dispatcher layer             │  │
-│   │ `cmc/api/routes` │ `cmc/ingest/`      │ `cmc/dispatcher/`             │  │
-│   │  13 routers,     │  periodic JSONL    │  heartbeat → claim → runner   │  │
-│   │  /api prefix     │  sync loop         │  threads (claude subprocess)  │  │
-│   └────────┬─────────┴──────────┬─────────┴───────────────┬───────────────┘  │
-│            │                   │                          │                  │
-│            ▼                   ▼                          ▼                  │
-│   ┌────────────────────────────────────────────────────────────────────────┐  │
-│   │              SQLite (async via aiosqlite / SQLAlchemy 2)               │  │
-│   │              `data/cmc.db`                                             │  │
-│   └────────────────────────────────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────────────────────────────────┘
-         ▲                              ▲
-         │ OTel/HTTP                    │ launchd plist
-         │ `/v1/logs`, `/v1/metrics`    │ `cmc/dispatcher/oneshot.py`
-         │                             │
-  Claude Code hooks             Dispatcher one-shot
-  (external agents)             (system scheduler)
+┌────────────────────────────────────────────────────────────────────────┐
+│                     React SPA (TanStack Router)                        │
+│  `/`  CommandPage           `/activity`  ActivityPage                  │
+│  `/skills`  SkillsPage                                                  │
+│  `frontend/src/routes/`                                                 │
+└──────────┬──────────────────────────────────────────────────┬──────────┘
+           │  HTTP REST + SSE (EventSource)                   │
+           ▼                                                  ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│              FastAPI Application  `backend/cmc/app/factory.py`         │
+│   Middleware stack: CORS / TrustedHost / Security / RateLimit /        │
+│   RequestID / Logging / BodySize / Timeout                             │
+│                                                                        │
+│   /api/*  routers (all_routers)         raw routers (raw_routers)      │
+│   sessions, tasks, skills, hitl,        /v1/logs, /v1/metrics          │
+│   schedules, notifications, system,     (OTLP ingest)                  │
+│   observability, sync, mcp, context     `backend/cmc/api/routes/`      │
+└────────┬─────────────────────────┬──────────────────────────┬──────────┘
+         │                         │                          │
+         ▼                         ▼                          ▼
+┌─────────────────┐  ┌──────────────────────┐  ┌──────────────────────────┐
+│  SQLite DB      │  │  Ingest Scheduler     │  │  Dispatcher (launchd)    │
+│  `data/cmc.db`  │  │  (lifespan asyncio   │  │  `cmc.dispatcher.oneshot`│
+│  WAL mode       │  │   background task)   │  │  heartbeat.run_one_cycle │
+│  aiosqlite /    │  │  Walks JSONL files   │  │  claim → autonomy gate   │
+│  SQLAlchemy 2   │  │  every 120s          │  │  → run_classic|run_stream│
+│  SQLModel ORM   │  │  `cmc/ingest/`       │  │  `cmc/dispatcher/`       │
+└─────────────────┘  └──────────────────────┘  └──────────────────────────┘
+         ▲                                                    │
+         │                                                    ▼
+         │                                    ┌──────────────────────────┐
+         │                                    │  Claude CLI subprocess   │
+         │                                    │  `claude -p PROMPT`      │
+         └────────────────────────────────────│  NDJSON stdout (stream)  │
+                                              │  or JSON (classic)       │
+                                              └──────────────────────────┘
          │
          ▼
-  ~/.claude/projects/**/*.jsonl   ←  ingest source
-  .tmp/mission-control-queue/     ←  HITL/follow-up bus
+┌────────────────────────────────────────────────────────────────────────┐
+│                  Telegram Handler (launchd daemon)                     │
+│    long-poll getUpdates → relay text to `claude -p`                    │
+│    callback_query → POST/PATCH local API (:8765)                       │
+│    `backend/cmc/telegram/`                                             │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Component Responsibilities
 
 | Component | Responsibility | File |
 |-----------|----------------|------|
-| `create_app` | Fluent builder: middleware, routes, SPA, observability | `backend/cmc/app/factory.py` |
-| `lifespan` | Startup: migrations, sessions, boot sync, periodic task | `backend/cmc/app/lifespan.py` |
-| `Settings` | Single pydantic-settings config; all paths repo-root anchored | `backend/cmc/config/settings.py` |
-| `repo_root()` | cwd-independent anchor for all path resolution | `backend/cmc/core/paths.py` |
-| API routes | 13 domain routers aggregated in `all_routers()` | `backend/cmc/api/routes/__init__.py` |
-| HITL routes | Decisions + inbox endpoints | `backend/cmc/api/routes/hitl.py` |
-| Tasks router | TASK-01..08 CRUD + dispatcher trigger | `backend/cmc/api/routes/tasks.py` |
-| System router | Health, attention, state KV, SSE firehose, ESTOP | `backend/cmc/api/routes/system.py` |
-| Sessions router | SESS-01..07 list, live, details, follow-up, summary | `backend/cmc/api/routes/sessions.py` |
-| Dispatcher heartbeat | One-cycle orchestrator: sweep → materialize → claim → fan-out | `backend/cmc/dispatcher/heartbeat.py` |
-| Dispatcher oneshot | `python -m cmc.dispatcher.oneshot` launchd entry point | `backend/cmc/dispatcher/oneshot.py` |
-| `claim_pending_tasks` | Atomic SQLite `BEGIN IMMEDIATE` claim | `backend/cmc/dispatcher/claim.py` |
-| `materialize_due_schedules` | Schedules → Task rows on each cycle | `backend/cmc/dispatcher/materialize.py` |
-| `run_stream` | Stream-mode subprocess with NDJSON reader + HITL callbacks | `backend/cmc/dispatcher/run_stream.py` |
-| `run_classic` | Classic-mode subprocess with timeout | `backend/cmc/dispatcher/run_classic.py` |
-| Autonomy gate | Per-skill `auto/review/manual` block/proceed | `backend/cmc/dispatcher/autonomy_gate.py` |
-| `sweep_stale_pids` | Prune dead PID files; return live PID set | `backend/cmc/dispatcher/sweep.py` |
-| `sync_once` | One full JSONL ingestion cycle | `backend/cmc/ingest/scheduler.py` |
-| `queue.py` | File-based queue writer for HITL/follow-up bus | `backend/cmc/core/queue.py` |
-| Telegram handler | Long-poll bot loop; routes text to claude, callbacks to API | `backend/cmc/telegram/handler.py` |
-| DB models | SQLModel ORM models for all 14 entities | `backend/cmc/db/models/` |
-| `api.ts` | Typed fetcher map for all backend endpoints | `frontend/src/lib/api.ts` |
-| `queries.ts` | TanStack Query hooks + cadence policy + mutations | `frontend/src/lib/queries.ts` |
-| Panel components | Domain-specific widgets consuming query hooks | `frontend/src/components/panels/` |
+| `FastAPIAppBuilder` | Fluent builder: assembles middleware, routes, SPA mount | `backend/cmc/app/factory.py` |
+| `lifespan` | Startup/shutdown: engine, Alembic migrations, ingest loop, auth warmup | `backend/cmc/app/lifespan.py` |
+| `Settings` | Pydantic-settings config; resolves all paths against repo root | `backend/cmc/config/settings.py` |
+| API routes | HTTP handlers for every resource (sessions, tasks, skills, HITL, etc.) | `backend/cmc/api/routes/` |
+| Pydantic schemas | Request/response models mirroring DB models | `backend/cmc/api/schemas/` |
+| SQLModel ORM models | DB table definitions; all indexed | `backend/cmc/db/models/` |
+| `create_engine_for_settings` | Async SQLite engine with WAL + pragma listener | `backend/cmc/db/engine.py` |
+| `make_sessionmaker` / `get_session` | Session factory and FastAPI dependency | `backend/cmc/db/session.py` |
+| `sync_once` / `periodic_sync_loop` | JSONL transcript ingestion (boot-time + 120s cadence) | `backend/cmc/ingest/scheduler.py` |
+| `parse_session_file` | Pure JSONL → session/tools/token-usage dict; runs off event loop | `backend/cmc/ingest/jsonl_parser.py` |
+| Ingest repository | `upsert_session`, `upsert_tools`, `accumulate_token_usage` | `backend/cmc/ingest/repository.py` |
+| `run_one_cycle` | Dispatcher heartbeat: stamp tick → sweep → materialize → claim → fan-out | `backend/cmc/dispatcher/heartbeat.py` |
+| `claim_pending_tasks` | Atomic `BEGIN IMMEDIATE` claim; returns dicts | `backend/cmc/dispatcher/claim.py` |
+| `check_autonomy` | Autonomy gate: auto→proceed, review/manual→block + awaiting_approval | `backend/cmc/dispatcher/autonomy_gate.py` |
+| `run_classic` | Synchronous `claude -p` subprocess; JSON output; marks done/failed | `backend/cmc/dispatcher/run_classic.py` |
+| `run_stream` | Bidirectional `claude` subprocess; NDJSON stream; MarkerParser; HITL | `backend/cmc/dispatcher/run_stream.py` |
+| `MarkerParser` | Fenced-code-aware DECISION/INBOX marker extractor from stream text | `backend/cmc/dispatcher/marker_parser.py` |
+| `pick_skill` | Haiku-4.5 LLM router: assigns skill to unassigned tasks | `backend/cmc/dispatcher/skill_router.py` |
+| `stamp_tick` / `write_pid_file` | Dispatcher liveness stamping and PID tracking | `backend/cmc/dispatcher/state.py` |
+| `validate_transition` | Pure state machine for task status transitions | `backend/cmc/tasks/transitions.py` |
+| `spawn_dispatcher_oneshot` | Detached subprocess for TASK-07 trigger endpoint | `backend/cmc/tasks/spawn.py` |
+| `JWTAuthService` | Optional JWT validation (shared-secret, static key, or JWKS) | `backend/cmc/auth/service.py` |
+| `MCPAggregator` | Three-source MCP latency aggregator with window-function percentiles | `backend/cmc/mcp/aggregator.py` |
+| `tail_otel_events` | SSE generator for SAPI-05 firehose and SESS-05 live stream | `backend/cmc/api/sse.py` |
+| `queue_path` / writers | File-based JSONL queue under `.tmp/mission-control-queue/` | `backend/cmc/core/queue.py` |
+| `repo_root` | LRU-cached repo root anchor (walks up for `backend/`+`frontend/` siblings) | `backend/cmc/core/paths.py` |
+| Telegram handler | Long-poll getUpdates → `claude -p` relay + callback routing | `backend/cmc/telegram/handler.py` |
+| Frontend routes | React page components (Command, Activity, Skills) | `frontend/src/routes/` |
+| `AppShell` | Layout: NavBar + CommandPalette + `<main>` + TaskComposerProvider | `frontend/src/components/shell/AppShell.tsx` |
+| Panel components | Per-panel React components (30+ panels) | `frontend/src/components/panels/` |
+| `api.ts` | Typed fetch client; all backend types as TS interfaces | `frontend/src/lib/api.ts` |
+| `queries.ts` | TanStack Query hooks; polling cadences encoded here centrally | `frontend/src/lib/queries.ts` |
+| `useFirehose` | Native EventSource SSE hook; ring-buffered otel events | `frontend/src/lib/useFirehose.ts` |
 
 ## Pattern Overview
 
-**Overall:** Layered monolith with detached process fan-out
+**Overall:** Layered monolith — single FastAPI process serves both API and SPA. Separate launchd daemons for the dispatcher heartbeat and Telegram handler communicate via SQLite and a file-based queue.
 
 **Key Characteristics:**
-- FastAPI serves both the REST API (`/api/*`) and the built React SPA (`/`) from a single process.
-- Dispatcher runs as a separate one-shot process (`python -m cmc.dispatcher.oneshot`) invoked by launchd on a cron schedule or on demand via `POST /api/dispatcher/trigger`. It exits after one cycle.
-- All inter-process communication uses SQLite (tasks table, system_state KV) and file-based queues under `.tmp/mission-control-queue/`.
-- The ingestion pipeline is a background asyncio task that polls `~/.claude/projects/**/*.jsonl` every 120 seconds — no webhooks from Claude Code.
-- Frontend is a fully static SPA (`frontend/dist/`) served by `SPAStaticFiles` as the final catch-all mount.
+- FastAPI serves SPA static files at `/`; API routes are all under `/api`; OTLP endpoints at root (`/v1/*`)
+- Dispatcher is out-of-process: `python -m cmc.dispatcher.oneshot` (launchd every 120s, or on-demand via TASK-07)
+- Telegram handler is a separate always-on launchd daemon that communicates with the FastAPI server via `localhost:8765`
+- SQLite WAL mode is the single shared datastore; no Redis, no message broker
+- File-based queue at `.tmp/mission-control-queue/` passes HITL answers and follow-ups to the dispatcher
 
 ## Layers
 
-**Configuration Layer:**
-- Purpose: Centralize all settings and path resolution
-- Location: `backend/cmc/config/`
-- Contains: `Settings` (pydantic-settings), `load_settings()`, `repo_root()` anchor
-- Depends on: nothing in `cmc`
-- Used by: every other layer
-
-**Application Layer:**
-- Purpose: Build and configure the FastAPI application
-- Location: `backend/cmc/app/`
-- Contains: `FastAPIAppBuilder`, `create_app()`, `lifespan` context manager
-- Depends on: config, db, auth, middleware, observability, api routes
-- Used by: uvicorn entry (`uvicorn cmc.app:create_app --factory`)
-
-**API Layer:**
-- Purpose: HTTP request/response contracts; validation via Pydantic schemas
-- Location: `backend/cmc/api/routes/` and `backend/cmc/api/schemas/`
-- Contains: 13 routers (health, sync, mcp, sessions, observability, system, skills, context, hitl, tasks, schedules, notifications, ingest)
-- Depends on: db layer, core utilities, tasks domain logic
-- Used by: frontend SPA, Telegram integration, external OTel agents
-
-**Domain Logic Layer:**
-- Purpose: Pure business logic decoupled from HTTP
-- Location: `backend/cmc/tasks/`, `backend/cmc/schedules/`, `backend/cmc/skills/`, `backend/cmc/mcp/`
-- Contains: `transitions.py` (state machine), `spawn.py`, `cron.py`, `scanner.py`, `aggregator.py`
-- Depends on: config, db models
-- Used by: API routes, dispatcher
-
-**Dispatcher Layer:**
-- Purpose: Run claude subprocesses; claim tasks; handle HITL interaction
-- Location: `backend/cmc/dispatcher/`
-- Contains: `oneshot.py` (entry), `heartbeat.py` (orchestrator), `claim.py`, `materialize.py`, `sweep.py`, `run_classic.py`, `run_stream.py`, `autonomy_gate.py`, `skill_router.py`, `marker_parser.py`, `answer_poll.py`, `follow_ups.py`
-- Depends on: db, config, tasks domain, core/queue
-- Used by: launchd, `POST /api/dispatcher/trigger`
-
-**Ingestion Layer:**
-- Purpose: Parse Claude Code JSONL session files and upsert into DB
-- Location: `backend/cmc/ingest/`
-- Contains: `scheduler.py` (sync_once, periodic_sync_loop), `jsonl_parser.py`, `otel_parser.py`, `repository.py`
-- Depends on: db layer, config
-- Used by: `lifespan` (background asyncio task), `POST /api/sync`
-
-**Database Layer:**
-- Purpose: ORM models, engine creation, session factory
-- Location: `backend/cmc/db/`
-- Contains: 14 SQLModel models under `models/`, `engine.py`, `session.py`, `health.py`
-- Depends on: SQLModel, aiosqlite, alembic
-- Used by: all layers that touch persistence
-
-**Cross-cutting Infrastructure:**
-- Purpose: Middleware, auth, observability, readiness
-- Location: `backend/cmc/middleware/`, `backend/cmc/auth/`, `backend/cmc/observability/`, `backend/cmc/readiness/`
-
-**Frontend Layer:**
-- Purpose: Single-page React dashboard
+**Presentation (Frontend):**
+- Purpose: React SPA dashboard
 - Location: `frontend/src/`
-- Contains: route files, panel components, shell, UI primitives, `api.ts`, `queries.ts`
-- Depends on: backend REST/SSE API (same-origin fetch)
+- Contains: Routes, panel components, shell, UI primitives, typed API client, query hooks
+- Depends on: Backend REST API + SSE firehose
+- Used by: Browser
+
+**HTTP Interface (API):**
+- Purpose: FastAPI request/response handling, auth enforcement, schema validation
+- Location: `backend/cmc/api/`
+- Contains: Route handlers (`routes/`), Pydantic schemas (`schemas/`), SSE generator
+- Depends on: DB layer, core utilities, auth, observability
+- Used by: Frontend SPA, Telegram handler (local HTTP), external OTLP exporters
+
+**Application / Orchestration:**
+- Purpose: App factory, lifespan management, middleware, config
+- Location: `backend/cmc/app/`, `backend/cmc/config/`, `backend/cmc/middleware/`
+- Contains: `FastAPIAppBuilder`, `lifespan`, `Settings`, all middleware
+- Depends on: All other backend layers
+- Used by: uvicorn entry point
+
+**Dispatcher (Out-of-process):**
+- Purpose: Task orchestration — claim tasks, resolve skills, run Claude subprocesses
+- Location: `backend/cmc/dispatcher/`
+- Contains: `heartbeat`, `claim`, `autonomy_gate`, `run_classic`, `run_stream`, `marker_parser`, `skill_router`, `state`
+- Depends on: DB layer, config, core paths
+- Used by: launchd plist (every 120s), TASK-07 spawn
+
+**Ingestion:**
+- Purpose: Parse Claude Code JSONL transcripts into DB
+- Location: `backend/cmc/ingest/`
+- Contains: `scheduler` (orchestration), `jsonl_parser` (pure parse), `repository` (DB upserts), `otel_parser`
+- Depends on: DB layer, config
+- Used by: `lifespan` (boot + background task), `/api/sync` route
+
+**Data (DB):**
+- Purpose: Async SQLite persistence
+- Location: `backend/cmc/db/`
+- Contains: `engine`, `session`, `base`, `health`, `models/`
+- Depends on: `config.Settings`
+- Used by: All backend layers
+
+**Domain logic:**
+- Purpose: Pure business logic (state machines, spawn helpers, cron, skill scanning)
+- Location: `backend/cmc/tasks/`, `backend/cmc/schedules/`, `backend/cmc/skills/`
+- Contains: `transitions`, `spawn`, `cron`, `nlcron`, `scanner`
+- Depends on: DB models, config
+- Used by: Dispatcher, API routes
+
+**Telegram Integration:**
+- Purpose: Bidirectional Telegram bot — relays text to Claude, routes callbacks to API
+- Location: `backend/cmc/telegram/`
+- Contains: `handler`, `api`, `dash_router`, `notifier`, `oneshot_handler`
+- Depends on: DB layer, config, core paths
+- Used by: launchd always-on daemon
+
+**Cross-cutting:**
+- Purpose: Logging, observability (OTLP traces + Prometheus metrics), auth, readiness, CLI tools
+- Location: `backend/cmc/core/`, `backend/cmc/observability/`, `backend/cmc/auth/`, `backend/cmc/readiness/`, `backend/cmc/cli/`
 
 ## Data Flow
 
-### Primary Request Path (API)
+### Primary Request Path (REST API)
 
-1. HTTP request → CORSMiddleware → TrustedHostMiddleware → SecurityHeadersMiddleware → RequestLoggingMiddleware → RequestIDMiddleware → RateLimitMiddleware → BodySizeLimitMiddleware → TimeoutMiddleware (`backend/cmc/app/factory.py`)
-2. FastAPI router matches `/api/*` → optional `get_current_principal` auth dependency (`backend/cmc/auth/dependencies.py`)
-3. Route handler → `Depends(get_session)` injects `AsyncSession` (`backend/cmc/db/session.py`)
-4. Handler queries SQLite models, serializes via Pydantic schema, returns response
+1. HTTP request hits uvicorn → middleware stack (`factory.py` middleware order: CORS → TrustedHost → SecurityHeaders → RateLimit → RequestID → RequestLogging → BodySize → Timeout)
+2. FastAPI routes request to handler in `backend/cmc/api/routes/`
+3. Handler receives `AsyncSession` via `Depends(get_session)` (`backend/cmc/db/session.py`)
+4. Handler queries DB via SQLAlchemy, validates via Pydantic schema
+5. Response serialized and returned
 
-### Dispatcher Cycle (background process)
+### Ingest Flow (Background)
 
-1. launchd fires `cmc.dispatcher.oneshot` every N seconds → `run_one_cycle()` (`backend/cmc/dispatcher/heartbeat.py`)
-2. Stamp tick in `system_state` (liveness signal to SAPI-04)
-3. Check `system_state.emergency_stop` — abort if set
-4. `sweep_stale_pids()` → live PID set (`backend/cmc/dispatcher/sweep.py`)
-5. `materialize_due_schedules()` → insert Task rows for due schedules (`backend/cmc/dispatcher/materialize.py`)
-6. `claim_pending_tasks(engine, slots)` via `BEGIN IMMEDIATE` atomic claim (`backend/cmc/dispatcher/claim.py`)
-7. Per claimed task: `pick_skill` → `check_autonomy` → spawn `run_classic` or `run_stream` in thread
-8. Classic mode: `subprocess.Popen` with timeout → mark done/failed (`backend/cmc/dispatcher/run_classic.py`)
-9. Stream mode: `subprocess.Popen` with NDJSON reader thread; `DECISION` markers → insert Decision row → poll for answer → inject reply to stdin; `INBOX` markers → POST `/api/inbox` (`backend/cmc/dispatcher/run_stream.py`)
+1. `lifespan` starts `asyncio.create_task(periodic_sync_loop(...))` (`backend/cmc/app/lifespan.py:115`)
+2. Every 120s (sleep-first): `sync_once(sessions, settings)` (`backend/cmc/ingest/scheduler.py:41`)
+3. Globs `settings.jsonl_root` for `*/*.jsonl` (one level only — subagents excluded)
+4. Per file: `asyncio.to_thread(parse_session_file, path)` → pure parse off event loop (`backend/cmc/ingest/jsonl_parser.py`)
+5. `upsert_session`, `upsert_tools`, `accumulate_token_usage` committed in one session per file (`backend/cmc/ingest/repository.py`)
 
-### Ingestion Cycle (background asyncio task, same process as API)
+### Dispatcher Heartbeat (Out-of-process)
 
-1. `lifespan` starts `asyncio.create_task(periodic_sync_loop(..., interval_s=120))` after boot-time `sync_once` (`backend/cmc/app/lifespan.py`)
-2. `sync_once` globs `~/.claude/projects/*/*.jsonl` (one level only) (`backend/cmc/ingest/scheduler.py`)
-3. Per file: `asyncio.to_thread(parse_session_file, path)` → `upsert_session`, `upsert_tools`, `accumulate_token_usage` (`backend/cmc/ingest/repository.py`)
-4. `POST /api/sync` can trigger `sync_once` on demand (`backend/cmc/api/routes/sync.py`)
+1. launchd invokes `python -m cmc.dispatcher.oneshot` every 120s (`backend/cmc/dispatcher/oneshot.py`)
+2. `run_one_cycle()`: stamp tick → emergency-stop check → sweep stale PIDs → materialize due schedules → claim up to N pending tasks (`BEGIN IMMEDIATE`) (`backend/cmc/dispatcher/heartbeat.py:51`)
+3. Per claimed task: resolve skill via Haiku-4.5 if unset (`backend/cmc/dispatcher/skill_router.py`) → check autonomy gate (`backend/cmc/dispatcher/autonomy_gate.py`)
+4. Spawn `threading.Thread` → `run_classic` or `run_stream` depending on `execution_mode`
+5. `run_stream`: NDJSON stdout → `MarkerParser` → `DECISION` inserts Decision row + waits for answer via file queue; `INBOX` POSTs to `/api/inbox` (`backend/cmc/dispatcher/run_stream.py`)
+6. Thread joins; cycle exits
 
 ### HITL Decision Flow
 
-1. Stream runner detects `DECISION:` marker in claude stdout
-2. INSERT `decisions` row (dedup via `sha256(task_id:body)`)  → `backend/cmc/dispatcher/run_stream.py:_insert_decision_sync`
-3. Frontend `useDecisions` hook polls `GET /api/decisions?status=pending` every 5s
-4. User submits answer → `POST /api/decisions/{id}/answer` → writes answer to `system_state` + file queue `.tmp/mission-control-queue/decisions/{id}.jsonl`
-5. `wait_for_answer` polls DB every 2s → returns answer to stream runner → writes to subprocess stdin
-6. Telegram bot also polls and can answer via callback buttons → same POST endpoint
+1. `run_stream` emits `DECISION: <prompt>` → `MarkerParser` yields marker
+2. Dispatcher inserts `Decision` row (status=`pending`) → polls `.tmp/mission-control-queue/decisions/{id}.jsonl`
+3. Frontend calls `POST /api/decisions/{id}/answer` → route writes queue file FIRST, then DB UPDATE (`backend/cmc/api/routes/hitl.py`)
+4. Dispatcher's `wait_for_answer` poll detects file write → continues subprocess
 
-### SSE Firehose (OTel events)
+### SSE Firehose (Real-time)
 
-1. External OTel agent (Claude Code hook) POSTs to `/v1/logs` or `/v1/metrics`
-2. Ingest router stores events in `otel_events` table
-3. Frontend `useFirehose` opens `EventSource('/api/firehose')` 
-4. `tail_otel_events` (`backend/cmc/api/sse.py`) polls DB and emits `event: otel` frames
+1. Frontend calls `GET /api/firehose` → `EventSourceResponse` (`backend/cmc/api/routes/system.py`)
+2. `tail_otel_events` generator polls `otel_events` table (1s interval, 60min cap) (`backend/cmc/api/sse.py`)
+3. `useFirehose` hook in frontend ring-buffers up to 500 events (`frontend/src/lib/useFirehose.ts`)
 
-**State Management:**
-- Backend: SQLite is the single source of truth. `system_state` KV table holds operational flags (`emergency_stop`, `telegram_offset`, `dispatcher_last_tick_at`).
-- Frontend: TanStack Query caches responses with per-domain cadences defined in `frontend/src/lib/queries.ts`. No global client-side state store.
-- File-based queue under `.tmp/mission-control-queue/` is the cross-process bus for HITL decisions, inbox replies, and follow-up messages.
+**State Management (Frontend):**
+- TanStack Query for all server state; polling cadences centralized in `frontend/src/lib/queries.ts`
+- `QueryClient` mounted in `routes/__root.tsx`; staleTime 30s default, per-hook overrides
+- Theme persisted to localStorage via `frontend/src/lib/theme.ts`; applied before first paint in `main.tsx`
 
 ## Key Abstractions
 
-**`FastAPIAppBuilder`:**
-- Purpose: Fluent builder encapsulating the full FastAPI setup sequence
-- Examples: `backend/cmc/app/factory.py`
-- Pattern: Method-chaining builder (`setup_logging().setup_settings()...build()`)
+**`Task`:**
+- Purpose: Unit of work dispatched to a Claude subprocess
+- Examples: `backend/cmc/db/models/tasks.py`, `backend/cmc/api/schemas/tasks.py`
+- Pattern: status state machine (`pending → running → done|failed|awaiting_approval`), validated by `cmc.tasks.transitions`
 
-**Task State Machine:**
-- Purpose: Enforce legal status transitions for tasks
-- Examples: `backend/cmc/tasks/transitions.py`
-- Pattern: Pure-function dict lookup; router delegates all transition validation here
+**`Skill`:**
+- Purpose: Named capability definition with autonomy contract (`auto|review|manual`)
+- Examples: `backend/cmc/db/models/skills.py`, `backend/cmc/skills/scanner.py`
+- Pattern: Scanned from `~/.claude/skills/` and project `skills/`; stored in DB; Haiku router selects best skill per task
 
-**`repo_root()` path anchor:**
-- Purpose: cwd-independent path resolution used by all path-shaped fields
-- Examples: `backend/cmc/core/paths.py`
-- Pattern: `lru_cache` walk-up to find parent containing `backend/` and `frontend/`
+**`Decision`:**
+- Purpose: Human-in-the-loop checkpoint emitted by a stream-mode task
+- Examples: `backend/cmc/db/models/decisions.py`, `backend/cmc/api/routes/hitl.py`
+- Pattern: File-then-DB write ordering; dedup_key prevents double-insertion
 
-**File-based queue (`core/queue.py`):**
-- Purpose: Cross-process bus for HITL decisions, inbox replies, follow-up messages
-- Examples: `backend/cmc/core/queue.py`
-- Pattern: Append-only JSONL files under `.tmp/mission-control-queue/{sub}/{key}.jsonl`
+**`SystemState` KV:**
+- Purpose: Global flag store (`emergency_stop`, `telegram_offset`, `dispatcher_last_tick_at`)
+- Examples: `backend/cmc/db/models/system_state.py`
+- Pattern: SQLite UPSERT; whitelist-filtered on public read endpoint (SAPI-03)
 
 **`MarkerParser`:**
-- Purpose: Parse streaming text from claude for `DECISION:` and `INBOX:` markers
+- Purpose: Fenced-code-aware streaming parser that extracts DECISION/INBOX markers from Claude output
 - Examples: `backend/cmc/dispatcher/marker_parser.py`
-- Pattern: Incremental text buffer; yields `Marker` objects as they complete
-
-**Typed API fetcher map (`api` object):**
-- Purpose: Central registry of all backend endpoints with TypeScript types
-- Examples: `frontend/src/lib/api.ts`
-- Pattern: `const api = { ... } as const`; callers never construct raw fetch calls
-
-**Query key factory (`qk` object):**
-- Purpose: Single source of truth for TanStack Query cache keys
-- Examples: `frontend/src/lib/queries.ts`
-- Pattern: `export const qk = { ... } as const`; used in both hooks and invalidation calls
+- Pattern: Stateful chunk buffer; call `feed_text()` per delta, `flush()` at stream end
 
 ## Entry Points
 
-**FastAPI Server:**
-- Location: `backend/cmc/app/factory.py::create_app`
-- Triggers: `uvicorn --app-dir backend cmc.app:create_app --factory` or `make dev-backend`
-- Responsibilities: Build app, run migrations, start ingestion loop, serve API + SPA
+**FastAPI server:**
+- Location: `uvicorn --app-dir backend cmc.app:create_app --factory`
+- Triggers: `cmc.app.factory.create_app()` → `FastAPIAppBuilder` chain
+- Responsibilities: Assemble full app with middleware, routes, SPA static mount
 
-**Dispatcher One-shot:**
+**Dispatcher heartbeat:**
 - Location: `backend/cmc/dispatcher/oneshot.py`
-- Triggers: launchd `StartInterval` plist, or `POST /api/dispatcher/trigger`, or `cmc start`
-- Responsibilities: Run one heartbeat cycle (materialize → claim → run tasks)
+- Triggers: `python -m cmc.dispatcher.oneshot` (launchd or TASK-07)
+- Responsibilities: One cycle of task claiming and Claude subprocess fan-out
 
-**Frontend Dev Server:**
+**Telegram handler:**
+- Location: `backend/cmc/telegram/oneshot_handler.py`
+- Triggers: launchd KeepAlive daemon
+- Responsibilities: Long-poll Telegram updates, relay to `claude -p`, route callbacks to local API
+
+**Frontend:**
 - Location: `frontend/src/main.tsx`
-- Triggers: `vite dev` / `make dev-frontend`
-- Responsibilities: React root render; applies persisted theme before first paint
+- Triggers: Vite dev server or `index.html` from SPA mount
+- Responsibilities: Bootstrap TanStack Router + QueryClient; apply theme before paint
 
-**CLI:**
-- Location: `scripts/cmc`
-- Triggers: `cmc start`, `cmc stop`, `cmc doctor`, `cmc setup telegram`
-- Responsibilities: Install launchd plists, check system health, configure integrations
+**CLI tools:**
+- Location: `backend/cmc/cli/` (`setup_telegram.py`, `setup_otel.py`, `doctor.py`)
+- Triggers: `python -m cmc.cli.<subcommand>`
+- Responsibilities: Interactive setup wizards and health report
 
 ## Architectural Constraints
 
-- **Threading:** FastAPI process is async (asyncio). Dispatcher runner threads use `asyncio.run_coroutine_threadsafe` with a dedicated per-task event loop for DB/httpx calls from the reader thread.
-- **Global state:** `repo_root()` is cached via `lru_cache(maxsize=1)` — tests that change the working directory must be careful. `load_settings()` re-instantiates on each call; callers cache it themselves if needed.
-- **Circular imports:** No known circular chains. Dispatcher modules import from `cmc.db`, `cmc.config`, `cmc.core` only — never from `cmc.api`.
-- **SQLite WAL:** All dispatcher claim operations use `BEGIN IMMEDIATE` to prevent double-claiming. FastAPI sessions use `DEFERRED` (default). Do not mix these transaction types on the same connection object.
-- **SPA mount order:** The SPA `SPAStaticFiles` mount MUST be last in `setup_routes` / `setup_static` or it will shadow API routes.
-- **Path anchoring:** All `Settings` path fields (`db_path`, `static_dir`, `alembic_ini_path`) are resolved against `repo_root()`, not `cwd`. `jsonl_root` and `claude_bin` are intentionally excluded and resolved via `Path.expanduser()` / absolute path respectively.
+- **Threading:** FastAPI runs async (single event loop via uvicorn). Dispatcher runner threads (`run_classic`, `run_stream`) use `threading.Thread` (non-daemon) spawned from within `asyncio.to_thread`. Each thread calls `asyncio.run()` for its own DB writes (separate event loop per thread).
+- **Global state:** `repo_root()` is `lru_cache(maxsize=1)` (`backend/cmc/core/paths.py`). `Settings` is loaded fresh per `load_settings()` call (no module-level singleton). `app.state` stores `engine`, `sessions`, `boot_time`, `sync_task`, `auth_service`, `http_client`, `readiness_registry`.
+- **Circular imports:** None detected. Layers depend strictly downward: API → DB, dispatcher → DB + config, ingest → DB + config.
+- **DB connections:** Dispatcher heartbeat builds its own engine per cycle (`create_engine_for_settings` in `heartbeat.run_one_cycle`); disposes it at end. FastAPI app uses the lifespan engine. Two separate engine lifetimes, same DB file, WAL mode for concurrent readers.
+- **Subprocess env scrub:** `ANTHROPIC_API_KEY` is always removed from child process env in `run_classic` and `run_stream` (Pitfall 8), then re-injected from `Settings` so the value comes from the trusted config layer only.
 
 ## Anti-Patterns
 
-### Mixing session transaction modes in the dispatcher
+### Inlining polling cadences in panel components
 
-**What happens:** Opening an `AsyncSession` (auto-DEFERRED) and then issuing `BEGIN IMMEDIATE` on it.
-**Why it's wrong:** SQLAlchemy 2 auto-BEGIN fires before the explicit IMMEDIATE, causing a conflict or making IMMEDIATE a no-op.
-**Do this instead:** Use `engine.connect()` and issue `BEGIN IMMEDIATE` manually before any execute, as shown in `backend/cmc/dispatcher/claim.py`.
+**What happens:** A component adds `refetchInterval: 5000` directly to a `useQuery()` call.
+**Why it's wrong:** Cadence policy is scattered across 30+ files; impossible to audit or tune.
+**Do this instead:** All polling cadences are encoded in `frontend/src/lib/queries.ts` hooks only. Panel components call the hook; they never inline `refetchInterval`.
 
-### Inlining `refetchInterval` in panel components
+### Using `BEGIN DEFERRED` (default) for task claim
 
-**What happens:** A panel component passes `refetchInterval` directly to `useQuery`.
-**Why it's wrong:** Cadence policy is scattered; changing polling frequency requires hunting across all panels.
-**Do this instead:** Define all cadences in `frontend/src/lib/queries.ts` hooks; panels import and call the hook with no polling config.
+**What happens:** Using `engine.begin()` or `AsyncSession` auto-begin before `UPDATE tasks SET status='running'`.
+**Why it's wrong:** Two concurrent dispatcher cycles could double-claim the same task row.
+**Do this instead:** Use `engine.connect()` + `BEGIN IMMEDIATE` as in `backend/cmc/dispatcher/claim.py`.
 
-### Reading `.env` or `os.environ` directly for secrets
+### Writing DB before queue file in HITL paths
 
-**What happens:** Code calls `os.environ.get("ANTHROPIC_API_KEY")` rather than reading from `Settings`.
-**Why it's wrong:** launchd daemons do not inherit shell environment; keys will silently be `None`.
-**Do this instead:** Access `settings.anthropic_api_key` which is loaded from the correct env file for the runtime mode.
-
-### Using `**/*.jsonl` glob in ingestion
-
-**What happens:** `root.glob("**/*.jsonl")` would include sub-agent JSONL files nested one level deeper.
-**Why it's wrong:** Sub-agent sessions are incomplete and would inflate token counts and session metrics.
-**Do this instead:** Always use `root.glob("*/*.jsonl")` (one level only), as enforced in `backend/cmc/ingest/scheduler.py`.
+**What happens:** `db.execute(UPDATE decisions ...)` then `write_decision_answer(...)` to queue file.
+**Why it's wrong:** A FS error after DB write marks the decision answered with no queue record; dispatcher cannot receive the answer.
+**Do this instead:** Write queue file FIRST, then DB UPDATE — as enforced in `backend/cmc/api/routes/hitl.py`.
 
 ## Error Handling
 
-**Strategy:** Each layer owns its error boundary and never lets transient errors propagate to crash the process.
+**Strategy:** Global exception handlers registered in `backend/cmc/core/errors.py` via `register_error_handlers`. All HTTP errors emit `{error: detail, request_id: ...}` not FastAPI's default `{detail: ...}`.
 
 **Patterns:**
-- Dispatcher cycle: `try/finally` around the entire body ensures `stamp_tick` always runs, even on exception.
-- Ingestion: per-file `except Exception` logs and increments `errors` counter; loop continues.
-- Dispatcher materialization: per-schedule `SAVEPOINT`; bad `task_template` caught + logged; `next_run_at` left untouched so operator can see the lag.
-- Stream runner: non-fatal errors in INBOX post are logged and swallowed; only `DECISION` timeout aborts the task.
-- FastAPI: global exception handlers registered in `backend/cmc/core/errors.py`; error shape is `{"error": detail}` not FastAPI's default `{"detail": ...}`.
-- Frontend: top-level `ErrorBoundary` in `frontend/src/routes/__root.tsx` catches render errors and shows a recovery UI.
+- `HTTPException` → `{error: exc.detail}` with original status code
+- Unhandled `Exception` → `{error: "internal server error"}` with 500, `log.exception` with request_id
+- Ingest per-file errors: logged + counted, loop continues (never kills the sync cycle)
+- Dispatcher tick stamp wrapped in `try/finally` so liveness stamp always runs even on mid-cycle exception
 
 ## Cross-Cutting Concerns
 
-**Logging:** Structured logging via stdlib `logging`. Format configured by `backend/cmc/core/logging.py`. All log calls use `extra={"key": val}` kwargs for structured fields; never f-string interpolation into the message template. Logger name is the module path (e.g., `cmc.dispatcher.heartbeat`).
-
-**Validation:** Pydantic v2 for all API I/O via FastAPI schemas in `backend/cmc/api/schemas/`. Domain models are SQLModel (extends SQLModel/SQLAlchemy). Frontend types in `frontend/src/lib/api.ts` mirror backend schemas verbatim.
-
-**Authentication:** Optional JWT auth via `backend/cmc/auth/`. Disabled by default (`auth_enabled=False`). When enabled, `get_current_principal` dependency injected on all `/api` routers except the health router.
+**Logging:** Structured via Python `logging`; configured by `configure_logging(settings)` (`backend/cmc/core/logging.py`). `RequestLoggingMiddleware` emits per-request log lines with `request_id`.
+**Validation:** Pydantic v2 models in `backend/cmc/api/schemas/`; Settings validation exits with pretty per-field message on `ValidationError` (no traceback, no leaked values).
+**Authentication:** Optional JWT auth (`JWTAuthService`). When `settings.auth_enabled=True`, all `all_routers()` except `/healthcheck` get `Depends(get_current_principal)`. Default is disabled for local-only use.
 
 ---
 
