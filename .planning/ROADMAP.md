@@ -48,7 +48,10 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
   2. User can identify the literal attribute key for skill name (`skill_name` vs `skill.name` vs `name`) from the captured payload.
   3. User can confirm whether `duration_ms` is present on `claude_code.skill_activated` events and whether the JSONL `usage` block carries the cache TTL split (5m vs 1h).
   4. User can rely on the spike doc as the single reference cited by every downstream v1.1 phase plan — no further docs guessing.
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 12-01-PLAN.md — Wave 0/Wave 1 verbatim capture (otel_events + JSONL usage block) into SPIKE.md raw appendix
+- [ ] 12-02-PLAN.md — Author SPIKE.md locks, pitfalls, cross-references, and changelog from raw appendix
 
 ### Phase 13: Cost Foundation & Skill Ingest
 **Goal**: Stand up the cost-math primitive and skill-name ingest column so every subsequent panel computes dollars consistently from token counts and queries skills by indexed column, not JSON path.
@@ -131,7 +134,7 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 (Phase 16
 | 9. Telegram, Setup & Testing | v1.0 | 5/5 | Complete | 2026-04-28 |
 | 10. Telegram Wiring Fixes (gap closure) | v1.0 | 1/1 | Complete | 2026-04-28 |
 | 11. v1.0 Documentation & Env Polish (gap closure) | v1.0 | 1/1 | Complete | 2026-04-28 |
-| 12. OTEL Skill Event Spike | v1.1 | 0/TBD | Not started | - |
+| 12. OTEL Skill Event Spike | v1.1 | 0/2 | Not started | - |
 | 13. Cost Foundation & Skill Ingest | v1.1 | 0/TBD | Not started | - |
 | 14. Skills API & Page Panels | v1.1 | 0/TBD | Not started | - |
 | 15. Alert Engine & UI | v1.1 | 0/TBD | Not started | - |
