@@ -125,16 +125,70 @@ Explicitly excluded. Documented to prevent scope creep. (Anti-features from rese
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation.
+Which phases cover which requirements. Populated by gsd-roadmapper on 2026-05-02.
 
-(Empty — populated by gsd-roadmapper)
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| SPIK-01 | Phase 12 | Pending |
+| ANLY-01 | Phase 13 | Pending |
+| ANLY-02 | Phase 13 | Pending |
+| ANLY-03 | Phase 13 | Pending |
+| ANLY-04 | Phase 13 | Pending |
+| ANLY-05 | Phase 13 | Pending |
+| INGST-11 | Phase 13 | Pending |
+| INGST-12 | Phase 13 | Pending |
+| INGST-13 | Phase 13 | Pending |
+| SKIL-04 | Phase 14 | Pending |
+| SKIL-05 | Phase 14 | Pending |
+| SKIL-06 | Phase 14 | Pending |
+| SKIL-07 | Phase 14 | Pending |
+| ACTV-04 | Phase 14 | Pending |
+| SKLP-02 | Phase 14 | Pending |
+| SKLP-05 | Phase 14 | Pending |
+| SKLP-06 | Phase 14 | Pending |
+| SKLP-07 | Phase 14 | Pending |
+| ALRT-01 | Phase 15 | Pending |
+| ALRT-02 | Phase 15 | Pending |
+| ALRT-03 | Phase 15 | Pending |
+| ALRT-04 | Phase 15 | Pending |
+| ALRT-05 | Phase 15 | Pending |
+| ALRT-06 | Phase 15 | Pending |
+| ALRT-07 | Phase 15 | Pending |
+| ALRT-08 | Phase 15 | Pending |
+| ALRT-09 | Phase 15 | Pending |
+| ALRT-10 | Phase 15 | Pending |
+| ALRT-11 | Phase 15 | Pending |
+| ALRT-12 | Phase 15 | Pending |
+| CMPR-01 | Phase 16 | Pending |
+| CMPR-02 | Phase 16 | Pending |
+| CMPR-03 | Phase 16 | Pending |
+| CMPR-04 | Phase 16 | Pending |
+| CMPR-05 | Phase 16 | Pending |
+| POLI-01 | Phase 17 | Pending |
+| POLI-02 | Phase 17 | Pending |
+| POLI-03 | Phase 17 | Pending |
+| POLI-04 | Phase 17 | Pending |
+| POLI-05 | Phase 17 | Pending |
+| TEST-05 | Phase 17 | Pending |
 
 **Coverage:**
-- v1.1 requirements: 38 total
-- Mapped to phases: 0
-- Unmapped: 38 ⚠️ (will be 0 after roadmap)
+- v1.1 requirements: **41 total** (initial REQUIREMENTS.md header said 38; verified count by REQ-ID grep is 41 — header corrected during roadmap creation)
+- Mapped to phases: **41**
+- Unmapped: **0** ✓
+
+**Per-phase requirement count:**
+
+| Phase | Reqs | Categories |
+|-------|------|------------|
+| Phase 12: OTEL Skill Event Spike | 1 | Spike |
+| Phase 13: Cost Foundation & Skill Ingest | 8 | Cost Foundation (5) + Skill Ingest (3) |
+| Phase 14: Skills API & Page Panels | 9 | Skills API (4) + Skills Page Panels (5) |
+| Phase 15: Alert Engine & UI | 12 | Alert Engine (12) |
+| Phase 16: Session Comparison | 5 | Session Comparison (5) |
+| Phase 17: Polish, Doctor & Tests | 6 | Polish (5) + TEST-05 (1) |
+| **Total** | **41** | |
 
 ---
 
 *Requirements defined: 2026-05-02*
-*Last updated: 2026-05-02 after initial v1.1 definition*
+*Last updated: 2026-05-02 — traceability section populated by gsd-roadmapper (41/41 mapped)*
