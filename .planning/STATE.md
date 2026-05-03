@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Skills & Cost Intelligence
 status: completed
-stopped_at: Phase 13 Plan 04 complete (cost router); Plans 03 and 05 also landed in parallel waves; ready to execute Plan 06 (UAT runbook + verification)
-last_updated: "2026-05-03T12:58:44Z"
-last_activity: 2026-05-03 — Phase 13 Plan 04 complete (cost router /api/cost/* + /api/pricing/freshness)
+stopped_at: Phase 13 Plan 02 complete; ready to execute Plan 03 (ingest read-side BUG-B fix + JSONL parser cache split + INGST-13 dedup wiring)
+last_updated: "2026-05-03T13:10:41.916Z"
+last_activity: 2026-05-03 — Phase 13 Plan 04 complete; ready for Plan 06
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 8
-  completed_plans: 5
-  percent: 63
+  completed_plans: 6
+  percent: 75
 ---
 
 # Project State
@@ -31,7 +31,7 @@ Plan: 13-04 complete (commits c40eaf0 + 5811beb); Plan 13-03 also landed (commit
 Status: Phase 13 Plan 04 complete — three read-time cost endpoints ship (`/api/cost/summary`, `/api/cost/breakdown`, `/api/pricing/freshness`). Decimal-as-JSON-string locked (Pydantic v2 default; `jsonable_encoder` forbidden anywhere near a money payload). Range param locked enum `Literal["1d","7d","14d","30d"]` returns 422 on mismatch. `breakdown(dim=model).total == summary.total` by Decimal equality (no float drift). Skill attribution session-scoped per SPIKE.md LOCK-9 — Phase 14 owns the request-scoped refinement via `api_request` JOIN. Project breakdown keys on `sessions.cwd` (project_hash column doesn't exist). 8 cost tests pass + full backend suite 432/432 green.
 Last activity: 2026-05-03 — Phase 13 Plan 04 complete; ready for Plan 06
 
-Progress: [██████░░░░] 63%
+Progress: [████████░░] 75%
 
 ## Accumulated Context
 
@@ -50,6 +50,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent v1.1 architectura
 - Phase 15 (Alerts): alert engine lives inside the existing 120s dispatcher tick (no new launchd job), emits decisions only (`ALRT-12` — never imports `cmc.dispatcher.tasks`), stable `dedup_key = alert:{rule_id}:{scope_key}` (no timestamps).
 - Phase 16 (Compare): single backend endpoint with cost computed via shared `cmc/cost/engine.py`; URL state as source of truth; structured tabular only (no text-diff library).
 - Phase 13 Plan 04 (executed 2026-05-03): cost router shipped — `/api/cost/summary`, `/api/cost/breakdown`, `/api/pricing/freshness`. Decimal-as-JSON-string locked (Pydantic v2 default; `jsonable_encoder` forbidden). Range enum locked (`Literal["1d","7d","14d","30d"]` -> 422 on mismatch). `breakdown(dim=model).total == summary.total` by Decimal equality (no float drift). Skill attribution session-scoped per SPIKE.md LOCK-9 — Phase 14 owns request-scoped refinement via `api_request` JOIN. Project breakdown keys on `sessions.cwd` (project_hash column doesn't exist in sessions schema). `MAX(s.model)` as pricing-key for skill/project breakdowns. 8 tests pass; full backend suite 432/432.
+- [Phase ?]: Phase 13 Plan 03 (executed 2026-05-03): extract_skill_attr + extract_event_sequence pure-function helpers added next to extract_mcp_attrs; /v1/logs router reads session.id (dotted) per SPIKE.md LOCK-5 (BUG-B prospective fix), populates attrs_skill_name + otel_event_id, and uses sqlite_insert(...).on_conflict_do_nothing(index_elements=['session_id','otel_event_id']) for INGST-13 idempotency. JSONL parse_session_file extracts cache_creation.ephemeral_5m/1h_input_tokens; legacy aggregate fallback lands entirely in 1h tier (CONTEXT.md pessimistic rule, direction-honest). Repository upserts wired through both Session and TokenUsage with the new TTL columns. 5 new tests in test_ingest.py + 7 new pure-function tests in test_otel_parser.py — all 48 pass. Pre-commit ruff hook surfaced 6 lint violations in Plan 04's untracked cost.py; applied minimal fixes under deviation Rule 3 to unblock commits (cost.py NOT staged in either Plan 03 commit).
 
 ### Pending Todos
 
@@ -87,10 +88,11 @@ None yet.
 | 13 | 01 | ~11 min | 2 | 4 created (`pricing.json`, `pricing.py`, `db/models/pricing.py`, `test_pricing.py`) + 3 modified (`db/models/__init__.py`, `app/lifespan.py`, `pyproject.toml`) + 1 SUMMARY | 2026-05-03 |
 | 13 | 02 | ~17 min | 2 | 4 created (`alert_rules.py`, `alert_state.py`, `0002_v1_1_alerts_and_skills.py`, `test_migrations.py`) + 7 modified (`otel_events.py`, `sessions.py`, `token_usage.py`, `db/models/__init__.py`, `observability.py`, `test_observability_router.py`, `test_foundation_boot.py`) + 1 SUMMARY | 2026-05-03 |
 | 13 | 04 | ~17 min | 2 | 3 created (`schemas/cost.py`, `routes/cost.py`, `tests/test_cost_router.py`) + 1 modified (`routes/__init__.py`) + 1 SUMMARY | 2026-05-03 |
+| Phase 13 P03 | 25min | 2 tasks | 6 files |
 
 ## Session Continuity
 
-Last session: 2026-05-03T13:00:55.477Z
+Last session: 2026-05-03T13:10:21.812Z
 Stopped at: Phase 13 Plan 02 complete; ready to execute Plan 03 (ingest read-side BUG-B fix + JSONL parser cache split + INGST-13 dedup wiring)
 Resume file: None
 
