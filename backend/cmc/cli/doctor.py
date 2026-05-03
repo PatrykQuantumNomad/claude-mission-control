@@ -1,11 +1,11 @@
-"""Zero-LLM 8-check health report.
+"""Zero-LLM 14-check health report.
 
 Each check returns a Check dataclass with one of three statuses:
 - 'ok'   — green check, no action needed
 - 'warn' — yellow check, optional action (does NOT fail the run)
 - 'fail' — red check, fix required (process exits 1)
 
-The 8 checks:
+The 14 checks:
   1. Python ≥3.12
   2. claude on PATH (subprocess.run('claude --version'))
   3. ~/.claude/settings.json exists + parses as JSON
@@ -15,6 +15,21 @@ The 8 checks:
   7. launchctl print gui/$UID/com.cmc.{server,dispatcher} → state=running
   8. Telegram: TELEGRAM_BOT_TOKEN env set → call getMe → 200
      (skip-with-✓ if not configured — telegram is optional)
+  9. Pricing freshness (Phase 13 ANLY-05): newest pricing.effective_from
+     within 30 days; warn if older; fail if pricing table empty.
+ 10. Unpriced tokens (Phase 13 ANLY-05): warn per (model) when token_usage
+     references a model with no pricing row.
+ 11. pricing.json hash drift (Phase 13 ANLY-05 + CONTEXT.md item #6):
+     warn when on-disk SHA-256 differs from PricingRow.seed_hash on the
+     highest-effective_from currently-active row; fail if pricing.json
+     missing or invalid JSON.
+ 12. session_id NULL count (Phase 13 BUG-B regression detector): warn if
+     otel_events has any NULL session_id rows after Phase 13 backfill.
+ 13. otel models priced (Phase 13 ANLY-05): warn if otel_events carries
+     models not in pricing for the last 7 days.
+ 14. OTEL_LOG_TOOL_DETAILS=1 (POLI-01 carry-forward): warn when env var
+     unset — without it, MCP tool_parameters and skill attribute details
+     are not emitted by Claude Code.
 
 Exit code: 0 iff zero checks have status 'fail'. Warns do NOT trigger 1.
 
@@ -326,6 +341,304 @@ def _check_telegram(*, settings: Settings | None = None) -> Check:
     )
 
 
+# ---------------------------------------------------------------- 9. pricing freshness
+
+
+def _check_pricing_freshness(*, settings: Settings | None = None) -> Check:
+    """Phase 13 ANLY-05: warn when newest pricing row is >30 days old.
+
+    Status:
+      - 'ok'   if newest effective_from is within 30 days
+      - 'warn' if older than 30 days (operational drift, NOT a CI failure)
+      - 'fail' if pricing table empty (true unblocker — auto-seed never ran)
+    """
+    import sqlite3
+    from datetime import date, datetime
+
+    if settings is None:
+        settings = load_settings()
+    try:
+        conn = sqlite3.connect(str(settings.db_path))
+        row = conn.execute("SELECT MAX(effective_from) FROM pricing").fetchone()
+        conn.close()
+    except sqlite3.OperationalError as exc:
+        return Check(9, "pricing freshness", "warn", f"DB error: {exc}")
+    latest = row[0] if row else None
+    if not latest:
+        return Check(
+            9,
+            "pricing freshness",
+            "fail",
+            "pricing table empty",
+            "Run `cmc start` (auto-seeds from data/pricing.json on lifespan startup)",
+        )
+    try:
+        d = datetime.fromisoformat(latest).date()
+    except (TypeError, ValueError):
+        return Check(
+            9, "pricing freshness", "warn", f"unparseable effective_from: {latest!r}"
+        )
+    age = (date.today() - d).days
+    if age > 30:
+        return Check(
+            9,
+            "pricing freshness",
+            "warn",
+            f"newest rate is {age}d old (>30d threshold)",
+            "Refresh data/pricing.json from https://platform.claude.com/docs/en/about-claude/pricing",
+        )
+    return Check(9, "pricing freshness", "ok", f"newest rate is {age}d old")
+
+
+# ---------------------------------------------------------------- 10. unpriced tokens
+
+
+def _check_unpriced_tokens(*, settings: Settings | None = None) -> Check:
+    """Phase 13 ANLY-05: warn per (model) when unpriced tokens detected.
+
+    Two surfaces:
+      - In-process counter: cmc.pricing.unpriced_tokens (lifetime per process)
+      - DB scan: token_usage rows with model NOT IN pricing.model
+
+    The DB scan is the durable surface; the counter only shows what's hit since
+    last process boot. Doctor uses the DB scan for cross-restart accuracy.
+    """
+    import sqlite3
+
+    if settings is None:
+        settings = load_settings()
+    try:
+        conn = sqlite3.connect(str(settings.db_path))
+        unmapped = conn.execute(
+            """
+            SELECT model, SUM(tokens_input + tokens_output + tokens_cache_read +
+                              tokens_cache_create_5m + tokens_cache_create_1h) AS unpriced
+            FROM token_usage
+            WHERE model NOT IN (SELECT DISTINCT model FROM pricing)
+              AND model IS NOT NULL
+            GROUP BY model
+            """
+        ).fetchall()
+        conn.close()
+    except sqlite3.OperationalError as exc:
+        return Check(10, "unpriced tokens", "warn", f"DB error: {exc}")
+    if not unmapped:
+        return Check(10, "unpriced tokens", "ok", "all observed models priced")
+    summary = ", ".join(f"{m}={n}" for m, n in unmapped[:5])
+    if len(unmapped) > 5:
+        summary += f", +{len(unmapped) - 5} more"
+    return Check(
+        10,
+        "unpriced tokens",
+        "warn",
+        f"{len(unmapped)} unpriced model(s): {summary}",
+        "Add missing model rates to data/pricing.json and restart the server",
+    )
+
+
+# ---------------------------------------------------------------- 11. pricing.json hash drift
+
+
+def _check_pricing_json_hash_drift(*, settings: Settings | None = None) -> Check:
+    """Phase 13 ANLY-05 + CONTEXT.md item #6: warn when on-disk
+    data/pricing.json hash differs from the seed_hash recorded on the
+    highest-effective_from currently-active PricingRow.
+
+    Naming note: the function is named for what it actually checks (drift),
+    not just parseability. Three branches:
+      - 'fail' if data/pricing.json missing or invalid JSON (true unblocker —
+        the auto-seed cannot run)
+      - 'warn' if on-disk sha256 != seed_hash on the highest-effective_from
+        currently-active row (operational drift — user edited pricing.json
+        without restarting, or seed_hash was never recorded by an old
+        load_seed run)
+      - 'ok'   if on-disk hash matches the most-recent active row's seed_hash
+
+    Reads PricingRow.seed_hash (added in Plan 01 model + Plan 02 migration).
+    Uses cmc.pricing.pricing_json_hash() so the hashing function stays in one place.
+    """
+    import sqlite3
+
+    from cmc.pricing import pricing_json_hash, pricing_json_path
+
+    if settings is None:
+        settings = load_settings()
+
+    p = pricing_json_path()
+    if not p.exists():
+        return Check(
+            11,
+            "pricing.json hash drift",
+            "fail",
+            f"missing at {p}",
+            "Restore from git or run `git checkout HEAD -- data/pricing.json`",
+        )
+    try:
+        # Validate JSON shape before hashing — corrupt JSON is a fail, not drift.
+        json.loads(p.read_text())
+    except json.JSONDecodeError as exc:
+        return Check(11, "pricing.json hash drift", "fail", f"invalid JSON: {exc}")
+
+    on_disk = pricing_json_hash()
+
+    try:
+        conn = sqlite3.connect(str(settings.db_path))
+        # Highest-effective_from currently-active row across ALL models — drift
+        # is a per-file concern, not per-model. If multiple models were seeded
+        # from the same JSON they share the same seed_hash by construction.
+        row = conn.execute(
+            """
+            SELECT seed_hash
+            FROM pricing
+            WHERE effective_until IS NULL
+            ORDER BY effective_from DESC
+            LIMIT 1
+            """
+        ).fetchone()
+        conn.close()
+    except sqlite3.OperationalError as exc:
+        return Check(11, "pricing.json hash drift", "warn", f"DB error: {exc}")
+
+    if not row or not row[0]:
+        # pricing table is empty OR seed_hash was never populated. Check #9
+        # (pricing freshness) reports this as a fail; here we just say "skipped".
+        return Check(
+            11,
+            "pricing.json hash drift",
+            "warn",
+            "no seed_hash in DB (pricing table empty or pre-Phase-13 row)",
+            "Run `cmc start` to trigger lifespan auto-seed",
+        )
+
+    db_hash = row[0]
+    if db_hash == on_disk:
+        return Check(
+            11,
+            "pricing.json hash drift",
+            "ok",
+            f"on-disk hash matches DB ({on_disk[:8]}…)",
+        )
+    return Check(
+        11,
+        "pricing.json hash drift",
+        "warn",
+        f"on-disk={on_disk[:8]}… db={db_hash[:8]}… — pricing.json edited since last seed",
+        "Restart the server (`cmc restart`) to trigger lifespan auto-seed of the new rates",
+    )
+
+
+# ------------------------------------------------------ 12. session_id NULL detector
+
+
+def _check_session_id_null_count(*, settings: Settings | None = None) -> Check:
+    """Phase 13 BUG-B regression detector: warn if otel_events.session_id NULL count > 0
+    AFTER Plan 02 migration ran (which backfilled the historical NULL rows).
+
+    Any NEW NULL is either:
+      (a) BUG-B regression — ingest.py:103 dotted-key fix was reverted, OR
+      (b) legitimate orphan — OTLP body lacked any session.id attribute (rare).
+
+    Either way, a non-zero count is worth surfacing.
+    """
+    import sqlite3
+
+    if settings is None:
+        settings = load_settings()
+    try:
+        conn = sqlite3.connect(str(settings.db_path))
+        n = conn.execute(
+            "SELECT COUNT(*) FROM otel_events WHERE session_id IS NULL"
+        ).fetchone()[0]
+        conn.close()
+    except sqlite3.OperationalError as exc:
+        return Check(12, "session_id NULL count", "warn", f"DB error: {exc}")
+    if n == 0:
+        return Check(12, "session_id NULL count", "ok", "0 rows with NULL session_id")
+    return Check(
+        12,
+        "session_id NULL count",
+        "warn",
+        f"{n} otel_events row(s) have NULL session_id",
+        "Either BUG-B regression (cmc/api/routes/ingest.py must read dotted "
+        "`session.id`) or events arrived sans session — inspect via SQL",
+    )
+
+
+# ------------------------------------------------- 13. unmapped models in otel_events
+
+
+def _check_unmapped_otel_models(*, settings: Settings | None = None) -> Check:
+    """Phase 13 ANLY-05: warn if otel_events carries models not in pricing.
+
+    Checks api_request body's `model` attribute (extracted via json_each) for
+    rows in the last 7 days that don't match any pricing.model.
+    """
+    import sqlite3
+
+    if settings is None:
+        settings = load_settings()
+    try:
+        conn = sqlite3.connect(str(settings.db_path))
+        unmapped = conn.execute(
+            """
+            WITH otel_models AS (
+                SELECT DISTINCT
+                    (SELECT json_extract(value, '$.value.stringValue')
+                       FROM json_each(json_extract(body, '$.record.attributes'))
+                      WHERE json_extract(value, '$.key') = 'model'
+                      LIMIT 1) AS model
+                FROM otel_events
+                WHERE event_name = 'api_request'
+                  AND ts >= datetime('now', '-7 days')
+            )
+            SELECT model FROM otel_models
+            WHERE model IS NOT NULL
+              AND model NOT IN (SELECT DISTINCT model FROM pricing)
+            """
+        ).fetchall()
+        conn.close()
+    except sqlite3.OperationalError as exc:
+        return Check(13, "otel models priced", "warn", f"DB error: {exc}")
+    if not unmapped:
+        return Check(13, "otel models priced", "ok", "all otel_events models are priced")
+    sample = ", ".join((m[0] or "<null>") for m in unmapped[:3])
+    return Check(
+        13,
+        "otel models priced",
+        "warn",
+        f"{len(unmapped)} unmapped model(s) in otel_events: {sample}",
+        "Add to data/pricing.json so cost endpoints attribute these tokens",
+    )
+
+
+# ---------------------------------------------------------------- 14. OTEL_LOG_TOOL_DETAILS env var
+
+
+def _check_otel_log_tool_details() -> Check:
+    """POLI-01 (lifted forward to Phase 13 per CONTEXT.md): warn when
+    OTEL_LOG_TOOL_DETAILS env var unset.
+
+    Without this env var, Claude Code does NOT emit MCP tool_parameters /
+    plugin / marketplace skill attribute details. Skill ingest still works via
+    the bare `skill_name` attribute, but per-skill richness suffers.
+
+    Reads from process env (the spawned `claude` session inherits parent
+    env), NOT from settings — this is a Claude-Code-side knob, not a Mission
+    Control setting.
+    """
+    val = os.environ.get("OTEL_LOG_TOOL_DETAILS", "")
+    if val.strip() in ("1", "true", "TRUE", "yes"):
+        return Check(14, "OTEL_LOG_TOOL_DETAILS=1", "ok", f"set to {val!r}")
+    return Check(
+        14,
+        "OTEL_LOG_TOOL_DETAILS=1",
+        "warn",
+        f"unset (current value={val!r})",
+        "Add `export OTEL_LOG_TOOL_DETAILS=1` to your shell profile to capture "
+        "MCP tool details + plugin/marketplace skill attrs",
+    )
+
+
 CHECKS: list[Callable[..., Check]] = [
     _check_python,
     _check_claude_bin,
@@ -335,11 +648,17 @@ CHECKS: list[Callable[..., Check]] = [
     _check_health_endpoint,
     _check_launchd_jobs,
     _check_telegram,
+    _check_pricing_freshness,        # 9  Phase 13 ANLY-05
+    _check_unpriced_tokens,          # 10 Phase 13 ANLY-05
+    _check_pricing_json_hash_drift,  # 11 Phase 13 ANLY-05 + CONTEXT.md item #6 hash drift
+    _check_session_id_null_count,    # 12 Phase 13 BUG-B regression detector
+    _check_unmapped_otel_models,     # 13 Phase 13 ANLY-05
+    _check_otel_log_tool_details,    # 14 Phase 13 POLI-01 carry-forward
 ]
 
 
 def run_checks() -> list[Check]:
-    """Run all 8 checks sequentially. Returns the resulting Check list.
+    """Run all 14 checks sequentially. Returns the resulting Check list.
 
     Settings is loaded ONCE at the top and threaded into any check whose
     signature accepts a `settings` kwarg. Legacy checks that take no parameters
