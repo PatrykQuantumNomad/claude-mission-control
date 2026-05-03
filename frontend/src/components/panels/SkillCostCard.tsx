@@ -49,7 +49,7 @@ export function SkillCostCard({ name }: { name: string }) {
       reqId="SKLP-02"
       title={`Skill Cost — ${name}`}
       query={query}
-      empty={{ dataNoun: 'skill cost data', when: (d) => d.trend.length === 0 }}
+      empty={{ dataNoun: 'skill cost data', when: (d) => !d.trend || d.trend.length === 0 }}
       trailing={
         <RangeToggle<SkillRange>
           value={range}

@@ -35,6 +35,9 @@ export { InboxCard } from './InboxCard'
 // SKLP panels
 export { SkillsRegistry } from './SkillsRegistry'
 export { SkillCostCard } from './SkillCostCard'
+// Phase 14 Plan 04 — SKLP-05 + SKLP-06 panels.
+export { SkillLatencyTable } from './SkillLatencyTable'
+export { SkillTimeline } from './SkillTimeline'
 // TPNL task panels
 export { TaskBoard } from './TaskBoard'
 export {

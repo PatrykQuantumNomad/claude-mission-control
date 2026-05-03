@@ -120,7 +120,7 @@ export function SkillLatencyTable() {
   // see file header).
   const latencyResults = useQueries({
     queries:
-      usageQuery.data?.rows.map((row) => ({
+      usageQuery.data?.rows?.map((row) => ({
         queryKey: qk.skillLatency(row.skill_name, range),
         queryFn: () => fetchSkillLatency(row.skill_name, range),
         enabled: !!usageQuery.data,
@@ -135,9 +135,10 @@ export function SkillLatencyTable() {
   // Combine usage rows + per-row latency into Row[] (only include rows whose
   // latency query resolved).
   const tableRows: Row[] = useMemo(() => {
-    if (!usageQuery.data) return []
+    const rows = usageQuery.data?.rows
+    if (!rows) return []
     const out: Row[] = []
-    usageQuery.data.rows.forEach((usageRow, i) => {
+    rows.forEach((usageRow, i) => {
       const latency = latencyResults[i]?.data as SkillLatencyResponse | undefined
       if (!latency) return
       out.push({
@@ -158,7 +159,7 @@ export function SkillLatencyTable() {
       reqId="SKLP-05"
       title="Skill Latency"
       query={usageQuery}
-      empty={{ dataNoun: 'skill latency data', when: (d) => d.rows.length === 0 }}
+      empty={{ dataNoun: 'skill latency data', when: (d) => !d.rows || d.rows.length === 0 }}
       trailing={
         <RangeToggle<SkillRange>
           value={range}

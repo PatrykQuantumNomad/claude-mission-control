@@ -1,15 +1,17 @@
-// Skills page (`/skills`) — current final form.
+// Skills page (`/skills`) — current final form (Phase 14 Plan 04 wiring).
 //
 // Layout:
 //   - DecisionsCard (HPNL-01, full-width — agent decisions awaiting answer)
 //   - InboxCard    (HPNL-02, full-width — agent-to-user messages)
 //   - .cmc-card-grid containing:
-//       TaskBoard         (TPNL-01)
-//       SchedulesCard     (TPNL-03; opens TPNL-04 ScheduleComposer via "+ New")
-//       SkillsRegistry    (SKLP-04)
-//       McpPanel          (SKLP-01 — component reused with reqId override)
-//       SkillCostCard     (SKLP-02 — v2 placeholder)
-//       ContextHealthCard (SKLP-03)
+//       TaskBoard                (TPNL-01)
+//       SchedulesCard            (TPNL-03; opens TPNL-04 ScheduleComposer via "+ New")
+//       SkillsRegistry           (SKLP-04)
+//       McpPanel                 (SKLP-01 — component reused with reqId override)
+//       SkillCostCardForTopSkill (SKLP-02 — top-1 wrapper around the per-skill SkillCostCard, D-07)
+//       SkillLatencyTable        (SKLP-05 — sortable per-skill p50/p95/max + low_sample badge)
+//       SkillTimeline            (SKLP-06 — live skill_activated firehose stream)
+//       ContextHealthCard        (SKLP-03)
 //
 // TPNL-02 TaskComposer is mounted at AppShell (sibling of CommandPalette);
 // accessible via Cmd+K → "Quick task" from any route.
@@ -19,8 +21,12 @@
 //
 // TPNL-05 EmergencyStopBanner is mounted in NavBar — visible globally.
 //
-// PlaceholderCardGrid was retired in implementation along with the helper file;
-// every former placeholder slot now resolves to a real panel.
+// SkillCostCardForTopSkill: small inline wrapper that reads the top-1 skill
+// from useSkillUsage('14d', 1) and forwards its name to SkillCostCard. Per
+// D-07: the Skills page is not per-skill, so we default to top-1 here while
+// the per-name SkillCostCard signature stays clean for /skills/$name (Plan 05).
+// SKLP-02 traceability runs through BOTH SkillCostCard.tsx (the panel) and
+// this wrapper (the page-level resolver).
 
 import { createFileRoute } from '@tanstack/react-router'
 import {
@@ -30,9 +36,24 @@ import {
   McpPanel,
   SchedulesCard,
   SkillCostCard,
+  SkillLatencyTable,
+  SkillTimeline,
   SkillsRegistry,
   TaskBoard,
 } from '../components/panels'
+import { useSkillUsage } from '../lib/queries'
+
+function SkillCostCardForTopSkill() {
+  const usage = useSkillUsage('14d', 1)
+  // Defensive optional-chain on .rows because integration mocks may serve a
+  // different shape than the production response (e.g., {items: []} fallback
+  // from a generic /api/skills mock); never crash the page-level wrapper.
+  const topName = usage.data?.rows?.[0]?.skill_name
+  // Pass '(none)' to surface SkillCostCard's own empty/error branch when no
+  // skills exist yet. SkillCostCard's PanelCard treats trend.length === 0 as
+  // empty, so the user sees a friendly placeholder (not a crash).
+  return <SkillCostCard name={topName ?? '(none)'} />
+}
 
 function SkillsPage() {
   return (
@@ -60,8 +81,9 @@ function SkillsPage() {
         <SchedulesCard />
         <SkillsRegistry />
         <McpPanel reqId="SKLP-01" />
-        {/* Wired to the proper top-1 wrapper in Task 3; placeholder name keeps tsc green between tasks. */}
-        <SkillCostCard name="(none)" />
+        <SkillCostCardForTopSkill />
+        <SkillLatencyTable />
+        <SkillTimeline />
         <ContextHealthCard />
       </div>
     </section>
