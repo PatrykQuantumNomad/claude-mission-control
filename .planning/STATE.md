@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Skills & Cost Intelligence
 status: completed
-stopped_at: "Phase 13 Plan 02 complete; ready to execute Plan 03 (ingest read-side BUG-B fix + JSONL parser cache split + INGST-13 dedup wiring)"
-last_updated: "2026-05-03T12:34:19Z"
-last_activity: 2026-05-03 — Phase 13 Plan 02 complete; ready for Plan 03 (ingest read-side fixes)
+stopped_at: Phase 13 Plan 04 complete (cost router); Plans 03 and 05 also landed in parallel waves; ready to execute Plan 06 (UAT runbook + verification)
+last_updated: "2026-05-03T12:58:44Z"
+last_activity: 2026-05-03 — Phase 13 Plan 04 complete (cost router /api/cost/* + /api/pricing/freshness)
 progress:
   total_phases: 6
   completed_phases: 1
@@ -22,16 +22,16 @@ See: .planning/PROJECT.md (updated 2026-05-02 — v1.1 Skills & Cost Intelligenc
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, queue and approve tasks, and kill runaway sessions — all from one browser tab.
 
-**Current focus:** v1.1 Skills & Cost Intelligence — Phase 13 underway (Plans 01 + 02 complete; cost-math primitive + 0002 migration landed).
+**Current focus:** v1.1 Skills & Cost Intelligence — Phase 13 Plan 04 complete (cost router shipped); Plans 03 + 05 also landed in parallel waves on this branch.
 
 ## Current Position
 
 Phase: 13 of 17 (Cost Foundation & Skill Ingest) — **IN PROGRESS**
-Plan: 13-02 complete (commits ed6ec56 + 2f30a66); next plan is 13-03 (ingest read-side BUG-B fix + JSONL parser cache split + INGST-13 dedup wiring on the now-existing UNIQUE constraint)
-Status: Phase 13 Plan 02 complete — single 0002_v1_1_alerts_and_skills Alembic migration shipped: otel_events.attrs_skill_name + otel_event_id + (session_id, otel_event_id) UNIQUE; sessions/token_usage cache TTL split cols; pricing table with seed_hash; alert_rules + alert_state final-shape (Phase 15 ships zero migration); BUG-A read-side json_each fix at observability.py; BUG-B backfill recovered 13,998 of 14,000 production session_id NULLs. 3 migration tests + full backend suite green (399/399, 2 skipped, 0 failed).
-Last activity: 2026-05-03 — Phase 13 Plan 02 complete; ready for Plan 03 (ingest read-side fixes)
+Plan: 13-04 complete (commits c40eaf0 + 5811beb); Plan 13-03 also landed (commit a190a92) and Plan 13-05 also landed (commit 0a47323) in the same parallel wave. Remaining: Plan 13-06 (UAT runbook + verification).
+Status: Phase 13 Plan 04 complete — three read-time cost endpoints ship (`/api/cost/summary`, `/api/cost/breakdown`, `/api/pricing/freshness`). Decimal-as-JSON-string locked (Pydantic v2 default; `jsonable_encoder` forbidden anywhere near a money payload). Range param locked enum `Literal["1d","7d","14d","30d"]` returns 422 on mismatch. `breakdown(dim=model).total == summary.total` by Decimal equality (no float drift). Skill attribution session-scoped per SPIKE.md LOCK-9 — Phase 14 owns the request-scoped refinement via `api_request` JOIN. Project breakdown keys on `sessions.cwd` (project_hash column doesn't exist). 8 cost tests pass + full backend suite 432/432 green.
+Last activity: 2026-05-03 — Phase 13 Plan 04 complete; ready for Plan 06
 
-Progress: [██████░░░░] 63% (Plans 01-02 of 6 complete; Phase 12 fully complete + Phase 13 Plans 01 + 02)
+Progress: [██████░░░░] 63%
 
 ## Accumulated Context
 
@@ -49,6 +49,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent v1.1 architectura
 - Phase 13 Plan 02 (executed 2026-05-03): Single 0002_v1_1_alerts_and_skills Alembic revision lands all 7 Phase 13 schema mutations atomically (otel_events.attrs_skill_name + otel_event_id + (session_id, otel_event_id) UNIQUE; sessions/token_usage tokens_cache_create_5m/_1h split; pricing table with seed_hash matching PricingRow exactly; alert_rules + alert_state final ALRT-01/02 shape — Phase 15 ships zero migration). BUG-B SQL backfill in upgrade() re-extracts session.id (dotted) from body.record.attributes via json_each — recovered 13,998 of 14,000 production NULL session_id rows. BUG-A read-side fix at observability.py:_EDIT_DECISIONS_OTEL_SQL replaces flat json_extract with json_each over body.record.attributes and flips event_name to bare 'tool_decision' (post prefix-strip per LOCK-1). 3 new migration tests (upgrade, downgrade, BUG-B backfill) + full backend suite (399 tests) all green. Test alembic config requires sqlite+aiosqlite:// URL because env.py runs async engine. test_foundation_boot table-count assertions bumped 15 → 18 to match Plan 01's pricing + Plan 02's alert tables (drift fix).
 - Phase 15 (Alerts): alert engine lives inside the existing 120s dispatcher tick (no new launchd job), emits decisions only (`ALRT-12` — never imports `cmc.dispatcher.tasks`), stable `dedup_key = alert:{rule_id}:{scope_key}` (no timestamps).
 - Phase 16 (Compare): single backend endpoint with cost computed via shared `cmc/cost/engine.py`; URL state as source of truth; structured tabular only (no text-diff library).
+- Phase 13 Plan 04 (executed 2026-05-03): cost router shipped — `/api/cost/summary`, `/api/cost/breakdown`, `/api/pricing/freshness`. Decimal-as-JSON-string locked (Pydantic v2 default; `jsonable_encoder` forbidden). Range enum locked (`Literal["1d","7d","14d","30d"]` -> 422 on mismatch). `breakdown(dim=model).total == summary.total` by Decimal equality (no float drift). Skill attribution session-scoped per SPIKE.md LOCK-9 — Phase 14 owns request-scoped refinement via `api_request` JOIN. Project breakdown keys on `sessions.cwd` (project_hash column doesn't exist in sessions schema). `MAX(s.model)` as pricing-key for skill/project breakdowns. 8 tests pass; full backend suite 432/432.
 
 ### Pending Todos
 
@@ -85,12 +86,13 @@ None yet.
 | 12 | 02 | ~4 min | 1 | 1 modified (`SPIKE.md`, +339/-2 lines → 1,097 total) + 1 SUMMARY | 2026-05-02 |
 | 13 | 01 | ~11 min | 2 | 4 created (`pricing.json`, `pricing.py`, `db/models/pricing.py`, `test_pricing.py`) + 3 modified (`db/models/__init__.py`, `app/lifespan.py`, `pyproject.toml`) + 1 SUMMARY | 2026-05-03 |
 | 13 | 02 | ~17 min | 2 | 4 created (`alert_rules.py`, `alert_state.py`, `0002_v1_1_alerts_and_skills.py`, `test_migrations.py`) + 7 modified (`otel_events.py`, `sessions.py`, `token_usage.py`, `db/models/__init__.py`, `observability.py`, `test_observability_router.py`, `test_foundation_boot.py`) + 1 SUMMARY | 2026-05-03 |
+| 13 | 04 | ~17 min | 2 | 3 created (`schemas/cost.py`, `routes/cost.py`, `tests/test_cost_router.py`) + 1 modified (`routes/__init__.py`) + 1 SUMMARY | 2026-05-03 |
 
 ## Session Continuity
 
-Last session: 2026-05-03T12:34:19Z — Phase 13 Plan 02 complete (single 0002 Alembic migration + BUG-A read-side fix + BUG-B backfill recovering 13,998 of 14,000 production NULL session_id rows)
+Last session: 2026-05-03T13:00:55.477Z
 Stopped at: Phase 13 Plan 02 complete; ready to execute Plan 03 (ingest read-side BUG-B fix + JSONL parser cache split + INGST-13 dedup wiring)
-Resume file: None — next action is `/gsd-execute-plan 13 03` — Plan 03 wires the prospective fixes against the now-existing schema (otel_events.attrs_skill_name + otel_event_id + UNIQUE constraint; sessions/token_usage cache TTL split columns; pricing table for cost-engine reads). The 0002 migration is the load-bearing contract — every subsequent Phase 13 plan reads against it.
+Resume file: None
 
 ---
 

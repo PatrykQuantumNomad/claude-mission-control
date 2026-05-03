@@ -15,7 +15,7 @@
 - [ ] **ANLY-01**: User can rely on `cmc/pricing.py` exposing `compute_cost(model, input, output, cache_read, cache_create_5m, cache_create_1h) -> Decimal` with stdlib math (no float drift) and pricing seeded from `data/pricing.json`
 - [ ] **ANLY-02**: User can verify all 5 model SKUs (`claude-opus-4-7`, `claude-opus-4-7[1m]`, `claude-sonnet-4-6`, `claude-sonnet-4-6[1m]`, `claude-haiku-4-5`) seeded with input/output/cache-tier rates fetched from `https://www.anthropic.com/pricing` on 2026-05-02 (or freeze date)
 - [ ] **ANLY-03**: User can rely on a `pricing` table with `effective_from` / `effective_until` columns so historical cost totals self-correct when pricing rows are added; never store cost as $ in derived tables
-- [ ] **ANLY-04**: User can hit `GET /api/cost/summary?range=` and `GET /api/cost/breakdown?dim=model|skill|project&range=` for read-time-computed cost figures with consistent cache-tier accounting
+- [x] **ANLY-04**: User can hit `GET /api/cost/summary?range=` and `GET /api/cost/breakdown?dim=model|skill|project&range=` for read-time-computed cost figures with consistent cache-tier accounting
 - [ ] **ANLY-05**: User can see "Rates as of YYYY-MM-DD" caption on every cost figure rendered in the UI; doctor.py warns when pricing rows are >30 days old or `unpriced_tokens > 0`
 
 ### Skill Ingest Extension
@@ -133,7 +133,7 @@ Which phases cover which requirements. Populated by gsd-roadmapper on 2026-05-02
 | ANLY-01 | Phase 13 | Pending |
 | ANLY-02 | Phase 13 | Pending |
 | ANLY-03 | Phase 13 | Pending |
-| ANLY-04 | Phase 13 | Pending |
+| ANLY-04 | Phase 13 | Complete |
 | ANLY-05 | Phase 13 | Pending |
 | INGST-11 | Phase 13 | Pending |
 | INGST-12 | Phase 13 | Complete (Plan 02 — 2f30a66, 2026-05-03) |
