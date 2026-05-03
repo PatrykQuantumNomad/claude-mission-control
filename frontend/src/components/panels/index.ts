@@ -38,6 +38,9 @@ export { SkillCostCard } from './SkillCostCard'
 // Phase 14 Plan 04 — SKLP-05 + SKLP-06 panels.
 export { SkillLatencyTable } from './SkillLatencyTable'
 export { SkillTimeline } from './SkillTimeline'
+// Phase 14 Plan 05 — SKIL-07 per-skill recent invocations panel (composed
+// inside the new /skills/$name dynamic route).
+export { SkillRunsTable } from './SkillRunsTable'
 // TPNL task panels
 export { TaskBoard } from './TaskBoard'
 export {
