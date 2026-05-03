@@ -64,6 +64,10 @@ async def tail_otel_events(
                         "session_id": row.session_id,
                         "attrs_mcp_server": row.attrs_mcp_server,
                         "attrs_mcp_tool": row.attrs_mcp_tool,
+                        # Phase 14 SKLP-06: SkillTimeline panel labels firehose
+                        # events by skill name. Sourced from the indexed
+                        # otel_events.attrs_skill_name column (Phase 13 P02).
+                        "attrs_skill_name": row.attrs_skill_name,
                     },
                     separators=(",", ":"),
                 ),

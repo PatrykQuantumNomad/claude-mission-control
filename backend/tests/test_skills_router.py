@@ -1,10 +1,13 @@
-"""Skills router tests (SKILL-*).
+"""Skills router tests (SKILL-* + Phase 14 SKIL-04..07).
 
 Every SKILL-* test lives in this file.
 """
 
-from datetime import UTC, datetime
+import json
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import httpx
 from sqlalchemy import insert, text
@@ -19,6 +22,96 @@ def test_skills_schemas_importable() -> None:
         SkillRow,
         SkillSyncResponse,
     )
+
+
+# ---- Phase 14 Task 1: schema importability + Decimal-as-string + SSE payload ----
+
+
+def test_skills_router_schemas_importable() -> None:
+    """Phase 14 Task 1: the 5 new response models import cleanly + Decimal
+    serializes as JSON string (Pydantic v2 default — no jsonable_encoder).
+    """
+    from cmc.api.schemas.skills import (  # noqa: F401
+        SkillCostResponse,
+        SkillLatencyResponse,
+        SkillRange,
+        SkillRunRow,
+        SkillRunsResponse,
+        SkillSparklineRow,
+        SkillUsageResponse,
+        SkillUsageRow,
+    )
+
+    # Decimal-as-JSON-string regression: the field MUST emit a string in JSON,
+    # not a float (which would silently drop precision).
+    payload = SkillCostResponse(
+        name="x",
+        range="14d",
+        rates_as_of=None,
+        cost_usd=Decimal("1.234"),
+        cost_attribution="session",
+        trend=[],
+    ).model_dump_json()
+    assert '"cost_usd":"1.234"' in payload, payload
+
+
+async def test_sse_firehose_includes_attrs_skill_name(seeded_app) -> None:
+    """Phase 14 Task 1: tail_otel_events forwards attrs_skill_name in payload.
+
+    SkillTimeline (Plan 04) consumes this key to label firehose events with
+    the originating skill name. Direct unit test of the sse generator,
+    matching the test_system_router.py SAPI-05 test idiom.
+    """
+    from sqlalchemy import insert as _insert
+
+    from cmc.api.sse import tail_otel_events
+    from cmc.db.models.otel_events import OtelEvent
+
+    app, cm = seeded_app
+    async with cm:
+        async with app.state.sessions() as s:
+            # session_id=None avoids the soft-FK constraint to sessions table
+            # without losing test fidelity — the SSE payload assertion is
+            # purely about the attrs_skill_name forwarding (matches how
+            # test_system_router.py SAPI-05 tests seed orphan otel_events).
+            await s.execute(_insert(OtelEvent).values(
+                ts=datetime.now(UTC) - timedelta(seconds=1),
+                event_name="skill_activated",
+                session_id=None,
+                body={},
+                attrs_mcp_server=None,
+                attrs_mcp_tool=None,
+                attrs_skill_name="analyze",
+                received_at=datetime.now(UTC),
+            ))
+            await s.commit()
+
+        async with app.state.sessions() as s:
+            req = MagicMock()
+            counter = {"n": 0}
+
+            async def is_disconnected():
+                counter["n"] += 1
+                return counter["n"] > 1
+
+            req.is_disconnected = is_disconnected
+            chunks = [
+                chunk async for chunk in tail_otel_events(req, s, since_id=0)
+            ]
+
+        assert len(chunks) >= 1, "expected at least one chunk for the seeded event"
+        # Find OUR event among the chunks (a previous test may also seed events).
+        skill_chunks = [
+            c for c in chunks
+            if json.loads(c["data"]).get("attrs_skill_name") == "analyze"
+        ]
+        assert len(skill_chunks) == 1, (
+            f"expected exactly one chunk with attrs_skill_name='analyze', "
+            f"got payloads: {[json.loads(c['data']) for c in chunks]}"
+        )
+        payload = json.loads(skill_chunks[0]["data"])
+        assert "attrs_skill_name" in payload, payload
+        assert payload["attrs_skill_name"] == "analyze"
 
 
 # ---- Helpers -------------------------------------------------------------
