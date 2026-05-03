@@ -181,6 +181,83 @@ def test_jsonl_parser_corrupted_line_skipped(golden_jsonl_session, tmp_path):
     assert parsed[1] == {"b": 2}
 
 
+def test_jsonl_parser_cache_ttl_split(tmp_path):
+    """Phase 13 LOCK-4 — message.usage.cache_creation.ephemeral_5m_input_tokens
+    + ephemeral_1h_input_tokens round-trip into both the session dict and
+    the per-day token_usage_buckets entry.
+    """
+    from cmc.ingest.jsonl_parser import parse_session_file
+
+    p = tmp_path / "session.jsonl"
+    p.write_text(json.dumps({
+        "type": "assistant",
+        "uuid": "a1",
+        "timestamp": "2026-05-03T00:00:00.000Z",
+        "sessionId": "test-ttl-split",
+        "message": {
+            "role": "assistant",
+            "model": "claude-opus-4-7",
+            "usage": {
+                "input_tokens": 100,
+                "output_tokens": 50,
+                "cache_creation": {
+                    "ephemeral_5m_input_tokens": 200,
+                    "ephemeral_1h_input_tokens": 300,
+                },
+            },
+            "content": [{"type": "text", "text": "ok"}],
+        },
+    }) + "\n")
+    out = parse_session_file(p)
+    assert out["session"]["tokens_cache_create_5m"] == 200
+    assert out["session"]["tokens_cache_create_1h"] == 300
+    # Aggregate is the sum of the two tiers when split is present.
+    assert out["session"]["tokens_cache_create"] == 500
+    # Bucket reflects the same split.
+    assert len(out["token_usage_buckets"]) == 1
+    b = out["token_usage_buckets"][0]
+    assert b["tokens_cache_create_5m"] == 200
+    assert b["tokens_cache_create_1h"] == 300
+    assert b["tokens_cache_create"] == 500
+
+
+def test_jsonl_parser_cache_legacy_aggregate_falls_into_1h(tmp_path):
+    """Phase 13 — when the cache_creation split block is absent, the legacy
+    aggregate `cache_creation_input_tokens` lands ENTIRELY in the 1h tier
+    (CONTEXT.md locked: pessimistic — 1h is the more expensive tier so this
+    keeps cost direction honest).
+    """
+    from cmc.ingest.jsonl_parser import parse_session_file
+
+    p = tmp_path / "session.jsonl"
+    p.write_text(json.dumps({
+        "type": "assistant",
+        "uuid": "a1",
+        "timestamp": "2026-05-03T00:00:00.000Z",
+        "sessionId": "test-legacy-aggregate",
+        "message": {
+            "role": "assistant",
+            "model": "claude-opus-4-7",
+            "usage": {
+                "input_tokens": 100,
+                "output_tokens": 50,
+                "cache_creation_input_tokens": 1000,
+            },
+            "content": [{"type": "text", "text": "ok"}],
+        },
+    }) + "\n")
+    out = parse_session_file(p)
+    assert out["session"]["tokens_cache_create_5m"] == 0
+    assert out["session"]["tokens_cache_create_1h"] == 1000
+    assert out["session"]["tokens_cache_create"] == 1000
+    # Bucket shows the same pessimistic attribution.
+    assert len(out["token_usage_buckets"]) == 1
+    b = out["token_usage_buckets"][0]
+    assert b["tokens_cache_create_5m"] == 0
+    assert b["tokens_cache_create_1h"] == 1000
+    assert b["tokens_cache_create"] == 1000
+
+
 # ---- OTLP /v1/logs + /v1/metrics (INGST-07, INGST-08, INGST-09) ----
 
 import pytest

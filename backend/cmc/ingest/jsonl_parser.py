@@ -26,7 +26,9 @@ Returned dict shape (consumed by the repository as **kwargs to upserts):
         "tokens_input": int,
         "tokens_output": int,
         "tokens_cache_read": int,
-        "tokens_cache_create": int,
+        "tokens_cache_create": int,         # legacy aggregate (5m + 1h sum)
+        "tokens_cache_create_5m": int,      # Phase 13 LOCK-4 — ephemeral 5m
+        "tokens_cache_create_1h": int,      # Phase 13 LOCK-4 — ephemeral 1h
         "message_count": int,
         "tool_call_count": int,
         "_last_message_ts": datetime (UTC) | None,  # popped by scheduler
@@ -54,10 +56,20 @@ Returned dict shape (consumed by the repository as **kwargs to upserts):
           "tokens_output": int,
           "tokens_cache_read": int,
           "tokens_cache_create": int,
+          "tokens_cache_create_5m": int,    # Phase 13 — TTL split
+          "tokens_cache_create_1h": int,    # Phase 13 — TTL split
         },
         ...
       ],
     }
+
+Cache TTL split (Phase 13 LOCK-4): the assistant `message.usage.cache_creation`
+block, when present, carries `ephemeral_5m_input_tokens` and
+`ephemeral_1h_input_tokens`. Older / legacy fixtures only carry the aggregate
+`cache_creation_input_tokens` flat key. When the split block is absent, the
+parser pessimistically attributes the entire aggregate to the 1h tier (CONTEXT.md
+locked rule — 1h is the more expensive tier so this keeps cost direction honest
+without re-walking raw bodies).
 
 NOTE: parse_session_file does NOT decide session.ended_at — the scheduler
 does that based on file mtime + Settings.session_idle_minutes. The parser
@@ -165,11 +177,17 @@ def parse_session_file(path: Path) -> dict:
     tokens_output = 0
     tokens_cache_read = 0
     tokens_cache_create = 0
+    tokens_cache_create_5m = 0
+    tokens_cache_create_1h = 0
     message_count = 0
     tool_uses: dict[str, dict] = {}
     tool_results: dict[str, dict] = {}
     daily: dict[tuple[_date, str], dict] = defaultdict(
-        lambda: {"input": 0, "output": 0, "cache_read": 0, "cache_create": 0}
+        lambda: {
+            "input": 0, "output": 0,
+            "cache_read": 0, "cache_create": 0,
+            "cache_create_5m": 0, "cache_create_1h": 0,
+        }
     )
 
     for ev in iter_jsonl(path):
@@ -200,17 +218,37 @@ def parse_session_file(path: Path) -> dict:
             tin = int(usage.get("input_tokens") or 0)
             tout = int(usage.get("output_tokens") or 0)
             tcr = int(usage.get("cache_read_input_tokens") or 0)
-            tcc = int(usage.get("cache_creation_input_tokens") or 0)
+            # Aggregate cache_creation_input_tokens — kept for backward compat;
+            # used as a pessimistic fallback when the cache_creation block is
+            # absent (older Claude Code versions / legacy fixtures).
+            tcc_aggregate = int(usage.get("cache_creation_input_tokens") or 0)
+            cache_creation = usage.get("cache_creation") or {}
+            tcc_5m = int(cache_creation.get("ephemeral_5m_input_tokens") or 0)
+            tcc_1h = int(cache_creation.get("ephemeral_1h_input_tokens") or 0)
+            # Phase 13 LOCK-4 — when the split block is absent, the aggregate
+            # ALL goes to the 1h tier (CONTEXT.md locked: "1h is the more
+            # expensive of the two; keeps direction honest, no need to
+            # re-walk raw bodies"). When the split is present, the legacy
+            # aggregate becomes the sum of the two tiers.
+            if tcc_5m == 0 and tcc_1h == 0 and tcc_aggregate > 0:
+                tcc_1h = tcc_aggregate
+                tcc = tcc_aggregate
+            else:
+                tcc = tcc_5m + tcc_1h
             tokens_input += tin
             tokens_output += tout
             tokens_cache_read += tcr
             tokens_cache_create += tcc
+            tokens_cache_create_5m += tcc_5m
+            tokens_cache_create_1h += tcc_1h
             local_day = ts.astimezone().date()  # INGST-05: local-time bucket
             bucket = daily[(local_day, model or "unknown")]
             bucket["input"] += tin
             bucket["output"] += tout
             bucket["cache_read"] += tcr
             bucket["cache_create"] += tcc
+            bucket["cache_create_5m"] += tcc_5m
+            bucket["cache_create_1h"] += tcc_1h
 
         content = msg.get("content")
         if isinstance(content, list):
@@ -273,6 +311,8 @@ def parse_session_file(path: Path) -> dict:
             "tokens_output": tokens_output,
             "tokens_cache_read": tokens_cache_read,
             "tokens_cache_create": tokens_cache_create,
+            "tokens_cache_create_5m": tokens_cache_create_5m,
+            "tokens_cache_create_1h": tokens_cache_create_1h,
             "message_count": message_count,
             "tool_call_count": len(paired),
             "_last_message_ts": last_ts,  # consumed by scheduler
@@ -287,6 +327,8 @@ def parse_session_file(path: Path) -> dict:
                 "tokens_output": v["output"],
                 "tokens_cache_read": v["cache_read"],
                 "tokens_cache_create": v["cache_create"],
+                "tokens_cache_create_5m": v["cache_create_5m"],
+                "tokens_cache_create_1h": v["cache_create_1h"],
             }
             for (d, m), v in daily.items()
         ],

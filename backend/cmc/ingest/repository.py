@@ -56,7 +56,11 @@ _SESSION_MUTABLE_COLS = (
     "ended_at", "synced_at", "jsonl_mtime", "jsonl_path",
     "cwd", "project_hash", "model", "source", "outcome",
     "tokens_input", "tokens_output", "tokens_cache_read",
-    "tokens_cache_create", "tool_call_count", "message_count",
+    "tokens_cache_create",
+    # Phase 13 LOCK-4 cache TTL split — must be in the mutable set so re-parses
+    # propagate the corrected per-tier numbers into existing rows.
+    "tokens_cache_create_5m", "tokens_cache_create_1h",
+    "tool_call_count", "message_count",
     "error_message",
 )
 
@@ -156,6 +160,8 @@ async def accumulate_token_usage(
             tokens_output=-int(previous_totals.get("tokens_output", 0)),
             tokens_cache_read=-int(previous_totals.get("tokens_cache_read", 0)),
             tokens_cache_create=-int(previous_totals.get("tokens_cache_create", 0)),
+            tokens_cache_create_5m=-int(previous_totals.get("tokens_cache_create_5m", 0)),
+            tokens_cache_create_1h=-int(previous_totals.get("tokens_cache_create_1h", 0)),
             sessions_count_delta=0,  # session count unchanged on re-parse
         )
 
@@ -171,6 +177,8 @@ async def accumulate_token_usage(
             tokens_output=int(b.get("tokens_output", 0)),
             tokens_cache_read=int(b.get("tokens_cache_read", 0)),
             tokens_cache_create=int(b.get("tokens_cache_create", 0)),
+            tokens_cache_create_5m=int(b.get("tokens_cache_create_5m", 0)),
+            tokens_cache_create_1h=int(b.get("tokens_cache_create_1h", 0)),
             sessions_count_delta=1 if is_new_session else 0,
         )
 
@@ -180,6 +188,7 @@ async def _adjust_bucket(
     day: _date, model: str, source: str,
     tokens_input: int, tokens_output: int,
     tokens_cache_read: int, tokens_cache_create: int,
+    tokens_cache_create_5m: int, tokens_cache_create_1h: int,
     sessions_count_delta: int,
 ) -> None:
     """Insert or update a token_usage row, ADDING the deltas to existing values.
@@ -189,6 +198,11 @@ async def _adjust_bucket(
       2. If rowcount == 0, INSERT a fresh row with the deltas as the values.
          (For the single-writer scheduler we don't need an ON CONFLICT retry —
          the loop is single-writer per cycle.)
+
+    Phase 13: cache TTL split deltas (`_5m`, `_1h`) flow alongside the legacy
+    aggregate `tokens_cache_create`. The aggregate is preserved for
+    backward-compatible read paths; the split powers the cost engine
+    (Pitfall 2 — different per-tier prices).
     """
     upd = (
         update(TokenUsage)
@@ -203,6 +217,12 @@ async def _adjust_bucket(
             tokens_cache_read=TokenUsage.tokens_cache_read + tokens_cache_read,
             tokens_cache_create=(
                 TokenUsage.tokens_cache_create + tokens_cache_create
+            ),
+            tokens_cache_create_5m=(
+                TokenUsage.tokens_cache_create_5m + tokens_cache_create_5m
+            ),
+            tokens_cache_create_1h=(
+                TokenUsage.tokens_cache_create_1h + tokens_cache_create_1h
             ),
             sessions_count=TokenUsage.sessions_count + sessions_count_delta,
             updated_at=datetime.now(UTC),
@@ -220,6 +240,8 @@ async def _adjust_bucket(
         tokens_input=tokens_input, tokens_output=tokens_output,
         tokens_cache_read=tokens_cache_read,
         tokens_cache_create=tokens_cache_create,
+        tokens_cache_create_5m=tokens_cache_create_5m,
+        tokens_cache_create_1h=tokens_cache_create_1h,
         sessions_count=sessions_count_delta,
         updated_at=datetime.now(UTC),
     )
@@ -233,6 +255,12 @@ async def _adjust_bucket(
             ),
             "tokens_cache_create": (
                 TokenUsage.tokens_cache_create + stmt.excluded.tokens_cache_create
+            ),
+            "tokens_cache_create_5m": (
+                TokenUsage.tokens_cache_create_5m + stmt.excluded.tokens_cache_create_5m
+            ),
+            "tokens_cache_create_1h": (
+                TokenUsage.tokens_cache_create_1h + stmt.excluded.tokens_cache_create_1h
             ),
             "sessions_count": (
                 TokenUsage.sessions_count + stmt.excluded.sessions_count
