@@ -34,8 +34,8 @@
 ### Skills Page Panels
 
 - [x] **ACTV-04** (reactivated from v1.0 placeholder): User can see TopSkills activity-page panel with top-N skills by invocation count, range toggle (14d/30d), sparkline, and drill-in to `/skills/$name`
-- [ ] **SKLP-02** (reactivated from v1.0 placeholder): User can see SkillCostCard on Skills page with tokens + dollars + input/output split + cache context + 14-day trend + "Rates as of" caption
-- [ ] **SKLP-05**: User can see SkillLatencyTable with p50/p95/max + error rate per skill, sortable by p95, with `<Badge variant="warning">Low sample</Badge>` (mirrors `CacheEfficiencyCard.tsx:55`) when sample count below `MIN_LATENCY_SAMPLES=30`
+- [x] **SKLP-02** (reactivated from v1.0 placeholder): User can see SkillCostCard on Skills page with tokens + dollars + input/output split + cache context + 14-day trend + "Rates as of" caption
+- [x] **SKLP-05**: User can see SkillLatencyTable with p50/p95/max + error rate per skill, sortable by p95, with `<Badge variant="warning">Low sample</Badge>` (mirrors `CacheEfficiencyCard.tsx:55`) when sample count below `MIN_LATENCY_SAMPLES=30`
 - [x] **SKLP-06**: User can see SkillTimeline panel as a live stream of skill invocations with project/session context, filter by skill name, and pause/resume control — reuses `useFirehose({ event_name: 'claude_code.skill_activated' })` (no new SSE channel)
 - [ ] **SKLP-07**: User can navigate to `/skills/$name` file-based route showing per-skill detail (cost + latency + recent runs) with linked sessions
 
@@ -143,8 +143,8 @@ Which phases cover which requirements. Populated by gsd-roadmapper on 2026-05-02
 | SKIL-06 | Phase 14 | Complete |
 | SKIL-07 | Phase 14 | Complete |
 | ACTV-04 | Phase 14 | Complete |
-| SKLP-02 | Phase 14 | Pending |
-| SKLP-05 | Phase 14 | Pending |
+| SKLP-02 | Phase 14 | Complete |
+| SKLP-05 | Phase 14 | Complete |
 | SKLP-06 | Phase 14 | Complete |
 | SKLP-07 | Phase 14 | Pending |
 | ALRT-01 | Phase 15 | Pending |

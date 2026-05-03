@@ -82,12 +82,12 @@ Plans:
   3. User can see the SkillCostCard on the Skills page rendering tokens (input/output/cache split) + dollars + cache context + 14-day trend with the "Rates as of" caption (closes SKLP-02 v1.0 placeholder).
   4. User can see the SkillLatencyTable sortable by p95 desc with `<Badge variant="warning">Low sample</Badge>` for skills below `MIN_LATENCY_SAMPLES=30`, and the SkillTimeline live stream filtered via `useFirehose({ eventName: 'skill_activated' })` (deviation D-06: BARE form + camelCase prop — ingest strips `claude_code.` prefix on write) with skill-name filter and pause/resume control.
   5. User can navigate to `/skills/$name` (file-based dynamic route) and see per-skill cost + latency + recent runs with linked sessions on a single page.
-**Plans:** 3/5 plans executed
+**Plans:** 4/5 plans executed
 Plans:
 - [x] 14-01-PLAN.md — Skills router: 4 endpoints (usage, cost dual-path, latency window-CTE, runs) + SSE payload extension + tests
 - [x] 14-02-PLAN.md — Frontend lib plumbing: SkillRange + 6 interfaces + 4 fetchers + 4 hooks + qk entries + OtelEvent attrs_skill_name field
 - [x] 14-03-PLAN.md — TopSkills reactivation (ACTV-04) + tests
-- [ ] 14-04-PLAN.md — SkillCostCard reactivation (SKLP-02) + SkillLatencyTable NEW (SKLP-05) + SkillTimeline NEW (SKLP-06) + skills.tsx wire
+- [x] 14-04-PLAN.md — SkillCostCard reactivation (SKLP-02) + SkillLatencyTable NEW (SKLP-05) + SkillTimeline NEW (SKLP-06) + skills.tsx wire
 - [ ] 14-05-PLAN.md — skills.$name file-based dynamic route (SKLP-07) + SkillRunsTable NEW (SKIL-07) + e2e human-verify checkpoint
 **UI hint**: yes
 
@@ -149,7 +149,7 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 (Phase 16
 | 11. v1.0 Documentation & Env Polish (gap closure) | v1.0 | 1/1 | Complete | 2026-04-28 |
 | 12. OTEL Skill Event Spike | v1.1 | 2/2 | Complete   | 2026-05-02 |
 | 13. Cost Foundation & Skill Ingest | v1.1 | 6/6 | Complete | 2026-05-03 |
-| 14. Skills API & Page Panels | v1.1 | 3/5 | In Progress|  |
+| 14. Skills API & Page Panels | v1.1 | 4/5 | In Progress|  |
 | 15. Alert Engine & UI | v1.1 | 0/TBD | Not started | - |
 | 16. Session Comparison | v1.1 | 0/TBD | Not started | - |
 | 17. Polish, Doctor & Tests | v1.1 | 0/TBD | Not started | - |
