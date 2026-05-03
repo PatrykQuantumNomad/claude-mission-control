@@ -26,10 +26,10 @@
 
 ### Skills API
 
-- [ ] **SKIL-04**: User can hit `GET /api/skills/usage?range=14d|30d` returning top-N skills by invocation count + sparkline data (deviation D-01: avoid collision with existing catalog endpoint /api/skills consumed by SkillsRegistry.tsx)
-- [ ] **SKIL-05**: User can hit `GET /api/skills/{name}/cost?range=` returning tokens (input/output/cache split) + computed dollars + 14-day trend
-- [ ] **SKIL-06**: User can hit `GET /api/skills/{name}/latency?range=` returning p50/p95/max latency + error rate + sample count, computed via Pattern 4 SQL CTEs (window functions)
-- [ ] **SKIL-07**: User can hit `GET /api/skills/{name}/runs?limit=` returning recent invocations with project/session context
+- [x] **SKIL-04**: User can hit `GET /api/skills/usage?range=14d|30d` returning top-N skills by invocation count + sparkline data (deviation D-01: avoid collision with existing catalog endpoint /api/skills consumed by SkillsRegistry.tsx)
+- [x] **SKIL-05**: User can hit `GET /api/skills/{name}/cost?range=` returning tokens (input/output/cache split) + computed dollars + 14-day trend
+- [x] **SKIL-06**: User can hit `GET /api/skills/{name}/latency?range=` returning p50/p95/max latency + error rate + sample count, computed via Pattern 4 SQL CTEs (window functions)
+- [x] **SKIL-07**: User can hit `GET /api/skills/{name}/runs?limit=` returning recent invocations with project/session context
 
 ### Skills Page Panels
 
@@ -138,10 +138,10 @@ Which phases cover which requirements. Populated by gsd-roadmapper on 2026-05-02
 | INGST-11 | Phase 13 | Complete (Plan 03 + Plan 06 e2e — 2026-05-03) |
 | INGST-12 | Phase 13 | Complete (Plan 02 — 2f30a66, 2026-05-03) |
 | INGST-13 | Phase 13 | Complete (Plan 02 UNIQUE + Plan 03 on_conflict_do_nothing + Plan 06 e2e dedup — 2026-05-03) |
-| SKIL-04 | Phase 14 | Pending |
-| SKIL-05 | Phase 14 | Pending |
-| SKIL-06 | Phase 14 | Pending |
-| SKIL-07 | Phase 14 | Pending |
+| SKIL-04 | Phase 14 | Complete |
+| SKIL-05 | Phase 14 | Complete |
+| SKIL-06 | Phase 14 | Complete |
+| SKIL-07 | Phase 14 | Complete |
 | ACTV-04 | Phase 14 | Pending |
 | SKLP-02 | Phase 14 | Pending |
 | SKLP-05 | Phase 14 | Pending |

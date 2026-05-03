@@ -10,7 +10,7 @@ Phase 14 is two halves glued by the `attrs_skill_name` indexed column Phase 13 P
 
 1. **Backend: 4 new `/api/skills/*` endpoints** added to the existing `cmc/api/routes/skills.py` (which already serves SKIL-01..03 catalog/sync/autonomy). The new endpoints reuse the Phase 13 cost-router patterns 1:1 — same `Literal["1d","7d","14d","30d"]` range enum, same `Decimal`-as-JSON-string serialization, same `compute_cost(...)` reader from `cmc.pricing`. The percentile latency endpoint (SKIL-06) is a textbook copy of `cmc/api/routes/observability.py::_TOOL_LATENCY_SQL` (Pattern-4 window-function CTE — `ROW_NUMBER() OVER (PARTITION BY skill ORDER BY duration_ms)` + `MAX(CAST(n*p AS INTEGER), 1)` offset) substituting `tools` → `otel_events WHERE event_name='skill_activated'`. Latency duration is read from `body.record.attributes` via the canonical `json_each(json_extract(body, '$.record.attributes'))` pattern (BUG-A-corrected — see `observability.py:535`).
 
-2. **Frontend: 3 panels reactivate, 2 panels arrive new, 1 file-based dynamic route is born.** TopSkills (ACTV-04) and SkillCostCard (SKLP-02) currently render `<EmptyState heading="Coming in v2"/>` cards (`TopSkills.tsx:35`, `SkillCostCard.tsx:30`); reactivation strips the EmptyState and wires the new endpoints behind `useQuery` hooks following the existing `useCache(range)` / `useLatency(range)` 60s-cadence pattern in `lib/queries.ts`. SkillLatencyTable (SKLP-05) is a clone of `ToolLatencyCard.tsx` with the `Low sample` badge gated on `MIN_LATENCY_SAMPLES=30` (the `<Badge variant="warning">` reference at `CacheEfficiencyCard.tsx:55` is the canon). SkillTimeline (SKLP-06) is a clone of `OtelPanel.tsx` that calls `useFirehose({ eventName: 'claude_code.skill_activated' })` (note: the hook prop is **camelCase `eventName`**, not `event_name` as the roadmap text reads — and the SSE channel forwards the prefixed/dotted form, NOT the bare-stripped form stored in `event_name` column). The dynamic route `/skills/$name` arrives as `frontend/src/routes/skills.$name.tsx` (TanStack Router flat-file naming so it doesn't fold the existing `routes/skills.tsx` into a parent layout).
+2. **Frontend: 3 panels reactivate, 2 panels arrive new, 1 file-based dynamic route is born.** TopSkills (ACTV-04) and SkillCostCard (SKLP-02) currently render `<EmptyState heading="Coming in v2"/>` cards (`TopSkills.tsx:35`, `SkillCostCard.tsx:30`); reactivation strips the EmptyState and wires the new endpoints behind `useQuery` hooks following the existing `useCache(range)` / `useLatency(range)` 60s-cadence pattern in `lib/queries.ts`. SkillLatencyTable (SKLP-05) is a clone of `ToolLatencyCard.tsx` with the `Low sample` badge gated on `MIN_LATENCY_SAMPLES=30` (the `<Badge variant="warning">` reference at `CacheEfficiencyCard.tsx:55` is the canon). SkillTimeline (SKLP-06) is a clone of `OtelPanel.tsx` that calls `useFirehose({ eventName: 'skill_activated' })` (note: the hook prop is **camelCase `eventName`**, not `event_name` as the roadmap text reads — and per D-06 / Pitfall 1 / Pitfall 8, the BARE form `'skill_activated'` is correct because ingest strips the `claude_code.` prefix on write and `tail_otel_events` filters on the post-strip column value — see Plan 14-04 Task 3). The dynamic route `/skills/$name` arrives as `frontend/src/routes/skills.$name.tsx` (TanStack Router flat-file naming so it doesn't fold the existing `routes/skills.tsx` into a parent layout).
 
 **Primary recommendation:** Build endpoints first (Wave 1 — 4 routes share one new router file), wire frontend panels in Wave 2 (4 panels share `lib/api.ts` + `lib/queries.ts` types), ship `/skills/$name` route last (Wave 3 — depends on all four endpoints + composes existing panels). The skill-cost refinement should land as a Wave-1 sub-task that JOINs `otel_events e_skill (event_name='skill_activated') ↔ otel_events e_req (event_name='api_request')` on `(session_id, attrs_request_id)` — see Open Question #1 because the `request_id` attribute on skill events is TENTATIVE; recommended fallback is `(session_id, otel_event_id BETWEEN ±1)` adjacency window with explicit graceful degradation to session-scoped attribution.
 
@@ -44,7 +44,7 @@ Phase 14 is two halves glued by the `attrs_skill_name` indexed column Phase 13 P
 | Instead of | Could Use | Tradeoff |
 |------------|-----------|----------|
 | Inline LineChart in each panel | Reusable `<Sparkline>` UI primitive | No existing `<Sparkline>` component (verified by grep). `CacheEfficiencyCard.tsx:60` ships its own inline `<ResponsiveContainer><LineChart>...`. Phase 14 follows that established pattern; do NOT introduce a new primitive — the planner should treat "two panels ship inline LineCharts" as the standard, not as duplication. |
-| New SSE channel for skill events | Reuse existing `/api/firehose` with `?event_name=` filter | Roadmap and SKLP-06 are EXPLICIT — `useFirehose({ event_name: 'claude_code.skill_activated' })` reuses the existing channel. NO new endpoint. |
+| New SSE channel for skill events | Reuse existing `/api/firehose` with `?event_name=` filter | Roadmap and SKLP-06 are EXPLICIT — reuse the existing channel via `useFirehose({ eventName: 'skill_activated' })` (BARE event name + camelCase prop per D-06 / Pitfall 1 / Pitfall 8). NO new endpoint. |
 | Move catalog `GET /api/skills` to `/api/skills/catalog` | Keep catalog endpoint, add new top-N endpoint at a different path | See Open Question #2 — preserves the existing `useSkills()` consumer (`SkillsRegistry.tsx:25`) without a coupled frontend rename. |
 
 **Installation:** No new pip or npm dependencies. All existing.
@@ -94,12 +94,12 @@ Phase 14 is two halves glued by the `attrs_skill_name` indexed column Phase 13 P
    │       └─ <Link to="/skills/$name" params={{name}}>...</Link>                  │
    │                                                                                │
    │  Skills page (routes/skills.tsx)                                              │
-   │   ├─ SkillCostCard.tsx (reactivated)        ─── /api/cost/breakdown?dim=skill │
-   │   │                                              + /api/skills/{name}/cost    │
+   │   ├─ SkillCostCard.tsx (reactivated)        ─── /api/skills/{name}/cost      │
+   │   │                                              (per Plan 14-04 Task 1)       │
    │   ├─ SkillLatencyTable.tsx (NEW)            ─── /api/skills (top-N) + per-row │
    │   │                                              /api/skills/{name}/latency   │
    │   └─ SkillTimeline.tsx (NEW)                ─── useFirehose({ eventName:      │
-   │                                                  'claude_code.skill_activated'│
+   │                                                  'skill_activated' })          │
    │                                                                                │
    │  Detail route (routes/skills.$name.tsx — NEW file-based dynamic)              │
    │   ├─ useParams().name → 4 useQuery calls                                      │
@@ -404,7 +404,7 @@ cell: (r) => (
 
 ### Anti-Patterns to Avoid
 
-- **Don't introduce a new SSE channel for skill events.** SKLP-06 explicitly reuses `useFirehose`; the existing `/api/firehose?event_name=claude_code.skill_activated` filter is the contract.
+- **Don't introduce a new SSE channel for skill events.** SKLP-06 explicitly reuses `useFirehose`; the existing `/api/firehose?event_name=skill_activated` filter is the contract (BARE form per D-06 / Pitfall 1 — the column stores the bare value).
 - **Don't import `fastapi.encoders.jsonable_encoder` near a `Decimal`.** Silent float coercion. Phase 13 lock.
 - **Don't fold `routes/skills.tsx` into a folder route.** Use flat-file `routes/skills.$name.tsx` to keep both routes as siblings; folder structure (`routes/skills/index.tsx` + `routes/skills/$name.tsx`) requires rewriting `routes/skills.tsx` and re-exporting all panels.
 - **Don't store `cost_usd` from `api_request.body`.** Phase 13 ANLY-03 contract: dollar values are read-time-computed via `compute_cost()`. The `cost_usd` attribute on `api_request` events is informational only — discard it.
@@ -694,7 +694,7 @@ export function SkillTimeline() {
 | A7 | `cwd` is the canonical project surrogate (not `project_hash`) | SKIL-07 SQL, code example | None — `sessions.project_hash` exists in the model but per `cost.py:166-178` and `observability.py:451`, every existing endpoint keys on `cwd`. [VERIFIED via cost.py + observability.py grep.] |
 | A8 | `MIN_LATENCY_SAMPLES=30` is best surfaced server-side as `low_sample: bool` (not just a frontend constant) | Pitfall 6 | Bikeshed — frontend-only constant works too, but server-side surfacing matches `CacheEfficiencyCard.tsx`/CacheResponse pattern. [ASSUMED — REQUIREMENTS.md SKLP-05 leaves this unspecified.] |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **`request_id` on `skill_activated` events at 2.1.116 — present or not?**
    - **What we know:** SPIKE.md LOCK-9 evidence verifies `request_id` IS on `api_request` events (Q13 line 783); presence on `skill_activated` is CITED, not VERIFIED.
