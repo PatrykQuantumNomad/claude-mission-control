@@ -373,6 +373,60 @@ async def client(seeded_app):
             yield ac
 
 
+# ---- Phase 13 fixtures (Plan 06 — wires Plan 01's deferred async tests) ----
+#
+# Plan 01 left two async test cases as `pytest.skip` stubs because conftest
+# didn't yet have a shared async-session fixture for tests that DON'T need
+# the HTTP layer. Plan 06 lands the fixtures.
+#
+# `db_session` is the basic shape: a fresh AsyncSession opened against the
+# same app/engine the `client` fixture uses (so the lifespan ALREADY auto-
+# seeded `data/pricing.json` into the pricing table by the time the test
+# runs). Tests that verify load_seed idempotency or pricing-window math
+# operate on that pre-seeded state.
+#
+# `seed_pricing` is a marker fixture — the actual seeding is done by the
+# lifespan; this fixture just asserts the precondition (5 rows present)
+# and returns the count, so tests that depend on it read intent-revealing.
+#
+# `seed_token_usage` is unused outside the e2e test; tests that need
+# token_usage rows seed inline (matching test_cost_router.py's pattern).
+
+
+@pytest_asyncio.fixture
+async def db_session(seeded_app):
+    """Yield an AsyncSession opened on the seeded app's engine after lifespan ran.
+
+    The lifespan auto-seeds `data/pricing.json` into the pricing table, so any
+    test using this fixture starts with the 5 SKUs already present. To verify
+    `load_seed` itself, tests can call it again — it MUST be idempotent
+    (Plan 01 ANLY-02 contract).
+    """
+    app, cm = seeded_app
+    async with cm:
+        async with app.state.sessions() as session:
+            yield session
+
+
+@pytest_asyncio.fixture
+async def seed_pricing(db_session):
+    """Marker fixture — asserts the lifespan seed ran (5 SKUs present).
+
+    Plan 04's test_cost_router.py relies on the implicit lifespan seed via
+    the `client` fixture; Plan 06 makes the dependency explicit via this
+    fixture so test signatures read self-documenting.
+    """
+    from sqlalchemy import func, select
+
+    from cmc.db.models.pricing import PricingRow
+
+    n = (
+        await db_session.execute(select(func.count()).select_from(PricingRow))
+    ).scalar()
+    assert n == 5, f"Phase 13 lifespan seed regression: expected 5 pricing rows, got {n}"
+    return n
+
+
 # ---- Factory helpers (NOT fixtures — plain module-level helpers) ----
 #
 # These return dicts shaped to match the corresponding ORM model's __init__
