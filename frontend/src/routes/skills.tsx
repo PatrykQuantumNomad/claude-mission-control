@@ -60,7 +60,8 @@ function SkillsPage() {
         <SchedulesCard />
         <SkillsRegistry />
         <McpPanel reqId="SKLP-01" />
-        <SkillCostCard />
+        {/* Wired to the proper top-1 wrapper in Task 3; placeholder name keeps tsc green between tasks. */}
+        <SkillCostCard name="(none)" />
         <ContextHealthCard />
       </div>
     </section>
