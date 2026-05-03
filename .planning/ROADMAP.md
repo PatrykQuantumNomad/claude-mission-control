@@ -142,7 +142,7 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 (Phase 16
 | 10. Telegram Wiring Fixes (gap closure) | v1.0 | 1/1 | Complete | 2026-04-28 |
 | 11. v1.0 Documentation & Env Polish (gap closure) | v1.0 | 1/1 | Complete | 2026-04-28 |
 | 12. OTEL Skill Event Spike | v1.1 | 2/2 | Complete   | 2026-05-02 |
-| 13. Cost Foundation & Skill Ingest | v1.1 | 5/6 | In Progress|  |
+| 13. Cost Foundation & Skill Ingest | v1.1 | 6/6 | Complete | 2026-05-03 |
 | 14. Skills API & Page Panels | v1.1 | 0/TBD | Not started | - |
 | 15. Alert Engine & UI | v1.1 | 0/TBD | Not started | - |
 | 16. Session Comparison | v1.1 | 0/TBD | Not started | - |
