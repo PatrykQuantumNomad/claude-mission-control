@@ -321,12 +321,16 @@ describe('integration: full app', () => {
     // Wait for ACTV-04 to render so the page is mounted.
     expect(await screen.findByText('ACTV-04')).toBeInTheDocument()
     // PlaceholderCardGrid's EmptyState uses the lucide-inbox icon. Live
-    // panels' EmptyState (PanelCard branch) does NOT pass an icon, and
-    // TopSkills' v2 placeholder uses lucide-sparkles. So the absence of any
-    // lucide-inbox SVG on /activity proves the placeholder grid is gone.
+    // panels' EmptyState (PanelCard branch) does NOT pass an icon. So the
+    // absence of any lucide-inbox SVG on /activity proves the placeholder
+    // grid is gone.
     expect(container.querySelector('svg.lucide-inbox')).toBeNull()
-    // TopSkills v2 placeholder uses its own heading copy.
-    expect(screen.getByText('Coming in v2')).toBeInTheDocument()
+    // Phase 14 Plan 03: TopSkills no longer ships a "Coming in v2" v2
+    // placeholder — it now wraps PanelCard + useSkillUsage and renders the
+    // standard PanelCard empty body when the firehose returns rows: [] (or
+    // the {items:[]} stub the integration mock currently emits, which my
+    // defensive `when` predicate also treats as empty).
+    expect(screen.queryByText('Coming in v2')).toBeNull()
   })
 
   it('/ does not render the PlaceholderCardGrid (no lucide-inbox EmptyState icon present)', async () => {
