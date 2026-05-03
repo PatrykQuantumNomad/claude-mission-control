@@ -77,10 +77,10 @@ Plans:
 **Depends on**: Phase 13 (cost engine + indexed skill column)
 **Requirements**: SKIL-04, SKIL-05, SKIL-06, SKIL-07, ACTV-04, SKLP-02, SKLP-05, SKLP-06, SKLP-07
 **Success Criteria** (what must be TRUE):
-  1. User can hit `GET /api/skills?range=14d|30d`, `GET /api/skills/{name}/cost?range=`, `GET /api/skills/{name}/latency?range=`, and `GET /api/skills/{name}/runs?limit=` and receive top-N rollups, cost split, p50/p95/max latency + error rate (Pattern 4 SQL CTEs), and recent invocations with project/session context.
+  1. User can hit `GET /api/skills/usage?range=14d|30d`, `GET /api/skills/{name}/cost?range=`, `GET /api/skills/{name}/latency?range=`, and `GET /api/skills/{name}/runs?limit=` and receive top-N rollups, cost split, p50/p95/max latency + error rate (Pattern 4 SQL CTEs), and recent invocations with project/session context. (deviation D-01: top-N endpoint lives at /api/skills/usage to avoid collision with the existing /api/skills catalog endpoint consumed by SkillsRegistry.tsx)
   2. User can see the TopSkills panel on the Activity page with top-N skills ranked by invocation count, 14d/30d range toggle, sparkline, and click-row drill-in to `/skills/$name` (closes ACTV-04 v1.0 placeholder).
   3. User can see the SkillCostCard on the Skills page rendering tokens (input/output/cache split) + dollars + cache context + 14-day trend with the "Rates as of" caption (closes SKLP-02 v1.0 placeholder).
-  4. User can see the SkillLatencyTable sortable by p95 desc with `<Badge variant="warning">Low sample</Badge>` for skills below `MIN_LATENCY_SAMPLES=30`, and the SkillTimeline live stream filtered via `useFirehose({ event_name: 'claude_code.skill_activated' })` with skill-name filter and pause/resume control.
+  4. User can see the SkillLatencyTable sortable by p95 desc with `<Badge variant="warning">Low sample</Badge>` for skills below `MIN_LATENCY_SAMPLES=30`, and the SkillTimeline live stream filtered via `useFirehose({ eventName: 'skill_activated' })` (deviation D-06: BARE form + camelCase prop — ingest strips `claude_code.` prefix on write) with skill-name filter and pause/resume control.
   5. User can navigate to `/skills/$name` (file-based dynamic route) and see per-skill cost + latency + recent runs with linked sessions on a single page.
 **Plans:** 5 plans
 Plans:

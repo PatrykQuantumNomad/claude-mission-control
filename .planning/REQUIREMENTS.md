@@ -26,7 +26,7 @@
 
 ### Skills API
 
-- [ ] **SKIL-04**: User can hit `GET /api/skills?range=14d|30d` returning top-N skills by invocation count + sparkline data
+- [ ] **SKIL-04**: User can hit `GET /api/skills/usage?range=14d|30d` returning top-N skills by invocation count + sparkline data (deviation D-01: avoid collision with existing catalog endpoint /api/skills consumed by SkillsRegistry.tsx)
 - [ ] **SKIL-05**: User can hit `GET /api/skills/{name}/cost?range=` returning tokens (input/output/cache split) + computed dollars + 14-day trend
 - [ ] **SKIL-06**: User can hit `GET /api/skills/{name}/latency?range=` returning p50/p95/max latency + error rate + sample count, computed via Pattern 4 SQL CTEs (window functions)
 - [ ] **SKIL-07**: User can hit `GET /api/skills/{name}/runs?limit=` returning recent invocations with project/session context

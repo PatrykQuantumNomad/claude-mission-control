@@ -472,3 +472,240 @@ async def test_skills_patch_autonomy(seeded_app) -> None:
                 json={"autonomy": "invalid-value"},
             )
             assert r_422.status_code == 422
+
+
+# =============================================================================
+# Phase 14 Task 2: SKIL-04 (/api/skills/usage) + SKIL-07 (/api/skills/{n}/runs)
+# =============================================================================
+#
+# Inline `_seed_otel_event` helper (matches test_cost_router.py's inline
+# `_seed_token_usage` pattern — keeps Phase 14 fixtures self-contained).
+# Synthetic body shape mirrors the real OTLP wire form per SPIKE.md Q13:
+# every numeric attribute lives in body.record.attributes as a stringValue.
+
+
+def _make_skill_body(*, request_id: str | None = None,
+                     duration_ms: int | None = None,
+                     status: str | None = None) -> dict:
+    """Build a synthetic skill_activated body.record.attributes payload."""
+    attrs: list[dict] = []
+    if request_id is not None:
+        attrs.append({"key": "request_id", "value": {"stringValue": request_id}})
+    if duration_ms is not None:
+        attrs.append({"key": "duration_ms", "value": {"stringValue": str(duration_ms)}})
+    if status is not None:
+        attrs.append({"key": "status", "value": {"stringValue": status}})
+    return {"record": {"attributes": attrs}}
+
+
+def _make_api_request_body(*, input_tokens: int = 0, output_tokens: int = 0,
+                           cache_read: int = 0, cache_create: int = 0,
+                           request_id: str | None = None,
+                           model: str = "claude-opus-4-7") -> dict:
+    """Build a synthetic api_request body — all token fields stringValue
+    per SPIKE.md Q13 (Pitfall 3)."""
+    attrs: list[dict] = [
+        {"key": "input_tokens", "value": {"stringValue": str(input_tokens)}},
+        {"key": "output_tokens", "value": {"stringValue": str(output_tokens)}},
+        {"key": "cache_read_tokens", "value": {"stringValue": str(cache_read)}},
+        {"key": "cache_creation_tokens", "value": {"stringValue": str(cache_create)}},
+        {"key": "model", "value": {"stringValue": model}},
+    ]
+    if request_id is not None:
+        attrs.append({"key": "request_id", "value": {"stringValue": request_id}})
+    return {"record": {"attributes": attrs}}
+
+
+async def _seed_otel_event(app, *, event_name: str,
+                           attrs_skill_name: str | None = None,
+                           body: dict | None = None,
+                           session_id: str | None = None,
+                           ts: datetime | None = None) -> None:
+    """Insert one otel_events row via the engine bound to the app.
+
+    Mirrors test_cost_router._seed_token_usage shape (raw insert through
+    SQLModel.metadata.tables) to stay self-contained.
+    """
+    from cmc.db.base import SQLModel
+    engine = app.state.engine
+    table = SQLModel.metadata.tables["otel_events"]
+    if ts is None:
+        ts = datetime.now(UTC) - timedelta(seconds=1)
+    async with engine.begin() as conn:
+        await conn.execute(insert(table).values(
+            ts=ts,
+            event_name=event_name,
+            session_id=session_id,
+            body=body or {},
+            attrs_mcp_server=None,
+            attrs_mcp_tool=None,
+            attrs_skill_name=attrs_skill_name,
+            received_at=ts,
+        ))
+
+
+async def _seed_session_row(app, *, session_id: str, cwd: str = "/Users/test/proj",
+                            model: str = "claude-opus-4-7",
+                            tokens_input: int = 0, tokens_output: int = 0,
+                            tokens_cache_read: int = 0) -> None:
+    """Insert one sessions row (used by cwd LEFT JOIN tests)."""
+    from cmc.db.base import SQLModel
+    engine = app.state.engine
+    table = SQLModel.metadata.tables["sessions"]
+    now = datetime.now(UTC)
+    async with engine.begin() as conn:
+        await conn.execute(insert(table).values(
+            session_id=session_id,
+            started_at=now,
+            ended_at=None,
+            synced_at=now,
+            jsonl_mtime=now,
+            jsonl_path=f"/tmp/{session_id}.jsonl",
+            cwd=cwd,
+            model=model,
+            source="claude-code",
+            outcome=None,
+            tokens_input=tokens_input,
+            tokens_output=tokens_output,
+            tokens_cache_read=tokens_cache_read,
+            tokens_cache_create=0,
+            tokens_cache_create_5m=0,
+            tokens_cache_create_1h=0,
+            tool_call_count=0,
+            message_count=0,
+            error_message=None,
+        ))
+
+
+# ---- SKIL-04 tests -------------------------------------------------------
+
+
+async def test_skills_usage_top_n_with_sparkline(client) -> None:
+    """SKIL-04: top-N skills by invocation count + per-day sparkline buckets.
+
+    Seeds 3 skill_activated events across 2 skills + 2 days (today + yesterday):
+      - 'analyze': 2 events today
+      - 'review': 1 event yesterday
+    Expected: rows ordered by total DESC; analyze first (total=2);
+    sparkline length matches days touched per skill.
+    """
+    app = client._transport.app  # type: ignore[attr-defined]
+    today = datetime.now(UTC) - timedelta(hours=1)
+    yesterday = datetime.now(UTC) - timedelta(days=1, hours=1)
+    await _seed_otel_event(app, event_name="skill_activated",
+                           attrs_skill_name="analyze", ts=today)
+    await _seed_otel_event(app, event_name="skill_activated",
+                           attrs_skill_name="analyze",
+                           ts=today + timedelta(minutes=5))
+    await _seed_otel_event(app, event_name="skill_activated",
+                           attrs_skill_name="review", ts=yesterday)
+
+    r = await client.get("/api/skills/usage?range=14d&limit=10")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["range"] == "14d"
+    assert len(body["rows"]) == 2
+    # ordered by total DESC
+    assert body["rows"][0]["skill_name"] == "analyze"
+    assert body["rows"][0]["total"] == 2
+    assert body["rows"][1]["skill_name"] == "review"
+    assert body["rows"][1]["total"] == 1
+    # sparkline shape — analyze: 1 day-bucket (both today events collapse into
+    # one localtime day); review: 1 day-bucket.
+    assert len(body["rows"][0]["sparkline"]) == 1
+    assert body["rows"][0]["sparkline"][0]["invocations"] == 2
+    assert len(body["rows"][1]["sparkline"]) == 1
+    assert body["rows"][1]["sparkline"][0]["invocations"] == 1
+
+
+async def test_skills_usage_invalid_range_returns_422(client) -> None:
+    """Range Literal validation: ?range=2d returns FastAPI 422 (D-05/locked enum)."""
+    r = await client.get("/api/skills/usage?range=2d")
+    assert r.status_code == 422
+
+
+async def test_skills_usage_limit_clamping(client) -> None:
+    """?limit=99 exceeds the Query(le=50) clamp -> 422."""
+    r = await client.get("/api/skills/usage?range=14d&limit=99")
+    assert r.status_code == 422
+    # Lower bound also rejected.
+    r0 = await client.get("/api/skills/usage?range=14d&limit=0")
+    assert r0.status_code == 422
+
+
+async def test_skills_usage_empty_returns_empty_rows(client) -> None:
+    """No skill_activated events seeded -> 200 with rows=[], NOT 404."""
+    r = await client.get("/api/skills/usage?range=14d")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["range"] == "14d"
+    assert body["rows"] == []
+
+
+# ---- SKIL-07 tests -------------------------------------------------------
+
+
+async def test_skill_runs_recent_ordered_desc(client) -> None:
+    """SKIL-07: recent invocations ordered ts DESC; cwd from joined sessions row."""
+    app = client._transport.app  # type: ignore[attr-defined]
+    await _seed_session_row(app, session_id="sess-runs-1", cwd="/Users/test/projA")
+    base = datetime.now(UTC) - timedelta(hours=1)
+    # Seed 3 events at staggered ts.
+    for i in range(3):
+        await _seed_otel_event(
+            app, event_name="skill_activated",
+            attrs_skill_name="builder",
+            session_id="sess-runs-1",
+            body=_make_skill_body(request_id=f"req-{i}"),
+            ts=base + timedelta(minutes=i * 10),
+        )
+
+    r = await client.get("/api/skills/builder/runs?limit=20")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["name"] == "builder"
+    assert len(body["rows"]) == 3
+    # ts DESC -> req-2, req-1, req-0
+    request_ids = [row["request_id"] for row in body["rows"]]
+    assert request_ids == ["req-2", "req-1", "req-0"]
+    # cwd from joined sessions row
+    for row in body["rows"]:
+        assert row["cwd"] == "/Users/test/projA"
+        assert row["session_id"] == "sess-runs-1"
+
+
+async def test_skill_runs_path_traversal_rejected(client) -> None:
+    """SKIL-07 V12: ?name=../etc returns 400 from _SKILL_NAME_RE + '..' check."""
+    # The path component is URL-encoded by httpx; the FastAPI route itself
+    # rejects with 400 (regex+'..' check) on unknown traversal-style names.
+    r = await client.get("/api/skills/has..dotdot/runs?limit=20")
+    assert r.status_code == 400
+
+
+async def test_skill_runs_unknown_cwd_fallback(client) -> None:
+    """Event with session_id that doesn't exist in sessions -> cwd='<unknown>'."""
+    app = client._transport.app  # type: ignore[attr-defined]
+    # Note: NO _seed_session_row — the session_id is None so the soft-FK
+    # to sessions doesn't trigger; the LEFT JOIN -> COALESCE produces '<unknown>'.
+    await _seed_otel_event(
+        app, event_name="skill_activated",
+        attrs_skill_name="orphan_skill",
+        session_id=None,  # avoids FK failure; LEFT JOIN still misses
+        body=_make_skill_body(request_id="req-orphan"),
+    )
+
+    r = await client.get("/api/skills/orphan_skill/runs?limit=20")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert len(body["rows"]) == 1
+    assert body["rows"][0]["cwd"] == "<unknown>"
+    assert body["rows"][0]["session_id"] is None
+    assert body["rows"][0]["request_id"] == "req-orphan"
+
+
+async def test_skill_runs_limit_clamping(client) -> None:
+    """?limit=999 exceeds Query(le=200) -> 422; ?limit=0 (lower bound) -> 422."""
+    r_hi = await client.get("/api/skills/anything/runs?limit=999")
+    assert r_hi.status_code == 422
+    r_lo = await client.get("/api/skills/anything/runs?limit=0")
+    assert r_lo.status_code == 422
