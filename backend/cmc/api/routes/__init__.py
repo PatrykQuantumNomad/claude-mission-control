@@ -16,6 +16,7 @@ from fastapi import APIRouter
 # monkeypatch HOME_CLAUDE_DIR for hermetic filesystem testing.
 from cmc.api.routes import context as context
 from cmc.api.routes.context import router as context_router
+from cmc.api.routes.cost import router as cost_router
 from cmc.api.routes.health import infrastructure_router
 from cmc.api.routes.health import router as health_router
 from cmc.api.routes.hitl import router as hitl_router
@@ -46,6 +47,7 @@ def all_routers() -> list[APIRouter]:
         system_router,
         skills_router,
         context_router,
+        cost_router,            # Phase 13 ANLY-04
         hitl_router,
         tasks_router,
         schedules_router,
