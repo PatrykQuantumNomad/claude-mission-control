@@ -21,7 +21,7 @@
 ### Skill Ingest Extension
 
 - [ ] **INGST-11**: User can rely on the existing `/v1/logs` OTLP endpoint to extract `attrs_skill_name` from `claude_code.skill_activated` events into a new indexed column on `otel_events`, mirroring the existing `attrs_mcp_server` / `attrs_mcp_tool` pattern
-- [ ] **INGST-12**: User can rely on a single Alembic migration (`0002_v1.1_alerts.py` or similar) that adds `otel_events.attrs_skill_name` column + index in the same change as the new alert tables
+- [x] **INGST-12**: User can rely on a single Alembic migration (`0002_v1_1_alerts_and_skills.py`) that adds `otel_events.attrs_skill_name` column + index in the same change as the new alert tables (delivered Phase 13 Plan 02, 2026-05-03 — commit 2f30a66)
 - [ ] **INGST-13**: User can rely on idempotent skill-event ingestion via `(session_id, otel_event_id)` UNIQUE constraint with `INSERT OR IGNORE`; cross-midnight late arrivals absorbed by 00:30 re-aggregation
 
 ### Skills API
@@ -136,7 +136,7 @@ Which phases cover which requirements. Populated by gsd-roadmapper on 2026-05-02
 | ANLY-04 | Phase 13 | Pending |
 | ANLY-05 | Phase 13 | Pending |
 | INGST-11 | Phase 13 | Pending |
-| INGST-12 | Phase 13 | Pending |
+| INGST-12 | Phase 13 | Complete (Plan 02 — 2f30a66, 2026-05-03) |
 | INGST-13 | Phase 13 | Pending |
 | SKIL-04 | Phase 14 | Pending |
 | SKIL-05 | Phase 14 | Pending |

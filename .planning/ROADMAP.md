@@ -66,7 +66,7 @@ Plans:
 **Plans:** 6 plans
 Plans:
 - [x] 13-01-PLAN.md — Pricing module (compute_cost, load_seed, load_rates), data/pricing.json (5 SKUs), PricingRow SQLModel, FastAPI lifespan auto-seed (commits 61a2ec2 + 577cb93, 2026-05-03)
-- [ ] 13-02-PLAN.md — Single Alembic migration 0002 (attrs_skill_name, otel_event_id + UNIQUE, cache TTL split columns, pricing/alert_rules/alert_state tables, BUG-B backfill, BUG-A SQL fix)
+- [x] 13-02-PLAN.md — Single Alembic migration 0002 (attrs_skill_name, otel_event_id + UNIQUE, cache TTL split columns, pricing/alert_rules/alert_state tables, BUG-B backfill, BUG-A SQL fix) (commits ed6ec56 + 2f30a66, 2026-05-03)
 - [ ] 13-03-PLAN.md — Ingest layer (extract_skill_attr + extract_event_sequence, ingest.py BUG-B fix, on_conflict_do_nothing dedup, JSONL parser cache TTL split, repository upserts)
 - [ ] 13-04-PLAN.md — Cost API (GET /api/cost/summary, /api/cost/breakdown, /api/pricing/freshness) + response schemas + integration tests
 - [ ] 13-05-PLAN.md — Doctor checks 9-14 (pricing freshness, unpriced tokens, pricing.json parseable, session_id NULL detector, unmapped otel models, OTEL_LOG_TOOL_DETAILS)

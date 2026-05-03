@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Skills & Cost Intelligence
-status: executing
-stopped_at: Phase 13 Plan 01 complete (cost foundation — compute_cost + pricing.json + PricingRow + lifespan auto-seed)
-last_updated: "2026-05-03T00:00:00.000Z"
-last_activity: 2026-05-03 — Phase 13 Plan 01 complete (commits 61a2ec2 + 577cb93); cmc.pricing.compute_cost + load_seed + load_rates landed; data/pricing.json seeded with 5 SKUs; PricingRow registered in SQLModel.metadata for Plan 02's migration; lifespan auto-seed wired between alembic upgrade and boot sync
+status: completed
+stopped_at: "Phase 13 Plan 02 complete; ready to execute Plan 03 (ingest read-side BUG-B fix + JSONL parser cache split + INGST-13 dedup wiring)"
+last_updated: "2026-05-03T12:34:19Z"
+last_activity: 2026-05-03 — Phase 13 Plan 02 complete; ready for Plan 03 (ingest read-side fixes)
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 8
-  completed_plans: 3
-  percent: 38
+  completed_plans: 5
+  percent: 63
 ---
 
 # Project State
@@ -22,16 +22,16 @@ See: .planning/PROJECT.md (updated 2026-05-02 — v1.1 Skills & Cost Intelligenc
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, queue and approve tasks, and kill runaway sessions — all from one browser tab.
 
-**Current focus:** v1.1 Skills & Cost Intelligence — Phase 13 underway (Plan 01 complete; cost-math primitive landed).
+**Current focus:** v1.1 Skills & Cost Intelligence — Phase 13 underway (Plans 01 + 02 complete; cost-math primitive + 0002 migration landed).
 
 ## Current Position
 
 Phase: 13 of 17 (Cost Foundation & Skill Ingest) — **IN PROGRESS**
-Plan: 13-01 complete (commits 61a2ec2 + 577cb93); next plan is 13-02 (Alembic migration: pricing table + alert tables + otel_events.attrs_skill_name + BUG-A/B fixes + cache TTL split)
-Status: Phase 13 Plan 01 complete — cmc.pricing module shipped with compute_cost / load_seed / load_rates / unpriced_tokens / pricing_json_hash; data/pricing.json seeded with 5 SKUs at 2026-05-03 published rates; PricingRow registered in SQLModel.metadata['pricing'] for Plan 02; lifespan auto-seed wired
-Last activity: 2026-05-03 — Phase 13 Plan 01 complete; ready for Plan 02 (Alembic migration)
+Plan: 13-02 complete (commits ed6ec56 + 2f30a66); next plan is 13-03 (ingest read-side BUG-B fix + JSONL parser cache split + INGST-13 dedup wiring on the now-existing UNIQUE constraint)
+Status: Phase 13 Plan 02 complete — single 0002_v1_1_alerts_and_skills Alembic migration shipped: otel_events.attrs_skill_name + otel_event_id + (session_id, otel_event_id) UNIQUE; sessions/token_usage cache TTL split cols; pricing table with seed_hash; alert_rules + alert_state final-shape (Phase 15 ships zero migration); BUG-A read-side json_each fix at observability.py; BUG-B backfill recovered 13,998 of 14,000 production session_id NULLs. 3 migration tests + full backend suite green (399/399, 2 skipped, 0 failed).
+Last activity: 2026-05-03 — Phase 13 Plan 02 complete; ready for Plan 03 (ingest read-side fixes)
 
-Progress: [████░░░░░░] 38% (Plan 01 of 6 complete; Phase 12 fully complete + Phase 13 Plan 01)
+Progress: [██████░░░░] 63% (Plans 01-02 of 6 complete; Phase 12 fully complete + Phase 13 Plans 01 + 02)
 
 ## Accumulated Context
 
@@ -46,6 +46,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent v1.1 architectura
 - Phase 13 (Cost): hand-rolled `cmc/pricing.py` + `Decimal` math, read-time cost compute (no $ stored in DB), `effective_from`/`effective_until` on pricing table for self-correcting historical totals.
 - Phase 13 (Ingest): one Alembic migration adds `otel_events.attrs_skill_name` index + alert tables together (mirrors existing `attrs_mcp_*` pattern).
 - Phase 13 Plan 01 (executed 2026-05-03): cmc.pricing module landed; `compute_cost` is pure stdlib Decimal (verified $5.00, $37.50, $46.75 exact — no float drift); 5 SKUs in data/pricing.json (all rates as JSON strings per Pitfall 1); PricingRow registered in SQLModel.metadata; lifespan auto-seed wraps load_seed in try/except so malformed JSON cannot block boot. cmc/pricing.py added to pyright exclude list (matches existing project convention for SQLAlchemy-heavy modules — cmc/db, cmc/api, cmc/dispatcher, cmc/ingest/repository.py).
+- Phase 13 Plan 02 (executed 2026-05-03): Single 0002_v1_1_alerts_and_skills Alembic revision lands all 7 Phase 13 schema mutations atomically (otel_events.attrs_skill_name + otel_event_id + (session_id, otel_event_id) UNIQUE; sessions/token_usage tokens_cache_create_5m/_1h split; pricing table with seed_hash matching PricingRow exactly; alert_rules + alert_state final ALRT-01/02 shape — Phase 15 ships zero migration). BUG-B SQL backfill in upgrade() re-extracts session.id (dotted) from body.record.attributes via json_each — recovered 13,998 of 14,000 production NULL session_id rows. BUG-A read-side fix at observability.py:_EDIT_DECISIONS_OTEL_SQL replaces flat json_extract with json_each over body.record.attributes and flips event_name to bare 'tool_decision' (post prefix-strip per LOCK-1). 3 new migration tests (upgrade, downgrade, BUG-B backfill) + full backend suite (399 tests) all green. Test alembic config requires sqlite+aiosqlite:// URL because env.py runs async engine. test_foundation_boot table-count assertions bumped 15 → 18 to match Plan 01's pricing + Plan 02's alert tables (drift fix).
 - Phase 15 (Alerts): alert engine lives inside the existing 120s dispatcher tick (no new launchd job), emits decisions only (`ALRT-12` — never imports `cmc.dispatcher.tasks`), stable `dedup_key = alert:{rule_id}:{scope_key}` (no timestamps).
 - Phase 16 (Compare): single backend endpoint with cost computed via shared `cmc/cost/engine.py`; URL state as source of truth; structured tabular only (no text-diff library).
 
@@ -83,12 +84,13 @@ None yet.
 | 12 | 01 | ~37 min (excl. checkpoint pause) | 2 | 1 created (`SPIKE.md`, 762 lines) + 1 SUMMARY | 2026-05-02 |
 | 12 | 02 | ~4 min | 1 | 1 modified (`SPIKE.md`, +339/-2 lines → 1,097 total) + 1 SUMMARY | 2026-05-02 |
 | 13 | 01 | ~11 min | 2 | 4 created (`pricing.json`, `pricing.py`, `db/models/pricing.py`, `test_pricing.py`) + 3 modified (`db/models/__init__.py`, `app/lifespan.py`, `pyproject.toml`) + 1 SUMMARY | 2026-05-03 |
+| 13 | 02 | ~17 min | 2 | 4 created (`alert_rules.py`, `alert_state.py`, `0002_v1_1_alerts_and_skills.py`, `test_migrations.py`) + 7 modified (`otel_events.py`, `sessions.py`, `token_usage.py`, `db/models/__init__.py`, `observability.py`, `test_observability_router.py`, `test_foundation_boot.py`) + 1 SUMMARY | 2026-05-03 |
 
 ## Session Continuity
 
-Last session: 2026-05-03T00:00:00.000Z — Phase 13 Plan 01 complete (cost foundation — compute_cost + pricing.json + PricingRow + lifespan auto-seed)
-Stopped at: Phase 13 Plan 01 complete; ready to execute Plan 02 (Alembic migration: pricing table + alert tables + otel_events.attrs_skill_name + BUG-A/B fixes + cache TTL split)
-Resume file: None — next action is `/gsd-execute-plan 13 02` — Plan 02 owns the single Alembic migration that creates the `pricing` table (against SQLModel.metadata populated by Plan 01), creates `alert_rules` + `alert_state`, adds `otel_events.attrs_skill_name`, splits `tokens_cache_create` into `_5m`/`_1h`, fixes BUG-A and BUG-B, and backfills 6,392 historical rows.
+Last session: 2026-05-03T12:34:19Z — Phase 13 Plan 02 complete (single 0002 Alembic migration + BUG-A read-side fix + BUG-B backfill recovering 13,998 of 14,000 production NULL session_id rows)
+Stopped at: Phase 13 Plan 02 complete; ready to execute Plan 03 (ingest read-side BUG-B fix + JSONL parser cache split + INGST-13 dedup wiring)
+Resume file: None — next action is `/gsd-execute-plan 13 03` — Plan 03 wires the prospective fixes against the now-existing schema (otel_events.attrs_skill_name + otel_event_id + UNIQUE constraint; sessions/token_usage cache TTL split columns; pricing table for cost-engine reads). The 0002 migration is the load-bearing contract — every subsequent Phase 13 plan reads against it.
 
 ---
 
