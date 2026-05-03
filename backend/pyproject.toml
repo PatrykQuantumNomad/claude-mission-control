@@ -88,6 +88,7 @@ exclude = [
   "cmc/db",
   "cmc/dispatcher",
   "cmc/ingest/repository.py",
+  "cmc/pricing.py",
   "cmc/telegram",
   "migrations",
   "tests",

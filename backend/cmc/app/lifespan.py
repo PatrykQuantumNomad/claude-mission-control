@@ -103,6 +103,16 @@ async def lifespan(app: FastAPI):
     app.state.engine = engine
     app.state.sessions = make_sessionmaker(engine)
 
+    # Phase 13 ANLY-02: idempotent pricing seed from data/pricing.json. Wrapped in
+    # try/except so a malformed JSON cannot prevent boot — doctor surfaces the failure.
+    from cmc.pricing import load_seed as load_pricing_seed
+    async with app.state.sessions() as seed_session:
+        try:
+            seed_summary = await load_pricing_seed(seed_session)
+            log.info("pricing.boot_seed %s", seed_summary)
+        except Exception:
+            log.exception("pricing.boot_seed_failed")
+
     # Boot-time sync + periodic loop. Wrap boot sync in try/except so a transient
     # filesystem or database error doesn't prevent the server from coming up; the
     # loop will retry every 120s.
