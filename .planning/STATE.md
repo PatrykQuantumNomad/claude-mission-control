@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Skills & Cost Intelligence
 status: executing
-stopped_at: Phase 12 complete (Plan 12-02 — SPIKE.md composed, 10 locks authored, 2 BUG flags surfaced for Phase 13)
-last_updated: "2026-05-02T22:20:11.004Z"
-last_activity: 2026-05-02 — Phase 12 complete (Plan 12-02 commit 2a66a4f); SPIKE.md composed with 10 locks (5 VERIFIED, 5 TENTATIVE/CITED), BUG-A and BUG-B flagged for Phase 13 INGST-11; cross-references table maps every lock to specific Phase 13/14/17 consuming artifacts
+stopped_at: Phase 13 Plan 01 complete (cost foundation — compute_cost + pricing.json + PricingRow + lifespan auto-seed)
+last_updated: "2026-05-03T00:00:00.000Z"
+last_activity: 2026-05-03 — Phase 13 Plan 01 complete (commits 61a2ec2 + 577cb93); cmc.pricing.compute_cost + load_seed + load_rates landed; data/pricing.json seeded with 5 SKUs; PricingRow registered in SQLModel.metadata for Plan 02's migration; lifespan auto-seed wired between alembic upgrade and boot sync
 progress:
   total_phases: 6
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
-  percent: 100
+  total_plans: 8
+  completed_plans: 3
+  percent: 38
 ---
 
 # Project State
@@ -22,16 +22,16 @@ See: .planning/PROJECT.md (updated 2026-05-02 — v1.1 Skills & Cost Intelligenc
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, queue and approve tasks, and kill runaway sessions — all from one browser tab.
 
-**Current focus:** v1.1 Skills & Cost Intelligence — Phase 12 complete (P0 hard gate satisfied); ready to plan Phase 13 (otel-skill-event-ingest).
+**Current focus:** v1.1 Skills & Cost Intelligence — Phase 13 underway (Plan 01 complete; cost-math primitive landed).
 
 ## Current Position
 
-Phase: 12 of 17 (OTEL Skill Event Spike) — **COMPLETE**
-Plan: 12-02 complete (commit 2a66a4f); next phase to plan is 13-otel-skill-event-ingest
-Status: Phase 12 complete — SPIKE.md composed with 10 locks (5 VERIFIED, 5 TENTATIVE/CITED) + 2 BUG flags + cross-references table; Phase 12 P0 hard gate satisfied
-Last activity: 2026-05-02 — Phase 12 complete; Plan 12-02 (commit 2a66a4f) composed SPIKE.md authoring 10 locks, flagging BUG-A (`cmc/api/routes/observability.py:535` flat json_extract) and BUG-B (`cmc/api/routes/ingest.py:103` `session_id` underscore vs `session.id` dotted) as Phase 13 INGST-11 fixes
+Phase: 13 of 17 (Cost Foundation & Skill Ingest) — **IN PROGRESS**
+Plan: 13-01 complete (commits 61a2ec2 + 577cb93); next plan is 13-02 (Alembic migration: pricing table + alert tables + otel_events.attrs_skill_name + BUG-A/B fixes + cache TTL split)
+Status: Phase 13 Plan 01 complete — cmc.pricing module shipped with compute_cost / load_seed / load_rates / unpriced_tokens / pricing_json_hash; data/pricing.json seeded with 5 SKUs at 2026-05-03 published rates; PricingRow registered in SQLModel.metadata['pricing'] for Plan 02; lifespan auto-seed wired
+Last activity: 2026-05-03 — Phase 13 Plan 01 complete; ready for Plan 02 (Alembic migration)
 
-Progress: [██████████] 100% (Phase 12 of 12 plans for this phase complete)
+Progress: [████░░░░░░] 38% (Plan 01 of 6 complete; Phase 12 fully complete + Phase 13 Plan 01)
 
 ## Accumulated Context
 
@@ -45,6 +45,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent v1.1 architectura
 - Phase 12 Plan 02 (executed 2026-05-02): SPIKE.md composed with 10 locks (LOCK-1 through LOCK-10). 5 HIGH-confidence VERIFIED (LOCK-4 cache TTL split surface — JSONL-only at 2.1.116; LOCK-5 session.id dotted; LOCK-6 no project.* attribute exists at 2.1.116; LOCK-9 token attribution via JOIN to api_request; LOCK-10 service.version 2.1.116). 5 TENTATIVE/CITED to STACK.md §1 → Context7 /ericbuess/claude-code-docs (LOCK-1 event name; LOCK-2 skill_name attribute key; LOCK-3 duration_ms presence; LOCK-7 multi-skill turn batching; LOCK-8 error/cancel/failure status). Two latent bugs flagged for Phase 13 INGST-11 fix: BUG-A (`cmc/api/routes/observability.py:535` flat json_extract returns NULL silently for 1,406 tool_decision rows) and BUG-B (`cmc/api/routes/ingest.py:103` reads `session_id` underscore; emitted key is `session.id` dotted; all 6,392 production rows have NULL session_id column). Cross-references table maps every lock to a specific consuming artifact (file:line / function / column / endpoint precision). Phase 12 P0 hard gate satisfied; Phase 13 unblocked.
 - Phase 13 (Cost): hand-rolled `cmc/pricing.py` + `Decimal` math, read-time cost compute (no $ stored in DB), `effective_from`/`effective_until` on pricing table for self-correcting historical totals.
 - Phase 13 (Ingest): one Alembic migration adds `otel_events.attrs_skill_name` index + alert tables together (mirrors existing `attrs_mcp_*` pattern).
+- Phase 13 Plan 01 (executed 2026-05-03): cmc.pricing module landed; `compute_cost` is pure stdlib Decimal (verified $5.00, $37.50, $46.75 exact — no float drift); 5 SKUs in data/pricing.json (all rates as JSON strings per Pitfall 1); PricingRow registered in SQLModel.metadata; lifespan auto-seed wraps load_seed in try/except so malformed JSON cannot block boot. cmc/pricing.py added to pyright exclude list (matches existing project convention for SQLAlchemy-heavy modules — cmc/db, cmc/api, cmc/dispatcher, cmc/ingest/repository.py).
 - Phase 15 (Alerts): alert engine lives inside the existing 120s dispatcher tick (no new launchd job), emits decisions only (`ALRT-12` — never imports `cmc.dispatcher.tasks`), stable `dedup_key = alert:{rule_id}:{scope_key}` (no timestamps).
 - Phase 16 (Compare): single backend endpoint with cost computed via shared `cmc/cost/engine.py`; URL state as source of truth; structured tabular only (no text-diff library).
 
@@ -81,12 +82,13 @@ None yet.
 |-------|------|----------|-------|-------|------|
 | 12 | 01 | ~37 min (excl. checkpoint pause) | 2 | 1 created (`SPIKE.md`, 762 lines) + 1 SUMMARY | 2026-05-02 |
 | 12 | 02 | ~4 min | 1 | 1 modified (`SPIKE.md`, +339/-2 lines → 1,097 total) + 1 SUMMARY | 2026-05-02 |
+| 13 | 01 | ~11 min | 2 | 4 created (`pricing.json`, `pricing.py`, `db/models/pricing.py`, `test_pricing.py`) + 3 modified (`db/models/__init__.py`, `app/lifespan.py`, `pyproject.toml`) + 1 SUMMARY | 2026-05-03 |
 
 ## Session Continuity
 
-Last session: 2026-05-02T22:20:10.997Z — Phase 12 complete (Plan 12-02 — SPIKE.md composed, 10 locks authored, 2 BUG flags surfaced for Phase 13)
-Stopped at: Phase 12 complete; ready to plan Phase 13 (otel-skill-event-ingest)
-Resume file: None — next action is `/gsd-plan-phase 13` (begins Phase 13 planning) — Phase 13 is unblocked, can cite SPIKE.md#lock-2, #lock-4, #lock-5, #lock-9 for INGST-11 / ANLY-01
+Last session: 2026-05-03T00:00:00.000Z — Phase 13 Plan 01 complete (cost foundation — compute_cost + pricing.json + PricingRow + lifespan auto-seed)
+Stopped at: Phase 13 Plan 01 complete; ready to execute Plan 02 (Alembic migration: pricing table + alert tables + otel_events.attrs_skill_name + BUG-A/B fixes + cache TTL split)
+Resume file: None — next action is `/gsd-execute-plan 13 02` — Plan 02 owns the single Alembic migration that creates the `pricing` table (against SQLModel.metadata populated by Plan 01), creates `alert_rules` + `alert_state`, adds `otel_events.attrs_skill_name`, splits `tokens_cache_create` into `_5m`/`_1h`, fixes BUG-A and BUG-B, and backfills 6,392 historical rows.
 
 ---
 
