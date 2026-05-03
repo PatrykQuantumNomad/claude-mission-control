@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Skills & Cost Intelligence
 status: completed
-stopped_at: Phase 13 Plan 02 complete; ready to execute Plan 03 (ingest read-side BUG-B fix + JSONL parser cache split + INGST-13 dedup wiring)
-last_updated: "2026-05-03T13:10:41.916Z"
-last_activity: 2026-05-03 — Phase 13 Plan 04 complete; ready for Plan 06
+stopped_at: Phase 13 Plans 03 + 04 + 05 all complete; ready to execute Plan 06 (UAT runbook + verification)
+last_updated: "2026-05-03T13:12:06.575Z"
+last_activity: 2026-05-03 — Phase 13 Plan 05 complete (cmc doctor 8 → 14 checks); ready for Plan 06
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 8
-  completed_plans: 6
-  percent: 75
+  completed_plans: 7
+  percent: 88
 ---
 
 # Project State
@@ -22,16 +22,16 @@ See: .planning/PROJECT.md (updated 2026-05-02 — v1.1 Skills & Cost Intelligenc
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, queue and approve tasks, and kill runaway sessions — all from one browser tab.
 
-**Current focus:** v1.1 Skills & Cost Intelligence — Phase 13 Plan 04 complete (cost router shipped); Plans 03 + 05 also landed in parallel waves on this branch.
+**Current focus:** v1.1 Skills & Cost Intelligence — Phase 13 Wave 3 complete (Plans 03 + 04 + 05 landed in parallel; cost router + ingest-side fixes + cmc doctor expansion).
 
 ## Current Position
 
 Phase: 13 of 17 (Cost Foundation & Skill Ingest) — **IN PROGRESS**
-Plan: 13-04 complete (commits c40eaf0 + 5811beb); Plan 13-03 also landed (commit a190a92) and Plan 13-05 also landed (commit 0a47323) in the same parallel wave. Remaining: Plan 13-06 (UAT runbook + verification).
-Status: Phase 13 Plan 04 complete — three read-time cost endpoints ship (`/api/cost/summary`, `/api/cost/breakdown`, `/api/pricing/freshness`). Decimal-as-JSON-string locked (Pydantic v2 default; `jsonable_encoder` forbidden anywhere near a money payload). Range param locked enum `Literal["1d","7d","14d","30d"]` returns 422 on mismatch. `breakdown(dim=model).total == summary.total` by Decimal equality (no float drift). Skill attribution session-scoped per SPIKE.md LOCK-9 — Phase 14 owns the request-scoped refinement via `api_request` JOIN. Project breakdown keys on `sessions.cwd` (project_hash column doesn't exist). 8 cost tests pass + full backend suite 432/432 green.
-Last activity: 2026-05-03 — Phase 13 Plan 04 complete; ready for Plan 06
+Plan: Wave 3 complete: 13-03 (commit a190a92 + 479452f), 13-04 (commits c40eaf0 + 5811beb + bcadb32), 13-05 (commits 0a47323 + ac06db1) all landed. Remaining: Plan 13-06 (UAT runbook + verification).
+Status: Phase 13 Plan 05 complete — `cmc doctor` extended from 8 → 14 checks. Six new sensors: pricing freshness (warn at >30d, fail on empty), unpriced tokens (warn per unmapped model in token_usage), pricing.json hash drift (real check using PricingRow.seed_hash on highest-effective_from active row; warn on mismatch, fail on missing/invalid JSON), session_id NULL count (BUG-B regression detector), unmapped otel models (warn for last 7 days), OTEL_LOG_TOOL_DETAILS env var (warn when unset, POLI-01 carry-forward). Pitfall 5 fully enforced — drift status='warn' so CI never red on operational drift; status='fail' reserved exclusively for true unblockers (empty pricing table, missing/unparseable pricing.json). 15 hermetic unit tests added in tests/test_doctor.py (per-test ephemeral SQLite); test_telegram_setup drift count assertion 8 → 14. Full backend suite green (434 passed, 2 skipped, 0 failed).
+Last activity: 2026-05-03 — Phase 13 Plan 05 complete; Wave 3 closed; ready for Plan 06
 
-Progress: [████████░░] 75%
+Progress: [█████████░] 88%
 
 ## Accumulated Context
 
@@ -51,6 +51,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent v1.1 architectura
 - Phase 16 (Compare): single backend endpoint with cost computed via shared `cmc/cost/engine.py`; URL state as source of truth; structured tabular only (no text-diff library).
 - Phase 13 Plan 04 (executed 2026-05-03): cost router shipped — `/api/cost/summary`, `/api/cost/breakdown`, `/api/pricing/freshness`. Decimal-as-JSON-string locked (Pydantic v2 default; `jsonable_encoder` forbidden). Range enum locked (`Literal["1d","7d","14d","30d"]` -> 422 on mismatch). `breakdown(dim=model).total == summary.total` by Decimal equality (no float drift). Skill attribution session-scoped per SPIKE.md LOCK-9 — Phase 14 owns request-scoped refinement via `api_request` JOIN. Project breakdown keys on `sessions.cwd` (project_hash column doesn't exist in sessions schema). `MAX(s.model)` as pricing-key for skill/project breakdowns. 8 tests pass; full backend suite 432/432.
 - [Phase ?]: Phase 13 Plan 03 (executed 2026-05-03): extract_skill_attr + extract_event_sequence pure-function helpers added next to extract_mcp_attrs; /v1/logs router reads session.id (dotted) per SPIKE.md LOCK-5 (BUG-B prospective fix), populates attrs_skill_name + otel_event_id, and uses sqlite_insert(...).on_conflict_do_nothing(index_elements=['session_id','otel_event_id']) for INGST-13 idempotency. JSONL parse_session_file extracts cache_creation.ephemeral_5m/1h_input_tokens; legacy aggregate fallback lands entirely in 1h tier (CONTEXT.md pessimistic rule, direction-honest). Repository upserts wired through both Session and TokenUsage with the new TTL columns. 5 new tests in test_ingest.py + 7 new pure-function tests in test_otel_parser.py — all 48 pass. Pre-commit ruff hook surfaced 6 lint violations in Plan 04's untracked cost.py; applied minimal fixes under deviation Rule 3 to unblock commits (cost.py NOT staged in either Plan 03 commit).
+- Phase 13 Plan 05 (executed 2026-05-03): `cmc doctor` expanded 8 → 14 checks. Six new sensors land covering ANLY-05 (pricing freshness #9, unpriced tokens #10, pricing.json hash drift #11 — REAL check via PricingRow.seed_hash, not paraphrase; unmapped otel models #13), BUG-B regression (#12 session_id NULL count), and POLI-01 carry-forward (#14 OTEL_LOG_TOOL_DETAILS). Pitfall 5 fully enforced: status='warn' for all drift, status='fail' reserved for the three true unblockers (empty pricing table, missing pricing.json, invalid JSON). DB queries via stdlib sqlite3 (no SQLAlchemy session) for cwd-independence. 15 hermetic unit tests in tests/test_doctor.py with per-test ephemeral SQLite + monkeypatched `cmc.pricing._PRICING_JSON`. Drift fix: `test_telegram_setup.py::test_doctor_run_checks_returns_eight` → `_returns_fourteen`. Full backend suite 434 passed, 2 skipped, 0 failed. Pre-commit hook scope (lints entire `cmc tests` tree) clashed with parallel-wave-3 untracked cost.py from Plan 04; resolved by parking unrelated untracked files outside the tree during commit.
 
 ### Pending Todos
 
@@ -88,13 +89,14 @@ None yet.
 | 13 | 01 | ~11 min | 2 | 4 created (`pricing.json`, `pricing.py`, `db/models/pricing.py`, `test_pricing.py`) + 3 modified (`db/models/__init__.py`, `app/lifespan.py`, `pyproject.toml`) + 1 SUMMARY | 2026-05-03 |
 | 13 | 02 | ~17 min | 2 | 4 created (`alert_rules.py`, `alert_state.py`, `0002_v1_1_alerts_and_skills.py`, `test_migrations.py`) + 7 modified (`otel_events.py`, `sessions.py`, `token_usage.py`, `db/models/__init__.py`, `observability.py`, `test_observability_router.py`, `test_foundation_boot.py`) + 1 SUMMARY | 2026-05-03 |
 | 13 | 04 | ~17 min | 2 | 3 created (`schemas/cost.py`, `routes/cost.py`, `tests/test_cost_router.py`) + 1 modified (`routes/__init__.py`) + 1 SUMMARY | 2026-05-03 |
+| 13 | 05 | ~30 min | 2 | 1 created (`tests/test_doctor.py`, 344 lines, 15 tests) + 2 modified (`cli/doctor.py` +289 lines for 6 new checks; `tests/test_telegram_setup.py` 8 → 14 drift fix) + 1 SUMMARY | 2026-05-03 |
 | Phase 13 P03 | 25min | 2 tasks | 6 files |
 
 ## Session Continuity
 
-Last session: 2026-05-03T13:10:21.812Z
-Stopped at: Phase 13 Plan 02 complete; ready to execute Plan 03 (ingest read-side BUG-B fix + JSONL parser cache split + INGST-13 dedup wiring)
-Resume file: None
+Last session: 2026-05-03T13:13:10Z — Phase 13 Plan 05 complete (cmc doctor 8 → 14 checks); Wave 3 (Plans 03 + 04 + 05) closed
+Stopped at: Phase 13 Wave 3 complete; ready to execute Plan 06 (UAT runbook + verification)
+Resume file: None — next action is `/gsd-execute-plan 13 06` for the final UAT plan
 
 ---
 
