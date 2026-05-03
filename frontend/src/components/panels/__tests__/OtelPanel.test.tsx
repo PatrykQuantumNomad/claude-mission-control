@@ -88,6 +88,7 @@ describe('OtelPanel', () => {
         session_id: 'sid-aaaa-1111',
         attrs_mcp_server: null,
         attrs_mcp_tool: null,
+        attrs_skill_name: null,
       },
       '1',
     )
@@ -100,6 +101,7 @@ describe('OtelPanel', () => {
         session_id: 'sid-bbbb-2222',
         attrs_mcp_server: null,
         attrs_mcp_tool: null,
+        attrs_skill_name: null,
       },
       '2',
     )
@@ -135,6 +137,7 @@ describe('OtelPanel', () => {
         session_id: null,
         attrs_mcp_server: null,
         attrs_mcp_tool: null,
+        attrs_skill_name: null,
       },
       '1',
     )
@@ -147,6 +150,7 @@ describe('OtelPanel', () => {
         session_id: null,
         attrs_mcp_server: null,
         attrs_mcp_tool: null,
+        attrs_skill_name: null,
       },
       '2',
     )

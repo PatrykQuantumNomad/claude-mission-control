@@ -26,6 +26,10 @@ export interface OtelEvent {
   session_id: string | null
   attrs_mcp_server: string | null
   attrs_mcp_tool: string | null
+  // Phase 14 (Plan 02) — backend SSE forwards this on every otel frame; the
+  // column was added Phase 13 P02 and the SSE payload was extended in Plan
+  // 14-01 (sse.py). Plan 04 SkillTimeline reads it to label firehose rows.
+  attrs_skill_name: string | null
 }
 
 export type FirehoseStatus = 'connecting' | 'open' | 'closed'

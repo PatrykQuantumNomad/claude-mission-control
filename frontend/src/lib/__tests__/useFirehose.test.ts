@@ -58,6 +58,7 @@ describe('useFirehose', () => {
         session_id: null,
         attrs_mcp_server: null,
         attrs_mcp_tool: null,
+        attrs_skill_name: null,
       },
       '1',
     )
@@ -69,6 +70,7 @@ describe('useFirehose', () => {
         session_id: null,
         attrs_mcp_server: null,
         attrs_mcp_tool: null,
+        attrs_skill_name: null,
       },
       '2',
     )
@@ -80,6 +82,7 @@ describe('useFirehose', () => {
         session_id: null,
         attrs_mcp_server: null,
         attrs_mcp_tool: null,
+        attrs_skill_name: null,
       },
       '3',
     )
