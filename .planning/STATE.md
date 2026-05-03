@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Skills & Cost Intelligence
 status: completed
-stopped_at: Phase 13 Plans 03 + 04 + 05 all complete; ready to execute Plan 06 (UAT runbook + verification)
-last_updated: "2026-05-03T13:12:06.575Z"
-last_activity: 2026-05-03 — Phase 13 Plan 05 complete (cmc doctor 8 → 14 checks); ready for Plan 06
+stopped_at: Phase 13 complete — all 6 plans executed; ready to plan Phase 14 (Skills API & Page Panels)
+last_updated: "2026-05-03T13:33:56Z"
+last_activity: 2026-05-03 — Phase 13 Plan 06 complete (e2e trace + Plan 01 deferred stubs finalized); Phase 13 closed
 progress:
   total_phases: 6
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 8
-  completed_plans: 7
-  percent: 88
+  completed_plans: 8
+  percent: 100
 ---
 
 # Project State
@@ -22,16 +22,16 @@ See: .planning/PROJECT.md (updated 2026-05-02 — v1.1 Skills & Cost Intelligenc
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, queue and approve tasks, and kill runaway sessions — all from one browser tab.
 
-**Current focus:** v1.1 Skills & Cost Intelligence — Phase 13 Wave 3 complete (Plans 03 + 04 + 05 landed in parallel; cost router + ingest-side fixes + cmc doctor expansion).
+**Current focus:** v1.1 Skills & Cost Intelligence — Phase 13 (Cost Foundation & Skill Ingest) complete; Phase 14 (Skills API & Page Panels) up next.
 
 ## Current Position
 
-Phase: 13 of 17 (Cost Foundation & Skill Ingest) — **IN PROGRESS**
-Plan: Wave 3 complete: 13-03 (commit a190a92 + 479452f), 13-04 (commits c40eaf0 + 5811beb + bcadb32), 13-05 (commits 0a47323 + ac06db1) all landed. Remaining: Plan 13-06 (UAT runbook + verification).
-Status: Phase 13 Plan 05 complete — `cmc doctor` extended from 8 → 14 checks. Six new sensors: pricing freshness (warn at >30d, fail on empty), unpriced tokens (warn per unmapped model in token_usage), pricing.json hash drift (real check using PricingRow.seed_hash on highest-effective_from active row; warn on mismatch, fail on missing/invalid JSON), session_id NULL count (BUG-B regression detector), unmapped otel models (warn for last 7 days), OTEL_LOG_TOOL_DETAILS env var (warn when unset, POLI-01 carry-forward). Pitfall 5 fully enforced — drift status='warn' so CI never red on operational drift; status='fail' reserved exclusively for true unblockers (empty pricing table, missing/unparseable pricing.json). 15 hermetic unit tests added in tests/test_doctor.py (per-test ephemeral SQLite); test_telegram_setup drift count assertion 8 → 14. Full backend suite green (434 passed, 2 skipped, 0 failed).
-Last activity: 2026-05-03 — Phase 13 Plan 05 complete; Wave 3 closed; ready for Plan 06
+Phase: 13 of 17 (Cost Foundation & Skill Ingest) — **COMPLETE**
+Plan: All 6 plans executed: 13-01 (61a2ec2 + 577cb93), 13-02 (ed6ec56 + 2f30a66), 13-03 (a190a92 + 479452f), 13-04 (c40eaf0 + 5811beb + bcadb32), 13-05 (0a47323 + ac06db1), 13-06 (dad594c + b13de01). Phase 13 fully landed.
+Status: Phase 13 Plan 06 complete — Plan 01's two pytest.skip async stubs (test_seed_loader_round_trip, test_pricing_window_self_correcting) now pass against the lifespan-seeded DB; new test_phase13_e2e.py provides a single end-to-end trace exercising lifespan auto-seed → POST /v1/logs (skill_activated, dotted session.id, BUG-B path) → idempotent re-POST (INGST-13) → GET /api/cost/summary (rates_as_of=2026-05-03, total_usd=$35 exact Decimal) → GET /api/cost/breakdown?dim=skill (data:analyze present); REPL-import smoke test locks roadmap success criterion #1. db_session/seed_pricing fixtures landed in conftest with client-coexistence handling (when both fixtures requested, client owns the lifespan entry). All 8 Phase 13 requirements (ANLY-01..05 + INGST-11..13) trace to ≥1 passing test (matrix in 13-06-SUMMARY.md). Full backend suite: 438 passed, 0 skipped, 0 failed (was 434 + 2 skipped baseline; net +4).
+Last activity: 2026-05-03 — Phase 13 Plan 06 complete; Phase 13 closed; ready for Phase 14 planning
 
-Progress: [█████████░] 88%
+Progress: [██████████] 100%
 
 ## Accumulated Context
 
@@ -52,6 +52,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent v1.1 architectura
 - Phase 13 Plan 04 (executed 2026-05-03): cost router shipped — `/api/cost/summary`, `/api/cost/breakdown`, `/api/pricing/freshness`. Decimal-as-JSON-string locked (Pydantic v2 default; `jsonable_encoder` forbidden). Range enum locked (`Literal["1d","7d","14d","30d"]` -> 422 on mismatch). `breakdown(dim=model).total == summary.total` by Decimal equality (no float drift). Skill attribution session-scoped per SPIKE.md LOCK-9 — Phase 14 owns request-scoped refinement via `api_request` JOIN. Project breakdown keys on `sessions.cwd` (project_hash column doesn't exist in sessions schema). `MAX(s.model)` as pricing-key for skill/project breakdowns. 8 tests pass; full backend suite 432/432.
 - [Phase ?]: Phase 13 Plan 03 (executed 2026-05-03): extract_skill_attr + extract_event_sequence pure-function helpers added next to extract_mcp_attrs; /v1/logs router reads session.id (dotted) per SPIKE.md LOCK-5 (BUG-B prospective fix), populates attrs_skill_name + otel_event_id, and uses sqlite_insert(...).on_conflict_do_nothing(index_elements=['session_id','otel_event_id']) for INGST-13 idempotency. JSONL parse_session_file extracts cache_creation.ephemeral_5m/1h_input_tokens; legacy aggregate fallback lands entirely in 1h tier (CONTEXT.md pessimistic rule, direction-honest). Repository upserts wired through both Session and TokenUsage with the new TTL columns. 5 new tests in test_ingest.py + 7 new pure-function tests in test_otel_parser.py — all 48 pass. Pre-commit ruff hook surfaced 6 lint violations in Plan 04's untracked cost.py; applied minimal fixes under deviation Rule 3 to unblock commits (cost.py NOT staged in either Plan 03 commit).
 - Phase 13 Plan 05 (executed 2026-05-03): `cmc doctor` expanded 8 → 14 checks. Six new sensors land covering ANLY-05 (pricing freshness #9, unpriced tokens #10, pricing.json hash drift #11 — REAL check via PricingRow.seed_hash, not paraphrase; unmapped otel models #13), BUG-B regression (#12 session_id NULL count), and POLI-01 carry-forward (#14 OTEL_LOG_TOOL_DETAILS). Pitfall 5 fully enforced: status='warn' for all drift, status='fail' reserved for the three true unblockers (empty pricing table, missing pricing.json, invalid JSON). DB queries via stdlib sqlite3 (no SQLAlchemy session) for cwd-independence. 15 hermetic unit tests in tests/test_doctor.py with per-test ephemeral SQLite + monkeypatched `cmc.pricing._PRICING_JSON`. Drift fix: `test_telegram_setup.py::test_doctor_run_checks_returns_eight` → `_returns_fourteen`. Full backend suite 434 passed, 2 skipped, 0 failed. Pre-commit hook scope (lints entire `cmc tests` tree) clashed with parallel-wave-3 untracked cost.py from Plan 04; resolved by parking unrelated untracked files outside the tree during commit.
+- Phase 13 Plan 06 (executed 2026-05-03): Phase 13 closed. Plan 01's two deferred async test stubs (test_seed_loader_round_trip, test_pricing_window_self_correcting) finalized — both pass against the lifespan-seeded pricing table without any pytest.skip. New tests/test_phase13_e2e.py (179 lines, 2 tests) provides a single end-to-end trace: lifespan auto-seed loaded 5 SKUs → pre-create sessions row → POST /v1/logs with skill_activated body using dotted `session.id` (LOCK-5/BUG-B) → re-POST returns 200 with no second row (UNIQUE(session_id, otel_event_id) + on_conflict_do_nothing — INGST-13) → GET /api/cost/summary returns total_usd="35" exact (2M @ $5/Mtok + 1M @ $25/Mtok) with rates_as_of="2026-05-03" → GET /api/cost/breakdown?dim=skill exposes data:analyze. Plus REPL-import smoke (`from cmc.pricing import compute_cost`, no app boot, returns Decimal("5") on 1M input — locks roadmap success criterion #1). conftest gained `db_session` + `seed_pricing` fixtures with client-coexistence handling (when test requests BOTH `client` AND `db_session`, client owns the lifespan entry; db_session detects via request.fixturenames and just opens a session on the running engine — avoids the `_AsyncGeneratorContextManager.args` consumption error from double-entering the same `cm`). All 8 Phase 13 requirements trace to passing tests (matrix in 13-06-SUMMARY.md). Full backend suite 438 passed, 0 skipped, 0 failed (net +4 from baseline 434+2skipped — the 2 stubs now run + 2 new e2e tests).
 
 ### Pending Todos
 
@@ -90,13 +91,14 @@ None yet.
 | 13 | 02 | ~17 min | 2 | 4 created (`alert_rules.py`, `alert_state.py`, `0002_v1_1_alerts_and_skills.py`, `test_migrations.py`) + 7 modified (`otel_events.py`, `sessions.py`, `token_usage.py`, `db/models/__init__.py`, `observability.py`, `test_observability_router.py`, `test_foundation_boot.py`) + 1 SUMMARY | 2026-05-03 |
 | 13 | 04 | ~17 min | 2 | 3 created (`schemas/cost.py`, `routes/cost.py`, `tests/test_cost_router.py`) + 1 modified (`routes/__init__.py`) + 1 SUMMARY | 2026-05-03 |
 | 13 | 05 | ~30 min | 2 | 1 created (`tests/test_doctor.py`, 344 lines, 15 tests) + 2 modified (`cli/doctor.py` +289 lines for 6 new checks; `tests/test_telegram_setup.py` 8 → 14 drift fix) + 1 SUMMARY | 2026-05-03 |
+| 13 | 06 | ~25 min | 2 | 1 created (`tests/test_phase13_e2e.py`, 179 lines, 2 tests) + 2 modified (`tests/test_pricing.py` replaced 2 pytest.skip stubs with working async tests; `tests/conftest.py` added db_session + seed_pricing fixtures with client-coexistence) + 1 SUMMARY | 2026-05-03 |
 | Phase 13 P03 | 25min | 2 tasks | 6 files |
 
 ## Session Continuity
 
-Last session: 2026-05-03T13:13:10Z — Phase 13 Plan 05 complete (cmc doctor 8 → 14 checks); Wave 3 (Plans 03 + 04 + 05) closed
-Stopped at: Phase 13 Wave 3 complete; ready to execute Plan 06 (UAT runbook + verification)
-Resume file: None — next action is `/gsd-execute-plan 13 06` for the final UAT plan
+Last session: 2026-05-03T13:33:56Z — Phase 13 Plan 06 complete (e2e trace + Plan 01 deferred stubs finalized); Phase 13 closed (all 6 plans)
+Stopped at: Phase 13 complete — all 6 plans landed; ready for Phase 14 (Skills API & Page Panels) planning
+Resume file: None — next action is `/gsd-plan-phase 14` for Skills API & Page Panels
 
 ---
 

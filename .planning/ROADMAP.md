@@ -31,7 +31,7 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 **Milestone Goal:** Close v1 deferred skill panels (ACTV-04 / SKLP-02), light up the full skills observability suite (frequency, cost, latency, timeline), add skill-level alerts + session comparison, and lay the ANLYT-01 cost-estimation foundation.
 
 - [x] **Phase 12: OTEL Skill Event Spike** - Verbatim live-data capture of `claude_code.skill_activated` event shape (P0 hard gate) (completed 2026-05-02)
-- [ ] **Phase 13: Cost Foundation & Skill Ingest** - Pricing module, `pricing` table, cost engine, cost API, skill-name ingest column (backend-only, no UI)
+- [x] **Phase 13: Cost Foundation & Skill Ingest** - Pricing module, `pricing` table, cost engine, cost API, skill-name ingest column (backend-only, no UI) (completed 2026-05-03)
 - [ ] **Phase 14: Skills API & Page Panels** - Skills aggregation endpoints + four reactivated/new skill panels (TopSkills, SkillCostCard, SkillLatencyTable, SkillTimeline) + per-skill detail route
 - [ ] **Phase 15: Alert Engine & UI** - Hysteresis-aware threshold + z-score detector, dispatcher hook, decisions/Telegram delivery, ack flow, CRUD + composer UI
 - [ ] **Phase 16: Session Comparison** - Single-endpoint paired-metrics diff, two-up compare view, Cmd+K + sessions-table picker
@@ -63,14 +63,14 @@ Plans:
   3. User can see "Rates as of YYYY-MM-DD" caption render on every cost figure, and `cmc doctor` warns when pricing rows are >30 days old or `unpriced_tokens > 0`.
   4. User can rely on `claude_code.skill_activated` events landing in `otel_events.attrs_skill_name` (indexed) via the existing `/v1/logs` endpoint — idempotent under cross-midnight re-ingest via `(session_id, otel_event_id)` UNIQUE constraint, in the same Alembic migration that adds the alert tables.
   5. User can trust that historical cost totals self-correct when pricing rows are added (effective_from / effective_until window logic) — no $ values stored in derived tables.
-**Plans:** 4/6 plans executed
+**Plans:** 6/6 plans executed
 Plans:
 - [x] 13-01-PLAN.md — Pricing module (compute_cost, load_seed, load_rates), data/pricing.json (5 SKUs), PricingRow SQLModel, FastAPI lifespan auto-seed (commits 61a2ec2 + 577cb93, 2026-05-03)
 - [x] 13-02-PLAN.md — Single Alembic migration 0002 (attrs_skill_name, otel_event_id + UNIQUE, cache TTL split columns, pricing/alert_rules/alert_state tables, BUG-B backfill, BUG-A SQL fix) (commits ed6ec56 + 2f30a66, 2026-05-03)
 - [x] 13-03-PLAN.md — Ingest layer (extract_skill_attr + extract_event_sequence, ingest.py BUG-B fix, on_conflict_do_nothing dedup, JSONL parser cache TTL split, repository upserts)
 - [x] 13-04-PLAN.md — Cost API (GET /api/cost/summary, /api/cost/breakdown, /api/pricing/freshness) + response schemas + integration tests
-- [ ] 13-05-PLAN.md — Doctor checks 9-14 (pricing freshness, unpriced tokens, pricing.json parseable, session_id NULL detector, unmapped otel models, OTEL_LOG_TOOL_DETAILS)
-- [ ] 13-06-PLAN.md — End-to-end trace tests + finalize Plan 01 async stubs + cross-plan integration verification
+- [x] 13-05-PLAN.md — Doctor checks 9-14 (pricing freshness, unpriced tokens, pricing.json parseable, session_id NULL detector, unmapped otel models, OTEL_LOG_TOOL_DETAILS) (commits 0a47323 + ac06db1, 2026-05-03)
+- [x] 13-06-PLAN.md — End-to-end trace tests + finalize Plan 01 async stubs + cross-plan integration verification (commits dad594c + b13de01, 2026-05-03)
 
 ### Phase 14: Skills API & Page Panels
 **Goal**: Reactivate v1.0 placeholder skill panels with real data and ship the full skills observability suite (frequency, cost, latency, timeline) plus a per-skill detail route.

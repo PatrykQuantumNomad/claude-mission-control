@@ -12,17 +12,17 @@
 
 ### Cost Foundation (ANLYT-01)
 
-- [ ] **ANLY-01**: User can rely on `cmc/pricing.py` exposing `compute_cost(model, input, output, cache_read, cache_create_5m, cache_create_1h) -> Decimal` with stdlib math (no float drift) and pricing seeded from `data/pricing.json`
-- [ ] **ANLY-02**: User can verify all 5 model SKUs (`claude-opus-4-7`, `claude-opus-4-7[1m]`, `claude-sonnet-4-6`, `claude-sonnet-4-6[1m]`, `claude-haiku-4-5`) seeded with input/output/cache-tier rates fetched from `https://www.anthropic.com/pricing` on 2026-05-02 (or freeze date)
-- [ ] **ANLY-03**: User can rely on a `pricing` table with `effective_from` / `effective_until` columns so historical cost totals self-correct when pricing rows are added; never store cost as $ in derived tables
+- [x] **ANLY-01**: User can rely on `cmc/pricing.py` exposing `compute_cost(model, input, output, cache_read, cache_create_5m, cache_create_1h) -> Decimal` with stdlib math (no float drift) and pricing seeded from `data/pricing.json` (delivered Phase 13 Plan 01 + verified Plan 06 — REPL-import smoke `test_phase13_repl_import_compute_cost`)
+- [x] **ANLY-02**: User can verify all 5 model SKUs (`claude-opus-4-7`, `claude-opus-4-7[1m]`, `claude-sonnet-4-6`, `claude-sonnet-4-6[1m]`, `claude-haiku-4-5`) seeded with input/output/cache-tier rates fetched from `https://www.anthropic.com/pricing` on 2026-05-02 (or freeze date) (delivered Phase 13 Plan 01; idempotency proven Plan 06 — `test_seed_loader_round_trip`)
+- [x] **ANLY-03**: User can rely on a `pricing` table with `effective_from` / `effective_until` columns so historical cost totals self-correct when pricing rows are added; never store cost as $ in derived tables (delivered Phase 13 Plan 01 + Plan 02 schema; window self-correction proven Plan 06 — `test_pricing_window_self_correcting`)
 - [x] **ANLY-04**: User can hit `GET /api/cost/summary?range=` and `GET /api/cost/breakdown?dim=model|skill|project&range=` for read-time-computed cost figures with consistent cache-tier accounting
-- [ ] **ANLY-05**: User can see "Rates as of YYYY-MM-DD" caption on every cost figure rendered in the UI; doctor.py warns when pricing rows are >30 days old or `unpriced_tokens > 0`
+- [x] **ANLY-05**: User can see "Rates as of YYYY-MM-DD" caption on every cost figure rendered in the UI; doctor.py warns when pricing rows are >30 days old or `unpriced_tokens > 0` (backend portion delivered Phase 13 Plan 04 freshness endpoint + Plan 05 doctor sensors; UI caption deferred to Phase 14 panels)
 
 ### Skill Ingest Extension
 
-- [ ] **INGST-11**: User can rely on the existing `/v1/logs` OTLP endpoint to extract `attrs_skill_name` from `claude_code.skill_activated` events into a new indexed column on `otel_events`, mirroring the existing `attrs_mcp_server` / `attrs_mcp_tool` pattern
+- [x] **INGST-11**: User can rely on the existing `/v1/logs` OTLP endpoint to extract `attrs_skill_name` from `claude_code.skill_activated` events into a new indexed column on `otel_events`, mirroring the existing `attrs_mcp_server` / `attrs_mcp_tool` pattern (delivered Phase 13 Plan 03; e2e proven Plan 06 — `test_phase13_full_trace`)
 - [x] **INGST-12**: User can rely on a single Alembic migration (`0002_v1_1_alerts_and_skills.py`) that adds `otel_events.attrs_skill_name` column + index in the same change as the new alert tables (delivered Phase 13 Plan 02, 2026-05-03 — commit 2f30a66)
-- [ ] **INGST-13**: User can rely on idempotent skill-event ingestion via `(session_id, otel_event_id)` UNIQUE constraint with `INSERT OR IGNORE`; cross-midnight late arrivals absorbed by 00:30 re-aggregation
+- [x] **INGST-13**: User can rely on idempotent skill-event ingestion via `(session_id, otel_event_id)` UNIQUE constraint with `INSERT OR IGNORE`; cross-midnight late arrivals absorbed by 00:30 re-aggregation (delivered Phase 13 Plan 02 UNIQUE + Plan 03 on_conflict_do_nothing; e2e dedup proven Plan 06 — `test_phase13_full_trace` step 4)
 
 ### Skills API
 
@@ -130,14 +130,14 @@ Which phases cover which requirements. Populated by gsd-roadmapper on 2026-05-02
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | SPIK-01 | Phase 12 | Complete |
-| ANLY-01 | Phase 13 | Pending |
-| ANLY-02 | Phase 13 | Pending |
-| ANLY-03 | Phase 13 | Pending |
+| ANLY-01 | Phase 13 | Complete (Plan 01 + Plan 06 REPL smoke — 2026-05-03) |
+| ANLY-02 | Phase 13 | Complete (Plan 01 + Plan 06 round-trip test — 2026-05-03) |
+| ANLY-03 | Phase 13 | Complete (Plan 01 + Plan 02 schema + Plan 06 window self-correction test — 2026-05-03) |
 | ANLY-04 | Phase 13 | Complete |
-| ANLY-05 | Phase 13 | Pending |
-| INGST-11 | Phase 13 | Pending |
+| ANLY-05 | Phase 13 | Complete backend (Plan 04 freshness + Plan 05 doctor; UI caption deferred to Phase 14) |
+| INGST-11 | Phase 13 | Complete (Plan 03 + Plan 06 e2e — 2026-05-03) |
 | INGST-12 | Phase 13 | Complete (Plan 02 — 2f30a66, 2026-05-03) |
-| INGST-13 | Phase 13 | Pending |
+| INGST-13 | Phase 13 | Complete (Plan 02 UNIQUE + Plan 03 on_conflict_do_nothing + Plan 06 e2e dedup — 2026-05-03) |
 | SKIL-04 | Phase 14 | Pending |
 | SKIL-05 | Phase 14 | Pending |
 | SKIL-06 | Phase 14 | Pending |
