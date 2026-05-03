@@ -32,8 +32,13 @@ import type {
   SchedulePatch,
   SessionsListParams,
   SkillAutonomyRequest,
+  SkillCostResponse,
+  SkillLatencyResponse,
   SkillListResponse,
+  SkillRange,
   SkillRow,
+  SkillRunsResponse,
+  SkillUsageResponse,
   TaskCreate,
   TaskListParams,
   TaskListResponse,
@@ -77,6 +82,15 @@ export const qk = {
   schedules: () => ['schedules'] as const,
   scheduleRuns: (id: number) => ['schedules', id, 'runs'] as const,
   skills: () => ['skills'] as const,
+  // Phase 14 (SKIL-04..07) — never reuse the bare 'skills' prefix; each
+  // analytics dimension is its own scoped key. Pitfall 5 from 14-RESEARCH.md.
+  skillUsage: (range: SkillRange) => ['skill-usage', range] as const,
+  skillCost: (name: string, range: SkillRange) =>
+    ['skill-cost', name, range] as const,
+  skillLatency: (name: string, range: SkillRange) =>
+    ['skill-latency', name, range] as const,
+  skillRuns: (name: string, limit: number) =>
+    ['skill-runs', name, limit] as const,
   contextHealth: () => ['context', 'health'] as const,
   systemState: (key: string) => ['system', 'state', key] as const,
 } as const
@@ -204,6 +218,47 @@ export const useEdits = (range: Range) =>
     queryFn: () => api.toolsEditDecisions(range),
     refetchInterval: 60_000,
     staleTime: 45_000,
+  })
+
+// Phase 14 (SKIL-04/05/06) — skills analytics rollups. Locked to the same
+// 60s/45s pair as the rest of the daily-aggregate bucket. Cadence is encoded
+// HERE (project convention — panels never inline refetchInterval; see file
+// header). useSkillRuns drops to 30s/15s below — recent runs are more time-
+// sensitive but not a per-second firehose.
+
+export const useSkillUsage = (range: SkillRange, limit: number = 10) =>
+  useQuery<SkillUsageResponse>({
+    queryKey: qk.skillUsage(range),
+    queryFn: () => api.skillUsage(range, limit),
+    refetchInterval: 60_000,
+    staleTime: 45_000,
+  })
+
+export const useSkillCost = (name: string, range: SkillRange) =>
+  useQuery<SkillCostResponse>({
+    queryKey: qk.skillCost(name, range),
+    queryFn: () => api.skillCost(name, range),
+    refetchInterval: 60_000,
+    staleTime: 45_000,
+  })
+
+export const useSkillLatency = (name: string, range: SkillRange) =>
+  useQuery<SkillLatencyResponse>({
+    queryKey: qk.skillLatency(name, range),
+    queryFn: () => api.skillLatency(name, range),
+    refetchInterval: 60_000,
+    staleTime: 45_000,
+  })
+
+// Recent runs — slightly faster cadence than 60s rollups, matches the urgency
+// tier of useSchedules (30s/20s). Not 5s like useDecisions because runs are
+// passive observation, not an action queue.
+export const useSkillRuns = (name: string, limit: number = 20) =>
+  useQuery<SkillRunsResponse>({
+    queryKey: qk.skillRuns(name, limit),
+    queryFn: () => api.skillRuns(name, limit),
+    refetchInterval: 30_000,
+    staleTime: 15_000,
   })
 
 // ============================================================================

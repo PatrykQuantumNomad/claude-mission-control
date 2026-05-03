@@ -19,6 +19,10 @@ import {
   useProductivity,
   useSessionDetails,
   useSessionsList,
+  useSkillCost,
+  useSkillLatency,
+  useSkillRuns,
+  useSkillUsage,
   useSummary,
   useSystemHealth,
   useTokens,
@@ -48,10 +52,37 @@ describe('queries.qk factory', () => {
     expect(qk.mcpTools('git')).toEqual(['mcp', 'git', 'tools'])
     expect(qk.mcpTools('git')).not.toEqual(qk.mcpTools('fs'))
   })
+
+  // Phase 14 (SKIL-04..07) — verify skill-* keys are uniquely scoped (Pitfall 5
+  // from 14-RESEARCH.md: never reuse the bare 'skills' prefix used by the
+  // catalog endpoint or the analytics keys would collide on invalidation).
+  it('skill analytics keys are scoped per dimension and per param', () => {
+    expect(qk.skillUsage('14d')).toEqual(['skill-usage', '14d'])
+    expect(qk.skillUsage('30d')).not.toEqual(qk.skillUsage('14d'))
+
+    expect(qk.skillCost('analyze', '14d')).toEqual(['skill-cost', 'analyze', '14d'])
+    expect(qk.skillCost('analyze', '14d')).not.toEqual(qk.skillCost('build', '14d'))
+    expect(qk.skillCost('analyze', '14d')).not.toEqual(qk.skillCost('analyze', '30d'))
+
+    expect(qk.skillLatency('analyze', '14d')).toEqual([
+      'skill-latency',
+      'analyze',
+      '14d',
+    ])
+
+    expect(qk.skillRuns('analyze', 20)).toEqual(['skill-runs', 'analyze', 20])
+    expect(qk.skillRuns('analyze', 20)).not.toEqual(qk.skillRuns('analyze', 50))
+
+    // None of the skill-analytics keys collide with the catalog 'skills' key.
+    const catalog = qk.skills() as readonly string[]
+    expect(catalog).toEqual(['skills'])
+    expect(qk.skillUsage('14d')[0]).not.toBe(catalog[0])
+    expect(qk.skillCost('a', '14d')[0]).not.toBe(catalog[0])
+  })
 })
 
 describe('queries surface area', () => {
-  it('exports the 20 panel hooks + the follow-up mutation', () => {
+  it('exports the 24 panel hooks + the follow-up mutation', () => {
     // Smoke test: importing the names succeeds. If any export is removed
     // or renamed, the import line at the top of this file would have
     // failed at module-load time. This test pins the surface explicitly
@@ -77,10 +108,15 @@ describe('queries surface area', () => {
       useHeatmap,
       useFailures,
       useSessionsList,
+      // Phase 14 (SKIL-04..07) — 4 new analytics hooks
+      useSkillUsage,
+      useSkillCost,
+      useSkillLatency,
+      useSkillRuns,
       useFollowUpMessage,
     ]
-    // 20 query hooks + 1 mutation = 21 callable exports
-    expect(exported).toHaveLength(21)
+    // 24 query hooks + 1 mutation = 25 callable exports
+    expect(exported).toHaveLength(25)
     for (const fn of exported) {
       expect(typeof fn).toBe('function')
     }
