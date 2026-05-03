@@ -214,10 +214,11 @@ async def test_alembic_upgrade_creates_all_tables(test_settings):
             def _inspect(sync_conn):
                 return sorted(inspect(sync_conn).get_table_names())
             tables = await conn.run_sync(_inspect)
-        # 15 app tables + alembic_version
+        # 18 app tables + alembic_version: 15 from 0001_initial + 3 from
+        # 0002 (pricing — Phase 13 Plan 01; alert_rules + alert_state — Plan 02).
         app_tables = [t for t in tables if t != "alembic_version"]
-        assert len(app_tables) == 15, (
-            f"Expected 15 app tables, got {len(app_tables)}: {app_tables}"
+        assert len(app_tables) == 18, (
+            f"Expected 18 app tables, got {len(app_tables)}: {app_tables}"
         )
     finally:
         await engine.dispose()
@@ -285,7 +286,10 @@ async def test_lifespan_initializes_engine_and_sessions(test_settings):
 
 @pytest.mark.asyncio
 async def test_lifespan_creates_all_tables(test_settings):
-    """FOUND-02 + FOUND-05: Lifespan runs alembic upgrade -> all 15 tables exist."""
+    """FOUND-02 + FOUND-05: Lifespan runs alembic upgrade -> all 18 tables exist.
+
+    18 = 15 (0001_initial) + 3 (0002: pricing, alert_rules, alert_state).
+    """
     from fastapi import FastAPI
     from sqlalchemy import inspect
 
@@ -299,7 +303,7 @@ async def test_lifespan_creates_all_tables(test_settings):
                 return sorted(inspect(sync_conn).get_table_names())
             tables = await conn.run_sync(_names)
         app_tables = [t for t in tables if t != "alembic_version"]
-        assert len(app_tables) == 15, f"got {app_tables}"
+        assert len(app_tables) == 18, f"got {app_tables}"
 
 
 @pytest.mark.asyncio

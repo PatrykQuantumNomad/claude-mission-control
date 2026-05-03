@@ -530,15 +530,33 @@ _EDIT_DECISIONS_SQL = text("""
     GROUP BY tool_name
 """)
 
+# BUG-A fix (Phase 13 Plan 02): the OTLP attribute payload is
+# `body.record.attributes` — an ARRAY of `{key, value}` pairs (NOT a flat dict
+# at body.tool_name). The previous flat `json_extract` returned NULL silently
+# for all 1,406+ tool_decision rows in production. `event_name` is also stored
+# in BARE form ('tool_decision') after ingest's prefix-strip per SPIKE.md
+# LOCK-1 — filter accordingly.
 _EDIT_DECISIONS_OTEL_SQL = text("""
     SELECT
-      json_extract(body, '$.tool_name') AS tool_name,
-      SUM(CASE WHEN json_extract(body, '$.decision') = 'accept' THEN 1 ELSE 0 END) AS accepted,
-      SUM(CASE WHEN json_extract(body, '$.decision') = 'reject' THEN 1 ELSE 0 END) AS rejected
+      (SELECT json_extract(value, '$.value.stringValue')
+         FROM json_each(json_extract(body, '$.record.attributes'))
+        WHERE json_extract(value, '$.key') = 'tool_name'
+        LIMIT 1) AS tool_name,
+      SUM(CASE WHEN (SELECT json_extract(value, '$.value.stringValue')
+                       FROM json_each(json_extract(body, '$.record.attributes'))
+                      WHERE json_extract(value, '$.key') = 'decision'
+                      LIMIT 1) = 'accept' THEN 1 ELSE 0 END) AS accepted,
+      SUM(CASE WHEN (SELECT json_extract(value, '$.value.stringValue')
+                       FROM json_each(json_extract(body, '$.record.attributes'))
+                      WHERE json_extract(value, '$.key') = 'decision'
+                      LIMIT 1) = 'reject' THEN 1 ELSE 0 END) AS rejected
     FROM otel_events
-    WHERE event_name = 'claude_code.tool_decision'
-      AND json_extract(body, '$.tool_name') IN ('Edit', 'MultiEdit', 'Write', 'NotebookEdit')
+    WHERE event_name = 'tool_decision'
       AND ts >= datetime('now', :since_clause)
+      AND (SELECT json_extract(value, '$.value.stringValue')
+             FROM json_each(json_extract(body, '$.record.attributes'))
+            WHERE json_extract(value, '$.key') = 'tool_name'
+            LIMIT 1) IN ('Edit', 'MultiEdit', 'Write', 'NotebookEdit')
     GROUP BY tool_name
 """)
 

@@ -549,10 +549,16 @@ async def test_obsv_08_edit_decisions_via_tools_decision(client) -> None:
 
 
 async def test_obsv_08_edit_decisions_via_otel_events(client) -> None:
-    """OBSV-08: read decisions from otel_events claude_code.tool_decision events.
+    """OBSV-08: read decisions from otel_events tool_decision events.
 
-    4 events with body.tool_name='Write': decisions = [accept, accept, reject, accept]
-    -> Write row: accepted=3, rejected=1.
+    Phase 13 Plan 02 BUG-A: the OTLP body shape is
+    `body.record.attributes = [{key, value}, ...]` (ARRAY) and the ingester
+    strips the `claude_code.` prefix from event_name (SPIKE.md LOCK-1), so
+    the row's `event_name` column reads `tool_decision` (BARE). The query
+    walks attributes via json_each.
+
+    4 events with attribute tool_name='Write': decisions = [accept, accept,
+    reject, accept] -> Write row: accepted=3, rejected=1.
     """
     app = client._transport.app  # type: ignore[attr-defined]
     base = datetime.now(UTC) - timedelta(hours=1)
@@ -560,9 +566,16 @@ async def test_obsv_08_edit_decisions_via_otel_events(client) -> None:
     events = [
         make_otel_event(
             ts=base + timedelta(seconds=i),
-            event_name="claude_code.tool_decision",
+            event_name="tool_decision",
             session_id="s-otel-edit",
-            body={"tool_name": "Write", "decision": d},
+            body={
+                "record": {
+                    "attributes": [
+                        {"key": "tool_name", "value": {"stringValue": "Write"}},
+                        {"key": "decision", "value": {"stringValue": d}},
+                    ]
+                }
+            },
         )
         for i, d in enumerate(decisions)
     ]
