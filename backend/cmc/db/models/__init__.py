@@ -14,6 +14,7 @@ from cmc.db.models.mcp_stats import MCPStat  # noqa: F401
 from cmc.db.models.notification_log import NotificationLog  # noqa: F401
 from cmc.db.models.otel_events import OtelEvent  # noqa: F401
 from cmc.db.models.otel_metrics import OtelMetric  # noqa: F401
+from cmc.db.models.pricing import PricingRow  # noqa: F401
 from cmc.db.models.schedules import Schedule  # noqa: F401
 from cmc.db.models.sessions import Session  # noqa: F401
 from cmc.db.models.skills import Skill  # noqa: F401
