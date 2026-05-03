@@ -3,7 +3,16 @@
     "allow": [
       "Bash(gh repo:*)",
       "Bash(gh api:*)",
-      "WebFetch(domain:patrykgolabek.dev)"
+      "WebFetch(domain:patrykgolabek.dev)",
+      "Write(.planning/**)",
+      "Edit(.planning/**)",
+      "Bash(node /Users/patrykattc/.claude/get-shit-done/bin/gsd-tools.js commit \"docs: map existing codebase\" --files .planning/codebase/*.md)",
+      "Bash(node /Users/patrykattc/.claude/get-shit-done/bin/gsd-tools.js commit \"docs: synthesize v1.1 research\" --files .planning/research/SUMMARY.md .planning/research/STACK.md .planning/research/FEATURES.md .planning/research/ARCHITECTURE.md .planning/research/PITFALLS.md)",
+      "Bash(node /Users/patrykattc/.claude/get-shit-done/bin/gsd-tools.js commit \"docs: define milestone v1.1 requirements\" --files .planning/REQUIREMENTS.md)",
+      "Bash(node /Users/patrykattc/.claude/get-shit-done/bin/gsd-tools.js commit \"docs: create milestone v1.1 roadmap \\(6 phases\\)\" --files .planning/ROADMAP.md .planning/STATE.md .planning/REQUIREMENTS.md)",
+      "Bash(date -u +\"%Y-%m-%dT%H:%M:%SZ\")",
+      "Read(//tmp/**)",
+      "WebSearch"
     ]
   }
 }
