@@ -394,18 +394,32 @@ async def client(seeded_app):
 
 
 @pytest_asyncio.fixture
-async def db_session(seeded_app):
+async def db_session(seeded_app, request):
     """Yield an AsyncSession opened on the seeded app's engine after lifespan ran.
 
     The lifespan auto-seeds `data/pricing.json` into the pricing table, so any
     test using this fixture starts with the 5 SKUs already present. To verify
     `load_seed` itself, tests can call it again — it MUST be idempotent
     (Plan 01 ANLY-02 contract).
+
+    Coexistence with `client`: the `client` fixture (when also requested by
+    the same test) is the one that enters the lifespan context manager. Both
+    fixtures share the SAME `seeded_app` tuple (function-scoped fixture
+    caching), so `client` enters `cm` once and `db_session` just opens a
+    fresh session on the already-running app's engine. When `db_session` is
+    used WITHOUT `client`, this fixture enters `cm` itself.
     """
     app, cm = seeded_app
-    async with cm:
+    # Detect coexistence: if the test also requested `client`, that fixture
+    # owns the lifespan entry; we just open a session on the running app.
+    using_client = "client" in request.fixturenames
+    if using_client:
         async with app.state.sessions() as session:
             yield session
+    else:
+        async with cm:
+            async with app.state.sessions() as session:
+                yield session
 
 
 @pytest_asyncio.fixture
