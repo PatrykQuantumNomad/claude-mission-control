@@ -10,6 +10,11 @@
 export type Range = 'today' | '7d' | '30d'
 export type RangeAll = Range | 'all'
 
+// Phase 14 SkillRange — separate alias avoids broad-impact extension of Range.
+// See 14-RESEARCH.md Open Q #3 / Plan 14-02 D-05. Mirrors backend
+// cmc/api/schemas/skills.py SkillRange = Literal["14d", "30d"].
+export type SkillRange = '14d' | '30d'
+
 // ============================================================================
 // Health
 // ============================================================================
@@ -417,6 +422,69 @@ export interface SkillAutonomyResponse {
   updated_at: string
 }
 
+// ----------------------------------------------------------------------------
+// Phase 14 — Skills API response models (mirrors backend cmc/api/schemas/skills.py
+// SkillSparklineRow / SkillUsageRow / SkillUsageResponse / SkillCostResponse /
+// SkillLatencyResponse / SkillRunRow / SkillRunsResponse). Decimal fields
+// (cost_usd) are TYPED AS STRING — Pydantic v2 default serializes Decimal as
+// JSON string to preserve precision; never coerce via Number() for display.
+// ----------------------------------------------------------------------------
+
+export interface SkillSparklineRow {
+  day: string                  // YYYY-MM-DD (STRFTIME local-day bucket)
+  invocations: number
+  cost_usd?: string | null     // Decimal-as-JSON-string (Pydantic v2 default)
+}
+
+export interface SkillUsageRow {
+  skill_name: string
+  total: number
+  sparkline: SkillSparklineRow[]
+}
+
+export interface SkillUsageResponse {
+  range: SkillRange
+  rows: SkillUsageRow[]
+}
+
+export interface SkillCostResponse {
+  range: SkillRange
+  name: string
+  rates_as_of: string | null   // YYYY-MM-DD or null (no priced rows in window)
+  tokens_input: number
+  tokens_output: number
+  tokens_cache_read: number
+  tokens_cache_create_5m: number
+  tokens_cache_create_1h: number
+  cost_usd: string             // Decimal serialized as JSON string — keep as string!
+  cost_attribution: 'request' | 'session'
+  trend: SkillSparklineRow[]
+}
+
+export interface SkillLatencyResponse {
+  range: SkillRange
+  name: string
+  sample_count: number
+  p50_ms: number | null
+  p95_ms: number | null
+  max_ms: number | null
+  error_count: number
+  error_rate: number
+  low_sample: boolean          // server-side via MIN_LATENCY_SAMPLES=30 (SKLP-05)
+}
+
+export interface SkillRunRow {
+  ts: string                   // ISO datetime
+  session_id: string | null
+  cwd: string                  // '<unknown>' if no joined session row
+  request_id: string | null
+}
+
+export interface SkillRunsResponse {
+  name: string
+  rows: SkillRunRow[]
+}
+
 // ============================================================================
 // HITL (HITL-*) — typed from backend schema
 // Mirror backend/cmc/api/schemas/hitl.py verbatim.
@@ -810,6 +878,27 @@ export const api = {
       },
     ),
 
+  // Phase 14 (SKIL-04..07) — read-time-computed skills analytics. Defaults
+  // mirror backend defaults: usage limit=10, runs limit=20. encodeURIComponent
+  // the skill name for defense-in-depth even though backend rejects bad names
+  // via _SKILL_NAME_RE (see threat_model T-14-02-01).
+  skillUsage: (range: SkillRange, limit: number = 10) =>
+    fetchJson<SkillUsageResponse>(
+      `/api/skills/usage?range=${range}&limit=${limit}`,
+    ),
+  skillCost: (name: string, range: SkillRange) =>
+    fetchJson<SkillCostResponse>(
+      `/api/skills/${encodeURIComponent(name)}/cost?range=${range}`,
+    ),
+  skillLatency: (name: string, range: SkillRange) =>
+    fetchJson<SkillLatencyResponse>(
+      `/api/skills/${encodeURIComponent(name)}/latency?range=${range}`,
+    ),
+  skillRuns: (name: string, limit: number = 20) =>
+    fetchJson<SkillRunsResponse>(
+      `/api/skills/${encodeURIComponent(name)}/runs?limit=${limit}`,
+    ),
+
   // HITL
   decisions: (params: DecisionListParams = {}) => {
     const qs = buildDecisionsQs(params)
@@ -986,3 +1075,17 @@ export const api = {
   // Sync
   sync: () => fetchJson<unknown>('/api/sync', { method: 'POST' }),
 } as const
+
+// ============================================================================
+// Phase 14 — Skills standalone fetcher exports.
+// These are thin aliases over api.skill* — the project's panel layer goes
+// through queries.ts hooks which call api.* — but the standalone names are
+// exported here so direct callers (and Plan 14-02 must_haves grep checks) can
+// import fetchSkill* without reaching into the api map. Functionally identical
+// to api.skillUsage / api.skillCost / api.skillLatency / api.skillRuns.
+// ============================================================================
+
+export const fetchSkillUsage = api.skillUsage
+export const fetchSkillCost = api.skillCost
+export const fetchSkillLatency = api.skillLatency
+export const fetchSkillRuns = api.skillRuns
