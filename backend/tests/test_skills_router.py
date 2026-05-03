@@ -709,3 +709,305 @@ async def test_skill_runs_limit_clamping(client) -> None:
     assert r_hi.status_code == 422
     r_lo = await client.get("/api/skills/anything/runs?limit=0")
     assert r_lo.status_code == 422
+
+
+# =============================================================================
+# Phase 14 Task 3: SKIL-05 (cost dual-path) + SKIL-06 (latency window-CTE)
+# =============================================================================
+
+
+# ---- SKIL-05: cost dual-path attribution --------------------------------
+
+
+async def test_skill_cost_request_path_when_request_id_present(client) -> None:
+    """Path R wins: skill_activated has request_id matching api_request -> Path R numbers."""
+    app = client._transport.app  # type: ignore[attr-defined]
+    await _seed_session_row(app, session_id="sess-r-1", model="claude-opus-4-7")
+    base = datetime.now(UTC) - timedelta(hours=1)
+    # Skill event with request_id='req-1'.
+    await _seed_otel_event(
+        app, event_name="skill_activated",
+        attrs_skill_name="costly",
+        session_id="sess-r-1",
+        body=_make_skill_body(request_id="req-1"),
+        ts=base,
+    )
+    # Matching api_request event with token totals.
+    await _seed_otel_event(
+        app, event_name="api_request",
+        session_id="sess-r-1",
+        body=_make_api_request_body(
+            input_tokens=1_000_000, output_tokens=500_000,
+            cache_read=0, cache_create=0, request_id="req-1",
+            model="claude-opus-4-7",
+        ),
+        ts=base + timedelta(seconds=1),
+    )
+
+    r = await client.get("/api/skills/costly/cost?range=14d")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["name"] == "costly"
+    assert body["cost_attribution"] == "request"
+    # 1M input @ $5/Mtok + 0.5M output @ $25/Mtok = $5 + $12.50 = $17.50
+    assert Decimal(body["cost_usd"]) == Decimal("17.50")
+    assert body["tokens_input"] == 1_000_000
+    assert body["tokens_output"] == 500_000
+    # Decimal-as-JSON-string regression
+    assert isinstance(body["cost_usd"], str)
+
+
+async def test_skill_cost_session_path_when_request_id_absent(client) -> None:
+    """Path R yields 0 matched tokens -> fall back to Path S (session-scoped).
+
+    Skill event has request_id but NO matching api_request -> Path R sums 0.
+    Path S sums sessions.tokens_* — surfaces 'session' attribution.
+    """
+    app = client._transport.app  # type: ignore[attr-defined]
+    # Pre-populate the sessions row with token totals (Path S source).
+    await _seed_session_row(
+        app, session_id="sess-s-1", model="claude-opus-4-7",
+        tokens_input=2_000_000, tokens_output=1_000_000, tokens_cache_read=0,
+    )
+    # Skill fired but NO matching api_request event -> Path R will return 0.
+    await _seed_otel_event(
+        app, event_name="skill_activated",
+        attrs_skill_name="lonely",
+        session_id="sess-s-1",
+        body=_make_skill_body(request_id="req-noexist"),
+    )
+
+    r = await client.get("/api/skills/lonely/cost?range=14d")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["cost_attribution"] == "session"
+    # 2M input @ $5/Mtok + 1M output @ $25/Mtok = $10 + $25 = $35
+    assert Decimal(body["cost_usd"]) == Decimal("35")
+    assert body["tokens_input"] == 2_000_000
+    assert body["tokens_output"] == 1_000_000
+
+
+async def test_skill_cost_attribution_field_present(client) -> None:
+    """cost_attribution is on every response (even empty-case)."""
+    r = await client.get("/api/skills/no_events_seeded/cost?range=14d")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert "cost_attribution" in body
+    assert body["cost_attribution"] in ("request", "session")
+    # Empty case -> conservative branch is 'session'.
+    assert body["cost_attribution"] == "session"
+    assert body["cost_usd"] == "0"
+    assert body["trend"] == []
+
+
+async def test_skill_cost_decimal_as_json_string(client) -> None:
+    """Decimal cost_usd MUST serialize as string (Pydantic v2 default)."""
+    r = await client.get("/api/skills/anything/cost?range=14d")
+    assert r.status_code == 200, r.text
+    # raw text contains "cost_usd":"<string>" not "cost_usd":<float>
+    raw = r.text
+    assert '"cost_usd":"' in raw, raw
+
+
+async def test_skill_cost_trend_shape_session_path(client) -> None:
+    """Session-path trend buckets per day; sum equals top-level cost_usd."""
+    app = client._transport.app  # type: ignore[attr-defined]
+    await _seed_session_row(
+        app, session_id="sess-trend-1", model="claude-opus-4-7",
+        tokens_input=1_000_000, tokens_output=0, tokens_cache_read=0,
+    )
+    base = datetime.now(UTC) - timedelta(hours=1)
+    # Two skill events on the same day -> one trend bucket.
+    await _seed_otel_event(
+        app, event_name="skill_activated",
+        attrs_skill_name="tracked", session_id="sess-trend-1",
+        body=_make_skill_body(request_id="req-noexist"),
+        ts=base,
+    )
+
+    r = await client.get("/api/skills/tracked/cost?range=14d")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["cost_attribution"] == "session"
+    assert len(body["trend"]) >= 1
+    # Decimal sum invariant: sum(trend.daily_cost) == cost_usd
+    trend_sum = sum(
+        Decimal(b["cost_usd"]) for b in body["trend"] if b["cost_usd"] is not None
+    )
+    assert trend_sum == Decimal(body["cost_usd"]), (
+        f"trend sum {trend_sum} != cost_usd {body['cost_usd']}"
+    )
+
+
+async def test_skill_cost_trend_sum_equals_total_cost_usd_request_path(client) -> None:
+    """Decimal sum invariant for Path R: sum(trend.daily_cost) == cost_usd.
+
+    This test guards against the per-bucket dual-path drift the planner
+    explicitly forbade — the trend SQL must derive from the SAME branch as
+    the main cost number, NOT from an independent per-day attribution test.
+    """
+    app = client._transport.app  # type: ignore[attr-defined]
+    await _seed_session_row(app, session_id="sess-tr-r-1", model="claude-opus-4-7")
+    base = datetime.now(UTC) - timedelta(hours=1)
+    await _seed_otel_event(
+        app, event_name="skill_activated",
+        attrs_skill_name="paired", session_id="sess-tr-r-1",
+        body=_make_skill_body(request_id="req-A"),
+        ts=base,
+    )
+    await _seed_otel_event(
+        app, event_name="api_request",
+        session_id="sess-tr-r-1",
+        body=_make_api_request_body(
+            input_tokens=200_000, output_tokens=100_000,
+            request_id="req-A", model="claude-opus-4-7",
+        ),
+        ts=base + timedelta(seconds=1),
+    )
+
+    r = await client.get("/api/skills/paired/cost?range=14d")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["cost_attribution"] == "request"
+    trend_sum = sum(
+        Decimal(b["cost_usd"]) for b in body["trend"] if b["cost_usd"] is not None
+    )
+    assert trend_sum == Decimal(body["cost_usd"])
+
+
+async def test_skill_cost_invalid_range_returns_422(client) -> None:
+    r = await client.get("/api/skills/x/cost?range=2d")
+    assert r.status_code == 422
+
+
+async def test_skill_cost_path_traversal_rejected(client) -> None:
+    r = await client.get("/api/skills/has..dotdot/cost?range=14d")
+    assert r.status_code == 400
+
+
+# ---- SKIL-06: latency window-CTE percentile ------------------------------
+
+
+async def test_skill_latency_percentiles_basic(client) -> None:
+    """100 events at duration_ms=1..100 -> p50/p95/max correctness.
+
+    With MAX(CAST(n*p AS INTEGER), 1) clamp:
+      n=100, p=0.5 -> rnk=50 -> duration_ms=50
+      n=100, p=0.95 -> rnk=95 -> duration_ms=95
+      max -> 100
+    """
+    app = client._transport.app  # type: ignore[attr-defined]
+    base = datetime.now(UTC) - timedelta(hours=1)
+    for i in range(1, 101):
+        await _seed_otel_event(
+            app, event_name="skill_activated",
+            attrs_skill_name="latency_test",
+            session_id=None,
+            body=_make_skill_body(duration_ms=i),
+            ts=base + timedelta(milliseconds=i),
+        )
+
+    r = await client.get("/api/skills/latency_test/latency?range=14d")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["sample_count"] == 100
+    assert body["p50_ms"] == 50
+    assert body["p95_ms"] == 95
+    assert body["max_ms"] == 100
+    assert body["low_sample"] is False  # 100 >= MIN_LATENCY_SAMPLES (30)
+    assert body["error_rate"] == 0.0
+
+
+async def test_skill_latency_single_sample(client) -> None:
+    """N=1 -> p50=p95=max=that_one_value, low_sample=True (< 30 threshold)."""
+    app = client._transport.app  # type: ignore[attr-defined]
+    await _seed_otel_event(
+        app, event_name="skill_activated",
+        attrs_skill_name="single",
+        session_id=None,
+        body=_make_skill_body(duration_ms=42),
+    )
+
+    r = await client.get("/api/skills/single/latency?range=14d")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["sample_count"] == 1
+    assert body["p50_ms"] == 42
+    assert body["p95_ms"] == 42
+    assert body["max_ms"] == 42
+    assert body["low_sample"] is True
+
+
+async def test_skill_latency_low_sample_under_30(client) -> None:
+    """sample_count=10 -> low_sample=True (under MIN_LATENCY_SAMPLES=30)."""
+    app = client._transport.app  # type: ignore[attr-defined]
+    base = datetime.now(UTC) - timedelta(hours=1)
+    for i in range(1, 11):
+        await _seed_otel_event(
+            app, event_name="skill_activated",
+            attrs_skill_name="lowsamp",
+            session_id=None,
+            body=_make_skill_body(duration_ms=i * 10),
+            ts=base + timedelta(milliseconds=i),
+        )
+
+    r = await client.get("/api/skills/lowsamp/latency?range=14d")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["sample_count"] == 10
+    assert body["low_sample"] is True
+
+
+async def test_skill_latency_zero_samples_empty_state(client) -> None:
+    """No events with duration -> 200 + all None + low_sample=True (D-03)."""
+    r = await client.get("/api/skills/no_data/latency?range=14d")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["sample_count"] == 0
+    assert body["p50_ms"] is None
+    assert body["p95_ms"] is None
+    assert body["max_ms"] is None
+    assert body["low_sample"] is True
+    assert body["error_rate"] == 0.0
+    assert body["error_count"] == 0
+
+
+async def test_skill_latency_error_rate_basic(client) -> None:
+    """3 of 10 events status='error' -> error_rate ≈ 0.3 (LOCK-8 union)."""
+    app = client._transport.app  # type: ignore[attr-defined]
+    base = datetime.now(UTC) - timedelta(hours=1)
+    # 7 OK events
+    for i in range(7):
+        await _seed_otel_event(
+            app, event_name="skill_activated",
+            attrs_skill_name="errprone",
+            session_id=None,
+            body=_make_skill_body(duration_ms=100 + i, status="ok"),
+            ts=base + timedelta(milliseconds=i),
+        )
+    # 3 error/failure/cancel events
+    for status_val in ("error", "failure", "cancel"):
+        await _seed_otel_event(
+            app, event_name="skill_activated",
+            attrs_skill_name="errprone",
+            session_id=None,
+            body=_make_skill_body(duration_ms=200, status=status_val),
+            ts=base + timedelta(milliseconds=20),
+        )
+
+    r = await client.get("/api/skills/errprone/latency?range=14d")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["sample_count"] == 10
+    assert body["error_count"] == 3
+    assert abs(body["error_rate"] - 0.3) < 0.001
+
+
+async def test_skill_latency_invalid_range_returns_422(client) -> None:
+    r = await client.get("/api/skills/x/latency?range=2d")
+    assert r.status_code == 422
+
+
+async def test_skill_latency_path_traversal_rejected(client) -> None:
+    r = await client.get("/api/skills/has..dotdot/latency?range=14d")
+    assert r.status_code == 400

@@ -29,7 +29,8 @@ The frontmatter `environment` key overrides the per-root default.
 
 import re
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -40,6 +41,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from cmc.api.schemas.skills import (
     SkillAutonomyPatch,
     SkillAutonomyResponse,
+    SkillCostResponse,
+    SkillLatencyResponse,
     SkillListResponse,
     SkillRange,
     SkillRow,
@@ -53,6 +56,7 @@ from cmc.api.schemas.skills import (
 from cmc.core.paths import repo_root
 from cmc.db import get_session
 from cmc.db.models.skills import Skill
+from cmc.pricing import compute_cost, load_rates
 from cmc.skills.scanner import scan_all
 
 router = APIRouter(tags=["skills"])
@@ -354,3 +358,441 @@ async def skill_runs(
             request_id=r["request_id"],
         ))
     return SkillRunsResponse(name=name, rows=out)
+
+
+# ===== Phase 14 — SKIL-05 (cost) + SKIL-06 (latency) ======================
+#
+# SKLP-05: low-sample badge threshold. Server-side source of truth (D-04 +
+# Pitfall 6 — frontend re-asserts in the panel for defense-in-depth, but
+# the server MUST emit low_sample: bool on every response).
+MIN_LATENCY_SAMPLES = 30
+
+
+# ---- SKIL-05 (cost) ------------------------------------------------------
+#
+# DUAL-PATH per D-02 (defensive against TENTATIVE LOCK-9 request_id presence):
+#
+#   Path R (request-scoped): self-JOIN otel_events (skill_activated) ↔
+#     otel_events (api_request) on (session_id, request_id) extracted via
+#     json_each. Tokens read from api_request stringValue and CAST INTEGER.
+#   Path S (session-scoped fallback): SUM sessions.tokens_* for sessions
+#     that fired this skill. Mirrors cost.py:147 _BREAKDOWN_BY_SKILL_SQL
+#     but filtered to a single :name.
+#
+# Decision rule: if Path R yields any matched tokens (sum > 0) -> Path R +
+# cost_attribution='request'. Else -> Path S + cost_attribution='session'.
+
+# Path R — request-scoped totals (single skill).
+_COST_REQUEST_SCOPED_SQL = text("""
+    WITH skill_events AS (
+      SELECT
+        o.session_id,
+        o.attrs_skill_name AS skill_name,
+        (SELECT json_extract(value, '$.value.stringValue')
+           FROM json_each(json_extract(o.body, '$.record.attributes'))
+          WHERE json_extract(value, '$.key') = 'request_id'
+          LIMIT 1) AS request_id
+      FROM otel_events o
+      WHERE o.event_name = 'skill_activated'
+        AND o.attrs_skill_name = :name
+        AND o.ts >= datetime(:since)
+    ),
+    api_req_events AS (
+      SELECT
+        o.session_id,
+        (SELECT json_extract(value, '$.value.stringValue')
+           FROM json_each(json_extract(o.body, '$.record.attributes'))
+          WHERE json_extract(value, '$.key') = 'request_id'
+          LIMIT 1) AS request_id,
+        CAST((SELECT json_extract(value, '$.value.stringValue')
+              FROM json_each(json_extract(o.body, '$.record.attributes'))
+             WHERE json_extract(value, '$.key') = 'input_tokens'
+             LIMIT 1) AS INTEGER) AS input_tokens,
+        CAST((SELECT json_extract(value, '$.value.stringValue')
+              FROM json_each(json_extract(o.body, '$.record.attributes'))
+             WHERE json_extract(value, '$.key') = 'output_tokens'
+             LIMIT 1) AS INTEGER) AS output_tokens,
+        CAST((SELECT json_extract(value, '$.value.stringValue')
+              FROM json_each(json_extract(o.body, '$.record.attributes'))
+             WHERE json_extract(value, '$.key') = 'cache_read_tokens'
+             LIMIT 1) AS INTEGER) AS cache_read,
+        CAST((SELECT json_extract(value, '$.value.stringValue')
+              FROM json_each(json_extract(o.body, '$.record.attributes'))
+             WHERE json_extract(value, '$.key') = 'cache_creation_tokens'
+             LIMIT 1) AS INTEGER) AS cache_create,
+        (SELECT json_extract(value, '$.value.stringValue')
+           FROM json_each(json_extract(o.body, '$.record.attributes'))
+          WHERE json_extract(value, '$.key') = 'model'
+          LIMIT 1) AS model
+      FROM otel_events o
+      WHERE o.event_name = 'api_request'
+        AND o.ts >= datetime(:since)
+    )
+    SELECT
+      COALESCE(SUM(r.input_tokens), 0)  AS tokens_input,
+      COALESCE(SUM(r.output_tokens), 0) AS tokens_output,
+      COALESCE(SUM(r.cache_read), 0)    AS tokens_cache_read,
+      0 AS tokens_cache_create_5m,
+      COALESCE(SUM(r.cache_create), 0)  AS tokens_cache_create_1h,
+      MAX(r.model) AS model
+    FROM skill_events s
+    LEFT JOIN api_req_events r
+      ON r.session_id = s.session_id
+     AND r.request_id IS NOT NULL
+     AND r.request_id = s.request_id
+""")
+
+# Path S — session-scoped totals (single skill). Mirrors cost.py:147 but
+# filters to one skill name. MAX(s.model) used as pricing-key (model is
+# effectively constant per session).
+_COST_SESSION_SCOPED_SQL = text("""
+    SELECT
+      COALESCE(SUM(s.tokens_input), 0)     AS tokens_input,
+      COALESCE(SUM(s.tokens_output), 0)    AS tokens_output,
+      COALESCE(SUM(s.tokens_cache_read), 0) AS tokens_cache_read,
+      0                                    AS tokens_cache_create_5m,
+      0                                    AS tokens_cache_create_1h,
+      MAX(s.model)                         AS model
+    FROM otel_events o
+    JOIN sessions s ON s.session_id = o.session_id
+    WHERE o.event_name = 'skill_activated'
+      AND o.attrs_skill_name = :name
+      AND o.ts >= datetime(:since)
+""")
+
+# Trend (per-day) — TWO variants. Per plan/RESEARCH critical note: trend MUST
+# derive from the SELECTED branch (whichever Path R or Path S won the main
+# request-vs-session test) so the Decimal sum invariant
+# `sum(trend.daily_cost) == cost_usd` holds. Running an independent dual-path
+# test per bucket would let different days land on different branches.
+_COST_TREND_REQUEST_SCOPED_SQL = text("""
+    WITH skill_events AS (
+      SELECT
+        o.ts AS skill_ts,
+        o.session_id,
+        (SELECT json_extract(value, '$.value.stringValue')
+           FROM json_each(json_extract(o.body, '$.record.attributes'))
+          WHERE json_extract(value, '$.key') = 'request_id'
+          LIMIT 1) AS request_id
+      FROM otel_events o
+      WHERE o.event_name = 'skill_activated'
+        AND o.attrs_skill_name = :name
+        AND o.ts >= datetime(:since)
+    ),
+    api_req_events AS (
+      SELECT
+        o.session_id,
+        (SELECT json_extract(value, '$.value.stringValue')
+           FROM json_each(json_extract(o.body, '$.record.attributes'))
+          WHERE json_extract(value, '$.key') = 'request_id'
+          LIMIT 1) AS request_id,
+        CAST((SELECT json_extract(value, '$.value.stringValue')
+              FROM json_each(json_extract(o.body, '$.record.attributes'))
+             WHERE json_extract(value, '$.key') = 'input_tokens'
+             LIMIT 1) AS INTEGER) AS input_tokens,
+        CAST((SELECT json_extract(value, '$.value.stringValue')
+              FROM json_each(json_extract(o.body, '$.record.attributes'))
+             WHERE json_extract(value, '$.key') = 'output_tokens'
+             LIMIT 1) AS INTEGER) AS output_tokens,
+        CAST((SELECT json_extract(value, '$.value.stringValue')
+              FROM json_each(json_extract(o.body, '$.record.attributes'))
+             WHERE json_extract(value, '$.key') = 'cache_read_tokens'
+             LIMIT 1) AS INTEGER) AS cache_read,
+        CAST((SELECT json_extract(value, '$.value.stringValue')
+              FROM json_each(json_extract(o.body, '$.record.attributes'))
+             WHERE json_extract(value, '$.key') = 'cache_creation_tokens'
+             LIMIT 1) AS INTEGER) AS cache_create,
+        (SELECT json_extract(value, '$.value.stringValue')
+           FROM json_each(json_extract(o.body, '$.record.attributes'))
+          WHERE json_extract(value, '$.key') = 'model'
+          LIMIT 1) AS model
+      FROM otel_events o
+      WHERE o.event_name = 'api_request'
+        AND o.ts >= datetime(:since)
+    )
+    SELECT
+      STRFTIME('%Y-%m-%d', s.skill_ts, 'localtime') AS day,
+      COALESCE(SUM(r.input_tokens), 0)  AS tokens_input,
+      COALESCE(SUM(r.output_tokens), 0) AS tokens_output,
+      COALESCE(SUM(r.cache_read), 0)    AS tokens_cache_read,
+      0 AS tokens_cache_create_5m,
+      COALESCE(SUM(r.cache_create), 0)  AS tokens_cache_create_1h,
+      MAX(r.model) AS model
+    FROM skill_events s
+    LEFT JOIN api_req_events r
+      ON r.session_id = s.session_id
+     AND r.request_id IS NOT NULL
+     AND r.request_id = s.request_id
+    GROUP BY day
+    ORDER BY day ASC
+""")
+
+# Session-scoped trend — group sessions.tokens_* by skill_event day-bucket.
+# Each skill_activated day is one bucket; per-session token sums are attributed
+# fully to the day on which the matching skill_activated row landed.
+_COST_TREND_SESSION_SCOPED_SQL = text("""
+    SELECT
+      STRFTIME('%Y-%m-%d', o.ts, 'localtime') AS day,
+      COALESCE(SUM(s.tokens_input), 0)     AS tokens_input,
+      COALESCE(SUM(s.tokens_output), 0)    AS tokens_output,
+      COALESCE(SUM(s.tokens_cache_read), 0) AS tokens_cache_read,
+      0                                    AS tokens_cache_create_5m,
+      0                                    AS tokens_cache_create_1h,
+      MAX(s.model)                         AS model
+    FROM otel_events o
+    JOIN sessions s ON s.session_id = o.session_id
+    WHERE o.event_name = 'skill_activated'
+      AND o.attrs_skill_name = :name
+      AND o.ts >= datetime(:since)
+    GROUP BY day
+    ORDER BY day ASC
+""")
+
+
+# ---- SKIL-06 (latency) ---------------------------------------------------
+#
+# Window-CTE percentile pattern adapted from observability._TOOL_LATENCY_SQL.
+# duration_ms extracted from body.record.attributes via json_each + stringValue
+# + CAST INTEGER (Pitfall 3). WHERE duration_ms IS NOT NULL filters absent
+# values per D-03 (LOCK-3 TENTATIVE).
+_LATENCY_SQL = text("""
+    WITH events AS (
+      SELECT
+        o.attrs_skill_name AS skill_name,
+        CAST(
+          (SELECT json_extract(value, '$.value.stringValue')
+             FROM json_each(json_extract(o.body, '$.record.attributes'))
+            WHERE json_extract(value, '$.key') = 'duration_ms'
+            LIMIT 1)
+          AS INTEGER
+        ) AS duration_ms
+      FROM otel_events o
+      WHERE o.event_name = 'skill_activated'
+        AND o.attrs_skill_name = :name
+        AND o.ts >= datetime(:since)
+    ),
+    ranked AS (
+      SELECT skill_name, duration_ms,
+        ROW_NUMBER() OVER (PARTITION BY skill_name ORDER BY duration_ms) AS rnk,
+        COUNT(*) OVER (PARTITION BY skill_name) AS n
+      FROM events
+      WHERE duration_ms IS NOT NULL
+    ),
+    agg AS (
+      SELECT
+        skill_name,
+        COUNT(*) AS sample_count,
+        MAX(duration_ms) AS max_ms
+      FROM events
+      WHERE duration_ms IS NOT NULL
+      GROUP BY skill_name
+    ),
+    p50 AS (
+      SELECT skill_name, duration_ms AS p50_ms
+      FROM ranked
+      WHERE rnk = MAX(CAST(n * 0.5 AS INTEGER), 1)
+    ),
+    p95 AS (
+      SELECT skill_name, duration_ms AS p95_ms
+      FROM ranked
+      WHERE rnk = MAX(CAST(n * 0.95 AS INTEGER), 1)
+    )
+    SELECT a.skill_name, a.sample_count, a.max_ms, p50.p50_ms, p95.p95_ms
+    FROM agg a
+    LEFT JOIN p50 ON p50.skill_name = a.skill_name
+    LEFT JOIN p95 ON p95.skill_name = a.skill_name
+""")
+
+# Error count: skill_activated events whose status attribute is in
+# {'error','failure','cancel'} per SPIKE.md LOCK-8.
+_ERROR_COUNT_SQL = text("""
+    SELECT COUNT(*) AS n
+    FROM otel_events o
+    WHERE o.event_name = 'skill_activated'
+      AND o.attrs_skill_name = :name
+      AND o.ts >= datetime(:since)
+      AND (SELECT json_extract(value, '$.value.stringValue')
+             FROM json_each(json_extract(o.body, '$.record.attributes'))
+            WHERE json_extract(value, '$.key') = 'status'
+            LIMIT 1) IN ('error', 'failure', 'cancel')
+""")
+
+
+def _coerce_effective_from(rates: dict, model: str) -> date | None:
+    """Pull effective_from out of a rates dict and coerce to date if needed."""
+    if model not in rates:
+        return None
+    ef = rates[model].get("effective_from")
+    if ef is None:
+        return None
+    return ef.date() if isinstance(ef, datetime) else ef
+
+
+@router.get("/skills/{name}/cost", response_model=SkillCostResponse)
+async def skill_cost(
+    name: str,
+    db: AsyncSession = Depends(get_session),
+    range_: SkillRange = Query("14d", alias="range"),
+) -> SkillCostResponse:
+    """SKIL-05: per-skill cost with dual-path attribution (D-02).
+
+    Tries request-scoped JOIN first (skill_activated.request_id ↔
+    api_request.request_id within the same session). If that yields any
+    matched tokens, returns Path R numbers + cost_attribution='request'.
+    Else falls back to session-scoped attribution (Path S) +
+    cost_attribution='session'. The 14-day trend SQL derives from the
+    SELECTED branch so the Decimal sum invariant
+    `sum(trend.daily_cost) == cost_usd` holds.
+    """
+    if not _SKILL_NAME_RE.match(name) or ".." in name:
+        raise HTTPException(status_code=400, detail="invalid skill name")
+
+    since_dt = _range_start(range_)
+    since_iso = since_dt.isoformat()
+
+    # Try Path R first.
+    r_rows = (await db.execute(
+        _COST_REQUEST_SCOPED_SQL, {"name": name, "since": since_iso}
+    )).mappings().all()
+    r_row = r_rows[0] if r_rows else None
+    r_total = (
+        int(r_row["tokens_input"] or 0) + int(r_row["tokens_output"] or 0)
+        + int(r_row["tokens_cache_read"] or 0)
+        + int(r_row["tokens_cache_create_5m"] or 0)
+        + int(r_row["tokens_cache_create_1h"] or 0)
+    ) if r_row else 0
+
+    if r_total > 0:
+        attribution = "request"
+        chosen_row = r_row
+        trend_sql = _COST_TREND_REQUEST_SCOPED_SQL
+    else:
+        # Path S fallback. NOTE: even when this branch wins, the response
+        # tokens come from sessions.tokens_* — same skill firing twice in
+        # one session WILL show identical numbers (Phase 13 LOCK-9 baseline).
+        attribution = "session"
+        s_rows = (await db.execute(
+            _COST_SESSION_SCOPED_SQL, {"name": name, "since": since_iso}
+        )).mappings().all()
+        chosen_row = s_rows[0] if s_rows else None
+        trend_sql = _COST_TREND_SESSION_SCOPED_SQL
+
+    rates = await load_rates(db)
+
+    # Empty case: no skill_activated events at all -> return zeros + empty trend.
+    if chosen_row is None or all((chosen_row[k] or 0) == 0 for k in (
+        "tokens_input", "tokens_output", "tokens_cache_read",
+        "tokens_cache_create_5m", "tokens_cache_create_1h",
+    )):
+        return SkillCostResponse(
+            range=range_,
+            name=name,
+            rates_as_of=None,
+            cost_usd=Decimal(0),
+            cost_attribution=attribution,
+            trend=[],
+        )
+
+    model_for_pricing = chosen_row["model"] or "<unknown>"
+    cost = compute_cost(
+        model_for_pricing,
+        int(chosen_row["tokens_input"] or 0),
+        int(chosen_row["tokens_output"] or 0),
+        int(chosen_row["tokens_cache_read"] or 0),
+        int(chosen_row["tokens_cache_create_5m"] or 0),
+        int(chosen_row["tokens_cache_create_1h"] or 0),
+        rates,
+    )
+
+    # Trend — sum the per-day buckets from the SELECTED branch.
+    trend_rows = (await db.execute(
+        trend_sql, {"name": name, "since": since_iso}
+    )).mappings().all()
+    trend: list[SkillSparklineRow] = []
+    for tr in trend_rows:
+        bucket_model = tr["model"] or model_for_pricing
+        bucket_cost = compute_cost(
+            bucket_model,
+            int(tr["tokens_input"] or 0),
+            int(tr["tokens_output"] or 0),
+            int(tr["tokens_cache_read"] or 0),
+            int(tr["tokens_cache_create_5m"] or 0),
+            int(tr["tokens_cache_create_1h"] or 0),
+            rates,
+        )
+        trend.append(SkillSparklineRow(
+            day=tr["day"],
+            invocations=0,  # cost trend's purpose is sparkline cost, not invocations
+            cost_usd=bucket_cost,
+        ))
+
+    rates_as_of = _coerce_effective_from(rates, model_for_pricing)
+
+    return SkillCostResponse(
+        range=range_,
+        name=name,
+        rates_as_of=rates_as_of,
+        tokens_input=int(chosen_row["tokens_input"] or 0),
+        tokens_output=int(chosen_row["tokens_output"] or 0),
+        tokens_cache_read=int(chosen_row["tokens_cache_read"] or 0),
+        tokens_cache_create_5m=int(chosen_row["tokens_cache_create_5m"] or 0),
+        tokens_cache_create_1h=int(chosen_row["tokens_cache_create_1h"] or 0),
+        cost_usd=cost,
+        cost_attribution=attribution,
+        trend=trend,
+    )
+
+
+@router.get("/skills/{name}/latency", response_model=SkillLatencyResponse)
+async def skill_latency(
+    name: str,
+    db: AsyncSession = Depends(get_session),
+    range_: SkillRange = Query("14d", alias="range"),
+) -> SkillLatencyResponse:
+    """SKIL-06: per-skill p50/p95/max latency + error rate + low_sample.
+
+    sample_count=0 returns 200 with all percentiles None + low_sample=True
+    (D-03 — LOCK-3 TENTATIVE duration_ms presence is empty-state, NOT failure).
+    """
+    if not _SKILL_NAME_RE.match(name) or ".." in name:
+        raise HTTPException(status_code=400, detail="invalid skill name")
+
+    since_dt = _range_start(range_)
+    since_iso = since_dt.isoformat()
+
+    rows = (await db.execute(
+        _LATENCY_SQL, {"name": name, "since": since_iso}
+    )).mappings().all()
+    err_rows = (await db.execute(
+        _ERROR_COUNT_SQL, {"name": name, "since": since_iso}
+    )).mappings().all()
+    error_count = int(err_rows[0]["n"]) if err_rows else 0
+
+    if not rows:
+        # No skill_activated events with non-NULL duration_ms in the window.
+        return SkillLatencyResponse(
+            range=range_,
+            name=name,
+            sample_count=0,
+            p50_ms=None,
+            p95_ms=None,
+            max_ms=None,
+            error_count=error_count,
+            error_rate=0.0,
+            low_sample=True,
+        )
+
+    row = rows[0]
+    sample_count = int(row["sample_count"] or 0)
+    error_rate = (error_count / sample_count) if sample_count > 0 else 0.0
+    return SkillLatencyResponse(
+        range=range_,
+        name=name,
+        sample_count=sample_count,
+        p50_ms=int(row["p50_ms"]) if row["p50_ms"] is not None else None,
+        p95_ms=int(row["p95_ms"]) if row["p95_ms"] is not None else None,
+        max_ms=int(row["max_ms"]) if row["max_ms"] is not None else None,
+        error_count=error_count,
+        error_rate=error_rate,
+        low_sample=sample_count < MIN_LATENCY_SAMPLES,
+    )
