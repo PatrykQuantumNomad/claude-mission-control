@@ -7,6 +7,8 @@ target_metadata in env.py would be empty.
 The imports below cover every database table.
 """
 from cmc.db.models.activities import Activity  # noqa: F401
+from cmc.db.models.alert_rules import AlertRule  # noqa: F401
+from cmc.db.models.alert_state import AlertState  # noqa: F401
 from cmc.db.models.decisions import Decision  # noqa: F401
 from cmc.db.models.inbox import InboxMessage  # noqa: F401
 from cmc.db.models.live_state import LiveState  # noqa: F401

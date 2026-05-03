@@ -28,6 +28,8 @@ class Session(SQLModel, table=True):
     tokens_output: int = Field(default=0)
     tokens_cache_read: int = Field(default=0)
     tokens_cache_create: int = Field(default=0)
+    tokens_cache_create_5m: int = Field(default=0)
+    tokens_cache_create_1h: int = Field(default=0)
     tool_call_count: int = Field(default=0)
     message_count: int = Field(default=0)
     error_message: str | None = None

@@ -22,6 +22,8 @@ class TokenUsage(SQLModel, table=True):
     tokens_output: int = Field(default=0)
     tokens_cache_read: int = Field(default=0)
     tokens_cache_create: int = Field(default=0)
+    tokens_cache_create_5m: int = Field(default=0)
+    tokens_cache_create_1h: int = Field(default=0)
     sessions_count: int = Field(default=0)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

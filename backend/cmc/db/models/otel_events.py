@@ -28,6 +28,8 @@ class OtelEvent(SQLModel, table=True):
     body: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     attrs_mcp_server: str | None = None
     attrs_mcp_tool: str | None = None
+    attrs_skill_name: str | None = None
+    otel_event_id: int | None = None  # event.sequence — per-session monotonic; INGST-13 dedup key
     received_at: datetime = Field(default_factory=datetime.utcnow)
 
     __table_args__ = (
@@ -35,4 +37,6 @@ class OtelEvent(SQLModel, table=True):
         Index("idx_otel_events_event_name_ts", "event_name", "ts"),
         Index("idx_otel_events_session_id_ts", "session_id", "ts"),
         Index("idx_otel_events_attrs_mcp", "attrs_mcp_server", "attrs_mcp_tool"),
+        Index("idx_otel_events_attrs_skill_name", "attrs_skill_name"),
+        Index("uq_otel_events_session_seq", "session_id", "otel_event_id", unique=True),
     )
