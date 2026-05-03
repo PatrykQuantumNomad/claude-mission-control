@@ -78,3 +78,46 @@ def extract_mcp_attrs(record: dict) -> tuple[str | None, str | None]:
         except json.JSONDecodeError:
             pass
     return split_mcp(tool_name)
+
+
+def extract_skill_attr(record: dict) -> str | None:
+    """Return skill_name attribute value for a skill event, or None.
+
+    Mirrors the access pattern of extract_mcp_attrs (otel_parser.py:66-67):
+    iter_attrs returns dict[str, dict], so attrs.get(key) is safe.
+
+    SPIKE.md LOCK-2 confidence is TENTATIVE — the live invocation in Phase 12
+    Wave 1 produced no events. We try three candidate keys in order:
+      1. skill_name  (most likely per SPIKE.md / Context7 docs)
+      2. skill.name  (dotted form — consistent with session.id, event.name)
+      3. name        (bare fallback)
+
+    Returns the first non-empty stringValue found. None if no key matches.
+    """
+    attrs = iter_attrs(record.get("attributes"))
+    for key in ("skill_name", "skill.name", "name"):
+        v = (attrs.get(key) or {}).get("stringValue")
+        if v:
+            return v
+    return None
+
+
+def extract_event_sequence(record: dict) -> int | None:
+    """Return event.sequence intValue for INGST-13 dedup key, or None.
+
+    Mirrors the access pattern of extract_mcp_attrs (otel_parser.py:66-67) —
+    iter_attrs returns dict[str, dict], so attrs.get(key) is safe.
+
+    Production-data inspection (2026-05-03): present on 9,365 of 9,367 rows.
+    OTLP int64 wire safety: intValue may arrive as raw int OR as string —
+    coerce safely. Returns None for missing or unparseable values.
+    """
+    attrs = iter_attrs(record.get("attributes"))
+    seq_node = attrs.get("event.sequence") or {}
+    val = seq_node.get("intValue")
+    if val is None:
+        return None
+    try:
+        return int(val)
+    except (TypeError, ValueError):
+        return None

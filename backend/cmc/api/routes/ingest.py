@@ -16,12 +16,23 @@ batch). DB commit failures are rolled back and we still return 200.
 OTLP/HTTP supports both JSON and protobuf encodings; this receiver accepts JSON
 only. A protobuf request (Content-Type: application/x-protobuf) will fail JSON
 parsing here and return 200 anyway.
+
+Attribute-key conventions (per SPIKE.md, doctor concern POLI-01):
+  Claude Code 2.1.116 emits OTLP attribute keys in DOTTED form (e.g.,
+  `session.id`, `event.name`, `event.sequence`, `skill.name`). Older code
+  paths and smoke fixtures used UNDERSCORE form (`session_id`, `skill_name`).
+  We try the dotted form first when both are plausible, and fall back to the
+  underscore form so legacy fixtures and OTEL_LOG_TOOL_DETAILS-style payloads
+  still round-trip. The pure-function helpers in cmc.ingest.otel_parser
+  (extract_skill_attr / extract_event_sequence) own the per-attribute key
+  ordering; this router just calls them.
 """
 
 import logging
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Request
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import JSONResponse
@@ -29,7 +40,13 @@ from starlette.responses import JSONResponse
 from cmc.db import get_session
 from cmc.db.models.otel_events import OtelEvent
 from cmc.db.models.otel_metrics import OtelMetric
-from cmc.ingest.otel_parser import extract_mcp_attrs, iter_attrs, parse_unix_nano
+from cmc.ingest.otel_parser import (
+    extract_event_sequence,
+    extract_mcp_attrs,
+    extract_skill_attr,
+    iter_attrs,
+    parse_unix_nano,
+)
 
 log = logging.getLogger(__name__)
 
@@ -100,42 +117,60 @@ async def otlp_logs(
                 try:
                     attrs = iter_attrs(record.get("attributes"))
                     event_name = (attrs.get("event.name") or {}).get("stringValue") or "unknown"
-                    session_id = (attrs.get("session_id") or {}).get("stringValue")
+                    # BUG-B (SPIKE.md LOCK-5): Claude Code 2.1.116 emits
+                    # session.id (DOTTED), not session_id (underscore).
+                    # Try dotted first, fall back to underscore for legacy /
+                    # smoke fixtures that still use the old key.
+                    session_id = (
+                        (attrs.get("session.id") or {}).get("stringValue")
+                        or (attrs.get("session_id") or {}).get("stringValue")
+                    )
                     ts = parse_unix_nano(
                         record.get("timeUnixNano") or record.get("observedTimeUnixNano")
                     )
                     mcp_server, mcp_tool = extract_mcp_attrs(record)
+                    skill_name = extract_skill_attr(record)
+                    otel_event_id = extract_event_sequence(record)
                     # Per-record savepoint so a single FK / constraint failure
                     # cannot abort the whole batch (truths #3 + research §2).
+                    # The (session_id, otel_event_id) UNIQUE landed in
+                    # migration 0002 absorbs duplicate re-posts (cross-midnight
+                    # late arrivals, OTLP exporter retries) via
+                    # on_conflict_do_nothing. NULL otel_event_id rows are NOT
+                    # deduped (SQLite UNIQUE treats multiple NULLs as distinct
+                    # — that's intentional; research Pitfall 4).
                     # If session_id refers to a sessions row that hasn't landed
                     # yet (events arrive BEFORE the JSONL scheduler discovers
                     # the session — soft FK contract on otel_events.session_id),
                     # we retry with session_id=None so the row still persists.
-                    # The original id remains in `body.record` for later joining.
+                    row_values = {
+                        "ts": ts or datetime.now(UTC),
+                        "event_name": event_name,
+                        "session_id": session_id,
+                        "body": {"record": record, "resource": resource, "scope": scope},
+                        "attrs_mcp_server": mcp_server,
+                        "attrs_mcp_tool": mcp_tool,
+                        "attrs_skill_name": skill_name,
+                        "otel_event_id": otel_event_id,
+                        "received_at": datetime.now(UTC),
+                    }
                     try:
                         async with db.begin_nested():
-                            db.add(OtelEvent(
-                                ts=ts or datetime.now(UTC),
-                                event_name=event_name,
-                                session_id=session_id,
-                                body={"record": record, "resource": resource, "scope": scope},
-                                attrs_mcp_server=mcp_server,
-                                attrs_mcp_tool=mcp_tool,
-                            ))
-                            await db.flush()
+                            stmt = sqlite_insert(OtelEvent.__table__).values(**row_values)
+                            stmt = stmt.on_conflict_do_nothing(
+                                index_elements=["session_id", "otel_event_id"]
+                            )
+                            await db.execute(stmt)
                         inserted += 1
                     except IntegrityError:
                         # Savepoint already rolled back by the context manager.
                         async with db.begin_nested():
-                            db.add(OtelEvent(
-                                ts=ts or datetime.now(UTC),
-                                event_name=event_name,
-                                session_id=None,
-                                body={"record": record, "resource": resource, "scope": scope},
-                                attrs_mcp_server=mcp_server,
-                                attrs_mcp_tool=mcp_tool,
-                            ))
-                            await db.flush()
+                            row_values["session_id"] = None
+                            stmt = sqlite_insert(OtelEvent.__table__).values(**row_values)
+                            stmt = stmt.on_conflict_do_nothing(
+                                index_elements=["session_id", "otel_event_id"]
+                            )
+                            await db.execute(stmt)
                         inserted += 1
                 except Exception:
                     log.exception("otel.log_record_skip")

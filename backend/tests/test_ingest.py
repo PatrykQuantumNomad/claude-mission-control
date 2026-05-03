@@ -347,6 +347,170 @@ async def test_otlp_logs_mcp_fallback_split_on_tool_name(test_settings_with_stat
                 assert rows[0].attrs_mcp_tool == "do_thing"
 
 
+async def _seed_parent_session(app, session_id: str) -> None:
+    """Insert a stub sessions row so the (session_id) FK on otel_events.session_id
+    is satisfied — otherwise the soft-FK retry path nulls session_id on insert.
+
+    Production ingest assumes events may arrive BEFORE the JSONL scheduler has
+    discovered the session, in which case session_id is intentionally nulled.
+    These tests want to assert the BUG-B happy path (FK satisfied), so we
+    pre-seed the parent row.
+    """
+    from cmc.db.models.sessions import Session as SessionModel
+
+    now = datetime.now(UTC)
+    async with app.state.sessions() as s:
+        s.add(SessionModel(
+            session_id=session_id,
+            started_at=now,
+            jsonl_mtime=now,
+            jsonl_path=f"/tmp/{session_id}.jsonl",
+            source="claude-code",
+        ))
+        await s.commit()
+
+
+@pytest.mark.asyncio
+async def test_otlp_logs_extracts_skill_name(test_settings_with_static):
+    """INGST-11 — skill_activated body lands attrs_skill_name + populates
+    session_id (BUG-B fix) + otel_event_id (event.sequence dedup key).
+    """
+    from httpx import ASGITransport, AsyncClient
+
+    from cmc.app import create_app
+    from cmc.db.models.otel_events import OtelEvent
+
+    body = {
+        "resourceLogs": [{
+            "resource": {"attributes": []},
+            "scopeLogs": [{
+                "scope": {"name": "com.anthropic.claude_code.events"},
+                "logRecords": [{
+                    "timeUnixNano": "1745601281385000000",
+                    "attributes": [
+                        {"key": "event.name", "value": {"stringValue": "skill_activated"}},
+                        {"key": "session.id", "value": {"stringValue": "sess-test-1"}},
+                        {"key": "skill_name", "value": {"stringValue": "data:analyze"}},
+                        {"key": "event.sequence", "value": {"intValue": 42}},
+                    ],
+                }],
+            }],
+        }],
+    }
+
+    app = create_app(settings=test_settings_with_static)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        async with app.router.lifespan_context(app):
+            # Seed parent session so FK is satisfied — without this the
+            # soft-FK retry would null out session_id and the BUG-B
+            # assertion below would falsely fail (see _seed_parent_session
+            # docstring for the production rationale).
+            await _seed_parent_session(app, "sess-test-1")
+            resp = await client.post("/v1/logs", json=body)
+            assert resp.status_code == 200
+            async with app.state.sessions() as s:
+                rows = (
+                    await s.execute(
+                        select(OtelEvent).where(OtelEvent.event_name == "skill_activated")
+                    )
+                ).scalars().all()
+                assert len(rows) == 1
+                assert rows[0].attrs_skill_name == "data:analyze"
+                assert rows[0].session_id == "sess-test-1"  # BUG-B fix
+                assert rows[0].otel_event_id == 42
+
+
+@pytest.mark.asyncio
+async def test_otlp_logs_session_id_dotted_key(test_settings_with_static):
+    """BUG-B (SPIKE.md LOCK-5) — session.id (dotted) populates session_id
+    column on a non-skill event too.
+    """
+    from httpx import ASGITransport, AsyncClient
+
+    from cmc.app import create_app
+    from cmc.db.models.otel_events import OtelEvent
+
+    body = {
+        "resourceLogs": [{
+            "resource": {"attributes": []},
+            "scopeLogs": [{
+                "scope": {"name": "com.anthropic.claude_code.events"},
+                "logRecords": [{
+                    "timeUnixNano": "1745601281385000000",
+                    "attributes": [
+                        {"key": "event.name", "value": {"stringValue": "api_request"}},
+                        {"key": "session.id", "value": {"stringValue": "sess-bugB"}},
+                        {"key": "event.sequence", "value": {"intValue": 7}},
+                    ],
+                }],
+            }],
+        }],
+    }
+
+    app = create_app(settings=test_settings_with_static)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        async with app.router.lifespan_context(app):
+            await _seed_parent_session(app, "sess-bugB")
+            resp = await client.post("/v1/logs", json=body)
+            assert resp.status_code == 200
+            async with app.state.sessions() as s:
+                rows = (
+                    await s.execute(
+                        select(OtelEvent).where(OtelEvent.session_id == "sess-bugB")
+                    )
+                ).scalars().all()
+                assert len(rows) == 1
+
+
+@pytest.mark.asyncio
+async def test_otlp_logs_idempotent_session_seq(test_settings_with_static):
+    """INGST-13 — re-POST same body twice -> exactly 1 row.
+
+    The (session_id, otel_event_id) UNIQUE constraint plus
+    on_conflict_do_nothing absorbs the duplicate (cross-midnight late arrivals
+    or OTLP exporter retries cannot inflate the row count).
+    """
+    from httpx import ASGITransport, AsyncClient
+
+    from cmc.app import create_app
+    from cmc.db.models.otel_events import OtelEvent
+
+    body = {
+        "resourceLogs": [{
+            "resource": {"attributes": []},
+            "scopeLogs": [{
+                "scope": {"name": "com.anthropic.claude_code.events"},
+                "logRecords": [{
+                    "timeUnixNano": "1745601281385000000",
+                    "attributes": [
+                        {"key": "event.name", "value": {"stringValue": "tool_result"}},
+                        {"key": "session.id", "value": {"stringValue": "sess-idem"}},
+                        {"key": "event.sequence", "value": {"intValue": 99}},
+                    ],
+                }],
+            }],
+        }],
+    }
+
+    app = create_app(settings=test_settings_with_static)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        async with app.router.lifespan_context(app):
+            await _seed_parent_session(app, "sess-idem")
+            r1 = await client.post("/v1/logs", json=body)
+            r2 = await client.post("/v1/logs", json=body)
+            assert r1.status_code == 200 and r2.status_code == 200
+            async with app.state.sessions() as s:
+                rows = (
+                    await s.execute(
+                        select(OtelEvent).where(OtelEvent.session_id == "sess-idem")
+                    )
+                ).scalars().all()
+                assert len(rows) == 1, f"expected 1 row after dedup, got {len(rows)}"
+
+
 @pytest.mark.asyncio
 async def test_otlp_metrics_persists_three_kinds(test_settings_with_static, otlp_metric_payload):
     """INGST-09 — sum + gauge + histogram persist with correct kind/value."""
