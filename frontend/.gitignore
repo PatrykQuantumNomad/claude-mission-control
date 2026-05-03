@@ -6,6 +6,9 @@ dist/
 # Compiled vite.config (tsc -b emits these alongside the .ts source)
 vite.config.d.ts
 vite.config.js
+# Compiled playwright.config (tsc -b emits these alongside the .ts source)
+playwright.config.d.ts
+playwright.config.js
 
 # Playwright artifacts (current) — runtime output, never commit
 test-results/
