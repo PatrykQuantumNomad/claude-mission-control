@@ -3,7 +3,8 @@
 Covers:
 - Server plist render (uvicorn invocation, KeepAlive=true).
 - setup_otel atomic merge: 6 keys added, never overwrites, no leftover .tmp.
-- doctor 8-check infrastructure (run_checks count + sample checks).
+- doctor 14-check infrastructure (run_checks count + sample checks; expanded
+  from 8 → 14 in Phase 13 Plan 05 with pricing/skill-ingest sensors).
 - install.sh dry-run smoke + cmc shim help/unknown-subcommand routing.
 """
 
@@ -265,12 +266,16 @@ def test_doctor_launchd_telegram_gating_via_settings(monkeypatch):
     assert "telegram-notifier" not in c.message
 
 
-def test_doctor_run_checks_returns_eight() -> None:
+def test_doctor_run_checks_returns_fourteen() -> None:
+    """Phase 13 Plan 05 expanded doctor from 8 → 14 checks (added #9-14:
+    pricing freshness, unpriced tokens, pricing.json hash drift, session_id
+    NULL detector, unmapped otel models, OTEL_LOG_TOOL_DETAILS env var).
+    """
     from cmc.cli.doctor import run_checks
 
     results = run_checks()
-    assert len(results) == 8
-    assert {c.id for c in results} == {1, 2, 3, 4, 5, 6, 7, 8}
+    assert len(results) == 14
+    assert {c.id for c in results} == {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}
 
 
 def test_doctor_render_includes_ansi_colors() -> None:
