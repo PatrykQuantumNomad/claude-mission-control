@@ -17,15 +17,19 @@ Pitfalls covered:
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from datetime import UTC, datetime, timedelta
 
+import httpx
 import pytest
+from httpx import MockTransport, Response
 from sqlalchemy import select
 
 from cmc.db.models.alert_rules import AlertRule
 from cmc.db.models.alert_state import AlertState
 from cmc.db.models.decisions import Decision
+from cmc.db.models.notification_log import NotificationLog
 
 # --------------------------------------------------------------------------
 # Task 1 — callback_verbs StrEnum + dash_router refactor + ack_alert verb.
@@ -400,3 +404,295 @@ async def test_ack_then_evaluate_returns_hold(test_settings, monkeypatch) -> Non
         assert row.acked_until is not None
     finally:
         await engine.dispose()
+
+
+# --------------------------------------------------------------------------
+# Task 3 — notifier _FORMATTER alert kind + _send_pending_alerts sweep.
+# --------------------------------------------------------------------------
+
+
+def _mock_client(captured: list) -> httpx.AsyncClient:
+    """httpx.AsyncClient captured via MockTransport.
+
+    Mirrors test_telegram_notifier.py::_mock_client. Captures Telegram
+    /sendMessage calls into ``captured`` and returns 200 with a stable
+    message_id. Inbox probes are answered with empty lists so they don't
+    pollute the alert sweep tests.
+    """
+
+    def handler(req: httpx.Request) -> Response:
+        if req.url.path == "/api/inbox" and req.method == "GET":
+            return Response(200, json={"items": [], "total": 0})
+        body = req.content.decode("utf-8") if req.content else ""
+        captured.append({"url": str(req.url), "json": body})
+        return Response(
+            200,
+            json={
+                "ok": True,
+                "result": {
+                    "message_id": f"msg-{len(captured)}",
+                    "chat": {"id": 1},
+                },
+            },
+        )
+
+    return httpx.AsyncClient(transport=MockTransport(handler))
+
+
+def test_notifier_kind_table_has_alert() -> None:
+    """notifier._FORMATTER must include 'alert' so the sweep dispatches it."""
+    from cmc.telegram import notifier
+
+    assert "alert" in notifier._FORMATTER
+
+
+@pytest.mark.asyncio
+async def test_notifier_sends_pending_alert_via_format_alert(test_settings) -> None:
+    """E2E: Plan 02 inserts NotificationLog kind='alert' status='pending';
+    notifier sweeps via _send_pending_alerts → format_alert → api.send_message
+    → status writeback to 'sent'.
+    """
+    from cmc.config import Settings
+    from cmc.telegram import notifier
+    from tests.test_alerts_dispatcher import _bootstrap_db  # type: ignore
+
+    engine, sessions = await _bootstrap_db(test_settings)
+    try:
+        # Seed AlertRule + AlertState + pending NotificationLog row that
+        # mirrors what Plan 02's evaluate_alerts inserts on FIRING.
+        now = datetime.now(UTC).replace(tzinfo=None)
+        scope_key = "<global>"
+        async with sessions() as db:
+            rule = AlertRule(
+                name="failed-tasks",
+                kind="threshold",
+                metric="dispatcher_failed_tasks_5m",
+                threshold_fire=0.5,
+                threshold_clear=None,
+                min_dwell_seconds=0,
+                min_samples=1,
+                cooldown_seconds=0,
+                enabled=True,
+                spec_version=1,
+                params_json={},
+                created_at=now,
+                updated_at=now,
+            )
+            db.add(rule)
+            await db.commit()
+            await db.refresh(rule)
+            rule_id = rule.rule_id
+
+            db.add(
+                AlertState(
+                    rule_id=rule_id,
+                    scope_key=scope_key,
+                    state="firing",
+                    last_value=42.0,
+                    last_evaluated_at=now,
+                    fired_at=now,
+                    cleared_at=None,
+                    acked_until=None,
+                    sample_count=1,
+                )
+            )
+            dedup_key = f"alert:{rule_id}:{scope_key}"
+            db.add(
+                Decision(
+                    dedup_key=dedup_key,
+                    prompt="seed",
+                    session_id=None,
+                    status="pending",
+                    created_at=now,
+                    options=[],
+                )
+            )
+            db.add(
+                NotificationLog(
+                    kind="alert",
+                    entity_id=dedup_key,
+                    chat_id="12345",
+                    sent_at=now,
+                    status="pending",
+                )
+            )
+            await db.commit()
+
+        # Run the alert sweep and capture sendMessage calls.
+        captured: list = []
+        s = Settings(
+            _env_file=None,
+            telegram_bot_token="TKN",
+            telegram_chat_id="12345",
+        )
+        async with _mock_client(captured) as client:
+            sent = await notifier._send_pending_alerts(
+                sessions, s, s.telegram_bot_token, client
+            )
+        assert sent == 1, f"expected 1 alert sent, got {sent}"
+        assert len(captured) == 1
+
+        # Telegram payload audit: text contains the rule name and a single
+        # ack_alert callback_data button — no parse_mode anywhere.
+        body = json.loads(captured[0]["json"])
+        assert body["chat_id"] == "12345"
+        assert "failed-tasks" in body["text"]
+        assert "Alert fired" in body["text"]
+        assert "parse_mode" not in body
+        kb = body["reply_markup"]
+        cb_data = kb["inline_keyboard"][0][0]["callback_data"]
+        assert cb_data.startswith("ack_alert:")
+        assert cb_data == (
+            f"ack_alert:{rule_id}:"
+            f"{hashlib.sha256(scope_key.encode()).hexdigest()[:8]}"
+        )
+
+        # NotificationLog should now be marked sent + carry the message_id.
+        async with sessions() as db:
+            nl = (
+                await db.execute(
+                    select(NotificationLog).where(
+                        NotificationLog.kind == "alert",
+                        NotificationLog.entity_id == dedup_key,
+                    )
+                )
+            ).scalar_one()
+        assert nl.status == "sent"
+        assert nl.message_id == "msg-1"
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_notifier_skips_alert_with_missing_rule(test_settings) -> None:
+    """Orphan NotificationLog (rule was deleted) → status='failed', no send.
+
+    Defensive: the dedup_key encodes rule_id but if the AlertRule row was
+    DELETEd between Plan 02's evaluate_alerts insert and the notifier's
+    sweep, we mark the row failed and skip the send so the loop survives.
+    """
+    from cmc.config import Settings
+    from cmc.telegram import notifier
+    from tests.test_alerts_dispatcher import _bootstrap_db  # type: ignore
+
+    engine, sessions = await _bootstrap_db(test_settings)
+    try:
+        now = datetime.now(UTC).replace(tzinfo=None)
+        # Insert a notification_log row referencing rule_id=999 that has NO
+        # corresponding AlertRule row. Sweep should skip+fail it gracefully.
+        async with sessions() as db:
+            db.add(
+                NotificationLog(
+                    kind="alert",
+                    entity_id="alert:999:<global>",
+                    chat_id="12345",
+                    sent_at=now,
+                    status="pending",
+                )
+            )
+            await db.commit()
+
+        captured: list = []
+        s = Settings(
+            _env_file=None,
+            telegram_bot_token="TKN",
+            telegram_chat_id="12345",
+        )
+        async with _mock_client(captured) as client:
+            sent = await notifier._send_pending_alerts(
+                sessions, s, s.telegram_bot_token, client
+            )
+        assert sent == 0, "orphan rule should not trigger a Telegram send"
+        # NO sendMessage call captured.
+        assert len(captured) == 0
+        # Row marked failed so we don't loop on it forever.
+        async with sessions() as db:
+            nl = (
+                await db.execute(
+                    select(NotificationLog).where(
+                        NotificationLog.kind == "alert",
+                        NotificationLog.entity_id == "alert:999:<global>",
+                    )
+                )
+            ).scalar_one()
+        assert nl.status == "failed"
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_notifier_run_one_cycle_picks_up_alerts(test_settings) -> None:
+    """run_one_cycle integrates the alert sweep alongside the existing per-kind
+    sweeps. Seeds an alert pending row; the existing notifier entrypoint must
+    pick it up so Plan 02 → notifier handoff works without callers needing to
+    know about _send_pending_alerts directly.
+    """
+    from cmc.config import Settings
+    from cmc.telegram import notifier
+    from tests.test_alerts_dispatcher import _bootstrap_db  # type: ignore
+
+    engine, sessions = await _bootstrap_db(test_settings)
+    try:
+        now = datetime.now(UTC).replace(tzinfo=None)
+        scope_key = "<global>"
+        async with sessions() as db:
+            rule = AlertRule(
+                name="rate-watch",
+                kind="threshold",
+                metric="dispatcher_failed_tasks_5m",
+                threshold_fire=0.5,
+                min_dwell_seconds=0,
+                min_samples=1,
+                cooldown_seconds=0,
+                enabled=True,
+                spec_version=1,
+                params_json={},
+                created_at=now,
+                updated_at=now,
+            )
+            db.add(rule)
+            await db.commit()
+            await db.refresh(rule)
+            rule_id = rule.rule_id
+
+            db.add(
+                AlertState(
+                    rule_id=rule_id,
+                    scope_key=scope_key,
+                    state="firing",
+                    last_value=7.0,
+                    last_evaluated_at=now,
+                    fired_at=now,
+                    sample_count=1,
+                )
+            )
+            dedup_key = f"alert:{rule_id}:{scope_key}"
+            db.add(
+                NotificationLog(
+                    kind="alert",
+                    entity_id=dedup_key,
+                    chat_id="12345",
+                    sent_at=now,
+                    status="pending",
+                )
+            )
+            await db.commit()
+
+        captured: list = []
+        s = Settings(
+            _env_file=None,
+            telegram_bot_token="TKN",
+            telegram_chat_id="12345",
+        )
+        async with _mock_client(captured) as client:
+            sent = await notifier.run_one_cycle(sessions, s, http_client=client)
+        # 1 alert sent — the run_one_cycle integration covers _send_pending_alerts.
+        assert sent >= 1
+        assert any("rate-watch" in c["json"] for c in captured)
+    finally:
+        await engine.dispose()
+
+
+# Suppress unused-import warning for timedelta — it is used in the
+# Task 2 ack-flow test above.
+_ = timedelta
