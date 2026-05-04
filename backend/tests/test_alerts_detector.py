@@ -16,7 +16,6 @@ from cmc.alerts.detector import (
     AlertSignal,
     evaluate_threshold,
 )
-
 from cmc.db.models.alert_rules import AlertRule
 from cmc.db.models.alert_state import AlertState
 
@@ -98,8 +97,9 @@ def _make_state(
     )
     # Attach params_json dynamically — Plan 01 doesn't migrate the schema; the
     # caller (Plan 02 dispatcher) is responsible for persisting EWMA state.
-    # For pure-function tests we just attach it as an attribute.
-    s.params_json = params_json if params_json is not None else {}
+    # SQLModel inherits Pydantic v2 strict-attribute behavior, so we bypass
+    # via object.__setattr__ for pure-function tests only.
+    object.__setattr__(s, "params_json", params_json if params_json is not None else {})
     return s
 
 
