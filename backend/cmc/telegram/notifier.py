@@ -9,6 +9,7 @@ Pitfall P5: stamp_tick wrapped in try/finally so SAPI-04 sees liveness.
 
 import logging
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from typing import Any
 
 import httpx
@@ -17,6 +18,8 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from cmc.config import Settings
+from cmc.db.models.alert_rules import AlertRule
+from cmc.db.models.alert_state import AlertState
 from cmc.db.models.decisions import Decision
 from cmc.db.models.notification_log import NotificationLog
 from cmc.db.models.schedules import Schedule
@@ -214,13 +217,46 @@ async def _filter_blocked(
     return {str(r) for r in rows}
 
 
+def _alert_formatter_adapter(candidate) -> tuple[str, dict[str, Any] | None]:
+    """Adapter: SimpleNamespace(rule, scope_key, last_value) → format_alert.
+
+    The _FORMATTER table contract is `(candidate) -> tuple[str, dict|None]`.
+    Plan 03's format_alert takes (rule, scope_key, value), so we synthesize a
+    namespace in `_send_pending_alerts` and unwrap here. Defaults `last_value`
+    to 0.0 if the AlertState row carries None (e.g. fresh row, unusual but
+    not impossible — keep formatter total over the input domain).
+    """
+    return messages.format_alert(
+        candidate.rule, candidate.scope_key, candidate.last_value or 0.0
+    )
+
+
 _FORMATTER = {
     "decision": messages.format_decision,
     "approval": messages.format_approval,
     "failure": messages.format_failure,
     "overdue_schedule": messages.format_overdue,
     "inbox": messages.format_inbox,
+    "alert": _alert_formatter_adapter,        # Phase 15 Plan 03 (ALRT-08)
 }
+
+
+def _parse_alert_dedup_key(entity_id: str) -> tuple[int, str] | None:
+    """Parse 'alert:{rule_id}:{scope_key}' → (rule_id, scope_key) or None.
+
+    scope_key may itself contain ':' (e.g. 'model:claude-opus-4-7'), so we
+    split with maxsplit=2. Defensive: returns None on malformed input so the
+    sweep's per-row try-block can mark the row failed without crashing the
+    cycle (Plan 02's verbatim "per-row exception isolation" pattern).
+    """
+    parts = entity_id.split(":", 2)
+    if len(parts) < 3 or parts[0] != "alert":
+        return None
+    try:
+        rule_id = int(parts[1])
+    except ValueError:
+        return None
+    return rule_id, parts[2]
 
 
 async def _claim_and_send(
@@ -294,6 +330,134 @@ async def _claim_and_send(
     return True
 
 
+async def _send_pending_alerts(
+    sessions,
+    settings: Settings,
+    token: str,
+    http_client: httpx.AsyncClient | None,
+) -> int:
+    """Phase 15 Plan 03 (ALRT-08) — sweep notification_log kind='alert' status='pending'.
+
+    Wiring decision Option A (per Plan 03 docstring):
+      Plan 02's evaluate_alerts INSERTs the notification_log row at FIRING
+      time with status='pending' (the row IS the dedup claim — Pitfall 7).
+      The notifier just picks it up here. We do NOT re-insert; we own only
+      the format + send + status writeback.
+
+    Reconstruction: dedup_key = 'alert:{rule_id}:{scope_key}'. Parse with
+    maxsplit=2 because scope_key itself can contain ':' (e.g. 'model:foo').
+    Load the matching AlertRule + AlertState — if either is missing (orphan
+    row from a deleted rule), mark the notification_log row 'failed' so the
+    sweep doesn't loop on it forever.
+
+    Each row is processed in its OWN session (mirrors notifier convention —
+    other per-kind sweeps commit per-row inside the calling run_one_cycle's
+    `async with sessions() as db`, but the alert sweep takes ownership of
+    the session lifecycle to keep its lookups (rule + state load, then row
+    update) inside one transactional context per row).
+
+    Returns the count of successful sends (status='sent' rows).
+    """
+    chat_id = str(settings.telegram_chat_id or "")
+    if not chat_id:
+        # Plan 02 already skips the notification_log insert when chat_id is
+        # empty, so there's nothing to sweep — but defensive in case a row
+        # was inserted from a different code path.
+        return 0
+
+    sent_count = 0
+    async with sessions() as db:
+        rows = (
+            await db.execute(
+                select(NotificationLog).where(
+                    NotificationLog.kind == "alert",
+                    NotificationLog.chat_id == chat_id,
+                    NotificationLog.status == "pending",
+                )
+            )
+        ).scalars().all()
+
+    for nl in rows:
+        async with sessions() as db:
+            # Re-fetch under this session so we can mutate + commit cleanly.
+            row = (
+                await db.execute(
+                    select(NotificationLog).where(NotificationLog.id == nl.id)
+                )
+            ).scalar_one_or_none()
+            if row is None or row.status != "pending":
+                # Concurrently swept by another tick (oneshot is single-process,
+                # but the contract is the same as other _claim_and_send paths).
+                continue
+
+            parsed = _parse_alert_dedup_key(row.entity_id)
+            if parsed is None:
+                log.warning(
+                    "notifier.alert_unparseable_dedup_key",
+                    extra={"entity_id": row.entity_id},
+                )
+                row.status = "failed"
+                await db.commit()
+                continue
+            rule_id, scope_key = parsed
+
+            rule = (
+                await db.execute(
+                    select(AlertRule).where(AlertRule.rule_id == rule_id)
+                )
+            ).scalar_one_or_none()
+            state = (
+                await db.execute(
+                    select(AlertState).where(
+                        AlertState.rule_id == rule_id,
+                        AlertState.scope_key == scope_key,
+                    )
+                )
+            ).scalar_one_or_none()
+
+            if rule is None or state is None:
+                # Orphan row — rule or state was deleted between Plan 02's
+                # insert + this sweep. Mark failed so the sweep moves on and
+                # the loop survives.
+                log.warning(
+                    "notifier.alert_orphan",
+                    extra={
+                        "rule_id": rule_id,
+                        "scope_key": scope_key,
+                        "rule_present": rule is not None,
+                        "state_present": state is not None,
+                    },
+                )
+                row.status = "failed"
+                await db.commit()
+                continue
+
+            candidate = SimpleNamespace(
+                rule=rule, scope_key=scope_key, last_value=state.last_value
+            )
+            text, kb = _FORMATTER["alert"](candidate)
+
+            try:
+                resp = await api.send_message(
+                    token, chat_id, text, reply_markup=kb, client=http_client
+                )
+            except Exception as exc:
+                log.error(
+                    "notifier.alert_send_failed",
+                    extra={"entity_id": row.entity_id, "err": str(exc)},
+                )
+                row.status = "failed"
+                await db.commit()
+                continue
+
+            row.status = "sent"
+            row.message_id = str(resp.get("message_id") or "")
+            await db.commit()
+            sent_count += 1
+
+    return sent_count
+
+
 async def run_one_cycle(
     sessions,
     settings: Settings,
@@ -345,5 +509,17 @@ async def run_one_cycle(
                 )
                 if ok:
                     sent_count += 1
+
+    # Phase 15 Plan 03 — alert kind sweep.
+    # Plan 02's evaluate_alerts already INSERTs notification_log rows with
+    # status='pending' (the row IS the dedup claim — Pitfall 7). Here we just
+    # pick them up + format + send + writeback. _send_pending_alerts owns its
+    # own session lifecycle per-row to keep its rule + state lookups inside
+    # one transactional context, mirroring the per-rule isolation in
+    # cmc/dispatcher/alerts.py.
+    sent_count += await _send_pending_alerts(
+        sessions, settings, token, http_client
+    )
+
     log.info("notifier.cycle_complete", extra={"sent": sent_count})
     return sent_count
