@@ -6,6 +6,7 @@ const routes = [
   { to: '/', label: 'Command' },
   { to: '/activity', label: 'Activity' },
   { to: '/skills', label: 'Skills' },
+  { to: '/alerts', label: 'Alerts' },
 ] as const
 
 export function NavBar() {

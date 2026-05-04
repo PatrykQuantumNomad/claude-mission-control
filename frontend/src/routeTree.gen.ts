@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SkillsRouteImport } from './routes/skills'
+import { Route as AlertsRouteImport } from './routes/alerts'
 import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SkillsNameRouteImport } from './routes/skills_.$name'
@@ -17,6 +18,11 @@ import { Route as SkillsNameRouteImport } from './routes/skills_.$name'
 const SkillsRoute = SkillsRouteImport.update({
   id: '/skills',
   path: '/skills',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AlertsRoute = AlertsRouteImport.update({
+  id: '/alerts',
+  path: '/alerts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ActivityRoute = ActivityRouteImport.update({
@@ -38,12 +44,14 @@ const SkillsNameRoute = SkillsNameRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/activity': typeof ActivityRoute
+  '/alerts': typeof AlertsRoute
   '/skills': typeof SkillsRoute
   '/skills/$name': typeof SkillsNameRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/activity': typeof ActivityRoute
+  '/alerts': typeof AlertsRoute
   '/skills': typeof SkillsRoute
   '/skills/$name': typeof SkillsNameRoute
 }
@@ -51,20 +59,22 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/activity': typeof ActivityRoute
+  '/alerts': typeof AlertsRoute
   '/skills': typeof SkillsRoute
   '/skills_/$name': typeof SkillsNameRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/activity' | '/skills' | '/skills/$name'
+  fullPaths: '/' | '/activity' | '/alerts' | '/skills' | '/skills/$name'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/activity' | '/skills' | '/skills/$name'
-  id: '__root__' | '/' | '/activity' | '/skills' | '/skills_/$name'
+  to: '/' | '/activity' | '/alerts' | '/skills' | '/skills/$name'
+  id: '__root__' | '/' | '/activity' | '/alerts' | '/skills' | '/skills_/$name'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ActivityRoute: typeof ActivityRoute
+  AlertsRoute: typeof AlertsRoute
   SkillsRoute: typeof SkillsRoute
   SkillsNameRoute: typeof SkillsNameRoute
 }
@@ -76,6 +86,13 @@ declare module '@tanstack/react-router' {
       path: '/skills'
       fullPath: '/skills'
       preLoaderRoute: typeof SkillsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/alerts': {
+      id: '/alerts'
+      path: '/alerts'
+      fullPath: '/alerts'
+      preLoaderRoute: typeof AlertsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/activity': {
@@ -105,6 +122,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ActivityRoute: ActivityRoute,
+  AlertsRoute: AlertsRoute,
   SkillsRoute: SkillsRoute,
   SkillsNameRoute: SkillsNameRoute,
 }
