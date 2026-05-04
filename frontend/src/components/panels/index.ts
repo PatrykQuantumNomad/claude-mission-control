@@ -42,8 +42,9 @@ export { SkillTimeline } from './SkillTimeline'
 // inside the new /skills/$name dynamic route).
 export { SkillRunsTable } from './SkillRunsTable'
 // Phase 15 Plan 05 — ALRT-10 alert engine UI panels (composed inside the
-// new /alerts file-based route). AlertRuleForm export added in Task 2.
+// new /alerts file-based route).
 export { AlertEventsList } from './AlertEventsList'
+export { AlertRuleForm } from './AlertRuleForm'
 export { AlertRulesList } from './AlertRulesList'
 // TPNL task panels
 export { TaskBoard } from './TaskBoard'
