@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Skills & Cost Intelligence
 status: in_progress
-stopped_at: Phase 15 Wave 3 complete — Plan 15-03 (Telegram delivery + ack feedback loop) shipped; only Plan 15-05 (/alerts page) remains
-last_updated: "2026-05-04T15:16:44.257Z"
+stopped_at: Phase 15 Plan 15-05 mid-execution — 3 auto tasks committed (AlertRulesList 8050a7c + AlertRuleForm 8ac124a + /alerts route 1d59a1d); paused at Task 4 human-verify checkpoint awaiting operator browser-test approval at http://localhost:5173/alerts
+last_updated: "2026-05-04T15:29:47Z"
 last_activity: "2026-05-04 — Phase 15 Plan 15-02 complete (alert engine dispatcher hook + /api/alerts CRUD). Heartbeat hook landed AFTER stamp_tick AND AFTER e-stop early return (D-01); evaluate_alerts(db) composes Plan 01 detector + scope extractors with per-rule try/except isolation. Stable dedup_key + auto-resolve transition (firing→clear: decisions.status=answered + delete notification_log row per D-03/Pitfall 5). 5 endpoints under /api/alerts (list/create/patch/delete + events + _ack). PATCH state-clear policy D-02. Pydantic v2 validators (3 422 paths). ALRT-12 verified ast + grep. 31 new tests (12 dispatcher + 19 router); 490 → 521 exact. ALRT-04/06/07/08/09/12 closed. Plan 15-03 (Telegram wiring) and 15-05 (/alerts page) unblocked."
 progress:
   total_phases: 6
