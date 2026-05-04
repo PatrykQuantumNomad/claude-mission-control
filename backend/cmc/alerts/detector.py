@@ -137,7 +137,40 @@ def evaluate_threshold(
     return AlertSignal.CLEAR
 
 
-# ---- evaluate_anomaly (Task 2 — stub for now) -----------------------------
+# ---- evaluate_anomaly (EWMA z-score + warm-up + hysteresis) ---------------
+
+
+def _read_anomaly_state(state: AlertState) -> tuple[float, float, int]:
+    """Defensively pull (ewma_mean, ewma_var, sample_count) from state.
+
+    state.params_json is a JSON column on AlertRule per the schema, but
+    Plan 01 D-03 lifts the EWMA dict onto AlertState.params_json (attached
+    by the dispatcher caller, or by the test factory). If parsing fails for
+    any reason (corrupt hand-edit, missing keys, type errors), we degrade
+    gracefully by treating this as a fresh seed (returns (0.0, 0.0, 0)) —
+    the anomaly path's first-sample short-circuit will then re-seed cleanly.
+    """
+    pj = getattr(state, "params_json", None) or {}
+    sc = getattr(state, "sample_count", 0) or 0
+    try:
+        mean = float(pj.get("ewma_mean", 0.0))
+        var = float(pj.get("ewma_var", 0.0))
+        return mean, var, int(sc)
+    except (ValueError, TypeError):
+        return 0.0, 0.0, 0
+
+
+def _resolve_window_n(rule: AlertRule) -> int:
+    """Pull window_n from rule.params_json, defaulting to 50.
+
+    Defensive int() conversion guards against hand-edited JSON (T-15-01-01).
+    """
+    pj = rule.params_json or {}
+    try:
+        n = int(pj.get("window_n", _DEFAULT_WINDOW_N))
+    except (ValueError, TypeError):
+        n = _DEFAULT_WINDOW_N
+    return max(n, 1)  # alpha = 2/(N+1); N=0 would div-zero, clamp to 1.
 
 
 def evaluate_anomaly(
@@ -147,15 +180,98 @@ def evaluate_anomaly(
     *,
     now: datetime,
 ) -> tuple[AlertSignal, dict[str, float]]:
-    """EWMA z-score anomaly detector with 24h warm-up gate.
+    """EWMA z-score anomaly detector + 24h warm-up gate (ALRT-05).
 
-    Returns (signal, {"ewma_mean": float, "ewma_var": float,
-                      "sample_count": float}). Caller persists.
+    Returns (signal, ewma_dict) where ewma_dict has keys:
+      - ewma_mean: float — updated mean after this sample
+      - ewma_var:  float — updated variance after this sample
+      - sample_count: float (int-valued) — sample count after this sample
 
-    Task 2 implementation lands in the next commit.
+    Caller (Plan 02 dispatcher) MUST persist:
+      - state.params_json = {**state.params_json, "ewma_mean": m, "ewma_var": v}
+      - state.sample_count = int(sample_count)
+
+    Math (per RESEARCH.md detector math section):
+      alpha = 2 / (N + 1) where N = rule.params_json.get("window_n", 50)
+      Seed (sample_count == 0):
+        new_mean = current_value
+        new_var  = 0.0
+        signal   = INSUFFICIENT  (no baseline; can't compute z)
+      Subsequent (sample_count >= 1):
+        new_mean = alpha * x + (1 - alpha) * prior_mean
+        new_var  = alpha * (x - prior_mean)^2 + (1 - alpha) * prior_var
+        z        = (x - new_mean) / sqrt(new_var + EPSILON)
+
+    Warm-up gate (ALRT-05):
+      sample_count_new < rule.min_samples         -> INSUFFICIENT
+      now - rule.created_at < WARMUP_SECONDS      -> INSUFFICIENT
+    Otherwise the same hysteresis state machine as evaluate_threshold but on
+    |z| vs (threshold_fire / threshold_clear) instead of raw value.
     """
-    # Use math import to avoid the unused-import lint when this stub is shipped.
-    _ = math.sqrt(EPSILON)
-    raise NotImplementedError(
-        "evaluate_anomaly is implemented by Task 2 (next commit)"
-    )
+    n = _resolve_window_n(rule)
+    alpha = 2.0 / (n + 1.0)
+    prior_mean, prior_var, prior_sc = _read_anomaly_state(state)
+
+    # ---- Seed sample (no prior baseline) ----
+    if prior_sc == 0:
+        new_mean = float(current_value)
+        new_var = 0.0
+        new_sc = 1
+        return AlertSignal.INSUFFICIENT, {
+            "ewma_mean": new_mean,
+            "ewma_var": new_var,
+            "sample_count": float(new_sc),
+        }
+
+    # ---- EWMA recurrence (Welford-style, numerically stable) ----
+    diff = float(current_value) - prior_mean
+    new_mean = alpha * float(current_value) + (1.0 - alpha) * prior_mean
+    new_var = alpha * (diff * diff) + (1.0 - alpha) * prior_var
+    new_sc = prior_sc + 1
+
+    ewma = {
+        "ewma_mean": new_mean,
+        "ewma_var": new_var,
+        "sample_count": float(new_sc),
+    }
+
+    # ---- Warm-up + min_samples gates (ALRT-05) ----
+    if new_sc < rule.min_samples:
+        return AlertSignal.INSUFFICIENT, ewma
+    age_seconds = (now - rule.created_at).total_seconds()
+    if age_seconds < WARMUP_SECONDS:
+        return AlertSignal.INSUFFICIENT, ewma
+
+    # ---- Compute z-score ----
+    fire = rule.threshold_fire
+    if fire is None:
+        # Anomaly rule with no threshold_fire: degrade to CLEAR (Plan 02 validates).
+        return AlertSignal.CLEAR, ewma
+    z = (float(current_value) - new_mean) / math.sqrt(new_var + EPSILON)
+    abs_z = math.fabs(z)
+
+    # ---- Hysteresis state machine (mirrors evaluate_threshold but on |z|) ----
+    if state.state in ("clear", "acked", "insufficient_data"):
+        if abs_z > fire:
+            if state.fired_at is None:
+                return AlertSignal.PENDING_FIRE, ewma
+            elapsed = (now - state.fired_at).total_seconds()
+            if elapsed >= rule.min_dwell_seconds:
+                return AlertSignal.FIRING, ewma
+            return AlertSignal.PENDING_FIRE, ewma
+        return AlertSignal.CLEAR, ewma
+
+    if state.state == "firing":
+        clear_floor = (
+            rule.threshold_clear if rule.threshold_clear is not None else fire
+        )
+        if abs_z < clear_floor:
+            return AlertSignal.CLEAR, ewma
+        if state.fired_at is not None:
+            elapsed = (now - state.fired_at).total_seconds()
+            if elapsed < rule.cooldown_seconds:
+                return AlertSignal.HOLD, ewma
+        return AlertSignal.FIRING, ewma
+
+    # Unknown state — defensive CLEAR.
+    return AlertSignal.CLEAR, ewma
