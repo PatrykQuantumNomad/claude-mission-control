@@ -15,6 +15,13 @@ export type RangeAll = Range | 'all'
 // cmc/api/schemas/skills.py SkillRange = Literal["14d", "30d"].
 export type SkillRange = '14d' | '30d'
 
+// Phase 15 AlertRange — full 4-tier (mirrors backend AlertRange Literal).
+// Alerts events may be queried at all four ranges (immediate triage vs.
+// monthly review). Plan 04 D-01 — narrower than CostRange would constrain
+// user query intent without benefit.
+export type AlertRange = '1d' | '7d' | '14d' | '30d'
+export type AlertKind = 'threshold' | 'anomaly'
+
 // ============================================================================
 // Health
 // ============================================================================
@@ -486,6 +493,91 @@ export interface SkillRunsResponse {
 }
 
 // ============================================================================
+// Alerts (ALRT-09 schemas) — Phase 15 Plan 04 frontend lib plumbing.
+// Mirror backend cmc/api/schemas/alerts.py verbatim. Decimal fields use the
+// Pydantic v2 default (string-as-JSON) — but alerts schemas have NO Decimal
+// fields; thresholds and last_value are plain numbers (float in JSON).
+// ============================================================================
+
+export interface AlertRule {
+  rule_id: number
+  name: string
+  kind: AlertKind
+  metric: string
+  threshold_fire: number | null
+  threshold_clear: number | null
+  min_dwell_seconds: number
+  min_samples: number
+  cooldown_seconds: number
+  enabled: boolean
+  spec_version: number
+  params_json: Record<string, unknown>
+  created_at: string                     // ISO 8601
+  updated_at: string                     // ISO 8601
+}
+
+export interface AlertRuleListResponse {
+  items: AlertRule[]
+  total: number
+}
+
+/** Body for POST /api/alerts/rules. Optional fields use backend defaults
+ * (e.g. min_samples=5, cooldown_seconds=600). spec_version pins the rule
+ * schema version for forward-compat (defaults to 1 server-side). */
+export interface AlertRuleCreate {
+  name: string
+  kind: AlertKind
+  metric: string
+  threshold_fire?: number | null
+  threshold_clear?: number | null
+  min_dwell_seconds?: number
+  min_samples?: number
+  cooldown_seconds?: number
+  enabled?: boolean
+  spec_version?: number
+  params_json?: Record<string, unknown>
+}
+
+/** Body for PATCH /api/alerts/rules/{id}. All fields optional — partial
+ * update. Server validates threshold_fire/threshold_clear ordering on each
+ * patch (clear>=fire for "improving" semantics). */
+export interface AlertRulePatch {
+  name?: string
+  enabled?: boolean
+  threshold_fire?: number | null
+  threshold_clear?: number | null
+  min_dwell_seconds?: number
+  min_samples?: number
+  cooldown_seconds?: number
+  params_json?: Record<string, unknown>
+}
+
+export interface AlertEvent {
+  decision_id: number
+  rule_id: number
+  rule_name: string
+  scope_key: string
+  fired_at: string                       // ISO 8601
+  cleared_at: string | null              // null while pending
+  status: 'pending' | 'answered'
+  last_value: number | null
+}
+
+export interface AlertEventsResponse {
+  range: AlertRange
+  items: AlertEvent[]
+  total: number
+}
+
+/** Body for POST /api/alerts/_ack. scope_hash is an 8-char hex digest
+ * (server-side derived from scope_key) — UI surfaces it on AlertEventsList
+ * rows for inclusion here. */
+export interface AlertAckRequest {
+  rule_id: number
+  scope_hash: string                     // 8-char hex
+}
+
+// ============================================================================
 // HITL (HITL-*) — typed from backend schema
 // Mirror backend/cmc/api/schemas/hitl.py verbatim.
 // ============================================================================
@@ -899,6 +991,36 @@ export const api = {
       `/api/skills/${encodeURIComponent(name)}/runs?limit=${limit}`,
     ),
 
+  // Phase 15 (ALRT-09) — alert rules CRUD + events list + ack. Body shapes
+  // (AlertRuleCreate / AlertRulePatch / AlertAckRequest) are validated
+  // server-side; mutations in queries.ts surface 422 via mutation.onError.
+  alertRules: (limit: number = 200, offset: number = 0) =>
+    fetchJson<AlertRuleListResponse>(
+      `/api/alerts/rules?limit=${limit}&offset=${offset}`,
+    ),
+  alertRuleCreate: (body: AlertRuleCreate) =>
+    fetchJson<AlertRule>('/api/alerts/rules', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify(body),
+    }),
+  alertRulePatch: (id: number, body: AlertRulePatch) =>
+    fetchJson<AlertRule>(`/api/alerts/rules/${id}`, {
+      method: 'PATCH',
+      headers: jsonHeaders,
+      body: JSON.stringify(body),
+    }),
+  alertRuleDelete: (id: number) =>
+    fetchVoid(`/api/alerts/rules/${id}`, { method: 'DELETE' }),
+  alertEvents: (range: AlertRange = '7d') =>
+    fetchJson<AlertEventsResponse>(`/api/alerts/events?range=${range}`),
+  alertAck: (body: AlertAckRequest) =>
+    fetchJson<{ ok: true; acked_until: string }>('/api/alerts/_ack', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify(body),
+    }),
+
   // HITL
   decisions: (params: DecisionListParams = {}) => {
     const qs = buildDecisionsQs(params)
@@ -1089,3 +1211,17 @@ export const fetchSkillUsage = api.skillUsage
 export const fetchSkillCost = api.skillCost
 export const fetchSkillLatency = api.skillLatency
 export const fetchSkillRuns = api.skillRuns
+
+// ============================================================================
+// Phase 15 — Alerts standalone fetcher exports.
+// Mirror of the Phase 14 dual-surface pattern: panel/hook layer goes through
+// queries.ts which calls api.* — these standalone aliases satisfy direct
+// callers + the must_haves grep contract (Plan 15-04 artifacts).
+// ============================================================================
+
+export const fetchAlertRules = api.alertRules
+export const fetchAlertRuleCreate = api.alertRuleCreate
+export const fetchAlertRulePatch = api.alertRulePatch
+export const fetchAlertRuleDelete = api.alertRuleDelete
+export const fetchAlertEvents = api.alertEvents
+export const fetchAlertAck = api.alertAck
