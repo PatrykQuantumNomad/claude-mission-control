@@ -49,8 +49,8 @@
 - [ ] **ALRT-06**: User can trust that one firing condition produces at most one decision row + one Telegram message regardless of evaluation cycles, via stable `dedup_key = f"alert:{rule_id}:{scope_key}"` (no timestamps in key) reusing the existing `notification_log` UNIQUE(kind, entity_id, chat_id) constraint
 - [ ] **ALRT-07**: User can trust that alerts auto-resolve when the underlying metric clears: dispatcher writes `decisions.status='answered'` with `answered_by='alert_engine'`; reuses HITL queue lifecycle
 - [ ] **ALRT-08**: User can ack an alert via Telegram callback verb `ack_alert` (registered in `cmc/telegram/callback_verbs.py` central enum) which suppresses re-notification for 1h without clearing the underlying condition
-- [ ] **ALRT-09**: User can hit `GET /api/alerts/rules` + `POST /api/alerts/rules` + `PATCH /api/alerts/rules/{id}` + `DELETE /api/alerts/rules/{id}` for full CRUD, plus `GET /api/alerts/events?range=` for firing history
-- [ ] **ALRT-10**: User can navigate to `/alerts` route showing `AlertRulesList` + `AlertRuleForm` (composer with hysteresis fields exposed) with 30s polling cadence
+- [x] **ALRT-09**: User can hit `GET /api/alerts/rules` + `POST /api/alerts/rules` + `PATCH /api/alerts/rules/{id}` + `DELETE /api/alerts/rules/{id}` for full CRUD, plus `GET /api/alerts/events?range=` for firing history
+- [x] **ALRT-10**: User can navigate to `/alerts` route showing `AlertRulesList` + `AlertRuleForm` (composer with hysteresis fields exposed) with 30s polling cadence
 - [ ] **ALRT-11**: User can trust that alert Telegram messages are plain-text only (NO `parse_mode=`); enforced by extending the existing `inspect.signature()` grep test from Phase 9-01 to cover `cmc/telegram/messages.py` alert paths
 - [ ] **ALRT-12**: User can trust that the alert engine NEVER imports `cmc.dispatcher.tasks` or creates dispatcher tasks directly — alerts emit decisions only, the user gates action via existing autonomy controls
 
@@ -155,8 +155,8 @@ Which phases cover which requirements. Populated by gsd-roadmapper on 2026-05-02
 | ALRT-06 | Phase 15 | Pending |
 | ALRT-07 | Phase 15 | Pending |
 | ALRT-08 | Phase 15 | Pending |
-| ALRT-09 | Phase 15 | Pending |
-| ALRT-10 | Phase 15 | Pending |
+| ALRT-09 | Phase 15 | Complete |
+| ALRT-10 | Phase 15 | Complete |
 | ALRT-11 | Phase 15 | Pending |
 | ALRT-12 | Phase 15 | Pending |
 | CMPR-01 | Phase 16 | Pending |
