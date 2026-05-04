@@ -15,9 +15,18 @@ Verb table (must stay under Telegram's 64-byte callback_data cap):
   reply_inbox:<id>              -> NOOP at routing layer; handler enters reply state
   snooze:<kind>:<entity>:<dur>  -> RESOLVE_THEN_PATCH (handler resolves notif_id first)
   estop                         -> POST /api/system/emergency-stop body={"reason": "telegram"}
+  ack_alert:<rule_id>:<hash8>   -> POST /api/alerts/_ack body={"rule_id", "scope_hash"}
+                                   (Phase 15 ALRT-08 — sha256(scope_key)[:8])
+
+Plan 03 D-02 invariant: every verb in this router compares against a
+``CallbackVerb`` enum member. NO string-literal verb comparisons are allowed
+— a regression test (``test_dash_router_no_string_literal_verb_checks``)
+greps the source and fails the build if a literal slips back in.
 """
 
 from typing import Any
+
+from cmc.telegram.callback_verbs import CallbackVerb
 
 
 class CallbackParseError(ValueError):
@@ -41,6 +50,10 @@ def decode_callback(data: str) -> tuple[str, list[str]]:
 def route(verb: str, args: list[str]) -> tuple[str, str, dict[str, Any]]:
     """Map (verb, args) -> (METHOD, /api/path, body).
 
+    StrEnum semantics: ``CallbackVerb.foo == "foo"`` is True, so the caller may
+    pass either a raw decoded string (the handler's hot path) OR a
+    ``CallbackVerb`` member — both compare equal to the enum members below.
+
     Returns one of three METHOD shapes:
       - "POST"  / "PATCH" — direct HTTP dispatch by handler
       - "NOOP"            — handler enters in-process reply state
@@ -49,22 +62,22 @@ def route(verb: str, args: list[str]) -> tuple[str, str, dict[str, Any]]:
         body's `duration` query param. The indirection keeps callback_data
         under Telegram's 64-byte cap.
     """
-    if verb == "approve_task" and len(args) == 1:
+    if verb == CallbackVerb.approve_task and len(args) == 1:
         return ("POST", f"/api/tasks/{args[0]}/approve", {})
-    if verb == "reject_task" and len(args) == 1:
+    if verb == CallbackVerb.reject_task and len(args) == 1:
         return ("POST", f"/api/tasks/{args[0]}/reject", {})
-    if verb == "rerun_task" and len(args) == 1:
+    if verb == CallbackVerb.rerun_task and len(args) == 1:
         return ("POST", f"/api/tasks/{args[0]}/rerun", {})
-    if verb == "answer_decision" and len(args) == 2:
+    if verb == CallbackVerb.answer_decision and len(args) == 2:
         return (
             "POST",
             f"/api/decisions/{args[0]}/answer",
             {"answer": args[1], "answered_by": "telegram"},
         )
-    if verb == "reply_inbox" and len(args) == 1:
+    if verb == CallbackVerb.reply_inbox and len(args) == 1:
         # handler.py captures the next text message from this user; not a route call
         return ("NOOP", f"/api/inbox/{args[0]}", {})
-    if verb == "snooze" and len(args) == 3:
+    if verb == CallbackVerb.snooze and len(args) == 3:
         # handler resolves notif_id from (kind, entity_id, chat_id) before PATCH
         kind, entity_id, duration = args
         return (
@@ -72,6 +85,24 @@ def route(verb: str, args: list[str]) -> tuple[str, str, dict[str, Any]]:
             f"/api/notifications/_resolve/{kind}/{entity_id}",
             {"duration": duration},
         )
-    if verb == "estop" and len(args) == 0:
+    if verb == CallbackVerb.estop and len(args) == 0:
         return ("POST", "/api/system/emergency-stop", {"reason": "telegram"})
+    if verb == CallbackVerb.ack_alert and len(args) == 2:
+        # Phase 15 ALRT-08: ack a firing alert via sha256(scope_key)[:8] hash.
+        # The hash keeps callback_data under Telegram's 64-byte cap (per
+        # Plan 03 D-01 / RESEARCH Open Q #3). The /api/alerts/_ack endpoint
+        # resolves the hash to the full scope_key in Python (SQLite has no
+        # native SHA256). Bad rule_id parses raise CallbackParseError so the
+        # handler's catch-all closes the user's spinner cleanly.
+        try:
+            rid = int(args[0])
+        except ValueError as exc:
+            raise CallbackParseError(
+                f"ack_alert: invalid rule_id {args[0]!r}"
+            ) from exc
+        return (
+            "POST",
+            "/api/alerts/_ack",
+            {"rule_id": rid, "scope_hash": args[1]},
+        )
     raise CallbackParseError(f"unknown verb {verb!r} with {len(args)} args")
