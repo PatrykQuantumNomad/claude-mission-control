@@ -7,7 +7,7 @@
 //   5s   — live system: SystemHealth ticker, LiveSessions
 //   10s  — Attention bar
 //   15s  — Today summary KPIs
-//   30s  — Pressure, Latency, Failures, Sessions list
+//   30s  — Pressure, Latency, Failures, Sessions list, AlertRules, AlertEvents
 //   60s  — Daily aggregates (tokens, cache, outcomes, hooks, edits)
 //   120s — Slow rollups (by-project, fanout, productivity, mcp servers)
 //   300s — Heatmap (30-day rollup; rarely changes intra-session)
@@ -18,6 +18,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './api'
 import type {
+  AlertAckRequest,
+  AlertEventsResponse,
+  AlertRange,
+  AlertRule,
+  AlertRuleCreate,
+  AlertRuleListResponse,
+  AlertRulePatch,
   DecisionAnswerRequest,
   DecisionListItem,
   DecisionListResponse,
@@ -91,6 +98,12 @@ export const qk = {
     ['skill-latency', name, range] as const,
   skillRuns: (name: string, limit: number) =>
     ['skill-runs', name, limit] as const,
+  // Phase 15 (ALRT-09/10) — alerts. Kebab-prefix per Pitfall 5 from
+  // 14-RESEARCH.md: never reuse a bare 'alerts' prefix; each surface gets
+  // its own scoped key so analytics invalidation never collides with future
+  // 'alert-*' keys (e.g. 'alert-state' if ever exposed to UI).
+  alertRules: () => ['alert-rules'] as const,
+  alertEvents: (range: AlertRange) => ['alert-events', range] as const,
   contextHealth: () => ['context', 'health'] as const,
   systemState: (key: string) => ['system', 'state', key] as const,
 } as const
@@ -140,7 +153,7 @@ export const useSummary = () =>
   })
 
 // ============================================================================
-// 30s — pressure, latency, failures, sessions list
+// 30s — pressure, latency, failures, sessions list, alerts (rules + events)
 // ============================================================================
 
 export const usePressure = () =>
@@ -174,6 +187,27 @@ export const useSessionsList = (params: SessionsListParams) =>
     refetchInterval: 30_000,
     staleTime: 20_000,
     placeholderData: (prev) => prev,
+  })
+
+// Phase 15 alerts (ALRT-10) — 30s polling cadence per 15-RESEARCH.md.
+// Same tier as Pressure/Latency/Failures: alerts are operationally urgent
+// without being a per-second firehose; 30s gives the user a sub-minute view
+// of new fired events without burning DB on every tick.
+
+export const useAlertRules = () =>
+  useQuery<AlertRuleListResponse>({
+    queryKey: qk.alertRules(),
+    queryFn: () => api.alertRules(),
+    refetchInterval: 30_000,
+    staleTime: 20_000,
+  })
+
+export const useAlertEvents = (range: AlertRange = '7d') =>
+  useQuery<AlertEventsResponse>({
+    queryKey: qk.alertEvents(range),
+    queryFn: () => api.alertEvents(range),
+    refetchInterval: 30_000,
+    staleTime: 20_000,
   })
 
 // ============================================================================
@@ -705,6 +739,81 @@ export function useEmergencyResume() {
       qc.invalidateQueries({ queryKey: qk.systemState('emergency_stop') })
       qc.invalidateQueries({ queryKey: qk.attention() })
     },
+  })
+}
+
+// ---- Mutations: Alerts (Phase 15 ALRT-09) ---------------------------------
+//
+// Optimistic policy (Plan 15-04 D-02):
+//   - useCreateAlertRule: NOT optimistic (server may 422 on unknown metric /
+//     threshold-without-fire / clear>=fire — preserve typed input on error).
+//   - usePatchAlertRule: OPTIMISTIC ONLY when body has exactly one key
+//     'enabled' (idempotent transition; pattern mirrors usePatchSchedule).
+//     Threshold patches stay non-optimistic — server validates and may 422.
+//   - useDeleteAlertRule: NOT optimistic (DELETE is destructive — show
+//     pending state).
+//   - useAckAlert: NOT optimistic; invalidates ['alert-events'] (acks change
+//     event status surfacing through alert_state.acked_until).
+
+/** ALRT-09 — create alert rule. NOT optimistic. */
+export function useCreateAlertRule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: AlertRuleCreate) => api.alertRuleCreate(body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['alert-rules'] }),
+  })
+}
+
+/** ALRT-09 — patch alert rule. OPTIMISTIC ONLY for the `enabled`-only
+ * single-field patch (idempotent toggle); all other shapes are non-optimistic
+ * because the server may 422 on threshold validation. */
+export function usePatchAlertRule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: { id: number; body: AlertRulePatch }) =>
+      api.alertRulePatch(id, body),
+    onMutate: async ({ id, body }) => {
+      const keys = Object.keys(body)
+      const isEnabledOnly =
+        keys.length === 1 && keys[0] === 'enabled' && typeof body.enabled === 'boolean'
+      if (!isEnabledOnly) return { snapshot: undefined as AlertRuleListResponse | undefined }
+      await qc.cancelQueries({ queryKey: qk.alertRules() })
+      const snapshot = qc.getQueryData<AlertRuleListResponse>(qk.alertRules())
+      if (snapshot) {
+        qc.setQueryData<AlertRuleListResponse>(qk.alertRules(), {
+          ...snapshot,
+          items: snapshot.items.map((row: AlertRule) =>
+            row.rule_id === id ? { ...row, enabled: body.enabled as boolean } : row,
+          ),
+        })
+      }
+      return { snapshot }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.snapshot) qc.setQueryData(qk.alertRules(), ctx.snapshot)
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['alert-rules'] }),
+  })
+}
+
+/** ALRT-09 — delete alert rule. NOT optimistic (destructive). */
+export function useDeleteAlertRule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.alertRuleDelete(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['alert-rules'] }),
+  })
+}
+
+/** ALRT-09 — acknowledge fired alert. NOT optimistic; invalidates events
+ * so the AlertEventsList row updates status → 'answered' on next poll.
+ * Telegram is the primary ack surface — this hook ships for symmetry +
+ * Phase 17 e2e + future UI 'Ack' button (D-03). */
+export function useAckAlert() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: AlertAckRequest) => api.alertAck(body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['alert-events'] }),
   })
 }
 
