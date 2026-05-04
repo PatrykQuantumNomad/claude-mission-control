@@ -101,7 +101,13 @@ Plans:
   3. User can ack an alert via the Telegram `ack_alert` callback verb (registered in `cmc/telegram/callback_verbs.py` central enum) and trust the suppression lasts 1h without clearing the underlying condition; alerts auto-resolve when the underlying metric clears via `decisions.status='answered'` with `answered_by='alert_engine'`.
   4. User can navigate to `/alerts` and see `AlertRulesList` + `AlertRuleForm` (composer with hysteresis fields exposed) at the locked 30s polling cadence, and hit the full CRUD endpoints (`GET/POST/PATCH/DELETE /api/alerts/rules`, `GET /api/alerts/events?range=`) for rules and firing history.
   5. User can trust that alert Telegram messages are plain-text only (no `parse_mode=`) and that the alert engine NEVER imports `cmc.dispatcher.tasks` or creates dispatcher tasks — alerts emit decisions only, the user gates action via existing autonomy controls.
-**Plans**: TBD
+**Plans:** 5 plans (4 waves)
+Plans:
+- [ ] 15-01-PLAN.md — Detector primitives: AlertSignal enum + evaluate_threshold + evaluate_anomaly (EWMA + 24h warm-up) + _SCOPE_EXTRACTORS for 3 v1.0 metrics (cost_usd_24h / skill_p95_latency_ms / dispatcher_failed_tasks_5m); stdlib math only (Wave 1)
+- [ ] 15-04-PLAN.md — Frontend lib plumbing: AlertRange + 7 interfaces + 6 fetchers (api.* + standalone) + qk.alertRules/alertEvents (kebab-prefix) + 2 hooks + 4 mutations at 30s cadence (Wave 1)
+- [ ] 15-02-PLAN.md — Dispatcher hook (heartbeat.py: AFTER stamp_tick + AFTER e-stop) + cmc/dispatcher/alerts.py::evaluate_alerts orchestrator + /api/alerts CRUD router + schemas + ack endpoint + dedup via notification_log/decisions (Wave 2)
+- [ ] 15-03-PLAN.md — Telegram wiring: NEW callback_verbs.py central StrEnum (refactor dash_router.py + handler.py) + ack_alert verb routing (sha256[:8] encoding under 64-byte cap) + format_alert plain-text composer + notifier _FORMATTER 'alert' kind (Wave 3)
+- [ ] 15-05-PLAN.md — /alerts route + AlertRulesList + AlertRuleForm (discriminated-union over kind) + AlertEventsList + human-verify checkpoint (Wave 4)
 **UI hint**: yes
 
 ### Phase 16: Session Comparison
@@ -150,7 +156,7 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 (Phase 16
 | 12. OTEL Skill Event Spike | v1.1 | 2/2 | Complete   | 2026-05-02 |
 | 13. Cost Foundation & Skill Ingest | v1.1 | 6/6 | Complete | 2026-05-03 |
 | 14. Skills API & Page Panels | v1.1 | 5/5 | Complete | 2026-05-04 |
-| 15. Alert Engine & UI | v1.1 | 0/TBD | Not started | - |
+| 15. Alert Engine & UI | v1.1 | 0/5 | Not started | - |
 | 16. Session Comparison | v1.1 | 0/TBD | Not started | - |
 | 17. Polish, Doctor & Tests | v1.1 | 0/TBD | Not started | - |
 
