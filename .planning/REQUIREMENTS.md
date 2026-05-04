@@ -43,9 +43,9 @@
 
 - [ ] **ALRT-01**: User can rely on a new `alert_rules` SQLModel table with structural columns (`rule_id`, `name`, `kind`, `metric`, `threshold_fire`, `threshold_clear`, `min_dwell_seconds`, `min_samples`, `cooldown_seconds`, `enabled`, `spec_version`) plus `params_json` overflow for kind-specific config
 - [ ] **ALRT-02**: User can rely on a new `alert_state` table tracking `(rule_id, scope_key)` lifecycle (`firing` / `clear` / `acked` / `insufficient_data`) for hysteresis and dedup
-- [ ] **ALRT-03**: User can rely on `cmc/alerts/detector.py` exposing `evaluate(rule, db) -> AlertSignal` with hand-rolled threshold comparator (~50 LOC) and rolling z-score over EWMA baseline (~50 LOC, stdlib `math` only)
+- [x] **ALRT-03**: User can rely on `cmc/alerts/detector.py` exposing `evaluate(rule, db) -> AlertSignal` with hand-rolled threshold comparator (~50 LOC) and rolling z-score over EWMA baseline (~50 LOC, stdlib `math` only)
 - [ ] **ALRT-04**: User can rely on `cmc/dispatcher/alerts.py::evaluate_alerts(db)` invoked once per dispatcher tick from `cmc/dispatcher/heartbeat.py::run_one_cycle()` after `stamp_tick`, wrapped in `try/except` so alert failures never kill the dispatcher cycle
-- [ ] **ALRT-05**: User can trust that anomaly rules in `insufficient_data` state (sample count < `min_samples`) suppress notifications during a 24h warm-up window after rule creation
+- [x] **ALRT-05**: User can trust that anomaly rules in `insufficient_data` state (sample count < `min_samples`) suppress notifications during a 24h warm-up window after rule creation
 - [ ] **ALRT-06**: User can trust that one firing condition produces at most one decision row + one Telegram message regardless of evaluation cycles, via stable `dedup_key = f"alert:{rule_id}:{scope_key}"` (no timestamps in key) reusing the existing `notification_log` UNIQUE(kind, entity_id, chat_id) constraint
 - [ ] **ALRT-07**: User can trust that alerts auto-resolve when the underlying metric clears: dispatcher writes `decisions.status='answered'` with `answered_by='alert_engine'`; reuses HITL queue lifecycle
 - [ ] **ALRT-08**: User can ack an alert via Telegram callback verb `ack_alert` (registered in `cmc/telegram/callback_verbs.py` central enum) which suppresses re-notification for 1h without clearing the underlying condition
@@ -149,9 +149,9 @@ Which phases cover which requirements. Populated by gsd-roadmapper on 2026-05-02
 | SKLP-07 | Phase 14 | Complete |
 | ALRT-01 | Phase 15 | Pending |
 | ALRT-02 | Phase 15 | Pending |
-| ALRT-03 | Phase 15 | Pending |
+| ALRT-03 | Phase 15 | Complete |
 | ALRT-04 | Phase 15 | Pending |
-| ALRT-05 | Phase 15 | Pending |
+| ALRT-05 | Phase 15 | Complete |
 | ALRT-06 | Phase 15 | Pending |
 | ALRT-07 | Phase 15 | Pending |
 | ALRT-08 | Phase 15 | Pending |
