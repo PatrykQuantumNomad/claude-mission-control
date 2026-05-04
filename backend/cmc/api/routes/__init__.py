@@ -15,6 +15,7 @@ from fastapi import APIRouter
 # Re-export the context module under its short name so test fixtures can
 # monkeypatch HOME_CLAUDE_DIR for hermetic filesystem testing.
 from cmc.api.routes import context as context
+from cmc.api.routes.alerts import router as alerts_router
 from cmc.api.routes.context import router as context_router
 from cmc.api.routes.cost import router as cost_router
 from cmc.api.routes.health import infrastructure_router
@@ -52,6 +53,7 @@ def all_routers() -> list[APIRouter]:
         tasks_router,
         schedules_router,
         notifications_router,
+        alerts_router,         # Phase 15 ALRT-09
     ]
 
 
