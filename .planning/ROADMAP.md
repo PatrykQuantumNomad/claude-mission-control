@@ -32,7 +32,7 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 
 - [x] **Phase 12: OTEL Skill Event Spike** - Verbatim live-data capture of `claude_code.skill_activated` event shape (P0 hard gate) (completed 2026-05-02)
 - [x] **Phase 13: Cost Foundation & Skill Ingest** - Pricing module, `pricing` table, cost engine, cost API, skill-name ingest column (backend-only, no UI) (completed 2026-05-03)
-- [ ] **Phase 14: Skills API & Page Panels** - Skills aggregation endpoints + four reactivated/new skill panels (TopSkills, SkillCostCard, SkillLatencyTable, SkillTimeline) + per-skill detail route
+- [x] **Phase 14: Skills API & Page Panels** - Skills aggregation endpoints + four reactivated/new skill panels (TopSkills, SkillCostCard, SkillLatencyTable, SkillTimeline) + per-skill detail route (completed 2026-05-04)
 - [ ] **Phase 15: Alert Engine & UI** - Hysteresis-aware threshold + z-score detector, dispatcher hook, decisions/Telegram delivery, ack flow, CRUD + composer UI
 - [ ] **Phase 16: Session Comparison** - Single-endpoint paired-metrics diff, two-up compare view, Cmd+K + sessions-table picker
 - [ ] **Phase 17: Polish, Doctor & Tests** - Doctor warnings, parse_mode CI guard, callback round-trips, alert integration test, Playwright e2e, upgrade docs
@@ -149,7 +149,7 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 (Phase 16
 | 11. v1.0 Documentation & Env Polish (gap closure) | v1.0 | 1/1 | Complete | 2026-04-28 |
 | 12. OTEL Skill Event Spike | v1.1 | 2/2 | Complete   | 2026-05-02 |
 | 13. Cost Foundation & Skill Ingest | v1.1 | 6/6 | Complete | 2026-05-03 |
-| 14. Skills API & Page Panels | v1.1 | 5/5 | In Progress|  |
+| 14. Skills API & Page Panels | v1.1 | 5/5 | Complete | 2026-05-04 |
 | 15. Alert Engine & UI | v1.1 | 0/TBD | Not started | - |
 | 16. Session Comparison | v1.1 | 0/TBD | Not started | - |
 | 17. Polish, Doctor & Tests | v1.1 | 0/TBD | Not started | - |
