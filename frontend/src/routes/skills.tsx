@@ -42,17 +42,25 @@ import {
   TaskBoard,
 } from '../components/panels'
 import { useSkillUsage } from '../lib/queries'
+import { PanelCard } from '../components/ui'
 
 function SkillCostCardForTopSkill() {
   const usage = useSkillUsage('14d', 1)
-  // Defensive optional-chain on .rows because integration mocks may serve a
-  // different shape than the production response (e.g., {items: []} fallback
-  // from a generic /api/skills mock); never crash the page-level wrapper.
   const topName = usage.data?.rows?.[0]?.skill_name
-  // Pass '(none)' to surface SkillCostCard's own empty/error branch when no
-  // skills exist yet. SkillCostCard's PanelCard treats trend.length === 0 as
-  // empty, so the user sees a friendly placeholder (not a crash).
-  return <SkillCostCard name={topName ?? '(none)'} />
+
+  if (!topName) {
+    return (
+      <PanelCard
+        reqId="SKLP-02"
+        title="Skill Cost"
+        query={usage}
+        empty={{ dataNoun: 'skill cost data', when: () => true }}
+      >
+        {() => null}
+      </PanelCard>
+    )
+  }
+  return <SkillCostCard name={topName} />
 }
 
 function SkillsPage() {
