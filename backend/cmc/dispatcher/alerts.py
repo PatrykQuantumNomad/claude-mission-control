@@ -65,16 +65,9 @@ from cmc.db.models.alert_rules import AlertRule
 from cmc.db.models.alert_state import AlertState
 from cmc.db.models.decisions import Decision
 from cmc.db.models.notification_log import NotificationLog
+from cmc.telegram.messages import format_alert
 
 log = logging.getLogger(__name__)
-
-
-def _format_alert_prompt(rule: AlertRule, scope_key: str, value: float) -> str:
-    """Stub composer — Plan 03 Task 2 sub-step 2b replaces this with
-    `from cmc.telegram.messages import format_alert` so decisions.prompt
-    stores the EXACT text the user sees in Telegram (D-06 follow-through).
-    """
-    return f"Alert: {rule.name} fired (value={value:.2f}, scope={scope_key})"
 
 
 def _utcnow_naive() -> datetime:
@@ -132,7 +125,12 @@ async def _emit_firing(
     """
     rule_id = rule.rule_id
     dedup_key = f"alert:{rule_id}:{scope_key}"
-    prompt = _format_alert_prompt(rule, scope_key, value)
+    # Plan 02 D-06 follow-through: the decisions.prompt column stores the
+    # EXACT plain-text body the user sees in Telegram, so audit trails
+    # match user-visible content. format_alert returns (text, kb) — we
+    # only persist the text into prompt; the keyboard is rebuilt at send
+    # time from the same scope_key (see notifier._send_pending_alerts).
+    prompt = format_alert(rule, scope_key, value)[0]
 
     # Decision: partial-unique on dedup_key WHERE status='pending'.
     dec_stmt = (
