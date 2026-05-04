@@ -10,12 +10,11 @@ DTOs supplied here:
 (tool_decision > tools > otel).
 """
 
-from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel
 
-from cmc.api.schemas.common import ORMBase
+from cmc.api.schemas.common import ORMBase, UTCDatetime
 
 
 class McpServerRow(ORMBase):
@@ -28,7 +27,7 @@ class McpServerRow(ORMBase):
     latency_p95_ms: float | None = None
     latency_max_ms: float | None = None
     source_priority: str
-    computed_at: datetime
+    computed_at: UTCDatetime
 
 
 class McpServerListResponse(BaseModel):

@@ -55,11 +55,21 @@ async def _post_rule(client, **overrides):
     return await client.post("/api/alerts/rules", json=payload)
 
 
-async def _seed_state(client, rule_id: int, scope_key: str = "model:foo") -> int:
+async def _seed_state(
+    client,
+    rule_id: int,
+    scope_key: str = "model:foo",
+    last_value: float | None = None,
+) -> int:
     """Insert an AlertState row directly via the app's sessionmaker."""
     sm = client._transport.app.state.sessions
     async with sm() as db:
-        s = AlertState(rule_id=rule_id, scope_key=scope_key, state="firing")
+        s = AlertState(
+            rule_id=rule_id,
+            scope_key=scope_key,
+            state="firing",
+            last_value=last_value,
+        )
         db.add(s)
         await db.commit()
         await db.refresh(s)
@@ -351,6 +361,39 @@ async def test_events_returns_alert_decisions(client) -> None:
     assert body["total"] == 2
     rule_names = {item["rule_name"] for item in body["items"]}
     assert "cost-spike" in rule_names
+
+
+@pytest.mark.asyncio
+async def test_events_surfaces_last_value_from_alert_state(client) -> None:
+    """BUG-1 regression: events endpoint MUST JOIN alert_state and surface
+    last_value so AlertEventsList renders the firing magnitude (not '—')."""
+    r = await _post_rule(client, name="cost-rule", metric="cost_usd_24h")
+    rule_id = r.json()["rule_id"]
+    await _seed_alert_decision(client, rule_id, "model:opus", status="pending")
+    await _seed_state(client, rule_id, scope_key="model:opus", last_value=42.5)
+
+    r = await client.get("/api/alerts/events?range=7d")
+    assert r.status_code == 200, r.text
+    items = r.json()["items"]
+    assert len(items) == 1
+    assert items[0]["last_value"] == 42.5
+
+
+@pytest.mark.asyncio
+async def test_events_serializes_fired_at_as_utc_with_z_suffix(client) -> None:
+    """BUG-2 regression: datetime fields MUST serialize as ISO-8601 with `Z`
+    suffix so JS `new Date(...)` parses as UTC instead of local time."""
+    r = await _post_rule(client, name="cost-rule", metric="cost_usd_24h")
+    rule_id = r.json()["rule_id"]
+    await _seed_alert_decision(client, rule_id, "model:opus", status="pending")
+
+    r = await client.get("/api/alerts/events?range=7d")
+    assert r.status_code == 200, r.text
+    items = r.json()["items"]
+    assert len(items) == 1
+    fired_at = items[0]["fired_at"]
+    assert fired_at.endswith("Z"), f"expected UTC suffix, got {fired_at!r}"
+    assert "+" not in fired_at  # Z, not +00:00
 
 
 # --------------------------------------------------------------------------

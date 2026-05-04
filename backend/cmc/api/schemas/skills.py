@@ -18,13 +18,13 @@ through fastapi.encoders.jsonable_encoder (silent float coercion).
 schema enforces this at the request boundary.
 """
 
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel
 
-from cmc.api.schemas.common import ORMBase
+from cmc.api.schemas.common import ORMBase, UTCDatetime
 
 # Phase 14 range alias — narrower than CostRange (1d/7d not used by skill panels).
 SkillRange = Literal["14d", "30d"]
@@ -39,7 +39,7 @@ class SkillRow(ORMBase):
     autonomy: str
     description: str | None = None
     path: str
-    updated_at: datetime
+    updated_at: UTCDatetime
 
 
 class SkillListResponse(BaseModel):
@@ -68,7 +68,7 @@ class SkillAutonomyResponse(ORMBase):
 
     name: str
     autonomy: str
-    updated_at: datetime
+    updated_at: UTCDatetime
 
 
 # ---- Phase 14 (SKIL-04..07) response models ------------------------------
@@ -153,7 +153,7 @@ class SkillLatencyResponse(BaseModel):
 class SkillRunRow(BaseModel):
     """One row of SkillRunsResponse — recent invocation."""
 
-    ts: datetime
+    ts: UTCDatetime
     session_id: str | None
     cwd: str
     request_id: str | None

@@ -6,12 +6,11 @@ parameter entirely rather than declaring an empty Pydantic model (which
 would force callers to send `{}` and 422 on missing).
 """
 
-from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from cmc.api.schemas.common import ORMBase
+from cmc.api.schemas.common import ORMBase, UTCDatetime
 
 
 class TaskListItem(ORMBase):
@@ -29,15 +28,15 @@ class TaskListItem(ORMBase):
     model: str | None
     execution_mode: str
     skill: str | None
-    scheduled_for: datetime | None
+    scheduled_for: UTCDatetime | None
     schedule_id: int | None
     pid: int | None
     stdout_path: str | None
     error_message: str | None
-    created_at: datetime
-    started_at: datetime | None
-    ended_at: datetime | None
-    approved_at: datetime | None
+    created_at: UTCDatetime
+    started_at: UTCDatetime | None
+    ended_at: UTCDatetime | None
+    approved_at: UTCDatetime | None
 
 
 class TaskListResponse(BaseModel):
@@ -58,7 +57,7 @@ class TaskCreate(BaseModel):
     model: str | None = Field(default=None, max_length=100)
     execution_mode: Literal["interactive", "classic", "stream"] = "interactive"
     skill: str | None = Field(default=None, max_length=100)
-    scheduled_for: datetime | None = None
+    scheduled_for: UTCDatetime | None = None
     schedule_id: int | None = None
 
 
@@ -75,7 +74,7 @@ class TaskUpdate(BaseModel):
     model: str | None = Field(default=None, max_length=100)
     execution_mode: Literal["interactive", "classic", "stream"] | None = None
     skill: str | None = Field(default=None, max_length=100)
-    scheduled_for: datetime | None = None
+    scheduled_for: UTCDatetime | None = None
     schedule_id: int | None = None
     status: str | None = None  # validated by transitions matrix in router
     error_message: str | None = None
@@ -84,7 +83,7 @@ class TaskUpdate(BaseModel):
 class TaskApproveResponse(BaseModel):
     id: int
     status: str
-    approved_at: datetime
+    approved_at: UTCDatetime
 
 
 class TaskRerunResponse(BaseModel):

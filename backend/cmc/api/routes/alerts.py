@@ -302,6 +302,22 @@ async def list_events(
         ).scalars().all()
         rule_name_by_id = {r.rule_id: r.name for r in rule_rows}
 
+    # alert_state JOIN — surface last_value for the rendering panel.
+    # Composite key (rule_id, scope_key); decisions for deleted rules
+    # don't have a state row so missing keys default to None.
+    last_value_by_scope: dict[tuple[int, str], float | None] = {}
+    if needed_rule_ids:
+        state_rows = (
+            await db.execute(
+                select(AlertState).where(
+                    AlertState.rule_id.in_(needed_rule_ids)
+                )
+            )
+        ).scalars().all()
+        last_value_by_scope = {
+            (s.rule_id, s.scope_key): s.last_value for s in state_rows
+        }
+
     items: list[AlertEvent] = []
     for d, rule_id, scope_key in parsed:
         items.append(
@@ -313,7 +329,9 @@ async def list_events(
                 fired_at=d.created_at,
                 cleared_at=d.answered_at if d.status == "answered" else None,
                 status=d.status,
-                last_value=None,  # Plan 03 may surface state.last_value at join time.
+                last_value=last_value_by_scope.get((rule_id, scope_key))
+                if rule_id is not None
+                else None,
             )
         )
     return AlertEventsResponse(range=range_, items=items, total=len(items))

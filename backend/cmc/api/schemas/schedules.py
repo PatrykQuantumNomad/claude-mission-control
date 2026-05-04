@@ -1,11 +1,10 @@
 """Schedule request/response schemas."""
 
-from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
 
-from cmc.api.schemas.common import ORMBase
+from cmc.api.schemas.common import ORMBase, UTCDatetime
 from cmc.api.schemas.tasks import TaskListItem
 
 
@@ -16,12 +15,12 @@ class ScheduleListItem(ORMBase):
     name: str
     cron: str
     enabled: bool
-    next_run_at: datetime | None
-    last_run_at: datetime | None
+    next_run_at: UTCDatetime | None
+    last_run_at: UTCDatetime | None
     task_template: dict[str, Any]
     skill: str | None
-    created_at: datetime
-    updated_at: datetime
+    created_at: UTCDatetime
+    updated_at: UTCDatetime
 
 
 class ScheduleListResponse(BaseModel):

@@ -4,12 +4,11 @@ DTOs that wrap ORM rows inherit ORMBase so Pydantic can validate from ORM attrib
 Plain BaseModel only for request bodies and synthetic responses.
 """
 
-from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from cmc.api.schemas.common import ORMBase
+from cmc.api.schemas.common import ORMBase, UTCDatetime
 
 # ---- Decisions (HITL-01..03) ----
 
@@ -25,9 +24,9 @@ class DecisionListItem(ORMBase):
     options: list[Any]
     status: str
     answer: str | None
-    answered_at: datetime | None
+    answered_at: UTCDatetime | None
     answered_by: str | None
-    created_at: datetime
+    created_at: UTCDatetime
 
 
 class DecisionListResponse(BaseModel):
@@ -67,10 +66,10 @@ class InboxListItem(ORMBase):
     subject: str | None
     body: str
     read: bool
-    read_at: datetime | None
+    read_at: UTCDatetime | None
     reply: str | None
-    replied_at: datetime | None
-    created_at: datetime
+    replied_at: UTCDatetime | None
+    created_at: UTCDatetime
 
 
 class InboxListResponse(BaseModel):
@@ -88,7 +87,7 @@ class InboxCreate(BaseModel):
 class InboxReadResponse(BaseModel):
     id: int
     read: bool
-    read_at: datetime
+    read_at: UTCDatetime
 
 
 class InboxReplyRequest(BaseModel):

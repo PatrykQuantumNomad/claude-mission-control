@@ -5,11 +5,9 @@ echo it back in their response so the UI can verify what window was actually
 computed (RangeWindow.today defaults to local-day).
 """
 
-from datetime import datetime
-
 from pydantic import BaseModel
 
-from cmc.api.schemas.common import RangeWindow
+from cmc.api.schemas.common import RangeWindow, UTCDatetime
 
 # ---- OBSV-01: tokens / day --------------------------------------------------
 
@@ -123,7 +121,7 @@ class AgentFanoutRow(BaseModel):
     session_id: str
     title: str | None = None
     agent_calls: int
-    started_at: datetime
+    started_at: UTCDatetime
 
 
 class AgentFanoutResponse(BaseModel):
@@ -159,7 +157,7 @@ class ProductivityResponse(BaseModel):
 # ---- OBSV-10: pressure indicators (errors, retries, compaction) -------------
 
 class ApiErrorEntry(BaseModel):
-    ts: datetime
+    ts: UTCDatetime
     session_id: str | None = None
     message: str
 
@@ -201,7 +199,7 @@ class FailureRow(BaseModel):
     """
 
     session_id: str
-    started_at: datetime
+    started_at: UTCDatetime
     outcome: str  # 'errored' | 'rate_limited'
     last_error_message: str | None = None
 

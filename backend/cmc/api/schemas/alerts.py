@@ -15,13 +15,12 @@ in queries.test.ts will fail at runtime.
 """
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from cmc.alerts.scopes import is_known_metric
-from cmc.api.schemas.common import ORMBase
+from cmc.api.schemas.common import ORMBase, UTCDatetime
 
 # D-04: 4-tier range Literal — same shape as cost.py:CostRange. Separate
 # symbol so future expansion is decoupled but identical members for v1.0.
@@ -125,8 +124,8 @@ class AlertRuleRow(ORMBase):
     enabled: bool
     spec_version: int
     params_json: dict[str, Any]
-    created_at: datetime
-    updated_at: datetime
+    created_at: UTCDatetime
+    updated_at: UTCDatetime
 
 
 class AlertRuleListResponse(BaseModel):
@@ -147,8 +146,8 @@ class AlertEvent(BaseModel):
     rule_id: int
     rule_name: str
     scope_key: str
-    fired_at: datetime
-    cleared_at: datetime | None
+    fired_at: UTCDatetime
+    cleared_at: UTCDatetime | None
     status: str  # 'pending' (still firing) | 'answered' (auto-resolved or acked)
     last_value: float | None
 

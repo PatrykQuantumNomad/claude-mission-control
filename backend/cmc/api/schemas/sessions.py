@@ -8,11 +8,9 @@ DTOs supplied here:
   - TodaySummaryResponse:   GET /api/sessions/today    (SESS-07)
 """
 
-from datetime import datetime
-
 from pydantic import BaseModel, Field
 
-from cmc.api.schemas.common import ORMBase
+from cmc.api.schemas.common import ORMBase, UTCDatetime
 
 
 class SessionListItem(ORMBase):
@@ -20,8 +18,8 @@ class SessionListItem(ORMBase):
     `SessionListItem.model_validate(session_row)` works (ORMBase enables this)."""
 
     session_id: str
-    started_at: datetime
-    ended_at: datetime | None = None
+    started_at: UTCDatetime
+    ended_at: UTCDatetime | None = None
     cwd: str | None = None
     model: str | None = None
     source: str | None = None
@@ -48,8 +46,8 @@ class ToolTimelineEntry(ORMBase):
 
     tool_use_id: str
     tool_name: str
-    started_at: datetime
-    ended_at: datetime | None = None
+    started_at: UTCDatetime
+    ended_at: UTCDatetime | None = None
     duration_ms: int | None = None
     status: str
     input_summary: str | None = None
@@ -69,8 +67,8 @@ class LiveSessionItem(ORMBase):
     """SESS-04: live-sessions index row."""
 
     session_id: str
-    started_at: datetime
-    last_activity_at: datetime | None = None
+    started_at: UTCDatetime
+    last_activity_at: UTCDatetime | None = None
     state: str | None = None
     current_tool: str | None = None
     model: str | None = None
@@ -80,12 +78,12 @@ class LiveSessionState(ORMBase):
     """SESS-05: live-session state snapshot for SSE handshake / poll."""
 
     session_id: str
-    last_activity_at: datetime
+    last_activity_at: UTCDatetime
     state: str
     current_message: str | None = None
     current_tool: str | None = None
     pid: int | None = None
-    updated_at: datetime
+    updated_at: UTCDatetime
 
 
 class FollowUpMessageRequest(BaseModel):
