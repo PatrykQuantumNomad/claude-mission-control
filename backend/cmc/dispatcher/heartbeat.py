@@ -75,6 +75,19 @@ async def run_one_cycle() -> int:
                 log.info("dispatcher.emergency_stop_active")
                 return 0
 
+            # Phase 15 ALRT-04: alert engine hook. Wrapped so detector failures
+            # never poison the cycle. Placement is AFTER e-stop check so a
+            # tripped e-stop disables alerts too (no spam about a dispatcher
+            # that the user just stopped). Function-local import keeps the
+            # bootstrap path independent of cmc.alerts.* (defensive — in case
+            # cmc.alerts.* ever needs to import dispatcher state).
+            try:
+                async with sessions() as db:
+                    from cmc.dispatcher.alerts import evaluate_alerts
+                    await evaluate_alerts(db)
+            except Exception:
+                log.exception("dispatcher.alerts_failed_ignore")
+
             # 4. Sweep stale PIDs.
             live_pids = sweep_stale_pids()
 

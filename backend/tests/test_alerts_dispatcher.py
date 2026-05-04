@@ -230,7 +230,7 @@ async def test_evaluate_alerts_threshold_fires_once(test_settings, monkeypatch):
             sessions,
             name="failed-tasks",
             metric="dispatcher_failed_tasks_5m",
-            threshold_fire=0.0,
+            threshold_fire=0.5,
         )
         await _seed_failed_task(sessions)
 
@@ -262,9 +262,8 @@ async def test_evaluate_alerts_threshold_fires_once(test_settings, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_evaluate_alerts_idempotent_per_tick(test_settings, monkeypatch):
-    from cmc.dispatcher.alerts import evaluate_alerts
-
     from cmc.config import load_settings
+    from cmc.dispatcher.alerts import evaluate_alerts
 
     monkeypatch.setattr(
         "cmc.dispatcher.alerts.load_settings",
@@ -278,7 +277,7 @@ async def test_evaluate_alerts_idempotent_per_tick(test_settings, monkeypatch):
         rule_id = await _seed_alert_rule(
             sessions,
             metric="dispatcher_failed_tasks_5m",
-            threshold_fire=0.0,
+            threshold_fire=0.5,
         )
         await _seed_failed_task(sessions)
 
@@ -301,9 +300,8 @@ async def test_evaluate_alerts_idempotent_per_tick(test_settings, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_evaluate_alerts_concurrent_ticks(test_settings, monkeypatch):
-    from cmc.dispatcher.alerts import evaluate_alerts
-
     from cmc.config import load_settings
+    from cmc.dispatcher.alerts import evaluate_alerts
 
     monkeypatch.setattr(
         "cmc.dispatcher.alerts.load_settings",
@@ -317,7 +315,7 @@ async def test_evaluate_alerts_concurrent_ticks(test_settings, monkeypatch):
         rule_id = await _seed_alert_rule(
             sessions,
             metric="dispatcher_failed_tasks_5m",
-            threshold_fire=0.0,
+            threshold_fire=0.5,
         )
         await _seed_failed_task(sessions)
 
@@ -343,10 +341,10 @@ async def test_evaluate_alerts_concurrent_ticks(test_settings, monkeypatch):
 @pytest.mark.asyncio
 async def test_evaluate_alerts_auto_resolve_on_clear(test_settings, monkeypatch):
     """fire → clear: decision.status='answered', notification_log row deleted."""
-    from cmc.dispatcher.alerts import evaluate_alerts
     from sqlalchemy import update as _upd
 
     from cmc.config import load_settings
+    from cmc.dispatcher.alerts import evaluate_alerts
 
     monkeypatch.setattr(
         "cmc.dispatcher.alerts.load_settings",
@@ -360,7 +358,7 @@ async def test_evaluate_alerts_auto_resolve_on_clear(test_settings, monkeypatch)
         rule_id = await _seed_alert_rule(
             sessions,
             metric="dispatcher_failed_tasks_5m",
-            threshold_fire=0.0,
+            threshold_fire=0.5,
         )
         task_id = await _seed_failed_task(sessions)
 
@@ -405,10 +403,10 @@ async def test_evaluate_alerts_auto_resolve_on_clear(test_settings, monkeypatch)
 @pytest.mark.asyncio
 async def test_evaluate_alerts_re_fire_after_clear(test_settings, monkeypatch):
     """fire → clear → fire = TWO decisions total, ONE notification_log row currently."""
-    from cmc.dispatcher.alerts import evaluate_alerts
     from sqlalchemy import update as _upd
 
     from cmc.config import load_settings
+    from cmc.dispatcher.alerts import evaluate_alerts
 
     monkeypatch.setattr(
         "cmc.dispatcher.alerts.load_settings",
@@ -422,7 +420,7 @@ async def test_evaluate_alerts_re_fire_after_clear(test_settings, monkeypatch):
         rule_id = await _seed_alert_rule(
             sessions,
             metric="dispatcher_failed_tasks_5m",
-            threshold_fire=0.0,
+            threshold_fire=0.5,
         )
         task_id = await _seed_failed_task(sessions)
 
@@ -463,9 +461,8 @@ async def test_evaluate_alerts_anomaly_warmup_suppressed(
     test_settings, monkeypatch
 ):
     """Anomaly rule with min_samples=10 → INSUFFICIENT verdict → no decision/notif."""
-    from cmc.dispatcher.alerts import evaluate_alerts
-
     from cmc.config import load_settings
+    from cmc.dispatcher.alerts import evaluate_alerts
 
     monkeypatch.setattr(
         "cmc.dispatcher.alerts.load_settings",
@@ -515,9 +512,8 @@ async def test_evaluate_alerts_anomaly_warmup_suppressed(
 
 @pytest.mark.asyncio
 async def test_evaluate_alerts_skips_disabled(test_settings, monkeypatch):
-    from cmc.dispatcher.alerts import evaluate_alerts
-
     from cmc.config import load_settings
+    from cmc.dispatcher.alerts import evaluate_alerts
 
     monkeypatch.setattr(
         "cmc.dispatcher.alerts.load_settings",
@@ -563,9 +559,8 @@ async def test_evaluate_alerts_unknown_metric_warns(
     test_settings, monkeypatch, caplog
 ):
     """Orphan rule with metric not in _SCOPE_EXTRACTORS — skip gracefully."""
-    from cmc.dispatcher.alerts import evaluate_alerts
-
     from cmc.config import load_settings
+    from cmc.dispatcher.alerts import evaluate_alerts
 
     monkeypatch.setattr(
         "cmc.dispatcher.alerts.load_settings",
@@ -625,7 +620,7 @@ async def test_heartbeat_hook_after_estop(
         await _seed_alert_rule(
             sessions,
             metric="dispatcher_failed_tasks_5m",
-            threshold_fire=0.0,
+            threshold_fire=0.5,
         )
         await _seed_failed_task(sessions)
 
@@ -674,7 +669,7 @@ async def test_heartbeat_hook_calls_evaluate_alerts(
         rule_id = await _seed_alert_rule(
             sessions,
             metric="dispatcher_failed_tasks_5m",
-            threshold_fire=0.0,
+            threshold_fire=0.5,
         )
         await _seed_failed_task(sessions)
 
