@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 
 from cmc.alerts.detector import (
     AlertSignal,
+    evaluate_anomaly,
     evaluate_threshold,
 )
 from cmc.db.models.alert_rules import AlertRule
@@ -205,3 +206,216 @@ def test_threshold_no_float_drift():
     val = 0.1 + 0.2  # 0.30000000000000004
     assert val > 0.3  # sanity — float quirk holds
     assert evaluate_threshold(rule, val, state, now=now) == AlertSignal.PENDING_FIRE
+
+
+# ============================================================================
+# Task 2: evaluate_anomaly — EWMA z-score + 24h warm-up + min_samples gates
+# ============================================================================
+
+
+def _ago(now: datetime, *, seconds: int = 0, hours: int = 0) -> datetime:
+    """Helper: return now minus the offset."""
+    return now - timedelta(seconds=seconds, hours=hours)
+
+
+def test_anomaly_first_sample_returns_insufficient():
+    """sample_count=0 → INSUFFICIENT + sample_count_new=1, mean=value, var=0.0.
+
+    Even if current_value is wildly out of any plausible range, the FIRST
+    sample seeds the EWMA — there is no prior baseline to compare against.
+    """
+    now = datetime(2026, 5, 4, 12, 0, 0)
+    rule = _make_rule(
+        kind="anomaly",
+        threshold_fire=3.0,
+        min_samples=1,
+        # rule old enough for warm-up gate to be satisfied
+        created_at=_ago(now, hours=48),
+    )
+    state = _make_state(state="clear", sample_count=0, params_json={})
+    sig, ewma = evaluate_anomaly(rule, 999.0, state, now=now)
+    assert sig == AlertSignal.INSUFFICIENT
+    assert ewma["ewma_mean"] == 999.0
+    assert ewma["ewma_var"] == 0.0
+    assert ewma["sample_count"] == 1
+
+
+def test_anomaly_warmup_gate_suppresses():
+    """Rule created 1h ago, sample_count=10 >= min_samples=5, value 100-sigma
+    off → INSUFFICIENT (warm-up not satisfied even with huge z)."""
+    now = datetime(2026, 5, 4, 12, 0, 0)
+    rule = _make_rule(
+        kind="anomaly",
+        threshold_fire=3.0,
+        min_samples=5,
+        created_at=_ago(now, hours=1),  # < 24h ago
+    )
+    state = _make_state(
+        state="clear",
+        sample_count=10,
+        params_json={"ewma_mean": 50.0, "ewma_var": 4.0},
+    )
+    sig, _ = evaluate_anomaly(rule, 999.0, state, now=now)
+    assert sig == AlertSignal.INSUFFICIENT
+
+
+def test_anomaly_min_samples_gate_suppresses():
+    """Rule 25h old (warm-up satisfied), sample_count=2 < min_samples=10, huge
+    z → INSUFFICIENT (min_samples not met)."""
+    now = datetime(2026, 5, 4, 12, 0, 0)
+    rule = _make_rule(
+        kind="anomaly",
+        threshold_fire=3.0,
+        min_samples=10,
+        created_at=_ago(now, hours=25),
+    )
+    state = _make_state(
+        state="clear",
+        sample_count=2,
+        params_json={"ewma_mean": 50.0, "ewma_var": 4.0},
+    )
+    sig, _ = evaluate_anomaly(rule, 999.0, state, now=now)
+    assert sig == AlertSignal.INSUFFICIENT
+
+
+def test_anomaly_fires_after_warmup_and_min_samples():
+    """Rule 25h old, prior mean=50 var=4 sample_count=20, value=80 → |z| > 3
+    on first crossing → PENDING_FIRE (fired_at None)."""
+    now = datetime(2026, 5, 4, 12, 0, 0)
+    rule = _make_rule(
+        kind="anomaly",
+        threshold_fire=3.0,
+        min_samples=10,
+        min_dwell_seconds=30,
+        created_at=_ago(now, hours=25),
+    )
+    state = _make_state(
+        state="clear",
+        sample_count=20,
+        fired_at=None,
+        params_json={"ewma_mean": 50.0, "ewma_var": 4.0},
+    )
+    sig, ewma = evaluate_anomaly(rule, 80.0, state, now=now)
+    assert sig == AlertSignal.PENDING_FIRE
+    assert ewma["sample_count"] == 21
+
+
+def test_anomaly_pending_to_firing_after_dwell():
+    """Same as fires_after_warmup but fired_at = now - min_dwell - 10 →
+    FIRING (dwell satisfied)."""
+    now = datetime(2026, 5, 4, 12, 0, 0)
+    rule = _make_rule(
+        kind="anomaly",
+        threshold_fire=3.0,
+        min_samples=10,
+        min_dwell_seconds=30,
+        created_at=_ago(now, hours=25),
+    )
+    state = _make_state(
+        state="clear",
+        sample_count=20,
+        fired_at=_ago(now, seconds=40),
+        params_json={"ewma_mean": 50.0, "ewma_var": 4.0},
+    )
+    sig, _ = evaluate_anomaly(rule, 80.0, state, now=now)
+    assert sig == AlertSignal.FIRING
+
+
+def test_anomaly_clears_below_threshold_clear():
+    """state='firing', threshold_clear=1.0, current_value at +0.5 sigma from
+    mean → CLEAR (|z| < 1.0 floor)."""
+    now = datetime(2026, 5, 4, 12, 0, 0)
+    rule = _make_rule(
+        kind="anomaly",
+        threshold_fire=3.0,
+        threshold_clear=1.0,
+        min_samples=10,
+        created_at=_ago(now, hours=48),
+    )
+    # mean=50, var=4 (stddev=2). +0.5 sigma -> value=51.0 -> |z| ~= 0.5 < 1.0 floor.
+    state = _make_state(
+        state="firing",
+        sample_count=20,
+        fired_at=_ago(now, seconds=600),
+        params_json={"ewma_mean": 50.0, "ewma_var": 4.0},
+    )
+    sig, _ = evaluate_anomaly(rule, 51.0, state, now=now)
+    assert sig == AlertSignal.CLEAR
+
+
+def test_anomaly_returns_updated_ewma_dict():
+    """Returned dict has 3 keys (ewma_mean, ewma_var, sample_count) with
+    float types and reasonable post-update ranges."""
+    now = datetime(2026, 5, 4, 12, 0, 0)
+    rule = _make_rule(
+        kind="anomaly",
+        threshold_fire=3.0,
+        min_samples=10,
+        params_json={"window_n": 50},
+        created_at=_ago(now, hours=48),
+    )
+    prior_mean = 50.0
+    state = _make_state(
+        state="clear",
+        sample_count=20,
+        params_json={"ewma_mean": prior_mean, "ewma_var": 4.0},
+    )
+    _, ewma = evaluate_anomaly(rule, 51.0, state, now=now)
+    assert set(ewma.keys()) == {"ewma_mean", "ewma_var", "sample_count"}
+    assert isinstance(ewma["ewma_mean"], float)
+    assert isinstance(ewma["ewma_var"], float)
+    # alpha = 2/51 ≈ 0.0392 → new_mean ≈ 0.0392*51 + 0.9608*50 ≈ 50.0392
+    assert 50.0 <= ewma["ewma_mean"] <= 50.05
+    assert ewma["ewma_var"] >= 0.0  # variance never negative
+    assert ewma["sample_count"] == 21
+
+
+def test_anomaly_ewma_recurrence_no_drift():
+    """Feed 10 oscillating samples [99,100,99,100,...] starting from
+    mean=99.5, var=0.25, sample_count=10. Mean must stay in [99,100],
+    var bounded — verifies recurrence math is numerically stable."""
+    now = datetime(2026, 5, 4, 12, 0, 0)
+    rule = _make_rule(
+        kind="anomaly",
+        threshold_fire=3.0,
+        min_samples=10,
+        params_json={"window_n": 50},
+        created_at=_ago(now, hours=48),
+    )
+    mean = 99.5
+    var = 0.25
+    sc = 10
+    samples = [99.0, 100.0, 99.0, 100.0, 99.0, 100.0, 99.0, 100.0, 99.0, 100.0]
+    for x in samples:
+        state = _make_state(
+            state="clear",
+            sample_count=sc,
+            params_json={"ewma_mean": mean, "ewma_var": var},
+        )
+        _, ewma = evaluate_anomaly(rule, x, state, now=now)
+        mean = ewma["ewma_mean"]
+        var = ewma["ewma_var"]
+        sc = int(ewma["sample_count"])
+    # Recurrence stability: mean stays in window, variance bounded.
+    assert 99.0 <= mean <= 100.0
+    assert 0.0 <= var <= 1.0
+    assert sc == 20
+
+
+def test_anomaly_no_numpy_or_scipy_imported():
+    """Static-source assertion: no numpy/scipy/pandas/statistics imports in
+    detector.py. Guards the stdlib-math-only invariant for ALRT-03."""
+    import re
+    from pathlib import Path
+
+    src = Path(
+        "cmc/alerts/detector.py"
+    ).read_text()  # tests run from `backend/` cwd
+    forbidden = re.search(
+        r"^(import|from)\s+(numpy|scipy|pandas|statistics)\b",
+        src,
+        flags=re.MULTILINE,
+    )
+    assert forbidden is None, (
+        f"detector.py must use stdlib math only; found: {forbidden.group(0)}"
+    )
