@@ -120,7 +120,11 @@ Plans:
   3. User can pick the second session via Cmd+K "Compare with…" action (extends existing `CommandPalette`) or via a "Compare with…" row action on the sessions table.
   4. User can compare sessions up to 500 tool calls each; sessions exceeding the cap render a "session too long for full diff" fallback with summary metrics only.
   5. User can trust that comparison shows structured tabular data only — no text/code diff library, no raw LLM message content rendered.
-**Plans**: TBD
+**Plans**: 4 plans
+- [ ] 16-01-PLAN.md — Backend `GET /api/sessions/compare` endpoint + Pydantic v2 schemas + 10-test pytest coverage (TDD)
+- [ ] 16-02-PLAN.md — Frontend `/sessions/compare` route (validateSearch UUID validator) + extracted `SessionCompareView` panel + `useSessionCompare` hook + vitest coverage
+- [ ] 16-03-PLAN.md — Cmd+K context-aware "Compare with…" action + SessionsTable per-row Compare button + vitest
+- [ ] 16-04-PLAN.md — Browser human-verify checkpoint (8 manual checks across CMPR-01..05)
 **UI hint**: yes
 
 ### Phase 17: Polish, Doctor & Tests
@@ -157,7 +161,7 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 (Phase 16
 | 13. Cost Foundation & Skill Ingest | v1.1 | 6/6 | Complete | 2026-05-03 |
 | 14. Skills API & Page Panels | v1.1 | 5/5 | Complete | 2026-05-04 |
 | 15. Alert Engine & UI | v1.1 | 5/5 | Complete | 2026-05-04 |
-| 16. Session Comparison | v1.1 | 0/TBD | Not started | - |
+| 16. Session Comparison | v1.1 | 0/4 | Planned | - |
 | 17. Polish, Doctor & Tests | v1.1 | 0/TBD | Not started | - |
 
 **v1.0 milestone shipped: 47/47 plans, 11/11 phases verified (9 base + 2 audit gap-closure).**
