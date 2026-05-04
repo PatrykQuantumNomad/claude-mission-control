@@ -33,7 +33,7 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 - [x] **Phase 12: OTEL Skill Event Spike** - Verbatim live-data capture of `claude_code.skill_activated` event shape (P0 hard gate) (completed 2026-05-02)
 - [x] **Phase 13: Cost Foundation & Skill Ingest** - Pricing module, `pricing` table, cost engine, cost API, skill-name ingest column (backend-only, no UI) (completed 2026-05-03)
 - [x] **Phase 14: Skills API & Page Panels** - Skills aggregation endpoints + four reactivated/new skill panels (TopSkills, SkillCostCard, SkillLatencyTable, SkillTimeline) + per-skill detail route (completed 2026-05-04)
-- [ ] **Phase 15: Alert Engine & UI** - Hysteresis-aware threshold + z-score detector, dispatcher hook, decisions/Telegram delivery, ack flow, CRUD + composer UI
+- [x] **Phase 15: Alert Engine & UI** - Hysteresis-aware threshold + z-score detector, dispatcher hook, decisions/Telegram delivery, ack flow, CRUD + composer UI (completed 2026-05-04)
 - [ ] **Phase 16: Session Comparison** - Single-endpoint paired-metrics diff, two-up compare view, Cmd+K + sessions-table picker
 - [ ] **Phase 17: Polish, Doctor & Tests** - Doctor warnings, parse_mode CI guard, callback round-trips, alert integration test, Playwright e2e, upgrade docs
 
@@ -101,13 +101,13 @@ Plans:
   3. User can ack an alert via the Telegram `ack_alert` callback verb (registered in `cmc/telegram/callback_verbs.py` central enum) and trust the suppression lasts 1h without clearing the underlying condition; alerts auto-resolve when the underlying metric clears via `decisions.status='answered'` with `answered_by='alert_engine'`.
   4. User can navigate to `/alerts` and see `AlertRulesList` + `AlertRuleForm` (composer with hysteresis fields exposed) at the locked 30s polling cadence, and hit the full CRUD endpoints (`GET/POST/PATCH/DELETE /api/alerts/rules`, `GET /api/alerts/events?range=`) for rules and firing history.
   5. User can trust that alert Telegram messages are plain-text only (no `parse_mode=`) and that the alert engine NEVER imports `cmc.dispatcher.tasks` or creates dispatcher tasks — alerts emit decisions only, the user gates action via existing autonomy controls.
-**Plans:** 3/5 plans executed
+**Plans:** 5/5 plans executed
 Plans:
 - [x] 15-01-PLAN.md — Detector primitives: AlertSignal enum + evaluate_threshold + evaluate_anomaly (EWMA + 24h warm-up) + _SCOPE_EXTRACTORS for 3 v1.0 metrics (cost_usd_24h / skill_p95_latency_ms / dispatcher_failed_tasks_5m); stdlib math only (Wave 1)
 - [x] 15-04-PLAN.md — Frontend lib plumbing: AlertRange + 7 interfaces + 6 fetchers (api.* + standalone) + qk.alertRules/alertEvents (kebab-prefix) + 2 hooks + 4 mutations at 30s cadence (Wave 1)
 - [x] 15-02-PLAN.md — Dispatcher hook (heartbeat.py: AFTER stamp_tick + AFTER e-stop) + cmc/dispatcher/alerts.py::evaluate_alerts orchestrator + /api/alerts CRUD router + schemas + ack endpoint + dedup via notification_log/decisions (Wave 2)
-- [ ] 15-03-PLAN.md — Telegram wiring: NEW callback_verbs.py central StrEnum (refactor dash_router.py + handler.py) + ack_alert verb routing (sha256[:8] encoding under 64-byte cap) + format_alert plain-text composer + notifier _FORMATTER 'alert' kind (Wave 3)
-- [ ] 15-05-PLAN.md — /alerts route + AlertRulesList + AlertRuleForm (discriminated-union over kind) + AlertEventsList + human-verify checkpoint (Wave 4)
+- [x] 15-03-PLAN.md — Telegram wiring: NEW callback_verbs.py central StrEnum (refactor dash_router.py + handler.py) + ack_alert verb routing (sha256[:8] encoding under 64-byte cap) + format_alert plain-text composer + notifier _FORMATTER 'alert' kind (Wave 3)
+- [x] 15-05-PLAN.md — /alerts route + AlertRulesList + AlertRuleForm (discriminated-union over kind) + AlertEventsList + human-verify checkpoint (Wave 4; commits 8050a7c + 8ac124a + 1d59a1d + 1f4d501 + e3e7838 + 6eb376f, 2026-05-04; browser human-verify APPROVED across 9 mandatory steps; hotfix e3e7838 landed under 15-05 scope per 14-05/14-04 precedent — BUG-1 alert_state JOIN restoring last_value on /api/alerts/events + BUG-2 UTCDatetime project-wide PlainSerializer with when_used='json' gate (8 schemas / 37 datetime fields))
 **UI hint**: yes
 
 ### Phase 16: Session Comparison
@@ -156,7 +156,7 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 (Phase 16
 | 12. OTEL Skill Event Spike | v1.1 | 2/2 | Complete   | 2026-05-02 |
 | 13. Cost Foundation & Skill Ingest | v1.1 | 6/6 | Complete | 2026-05-03 |
 | 14. Skills API & Page Panels | v1.1 | 5/5 | Complete | 2026-05-04 |
-| 15. Alert Engine & UI | v1.1 | 3/5 | In Progress|  |
+| 15. Alert Engine & UI | v1.1 | 5/5 | Complete | 2026-05-04 |
 | 16. Session Comparison | v1.1 | 0/TBD | Not started | - |
 | 17. Polish, Doctor & Tests | v1.1 | 0/TBD | Not started | - |
 
