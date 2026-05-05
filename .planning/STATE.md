@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.2
-milestone_name: "Depth & Polish"
-status: executing
-stopped_at: "Phase 18 Plan 01 complete (cmc.core.time helper + UTCDatetime re-export, 5 new tests, 566 backend pytest passed). Plan 02 (utcnow sweep across 22 sites) is next."
-last_updated: "2026-05-05"
-last_activity: "2026-05-05 — Phase 18 Plan 01 executed. cmc/core/time.py created with now_utc() (datetime.now(UTC).replace(tzinfo=None)) and colocated UTCDatetime PlainSerializer. cmc.api.schemas.common re-exports UTCDatetime; cmc.core re-exports now_utc. 5 unit tests pin the contract (naive shape, factory pattern, JSON roundtrip with Z suffix, identity across import paths). Backend pytest: 566 passed (561 baseline + 5 new), 0 regressions. 22 datetime.utcnow call sites still present — sweep is Plan 02's scope."
+milestone_name: Depth & Polish
+status: Plan 01 (`18-01-time-helper-and-test`) shipped; helper module + tests in place
+stopped_at: Plan 01 SUMMARY written. Plan 02 (utcnow sweep across 22 sites) is next. The 22 real call sites are still untouched per plan scope.
+last_updated: "2026-05-05T20:23:58.660Z"
+last_activity: 2026-05-05 — Plan 01 executed (commits 4247f56 test, 3256760 feat, 6e01645 refactor); SUMMARY written
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 5
-  completed_plans: 1
-  percent: 3
+  completed_plans: 3
+  percent: 60
 ---
 
 # Project State
@@ -31,7 +31,7 @@ Plan: 18-02 (utcnow sweep) is next
 Status: Plan 01 (`18-01-time-helper-and-test`) shipped; helper module + tests in place
 Last activity: 2026-05-05 — Plan 01 executed (commits 4247f56 test, 3256760 feat, 6e01645 refactor); SUMMARY written
 
-Progress: [#         ] v1.2 ~3% (0/6 phases complete; 1/5 Phase-18 plans complete)
+Progress: [██████░░░░] 60%
 
 ## Accumulated Context
 
@@ -67,6 +67,7 @@ v1.1 carried decisions (still active):
 - CMPR-04 over-cap = render branch (HTTP 200 + `over_cap=true`), not error branch
 - CMPR-05 tabular-only compare (no diff library, no raw message rendering)
 - Wave-1/wave-2 single-writer convention for REQUIREMENTS.md
+- [Phase ?]: Phase 18 Plan 04: data-testid on source React components per feature-component-element kebab-case; documented in frontend/tests/e2e/README.md (NOT CONTRIBUTING.md). Decorate only when strict-mode collides.
 
 ### Pending Todos
 
@@ -113,9 +114,9 @@ Two operational human-verify items still carry forward (non-blocking, auto-disch
 
 ## Session Continuity
 
-Last session: 2026-05-05 — Phase 18 Plan 01 executed. cmc/core/time.py created (now_utc + colocated UTCDatetime), re-exports wired in common.py and cmc/core/__init__.py, 5 unit tests pin the contract. 3 commits: 4247f56 (test RED), 3256760 (feat GREEN module), 6e01645 (refactor re-export). Backend pytest 566 passed (561 + 5).
+Last session: 2026-05-05T20:23:42.636Z
 Stopped at: Plan 01 SUMMARY written. Plan 02 (utcnow sweep across 22 sites) is next. The 22 real call sites are still untouched per plan scope.
-Resume file: .planning/phases/18-polish-carry-forward-cleanup/18-02-utcnow-sweep-PLAN.md
+Resume file: None
 
 ---
 
