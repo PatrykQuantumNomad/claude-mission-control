@@ -16,7 +16,7 @@ Design notes:
 import asyncio
 import json
 import re
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -29,9 +29,12 @@ from cmc.api.schemas.sessions import (
     FollowUpMessageResponse,
     LiveSessionItem,
     LiveSessionState,
+    SessionCompareResponse,
+    SessionCompareSide,
     SessionDetailsResponse,
     SessionListItem,
     SessionListResponse,
+    SkillSetDiff,
     TodaySummaryResponse,
     ToolTimelineEntry,
 )
@@ -40,6 +43,7 @@ from cmc.db import get_session
 from cmc.db.models.live_state import LiveState
 from cmc.db.models.sessions import Session as SessionModel
 from cmc.db.models.tools import ToolCall
+from cmc.pricing import compute_cost, load_rates
 
 router = APIRouter(tags=["sessions"])
 
@@ -48,6 +52,145 @@ router = APIRouter(tags=["sessions"])
 _UUID_RE = re.compile(
     r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 )
+
+# CMPR-04: per-side tool-call cap. Above this, the over_cap render branch
+# kicks in: tool_counts={} on that side, summary KPIs still present.
+SESSION_COMPARE_CAP = 500
+
+
+# Phase 16 Plan 01 (CMPR-01..04) — single-round-trip compare query templates.
+#
+# Skill-set per side: DISTINCT attrs_skill_name. Filter MUST use BARE
+# 'skill_activated' (post-prefix-strip — Pitfall 2 in 16-RESEARCH); the
+# attrs_skill_name IS NOT NULL guard drops legacy rows from before LOCK-2
+# (Pitfall 6).
+_COMPARE_SKILLS_SQL = text("""
+    SELECT DISTINCT attrs_skill_name AS skill_name
+    FROM otel_events
+    WHERE session_id = :sid
+      AND event_name = 'skill_activated'
+      AND attrs_skill_name IS NOT NULL
+    ORDER BY skill_name ASC
+""")
+
+# Outcome read-time classification — adapted from observability._OUTCOMES_SQL.
+# These outcome event_names KEEP the 'claude_code.' prefix (NOT skill events
+# — the prefix-strip is skill-event-specific per ingest router, Pitfall 2).
+_COMPARE_OUTCOME_SQL = text("""
+    SELECT CASE
+        WHEN EXISTS (SELECT 1 FROM otel_events e
+                     WHERE e.session_id = :sid
+                       AND e.event_name = 'claude_code.api_error') THEN 'errored'
+        WHEN EXISTS (SELECT 1 FROM otel_events e
+                     WHERE e.session_id = :sid
+                       AND e.event_name = 'claude_code.api_retries_exhausted') THEN 'rate_limited'
+        WHEN EXISTS (SELECT 1 FROM otel_events e
+                     WHERE e.session_id = :sid
+                       AND e.event_name = 'claude_code.compaction') THEN 'truncated'
+        WHEN (SELECT ended_at FROM sessions WHERE session_id = :sid) IS NULL THEN 'unfinished'
+        ELSE 'ok'
+    END AS outcome
+""")
+
+# Per-side {tool_name: count}. Skipped on over-cap path to keep the heavy
+# branch cheap; the denormalized sessions.tool_call_count is the cap source
+# of truth (Pitfall 11).
+_COMPARE_TOOL_COUNTS_SQL = text("""
+    SELECT tool_name, COUNT(*) AS n
+    FROM tools
+    WHERE session_id = :sid
+    GROUP BY tool_name
+    ORDER BY n DESC
+""")
+
+
+def _coerce_effective_from(rates: dict, model: str | None) -> date | None:
+    """Pull effective_from from a rates dict and coerce to date if needed.
+
+    Cloned from cost.py:57 / skills.py:621 — same convention. Returns None
+    when the model isn't in the rates table (unpriced SKU).
+    """
+    if model is None or model not in rates:
+        return None
+    ef = rates[model].get("effective_from")
+    if ef is None:
+        return None
+    return ef.date() if isinstance(ef, datetime) else ef
+
+
+async def _build_compare_side(
+    sess: SessionModel,
+    rates: dict,
+    db: AsyncSession,
+) -> SessionCompareSide:
+    """Compose one SessionCompareSide from a Session ORM row + read-time SQL.
+
+    over_cap uses the denormalized sessions.tool_call_count column (Pitfall 11
+    — NEVER COUNT(tools.*)). On over-cap, tool_counts is set to {} and the
+    GROUP BY query is skipped entirely (cheap fallback path per CMPR-04).
+    """
+    over_cap = sess.tool_call_count > SESSION_COMPARE_CAP
+
+    # duration_ms via Python subtraction — started_at/ended_at are stored
+    # naive UTC (Phase 1 schema). No SQL window function needed.
+    if sess.ended_at is not None:
+        duration_ms = int((sess.ended_at - sess.started_at).total_seconds() * 1000)
+    else:
+        duration_ms = None
+
+    # Cost via cmc.pricing — Decimal math. Unknown SKU returns Decimal(0)
+    # AND bumps cmc.pricing.unpriced_tokens counter (doctor surfaces).
+    cost = compute_cost(
+        sess.model or "<unknown>",
+        sess.tokens_input,
+        sess.tokens_output,
+        sess.tokens_cache_read,
+        sess.tokens_cache_create_5m,
+        sess.tokens_cache_create_1h,
+        rates,
+    )
+
+    # Skills: DISTINCT attrs_skill_name where event_name='skill_activated'.
+    skill_rows = (
+        await db.execute(_COMPARE_SKILLS_SQL, {"sid": sess.session_id})
+    ).mappings().all()
+    skills_used = [r["skill_name"] for r in skill_rows]
+
+    # Outcome: CASE on otel_events EXISTS — single column scalar.
+    outcome = (
+        await db.execute(_COMPARE_OUTCOME_SQL, {"sid": sess.session_id})
+    ).scalar_one_or_none()
+
+    # Tool counts: skipped on over-cap path.
+    if over_cap:
+        tool_counts: dict[str, int] = {}
+    else:
+        tc_rows = (
+            await db.execute(_COMPARE_TOOL_COUNTS_SQL, {"sid": sess.session_id})
+        ).mappings().all()
+        tool_counts = {r["tool_name"]: int(r["n"]) for r in tc_rows}
+
+    return SessionCompareSide(
+        session_id=sess.session_id,
+        started_at=sess.started_at,
+        ended_at=sess.ended_at,
+        duration_ms=duration_ms,
+        cwd=sess.cwd,
+        model=sess.model,
+        source=sess.source,
+        outcome=outcome,
+        tokens_input=sess.tokens_input,
+        tokens_output=sess.tokens_output,
+        tokens_cache_read=sess.tokens_cache_read,
+        tokens_cache_create_5m=sess.tokens_cache_create_5m,
+        tokens_cache_create_1h=sess.tokens_cache_create_1h,
+        tool_call_count=sess.tool_call_count,
+        message_count=sess.message_count,
+        cost_usd=cost,
+        skills_used=skills_used,
+        over_cap=over_cap,
+        tool_counts=tool_counts,
+    )
 
 
 @router.get("/sessions", response_model=SessionListResponse)
@@ -95,6 +238,88 @@ async def list_sessions(
         total=total,
         limit=limit,
         offset=offset,
+    )
+
+
+@router.get("/sessions/compare", response_model=SessionCompareResponse)
+async def compare_sessions(
+    a: str = Query(..., description="Session A id"),
+    b: str = Query(..., description="Session B id"),
+    db: AsyncSession = Depends(get_session),
+) -> SessionCompareResponse:
+    """CMPR-01..04: paired session metrics + skill-set diff in a single payload.
+
+    Read-time-computed cost via cmc.pricing (Decimal-string in JSON). Skill
+    set: DISTINCT attrs_skill_name from otel_events where
+    event_name='skill_activated' AND attrs_skill_name IS NOT NULL. Outcome:
+    read-time-classified the same way OBSV-03 does it. The 500-tool-call cap
+    (CMPR-04) is checked against the denormalized sessions.tool_call_count
+    column (Pitfall 11 — NOT COUNT(tools.*)). Over-cap path: HTTP 200 with
+    over_cap=true + tool_counts={} on that side; summary KPIs still present.
+
+    Error contract:
+      - 400 'invalid session_id format' on either UUID malformed
+      - 400 'cannot compare a session with itself' on a == b (decisions §7)
+      - 404 'session not found' on either row missing
+      - 200 with over_cap=true on either side over the cap
+    """
+    # 1. UUID format guard (mirror sessions.py session_details:111)
+    if not _UUID_RE.match(a) or not _UUID_RE.match(b):
+        raise HTTPException(status_code=400, detail="invalid session_id format")
+
+    # 2. Self-compare rejection (decisions §7 — degenerate UX)
+    if a == b:
+        raise HTTPException(
+            status_code=400, detail="cannot compare a session with itself"
+        )
+
+    # 3. Load both session rows (404 on either miss)
+    sess_a = (
+        await db.execute(select(SessionModel).where(SessionModel.session_id == a))
+    ).scalar_one_or_none()
+    if sess_a is None:
+        raise HTTPException(status_code=404, detail="session not found")
+    sess_b = (
+        await db.execute(select(SessionModel).where(SessionModel.session_id == b))
+    ).scalar_one_or_none()
+    if sess_b is None:
+        raise HTTPException(status_code=404, detail="session not found")
+
+    # 4. Single rates dict shared across both sides (one load_rates per request)
+    rates = await load_rates(db)
+
+    # 5. Build each side via the shared helper
+    side_a = await _build_compare_side(sess_a, rates, db)
+    side_b = await _build_compare_side(sess_b, rates, db)
+
+    # 6. Skill-set diff (sorted lists of strings)
+    set_a = set(side_a.skills_used)
+    set_b = set(side_b.skills_used)
+    skill_diff = SkillSetDiff(
+        shared=sorted(set_a & set_b),
+        only_a=sorted(set_a - set_b),
+        only_b=sorted(set_b - set_a),
+    )
+
+    # 7. rates_as_of = max effective_from across the two models touched
+    #    (None when both models are unpriced or unknown). Single top-level
+    #    field per Phase 16 decisions §4.
+    as_of_a = _coerce_effective_from(rates, sess_a.model)
+    as_of_b = _coerce_effective_from(rates, sess_b.model)
+    candidates: list[date] = [d for d in (as_of_a, as_of_b) if d is not None]
+    rates_as_of: datetime | None = None
+    if candidates:
+        # UTCDatetime serializer expects datetime; promote date -> midnight UTC.
+        chosen = max(candidates)
+        rates_as_of = datetime(chosen.year, chosen.month, chosen.day, tzinfo=UTC)
+
+    return SessionCompareResponse(
+        a=side_a,
+        b=side_b,
+        skill_diff=skill_diff,
+        rates_as_of=rates_as_of,
+        over_cap=side_a.over_cap or side_b.over_cap,
+        cap=SESSION_COMPARE_CAP,
     )
 
 
