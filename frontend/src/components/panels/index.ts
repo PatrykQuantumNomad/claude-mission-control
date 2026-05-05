@@ -46,6 +46,9 @@ export { SkillRunsTable } from './SkillRunsTable'
 export { AlertEventsList } from './AlertEventsList'
 export { AlertRuleForm } from './AlertRuleForm'
 export { AlertRulesList } from './AlertRulesList'
+// Phase 16 Plan 02 — CMPR-02..05 paired-session compare panel (composed
+// inside the new /sessions/compare file-based route).
+export { SessionCompareView } from './SessionCompareView'
 // TPNL task panels
 export { TaskBoard } from './TaskBoard'
 export {
