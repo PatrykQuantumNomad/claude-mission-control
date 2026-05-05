@@ -25,14 +25,27 @@ function Wrap({ client, children }: { client: QueryClient; children: ReactNode }
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>
 }
 
+// POLI-07: Pin Date.now() to a fixed boundary so the 48h stale heuristic in
+// SchedulesCard's isStale() is deterministic across TZ=UTC and TZ=America/New_York.
+// 23:55Z lands on 19:55 EDT (May 5) — a date-boundary instant in both zones.
+// Mechanism lock (POLI-07): use `vi.spyOn(Date, 'now')` — narrowly targets the
+// one Date.now() call in SchedulesCard.tsx:182 without affecting React-Query
+// or userEvent timer scheduling. Whole-clock fake-timer APIs are deliberately
+// avoided here (load-bearing usage exists in RelativeTime + EmergencyStopBanner).
+const NOW_MS = new Date('2026-05-05T23:55:00Z').getTime()
+
 function makeSchedule(overrides: Partial<ScheduleListItem> = {}): ScheduleListItem {
+  // Pitfall 1 (bit-rot fix): last_run_at defaults to `null` (the "never run" value
+  // accepted by the schema), NOT a hard-coded ISO string. Hard-coded timestamps
+  // age with calendar time and silently flip "fresh" fixtures to "stale". Callers
+  // that exercise stale logic MUST pass last_run_at explicitly relative to NOW_MS.
   return {
     id: 1,
     name: 'nightly-build',
     cron: '*/5 * * * *',
     enabled: true,
     next_run_at: '2026-04-27T20:00:00Z',
-    last_run_at: '2026-04-27T15:00:00Z',
+    last_run_at: null,
     task_template: { title: 'recurring' },
     skill: null,
     created_at: '2026-04-20T00:00:00Z',
@@ -43,14 +56,21 @@ function makeSchedule(overrides: Partial<ScheduleListItem> = {}): ScheduleListIt
 
 const populated: ScheduleListResponse = {
   items: [
-    makeSchedule({ id: 1, name: 'every-5-min', cron: '*/5 * * * *', enabled: true }),
+    makeSchedule({
+      id: 1,
+      name: 'every-5-min',
+      cron: '*/5 * * * *',
+      enabled: true,
+      // 5 minutes ago relative to NOW_MS — comfortably below the 48h stale threshold.
+      last_run_at: new Date(NOW_MS - 5 * 60_000).toISOString(),
+    }),
     makeSchedule({
       id: 2,
       name: 'old-stale',
       cron: '0 9 * * 1-5',
       enabled: true,
-      // last_run_at older than 48h to trigger stale marker
-      last_run_at: new Date(Date.now() - 72 * 3600 * 1000).toISOString(),
+      // 72h ago relative to NOW_MS — comfortably above the 48h stale threshold.
+      last_run_at: new Date(NOW_MS - 72 * 3600 * 1000).toISOString(),
     }),
   ],
   total: 2,
@@ -60,6 +80,11 @@ const emptyPayload: ScheduleListResponse = { items: [], total: 0 }
 
 describe('SchedulesCard', () => {
   beforeEach(() => {
+    // POLI-07: Pin Date.now() so isStale()'s 48h threshold check (which uses
+    // Date.now() directly) is deterministic regardless of wall clock or TZ.
+    // Describe-scoped: only this card's tests need the pin; other components'
+    // tests that touch Date.now() relatively are not at boundary risk.
+    vi.spyOn(Date, 'now').mockReturnValue(NOW_MS)
     // Default fetch mock — overridden in mutation/lazy tests below.
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify(populated), {
@@ -69,6 +94,7 @@ describe('SchedulesCard', () => {
     )
   })
   afterEach(() => {
+    // restoreAllMocks() also restores the Date.now spy.
     vi.restoreAllMocks()
   })
 
