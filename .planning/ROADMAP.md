@@ -136,8 +136,14 @@ Plans:
   2. User can rely on a CI grep test that fails on any `parse_mode=` occurrence anywhere in `cmc/telegram/` (extends Phase 9-01 enforcement to alert paths) and on round-trip unit tests for every Telegram callback verb in `cmc/telegram/callback_verbs.py` (including the new `ack_alert`).
   3. User can rely on an integration test that creates an always-firing alert rule, runs the dispatcher one-shot, and asserts exactly one decision row + one notification_log row exist.
   4. User can rely on Playwright e2e coverage for `/alerts` (create rule → fire → ack) and `/sessions/compare?a=&b=` (pick two sessions → see diff).
-  5. User can read updated `build-your-own-dashboard-guide.html` and the env-var reference covering pricing seed workflow, OTEL spike findings, and v1.1 panels.
-**Plans**: TBD
+  5. User can read updated in-repo docs (README.md + backend/.env.example) covering pricing seed workflow, OTEL spike findings, and v1.1 panels. The companion `build-your-own-dashboard-guide.html` is maintained externally (see PROJECT.md:94) — out of scope for this phase.
+**Plans**: 6 plans (5 wave-1 verification artifacts + 1 wave-2 single-writer status sync)
+- [x] 17-01-PLAN.md — POLI-01 audit (already shipped Phase 13-05) + POLI-04 lifecycle assertion (1-line addition to test_heartbeat_hook_calls_evaluate_alerts) [wave 1]
+- [x] 17-02-PLAN.md — New backend/tests/test_telegram_grep.py (POLI-02 directory-wide parse_mode= guard) + new backend/tests/test_callback_verbs_round_trip.py (POLI-03 parametrized over CallbackVerb enum) [wave 1]
+- [x] 17-03-PLAN.md — New frontend/tests/e2e/alerts.spec.ts (TEST-05a /alerts lifecycle: preflight-skip when no recent failed task → create→trigger→fire→ack with async-trigger 35s polling + cleanup teardown) [wave 1]
+- [x] 17-04-PLAN.md — New frontend/tests/e2e/sessions-compare.spec.ts (TEST-05b /sessions/compare picker→diff with both entry points: row Compare button + Cmd+K context-aware action; skip-with-reason when DB has <2 sessions) [wave 1]
+- [x] 17-05-PLAN.md — POLI-05 docs update: README.md (v1.1 panels + pricing seed workflow + OTEL spike summary) + backend/.env.example (OTEL_LOG_TOOL_DETAILS comment block) [wave 1]
+- [ ] 17-06-PLAN.md — Single-writer REQUIREMENTS.md status sync (preflight-verify all wave-1 artifacts, then flip 6 Phase 17 IDs to Complete + POLI-05 companion-guide sub-bullet) [wave 2; depends_on 17-01..17-05]
 
 ## Progress
 
@@ -162,7 +168,7 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 (Phase 16
 | 14. Skills API & Page Panels | v1.1 | 5/5 | Complete | 2026-05-04 |
 | 15. Alert Engine & UI | v1.1 | 5/5 | Complete | 2026-05-04 |
 | 16. Session Comparison | v1.1 | 4/4 | Complete | 2026-05-05 |
-| 17. Polish, Doctor & Tests | v1.1 | 0/TBD | Not started | - |
+| 17. Polish, Doctor & Tests | v1.1 | 5/6 | In Progress|  |
 
 **v1.0 milestone shipped: 47/47 plans, 11/11 phases verified (9 base + 2 audit gap-closure).**
 **v1.1 milestone in progress: 0/41 requirements implemented across 6 phases.**
