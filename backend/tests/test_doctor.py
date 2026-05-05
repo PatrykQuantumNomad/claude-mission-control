@@ -333,3 +333,24 @@ def test_otel_log_tool_details_ok_when_set(monkeypatch):
     monkeypatch.setenv("OTEL_LOG_TOOL_DETAILS", "1")
     c = _check_otel_log_tool_details()
     assert c.status == "ok"
+
+
+# ------------------------------------------- POLI-01 traceability: registry presence
+
+
+def test_poli_01_doctor_checks_registered() -> None:
+    """POLI-01: doctor exposes pricing freshness / unpriced tokens / OTEL_LOG_TOOL_DETAILS checks.
+
+    Lifted forward in Phase 13 Plan 05 (commit a8a0d1f). This test pins the
+    registry so future refactors can't silently drop a check — verifier
+    (/gsd:verify-work) maps POLI-01 → this test by name.
+    """
+    from cmc.cli import doctor
+    registered = {fn.__name__ for fn in doctor.CHECKS}
+    required = {
+        "_check_pricing_freshness",
+        "_check_unpriced_tokens",
+        "_check_otel_log_tool_details",
+    }
+    missing = required - registered
+    assert not missing, f"POLI-01: missing checks in doctor.CHECKS: {sorted(missing)}"
