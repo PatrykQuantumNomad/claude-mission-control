@@ -6,30 +6,15 @@ conversion via `model_validate(orm_row)`. Plain BaseModel is used when input is
 NOT an ORM row (e.g. aggregated dicts, request bodies).
 """
 
-from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, PlainSerializer
+from pydantic import BaseModel, ConfigDict, Field
 
-
-def _serialize_utc(value: datetime) -> str:
-    """Emit ISO-8601 in UTC with `Z` suffix.
-
-    SQLAlchemy stores datetimes as naive UTC. Pydantic v2's default serializer
-    drops the offset, so JS `new Date(...)` parses it as local time and renders
-    relative timestamps with a TZ-shaped skew. Treating naive values as UTC
-    and forcing a `Z` suffix makes round-trips deterministic.
-    """
-    if value.tzinfo is None:
-        value = value.replace(tzinfo=UTC)
-    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
-
-
-UTCDatetime = Annotated[
-    datetime,
-    PlainSerializer(_serialize_utc, return_type=str, when_used="json"),
-]
+# Re-export — canonical home is cmc.core.time per Phase 18 D-Colocation.
+# 8 schema files (sessions, hitl, mcp, alerts, tasks, observability, skills,
+# schedules) import UTCDatetime from this module; keeping the symbol available
+# here avoids a 9-file import sweep on a cosmetic move.
+from cmc.core.time import UTCDatetime  # noqa: F401
 
 
 class RangeWindow(StrEnum):
