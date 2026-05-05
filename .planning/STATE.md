@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: "Depth & Polish"
-status: planning
-stopped_at: "v1.2 roadmap created 2026-05-05. Phases 18–23 defined (6 phases) covering 13 requirements. Awaiting `/gsd-plan-phase 18` to begin execution."
+status: executing
+stopped_at: "Phase 18 Plan 01 complete (cmc.core.time helper + UTCDatetime re-export, 5 new tests, 566 backend pytest passed). Plan 02 (utcnow sweep across 22 sites) is next."
 last_updated: "2026-05-05"
-last_activity: "2026-05-05 — v1.2 ROADMAP.md written. Phase 18 Polish/Cleanup → Phase 19 Skills Per-Project/Deltas/Badges → Phase 20 Cost Forecast/Per-Project Card → Phase 21 Alert Anomaly Depth/NL Authoring → Phase 22 Skill Latency Overhead (spike-gated) → Phase 23 Compare Depth/Milestone Close. 13/13 requirements mapped (SKLP-08..11, ANLY-06..07, ALRT-13..14, CMPR-06..07, POLI-06..08). Migration 0003_project_key owned by Phase 19, consumed by Phase 20."
+last_activity: "2026-05-05 — Phase 18 Plan 01 executed. cmc/core/time.py created with now_utc() (datetime.now(UTC).replace(tzinfo=None)) and colocated UTCDatetime PlainSerializer. cmc.api.schemas.common re-exports UTCDatetime; cmc.core re-exports now_utc. 5 unit tests pin the contract (naive shape, factory pattern, JSON roundtrip with Z suffix, identity across import paths). Backend pytest: 566 passed (561 baseline + 5 new), 0 regressions. 22 datetime.utcnow call sites still present — sweep is Plan 02's scope."
 progress:
   total_phases: 6
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 5
+  completed_plans: 1
+  percent: 3
 ---
 
 # Project State
@@ -26,18 +26,24 @@ See: .planning/PROJECT.md (updated 2026-05-05 after v1.1 ship)
 
 ## Current Position
 
-Phase: 18 — Polish & Carry-Forward Cleanup (not started)
-Plan: —
-Status: Roadmap complete; awaiting `/gsd-plan-phase 18`
-Last activity: 2026-05-05 — ROADMAP.md written, REQUIREMENTS.md traceability filled
+Phase: 18 — Polish & Carry-Forward Cleanup (in progress, 1/5 plans complete)
+Plan: 18-02 (utcnow sweep) is next
+Status: Plan 01 (`18-01-time-helper-and-test`) shipped; helper module + tests in place
+Last activity: 2026-05-05 — Plan 01 executed (commits 4247f56 test, 3256760 feat, 6e01645 refactor); SUMMARY written
 
-Progress: [          ] v1.2 0% (0/6 phases complete)
+Progress: [#         ] v1.2 ~3% (0/6 phases complete; 1/5 Phase-18 plans complete)
 
 ## Accumulated Context
 
 ### Decisions
 
-Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.2 roadmap-time decisions:
+Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.2 plan-execution decisions (Phase 18 Plan 01):
+
+- **`cmc.core.time` is the canonical home for naive-UTC time concerns.** `now_utc()` returns `datetime.now(UTC).replace(tzinfo=None)`; `UTCDatetime` PlainSerializer is colocated. `cmc.api.schemas.common` re-exports `UTCDatetime` (one-line, `# noqa: F401`) so the 8 existing schema importers keep working without an 8-file cosmetic sweep (D-Pitfall-9). `cmc.core` re-exports `now_utc` for ergonomic access.
+- **No speculative time helpers.** Only `now_utc` and `UTCDatetime` ship in Phase 18 (D-Module-shape). Future helpers (`today_utc`, `parse_iso_utc`) promote inline if/when Plan 02's sweep finds 3+ uses of a pattern.
+- **Two-commit migration enforced.** Plan 01 creates the helper; Plan 02 owns the 22-site mechanical replace. Bisect-friendly; the sweep commit can be uniform mechanical.
+
+v1.2 roadmap-time decisions:
 
 - **Phase 22 is spike-gated for SKLP-11.** Phase opens with a mandatory feasibility spike (`tools` temporal JOIN against `skill_activated.duration_ms`); negative finding descopes SKLP-11 to v1.3 cleanly without blocking Phase 23. No fake decomposition ships under any circumstance (PITFALLS Pitfall 10).
 - **Migration `0003_project_key` is owned by Phase 19.** Both SKLP-08 (Phase 19) and ANLY-07 (Phase 20) need `project_key` normalization (sha1[:12] of `realpath(cwd.rstrip('/'))`); migration ships in Phase 19 since it runs first (PITFALLS Pitfall 7 prevails over ARCHITECTURE's "zero migrations" claim).
@@ -58,7 +64,8 @@ v1.1 carried decisions (still active):
 
 ### Pending Todos
 
-- Begin Phase 18 via `/gsd-plan-phase 18` — discharge POLI-06/07/08 carried debt, establish green CI baseline.
+- Execute Phase 18 Plan 02 (`18-02-utcnow-sweep`) — mechanical replacement of all 22 `datetime.utcnow` call sites with `now_utc` from `cmc.core.time`; dual verify gate (`ruff check --select UP` clean + `git grep` zero) + ~1429 deprecation warnings drop to 0.
+- Phase 18 Plans 03 (SchedulesCard determinism), 04 (Playwright strict-mode), 05 (BASELINE.md) follow.
 - Phase 22 plan front-matter MUST cite SQL columns or temporal-JOIN derivation source for body_ms / subagent_ms / tool_ms before any UI work begins (Pitfall 10 acceptance criterion).
 - Phase 19 plan owns migration `0003_project_key` (sessions.project_key VARCHAR(12), backfill, index).
 - Phase 23 closes the milestone — audit hooks (full pytest + vitest + playwright green; `cmc doctor` clean; REQUIREMENTS.md traceability 13/13 or honest 12/13 + descope) belong in the final phase plan.
@@ -95,14 +102,14 @@ Two operational human-verify items still carry forward (non-blocking, auto-disch
 
 **v1.0 baseline:** 47 plans, 4 days (2026-04-25 → 2026-04-28), ~39,800 LOC.
 **v1.1:** 28 plans, 4 days (2026-05-02 → 2026-05-05), +81,397 / -13,435 lines vs v1.0, ~56,232 LOC at close.
-**v1.2:** Phases 18–23 defined (6 phases, 13 requirements). Plan counts and timing pending `/gsd-plan-phase` execution.
+**v1.2:** Phases 18–23 defined (6 phases, 13 requirements). Phase 18: 1/5 plans complete (Plan 01 ~10 min execution). Backend pytest baseline at 561; post-Plan-01 at 566 (5 new helper tests, 0 regressions).
 **Cumulative:** 75 plans across 17 phases (11 v1.0 + 6 v1.1) over 8 calendar days of active development pre-v1.2.
 
 ## Session Continuity
 
-Last session: 2026-05-05 — v1.2 roadmap creation (Phases 18–23 defined, REQUIREMENTS.md traceability filled, STATE.md updated).
-Stopped at: ROADMAP.md written with 6 phases mapped to 13 requirements (100% coverage). Phase 22 spike-gated; migration `0003_project_key` owned by Phase 19. Awaiting `/gsd-plan-phase 18` to begin execution.
-Resume file: .planning/ROADMAP.md (Phase Details section)
+Last session: 2026-05-05 — Phase 18 Plan 01 executed. cmc/core/time.py created (now_utc + colocated UTCDatetime), re-exports wired in common.py and cmc/core/__init__.py, 5 unit tests pin the contract. 3 commits: 4247f56 (test RED), 3256760 (feat GREEN module), 6e01645 (refactor re-export). Backend pytest 566 passed (561 + 5).
+Stopped at: Plan 01 SUMMARY written. Plan 02 (utcnow sweep across 22 sites) is next. The 22 real call sites are still untouched per plan scope.
+Resume file: .planning/phases/18-polish-carry-forward-cleanup/18-02-utcnow-sweep-PLAN.md
 
 ---
 
