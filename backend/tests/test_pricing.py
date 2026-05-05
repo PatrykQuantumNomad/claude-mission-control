@@ -14,6 +14,7 @@ from decimal import Decimal
 
 import pytest
 
+from cmc.core.time import now_utc
 from cmc.pricing import _rates_dict_to_decimal, compute_cost, unpriced_tokens
 
 
@@ -136,7 +137,7 @@ async def test_pricing_window_self_correcting(db_session):
         effective_from=later,
         effective_until=None,
         source_url="manual-test",
-        loaded_at=datetime.utcnow(),
+        loaded_at=now_utc(),
         seed_hash="0" * 64,
     ))
     await db_session.commit()

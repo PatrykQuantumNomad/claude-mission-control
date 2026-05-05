@@ -9,6 +9,8 @@ from datetime import datetime
 from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, Index, SQLModel
 
+from cmc.core.time import now_utc
+
 
 class TokenUsage(SQLModel, table=True):
     __tablename__ = "token_usage"
@@ -25,7 +27,7 @@ class TokenUsage(SQLModel, table=True):
     tokens_cache_create_5m: int = Field(default=0)
     tokens_cache_create_1h: int = Field(default=0)
     sessions_count: int = Field(default=0)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=now_utc)
 
     __table_args__ = (
         UniqueConstraint("day", "model", "source", name="uq_token_usage_day_model_source"),

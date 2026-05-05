@@ -9,6 +9,8 @@ from typing import Any
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, Index, SQLModel
 
+from cmc.core.time import now_utc
+
 
 class AlertRule(SQLModel, table=True):
     __tablename__ = "alert_rules"
@@ -27,8 +29,8 @@ class AlertRule(SQLModel, table=True):
     params_json: dict[str, Any] = Field(
         default_factory=dict, sa_column=Column(JSON, nullable=False)
     )
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=now_utc)
+    updated_at: datetime = Field(default_factory=now_utc)
 
     __table_args__ = (
         Index("idx_alert_rules_enabled", "enabled"),

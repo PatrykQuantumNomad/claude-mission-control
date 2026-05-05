@@ -9,6 +9,8 @@ from typing import Any
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, Index, SQLModel
 
+from cmc.core.time import now_utc
+
 
 class OtelMetric(SQLModel, table=True):
     __tablename__ = "otel_metrics"
@@ -20,7 +22,7 @@ class OtelMetric(SQLModel, table=True):
     kind: str  # counter / gauge / histogram
     unit: str | None = None
     attrs: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
-    received_at: datetime = Field(default_factory=datetime.utcnow)
+    received_at: datetime = Field(default_factory=now_utc)
 
     __table_args__ = (
         Index("idx_otel_metrics_name_ts", "metric_name", "ts"),

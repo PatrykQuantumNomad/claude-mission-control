@@ -12,6 +12,8 @@ from typing import Any
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, Index, SQLModel
 
+from cmc.core.time import now_utc
+
 
 class Skill(SQLModel, table=True):
     __tablename__ = "skills"
@@ -25,7 +27,7 @@ class Skill(SQLModel, table=True):
         default_factory=dict, sa_column=Column(JSON, nullable=False)
     )
     path: str
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=now_utc)
 
     __table_args__ = (
         Index("idx_skills_env_user_invocable", "environment", "user_invocable"),

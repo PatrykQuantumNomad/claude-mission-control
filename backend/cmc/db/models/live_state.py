@@ -8,6 +8,8 @@ from datetime import datetime
 from sqlalchemy import Column, ForeignKey, String
 from sqlmodel import Field, Index, SQLModel
 
+from cmc.core.time import now_utc
+
 
 class LiveState(SQLModel, table=True):
     __tablename__ = "live_state"
@@ -27,7 +29,7 @@ class LiveState(SQLModel, table=True):
     current_message: str | None = None
     current_tool: str | None = None
     pid: int | None = None
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=now_utc)
 
     __table_args__ = (
         Index("idx_live_state_last_activity_desc", "last_activity_at"),

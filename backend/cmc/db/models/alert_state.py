@@ -8,6 +8,8 @@ from datetime import datetime
 from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, Index, SQLModel
 
+from cmc.core.time import now_utc
+
 
 class AlertState(SQLModel, table=True):
     __tablename__ = "alert_state"
@@ -17,7 +19,7 @@ class AlertState(SQLModel, table=True):
     scope_key: str = Field(index=True)
     state: str = Field(default="clear")  # "firing" | "clear" | "acked" | "insufficient_data"
     last_value: float | None = None
-    last_evaluated_at: datetime = Field(default_factory=datetime.utcnow)
+    last_evaluated_at: datetime = Field(default_factory=now_utc)
     fired_at: datetime | None = None
     cleared_at: datetime | None = None
     acked_until: datetime | None = None  # ack suppresses re-notify until this ts

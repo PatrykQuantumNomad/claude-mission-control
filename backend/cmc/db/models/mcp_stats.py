@@ -8,6 +8,8 @@ from datetime import datetime
 from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, Index, SQLModel
 
+from cmc.core.time import now_utc
+
 
 class MCPStat(SQLModel, table=True):
     __tablename__ = "mcp_stats"
@@ -24,7 +26,7 @@ class MCPStat(SQLModel, table=True):
     schema_size_bytes: int | None = None
     # provenance per MCP-02: "tool_decision" / "tools" / "otel"
     source_priority: str
-    computed_at: datetime = Field(default_factory=datetime.utcnow)
+    computed_at: datetime = Field(default_factory=now_utc)
 
     __table_args__ = (
         UniqueConstraint("server_name", "tool_name", name="uq_mcp_stats_server_tool"),

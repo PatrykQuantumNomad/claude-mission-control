@@ -13,6 +13,8 @@ from typing import Any
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, SQLModel
 
+from cmc.core.time import now_utc
+
 
 class SystemState(SQLModel, table=True):
     __tablename__ = "system_state"
@@ -20,4 +22,4 @@ class SystemState(SQLModel, table=True):
     key: str = Field(primary_key=True)
     value: str | None = None
     value_json: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON, nullable=True))
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=now_utc)

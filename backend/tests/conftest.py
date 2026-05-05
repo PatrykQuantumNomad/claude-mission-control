@@ -447,8 +447,9 @@ async def seed_pricing(db_session):
 # kwargs, so callers can either:
 #   - construct an ORM instance:  Session(**make_session_row())
 #   - emit raw SQL INSERT bind params:  conn.execute(insert(Session), [row])
-# Pitfall 4 awareness: defaults use timezone-aware UTC datetimes, NEVER
-# datetime.utcnow() (deprecated path).
+# Pitfall 4 awareness: defaults use timezone-aware UTC datetimes via
+# datetime.now(UTC); model `default_factory=` callers should use
+# `cmc.core.time.now_utc` instead of the deprecated stdlib path.
 
 
 def make_session_row(

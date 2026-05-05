@@ -7,6 +7,8 @@ from datetime import datetime
 
 from sqlmodel import Field, Index, SQLModel
 
+from cmc.core.time import now_utc
+
 
 class Session(SQLModel, table=True):
     __tablename__ = "sessions"
@@ -14,7 +16,7 @@ class Session(SQLModel, table=True):
     session_id: str = Field(primary_key=True, max_length=64)
     started_at: datetime
     ended_at: datetime | None = None
-    synced_at: datetime = Field(default_factory=datetime.utcnow)
+    synced_at: datetime = Field(default_factory=now_utc)
     jsonl_mtime: datetime
     jsonl_path: str
     cwd: str | None = None

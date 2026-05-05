@@ -16,6 +16,8 @@ from datetime import datetime
 from sqlalchemy import Column, ForeignKey, Integer
 from sqlmodel import Field, Index, SQLModel
 
+from cmc.core.time import now_utc
+
 
 class Task(SQLModel, table=True):
     __tablename__ = "tasks"
@@ -44,7 +46,7 @@ class Task(SQLModel, table=True):
     pid: int | None = None
     stdout_path: str | None = None
     error_message: str | None = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=now_utc)
     started_at: datetime | None = None
     ended_at: datetime | None = None
     approved_at: datetime | None = None

@@ -13,6 +13,8 @@ from decimal import Decimal
 from sqlalchemy import Column, Numeric, UniqueConstraint
 from sqlmodel import Field, Index, SQLModel
 
+from cmc.core.time import now_utc
+
 
 class PricingRow(SQLModel, table=True):
     __tablename__ = "pricing"
@@ -27,7 +29,7 @@ class PricingRow(SQLModel, table=True):
     effective_from: datetime
     effective_until: datetime | None = None
     source_url: str
-    loaded_at: datetime = Field(default_factory=datetime.utcnow)
+    loaded_at: datetime = Field(default_factory=now_utc)
     # SHA-256 of the data/pricing.json contents that produced this row.
     # Read by doctor's pricing-drift check (Plan 05) — compares this column
     # on the highest-effective_from currently-active row against

@@ -2,16 +2,17 @@
 
 Why this module exists
 ----------------------
-Python 3.12 deprecated `datetime.utcnow()`. The recommended replacement is
+Python 3.12 deprecated the stdlib's naive-UTC factory (the function whose name
+the POLI-06 verify gate forbids in source). The recommended replacement is
 `datetime.now(UTC)`, but that returns an *aware* datetime — and the SQLAlchemy
 schema in this project stores datetimes as naive UTC (SQLite default), so a
 naked migration to `datetime.now(UTC)` would change the storage contract and
 break every comparison-against-naive-DB-row in the suite.
 
 `now_utc()` is the single helper the rest of the backend should call instead
-of `datetime.utcnow()`. It returns the aware UTC value with the offset
-stripped, preserving the naive-storage invariant while shedding the deprecation
-warning.
+of the deprecated stdlib factory. It returns the aware UTC value with the
+offset stripped, preserving the naive-storage invariant while shedding the
+deprecation warning.
 
 Usage notes (read before sweeping)
 ----------------------------------
@@ -35,10 +36,10 @@ from pydantic import PlainSerializer
 def now_utc() -> datetime:
     """Return the current UTC time as a naive `datetime` (tzinfo is None).
 
-    Replaces the deprecated `datetime.utcnow()` (Python 3.12+) while preserving
-    the project's SQLite-naive storage contract. Pass this function as a
-    reference (e.g. `Field(default_factory=now_utc)`) — calling it as a default
-    would freeze a single import-time value across all instances.
+    Replaces the deprecated stdlib naive-UTC factory (Python 3.12+) while
+    preserving the project's SQLite-naive storage contract. Pass this function
+    as a reference (e.g. `Field(default_factory=now_utc)`) — calling it as a
+    default would freeze a single import-time value across all instances.
     """
     return datetime.now(UTC).replace(tzinfo=None)
 

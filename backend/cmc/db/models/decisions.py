@@ -12,6 +12,8 @@ from typing import Any
 from sqlalchemy import JSON, Column, ForeignKey, Integer, String, text
 from sqlmodel import Field, Index, SQLModel
 
+from cmc.core.time import now_utc
+
 
 class Decision(SQLModel, table=True):
     __tablename__ = "decisions"
@@ -42,7 +44,7 @@ class Decision(SQLModel, table=True):
     answer: str | None = None
     answered_at: datetime | None = None
     answered_by: str | None = None  # dashboard / telegram / cli
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=now_utc)
 
     __table_args__ = (
         # HITL-02: partial UNIQUE on dedup_key WHERE status='pending'

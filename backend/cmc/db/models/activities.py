@@ -13,6 +13,8 @@ from datetime import datetime
 from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, Index, SQLModel
 
+from cmc.core.time import now_utc
+
 
 class Activity(SQLModel, table=True):
     __tablename__ = "activities"
@@ -22,7 +24,7 @@ class Activity(SQLModel, table=True):
     # kind enum: {commits, prs, lines_added, lines_removed, sessions, tokens}
     kind: str
     value: float = Field(default=0)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=now_utc)
 
     __table_args__ = (
         UniqueConstraint("day", "kind", name="uq_activities_day_kind"),

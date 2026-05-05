@@ -1,7 +1,7 @@
 """Unit tests for cmc.core.time — the canonical naive-UTC time helper.
 
 These tests assert the contract that the rest of Phase 18 (Plan 02) sweeps
-22 `datetime.utcnow()` call sites onto. The contract is intentionally narrow:
+22 deprecated naive-UTC call sites onto. The contract is intentionally narrow:
 - `now_utc()` returns a naive datetime whose value is current UTC.
 - `now_utc` is callable as a `Field(default_factory=...)` reference.
 - `UTCDatetime` lives canonically in `cmc.core.time` and is re-exported from
@@ -12,8 +12,9 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from cmc.core.time import UTCDatetime, now_utc
 from pydantic import BaseModel, Field
+
+from cmc.core.time import UTCDatetime, now_utc
 
 
 def test_now_utc_returns_naive_datetime() -> None:
@@ -72,9 +73,8 @@ def test_utc_datetime_serializer_roundtrip() -> None:
 def test_utc_datetime_reexport_path() -> None:
     """Both import paths must resolve to the SAME annotated type — proves the
     re-export from common.py does not duplicate the type."""
-    from cmc.core.time import UTCDatetime as canonical
-
     from cmc.api.schemas.common import UTCDatetime as common_export
+    from cmc.core.time import UTCDatetime as canonical
 
     assert common_export is canonical, (
         "UTCDatetime re-export must be identity-equal to the canonical "

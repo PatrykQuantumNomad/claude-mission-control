@@ -11,6 +11,8 @@ from datetime import datetime
 from sqlalchemy import Column, ForeignKey, Integer, String
 from sqlmodel import Field, Index, SQLModel
 
+from cmc.core.time import now_utc
+
 
 class InboxMessage(SQLModel, table=True):
     __tablename__ = "inbox"
@@ -38,7 +40,7 @@ class InboxMessage(SQLModel, table=True):
     read_at: datetime | None = None
     reply: str | None = None
     replied_at: datetime | None = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=now_utc)
 
     __table_args__ = (
         Index("idx_inbox_read_created", "read", "created_at"),

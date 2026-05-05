@@ -9,6 +9,8 @@ from typing import Any
 from sqlalchemy import JSON, Column, ForeignKey, String
 from sqlmodel import Field, Index, SQLModel
 
+from cmc.core.time import now_utc
+
 
 class OtelEvent(SQLModel, table=True):
     __tablename__ = "otel_events"
@@ -30,7 +32,7 @@ class OtelEvent(SQLModel, table=True):
     attrs_mcp_tool: str | None = None
     attrs_skill_name: str | None = None
     otel_event_id: int | None = None  # event.sequence — per-session monotonic; INGST-13 dedup key
-    received_at: datetime = Field(default_factory=datetime.utcnow)
+    received_at: datetime = Field(default_factory=now_utc)
 
     __table_args__ = (
         Index("idx_otel_events_ts_desc", "ts"),

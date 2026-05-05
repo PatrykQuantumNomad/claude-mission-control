@@ -11,6 +11,8 @@ from datetime import datetime
 from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, Index, SQLModel
 
+from cmc.core.time import now_utc
+
 
 class NotificationLog(SQLModel, table=True):
     __tablename__ = "notification_log"
@@ -18,7 +20,7 @@ class NotificationLog(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     kind: str  # decision / approval / failure / overdue_schedule / inbox
     entity_id: str  # stringified id of the referenced entity
-    sent_at: datetime = Field(default_factory=datetime.utcnow)
+    sent_at: datetime = Field(default_factory=now_utc)
     chat_id: str | None = None
     message_id: str | None = None
     snoozed_until: datetime | None = None

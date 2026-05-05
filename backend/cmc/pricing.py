@@ -25,6 +25,7 @@ from sqlalchemy import select, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from cmc.core.time import now_utc
 from cmc.db.models.pricing import PricingRow
 
 log = logging.getLogger(__name__)
@@ -179,7 +180,7 @@ async def load_seed(db: AsyncSession) -> dict:
                 effective_from=published_at,
                 effective_until=None,
                 source_url=source_url,
-                loaded_at=datetime.utcnow(),
+                loaded_at=now_utc(),
                 seed_hash=json_hash,  # doctor reads this for hash-mismatch check (Plan 05)
                 **decimals,
             )

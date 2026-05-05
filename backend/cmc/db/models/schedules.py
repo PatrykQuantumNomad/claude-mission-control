@@ -13,6 +13,8 @@ from typing import Any
 from sqlalchemy import JSON, Column, UniqueConstraint
 from sqlmodel import Field, Index, SQLModel
 
+from cmc.core.time import now_utc
+
 
 class Schedule(SQLModel, table=True):
     __tablename__ = "schedules"
@@ -27,8 +29,8 @@ class Schedule(SQLModel, table=True):
         default_factory=dict, sa_column=Column(JSON, nullable=False)
     )
     skill: str | None = None  # free-text ref to skills.name
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=now_utc)
+    updated_at: datetime = Field(default_factory=now_utc)
 
     __table_args__ = (
         UniqueConstraint("name", name="uq_schedules_name"),
