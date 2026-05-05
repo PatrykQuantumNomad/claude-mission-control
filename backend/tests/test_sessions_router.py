@@ -535,3 +535,327 @@ def test_sess06_queue_path_is_gitignored() -> None:
         cwd=str(repo_root()),
     )
     assert result.returncode == 0, "queue path is NOT gitignored — .gitignore must include .tmp/"
+
+
+# ---------- Phase 16 Plan 01: GET /api/sessions/compare (CMPR-01..04) ----------
+#
+# The endpoint returns a single paired-metrics payload plus skill-set diff +
+# read-time-computed cost. Cap of 500 tool calls per side enforced via the
+# denormalized sessions.tool_call_count column. Outcome read-time-classified
+# from otel_events the same way OBSV-03 does. Cost via cmc.pricing
+# (compute_cost + load_rates) — Decimal-string serialization (Phase 13/14 lock).
+#
+# All tests rely on the lifespan-seeded pricing table (5 SKUs auto-loaded
+# from data/pricing.json) so cost computations resolve without per-test seed.
+
+
+@pytest.mark.asyncio
+async def test_compare_basic_two_sessions(client) -> None:
+    """CMPR-01: paired payload + skill-set diff for two distinct sessions.
+
+    A fires skills {a-only, shared}, B fires {b-only, shared}.
+    Expected: skill_diff.shared==["shared"], only_a==["a-only"],
+    only_b==["b-only"]; both sides over_cap=False; HTTP 200.
+    """
+    now = datetime.now(UTC)
+    sid_a = _new_uuid()
+    sid_b = _new_uuid()
+    rows: list[tuple[type, dict]] = [
+        (SessionModel, make_session_row(
+            session_id=sid_a, started_at=now - timedelta(minutes=10),
+            ended_at=now - timedelta(minutes=8),
+            tokens_input=1_000, tokens_output=500, tool_call_count=3,
+        )),
+        (SessionModel, make_session_row(
+            session_id=sid_b, started_at=now - timedelta(minutes=20),
+            ended_at=now - timedelta(minutes=15),
+            tokens_input=2_000, tokens_output=900, tool_call_count=7,
+        )),
+        # A's skills: a-only, shared
+        (OtelEvent, make_otel_event(
+            ts=now - timedelta(minutes=9), event_name="skill_activated",
+            session_id=sid_a, attrs_mcp_server=None,
+        ) | {"attrs_skill_name": "a-only"}),
+        (OtelEvent, make_otel_event(
+            ts=now - timedelta(minutes=9), event_name="skill_activated",
+            session_id=sid_a,
+        ) | {"attrs_skill_name": "shared"}),
+        # B's skills: b-only, shared
+        (OtelEvent, make_otel_event(
+            ts=now - timedelta(minutes=19), event_name="skill_activated",
+            session_id=sid_b,
+        ) | {"attrs_skill_name": "b-only"}),
+        (OtelEvent, make_otel_event(
+            ts=now - timedelta(minutes=19), event_name="skill_activated",
+            session_id=sid_b,
+        ) | {"attrs_skill_name": "shared"}),
+    ]
+    await _seed(client, rows)
+
+    r = await client.get(f"/api/sessions/compare?a={sid_a}&b={sid_b}")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["a"]["session_id"] == sid_a
+    assert body["b"]["session_id"] == sid_b
+    assert body["a"]["over_cap"] is False
+    assert body["b"]["over_cap"] is False
+    assert body["over_cap"] is False
+    assert body["cap"] == 500
+    assert body["skill_diff"]["shared"] == ["shared"]
+    assert body["skill_diff"]["only_a"] == ["a-only"]
+    assert body["skill_diff"]["only_b"] == ["b-only"]
+    assert body["a"]["skills_used"] == ["a-only", "shared"]
+    assert body["b"]["skills_used"] == ["b-only", "shared"]
+
+
+@pytest.mark.asyncio
+async def test_compare_returns_decimal_string(client) -> None:
+    """cost_usd MUST serialize as JSON string (Pydantic v2 Decimal default).
+
+    Mirror of test_skill_cost_decimal_as_json_string — defends against
+    accidental float coercion (Pitfall 1: precision loss).
+    """
+    now = datetime.now(UTC)
+    sid_a = _new_uuid()
+    sid_b = _new_uuid()
+    rows: list[tuple[type, dict]] = [
+        (SessionModel, make_session_row(
+            session_id=sid_a, started_at=now - timedelta(minutes=5),
+            tokens_input=1_000_000, tokens_output=0,
+        )),
+        (SessionModel, make_session_row(
+            session_id=sid_b, started_at=now - timedelta(minutes=4),
+            tokens_input=500_000, tokens_output=0,
+        )),
+    ]
+    await _seed(client, rows)
+
+    r = await client.get(f"/api/sessions/compare?a={sid_a}&b={sid_b}")
+    assert r.status_code == 200, r.text
+    raw = r.text
+    # Body must contain "cost_usd":"<string>" (quoted) — never a bare number.
+    assert '"cost_usd":"' in raw, raw
+    body = r.json()
+    assert isinstance(body["a"]["cost_usd"], str)
+    assert isinstance(body["b"]["cost_usd"], str)
+
+
+@pytest.mark.asyncio
+async def test_compare_over_cap_returns_summary_only(client) -> None:
+    """CMPR-04: tool_call_count>500 → over_cap=True + tool_counts={}.
+
+    Summary KPIs (cost, tokens, duration, etc.) still present on the
+    over-cap side; only the per-tool dict is suppressed.
+    """
+    now = datetime.now(UTC)
+    sid_a = _new_uuid()
+    sid_b = _new_uuid()
+    rows: list[tuple[type, dict]] = [
+        (SessionModel, make_session_row(
+            session_id=sid_a, started_at=now - timedelta(minutes=10),
+            tokens_input=100, tokens_output=200, tool_call_count=501,
+        )),
+        (SessionModel, make_session_row(
+            session_id=sid_b, started_at=now - timedelta(minutes=5),
+            tokens_input=50, tokens_output=80, tool_call_count=10,
+        )),
+    ]
+    await _seed(client, rows)
+
+    r = await client.get(f"/api/sessions/compare?a={sid_a}&b={sid_b}")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["a"]["over_cap"] is True
+    assert body["a"]["tool_counts"] == {}
+    assert body["b"]["over_cap"] is False
+    assert body["over_cap"] is True
+    assert body["cap"] == 500
+    # Summary KPIs present on over-cap side
+    assert body["a"]["tokens_input"] == 100
+    assert body["a"]["tokens_output"] == 200
+    assert body["a"]["tool_call_count"] == 501
+    assert "cost_usd" in body["a"]
+
+
+@pytest.mark.asyncio
+async def test_compare_400_on_malformed_uuid(client) -> None:
+    """Malformed UUID → 400 (mirrors sessions.py:111 _UUID_RE guard)."""
+    sid_b = _new_uuid()
+    r = await client.get(f"/api/sessions/compare?a=zzz&b={sid_b}")
+    assert r.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_compare_404_on_missing_session(client) -> None:
+    """Both UUIDs valid but A row missing → 404 'session not found'."""
+    sid_a = _new_uuid()  # never seeded
+    sid_b = _new_uuid()
+    await _seed(client, [
+        (SessionModel, make_session_row(session_id=sid_b)),
+    ])
+    r = await client.get(f"/api/sessions/compare?a={sid_a}&b={sid_b}")
+    assert r.status_code == 404
+    # The app's HTTPException handler emits {"error": detail} (cmc.core.errors).
+    assert "session not found" in r.json()["error"].lower()
+
+
+@pytest.mark.asyncio
+async def test_compare_400_when_a_equals_b(client) -> None:
+    """Self-compare (a == b) rejected with 400 server-side (decisions §7)."""
+    sid = _new_uuid()
+    await _seed(client, [
+        (SessionModel, make_session_row(session_id=sid)),
+    ])
+    r = await client.get(f"/api/sessions/compare?a={sid}&b={sid}")
+    assert r.status_code == 400
+    assert "cannot compare a session with itself" in r.json()["error"].lower()
+
+
+@pytest.mark.asyncio
+async def test_compare_outcome_classification(client) -> None:
+    """Outcome classification mirrors OBSV-03 _OUTCOMES_SQL (Pitfall 2).
+
+    A has claude_code.api_error → outcome='errored'.
+    B has claude_code.compaction → outcome='truncated'.
+    Outcome event names KEEP the 'claude_code.' prefix (NOT skill events).
+    """
+    now = datetime.now(UTC)
+    sid_a = _new_uuid()
+    sid_b = _new_uuid()
+    rows: list[tuple[type, dict]] = [
+        (SessionModel, make_session_row(
+            session_id=sid_a, started_at=now - timedelta(minutes=10),
+            ended_at=now - timedelta(minutes=8),
+        )),
+        (SessionModel, make_session_row(
+            session_id=sid_b, started_at=now - timedelta(minutes=20),
+            ended_at=now - timedelta(minutes=15),
+        )),
+        (OtelEvent, make_otel_event(
+            ts=now - timedelta(minutes=9), event_name="claude_code.api_error",
+            session_id=sid_a, body={"detail": "rate limited"},
+        )),
+        (OtelEvent, make_otel_event(
+            ts=now - timedelta(minutes=18), event_name="claude_code.compaction",
+            session_id=sid_b, body={},
+        )),
+    ]
+    await _seed(client, rows)
+
+    r = await client.get(f"/api/sessions/compare?a={sid_a}&b={sid_b}")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["a"]["outcome"] == "errored"
+    assert body["b"]["outcome"] == "truncated"
+
+
+@pytest.mark.asyncio
+async def test_compare_skill_set_excludes_null_attrs_skill_name(client) -> None:
+    """Pitfall 6: skill_activated rows with attrs_skill_name=None must NOT
+    appear in skills_used. The query includes AND attrs_skill_name IS NOT NULL.
+    """
+    now = datetime.now(UTC)
+    sid_a = _new_uuid()
+    sid_b = _new_uuid()
+    rows: list[tuple[type, dict]] = [
+        (SessionModel, make_session_row(
+            session_id=sid_a, started_at=now - timedelta(minutes=5),
+        )),
+        (SessionModel, make_session_row(
+            session_id=sid_b, started_at=now - timedelta(minutes=4),
+        )),
+        # Real skill on A
+        (OtelEvent, make_otel_event(
+            ts=now - timedelta(minutes=4, seconds=30),
+            event_name="skill_activated", session_id=sid_a,
+        ) | {"attrs_skill_name": "real-skill"}),
+        # Null attrs_skill_name on A — MUST NOT surface
+        (OtelEvent, make_otel_event(
+            ts=now - timedelta(minutes=4, seconds=20),
+            event_name="skill_activated", session_id=sid_a,
+        )),
+    ]
+    await _seed(client, rows)
+
+    r = await client.get(f"/api/sessions/compare?a={sid_a}&b={sid_b}")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["a"]["skills_used"] == ["real-skill"]
+    # No None / null in any list
+    assert None not in body["a"]["skills_used"]
+    assert "null" not in body["a"]["skills_used"]
+
+
+@pytest.mark.asyncio
+async def test_compare_unpriced_model_returns_zero_cost(client) -> None:
+    """Lookup miss for unknown model returns cost_usd='0' (Decimal-string form).
+
+    Per cmc.pricing.compute_cost: unknown model -> Decimal(0) + bumps the
+    cmc.pricing.unpriced_tokens counter (no exception). Reset the counter at
+    the start so we can assert the increment fired.
+    """
+    from cmc import pricing as pricing_mod
+
+    now = datetime.now(UTC)
+    sid_a = _new_uuid()
+    sid_b = _new_uuid()
+    rows: list[tuple[type, dict]] = [
+        (SessionModel, make_session_row(
+            session_id=sid_a, started_at=now - timedelta(minutes=5),
+            model="unknown-sku", tokens_input=100, tokens_output=200,
+        )),
+        (SessionModel, make_session_row(
+            session_id=sid_b, started_at=now - timedelta(minutes=4),
+        )),
+    ]
+    pricing_mod.unpriced_tokens.clear()
+    await _seed(client, rows)
+
+    r = await client.get(f"/api/sessions/compare?a={sid_a}&b={sid_b}")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    # Decimal-string '0' shape (Pydantic v2 default for Decimal(0))
+    assert body["a"]["cost_usd"] == "0"
+    # Counter incremented for the unknown SKU's input/output kinds
+    assert any(model == "unknown-sku" for (model, _kind) in pricing_mod.unpriced_tokens)
+
+
+@pytest.mark.asyncio
+async def test_compare_tool_counts_present_when_under_cap(client) -> None:
+    """Under-cap side returns full tool_counts dict {tool_name: count}.
+
+    Seeds 3 tool-call rows for A: 2x Bash + 1x Read; expects
+    tool_counts == {"Bash": 2, "Read": 1}.
+    """
+    now = datetime.now(UTC)
+    sid_a = _new_uuid()
+    sid_b = _new_uuid()
+    rows: list[tuple[type, dict]] = [
+        (SessionModel, make_session_row(
+            session_id=sid_a, started_at=now - timedelta(minutes=10),
+            tool_call_count=3,
+        )),
+        (SessionModel, make_session_row(
+            session_id=sid_b, started_at=now - timedelta(minutes=5),
+            tool_call_count=0,
+        )),
+        (ToolCall, make_tool_call(
+            tool_use_id="tu-a-1", session_id=sid_a, tool_name="Bash",
+            started_at=now - timedelta(minutes=9),
+        )),
+        (ToolCall, make_tool_call(
+            tool_use_id="tu-a-2", session_id=sid_a, tool_name="Bash",
+            started_at=now - timedelta(minutes=8),
+        )),
+        (ToolCall, make_tool_call(
+            tool_use_id="tu-a-3", session_id=sid_a, tool_name="Read",
+            started_at=now - timedelta(minutes=7),
+        )),
+    ]
+    await _seed(client, rows)
+
+    r = await client.get(f"/api/sessions/compare?a={sid_a}&b={sid_b}")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["a"]["tool_counts"] == {"Bash": 2, "Read": 1}
+    assert body["b"]["tool_counts"] == {}  # no tools seeded for B
