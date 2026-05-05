@@ -399,6 +399,88 @@ files off the event loop, and upserts sessions, tools, and token usage. OTLP han
 store log and metric records, returning `200 {}` for malformed batches after the body
 is read so Claude Code does not disable telemetry for the session.
 
+## Pricing And Cost Engine
+
+The cost engine in `backend/cmc/pricing.py` reads token rates from `data/pricing.json`
+and seeds them into the `pricing` SQLite table. `compute_cost(model, input, output,
+cache_read, cache_create_5m, cache_create_1h)` returns a `Decimal` and is the single
+source of truth for cost numbers across `/api/cost/*`, the Skills page, and
+`/sessions/compare`.
+
+### Pricing seed workflow
+
+`data/pricing.json` is the project file you maintain. The source of truth is the
+public Anthropic pricing page (`https://platform.claude.com/docs/en/about-claude/pricing`),
+echoed in `pricing.json` as `source_url` and a `published_at` date.
+
+The seed runs automatically on FastAPI lifespan startup — there is no separate
+`cmc pricing seed` command. To refresh rates:
+
+```bash
+# 1. Edit data/pricing.json (bump published_at, update model rates).
+# 2. Restart the server so the lifespan hook re-runs.
+make stop && make start            # installed copy
+# or just restart `make dev-backend` in development.
+```
+
+The lifespan loader (`cmc.pricing.load_seed`) is idempotent: it computes the SHA-256
+of `data/pricing.json` and stores it as `seed_hash` on each pricing row. Re-running
+with an unchanged file is a no-op. When `published_at` advances, the previously
+active row's `effective_until` is closed and a new row is inserted with
+`effective_from = published_at`, giving point-in-time-accurate retroactive cost math.
+
+### Doctor checks for pricing
+
+`cmc doctor` (see [Doctor And Health Checks](#doctor-and-health-checks)) surfaces
+three pricing-related signals:
+
+- **Pricing freshness** (check 9): warns when the newest `effective_from` is more
+  than 30 days old. Refresh `data/pricing.json` when this fires.
+- **pricing.json hash drift** (check 11): warns when the on-disk SHA-256 differs
+  from the `seed_hash` stored on the most recent active pricing row. This means
+  someone edited `pricing.json` without restarting the server. Restart to re-seed.
+- **Unmapped models in otel_events** (check 13): warns when a `model` attribute on
+  a recent `api_request` event has no matching row in `pricing`. Add the missing
+  SKU to `data/pricing.json` and restart.
+
+## Observability And OTEL Spike
+
+Claude Code emits OpenTelemetry logs/metrics through the OTLP HTTP endpoints
+(`/v1/logs`, `/v1/metrics`). The Mission Control dashboard reads these events from
+the `otel_events` table to attribute cost, latency, and skill activations.
+
+### `OTEL_LOG_TOOL_DETAILS`
+
+Setting `OTEL_LOG_TOOL_DETAILS=1` in the environment Claude Code inherits is
+required for the dashboard to attribute plugin and marketplace skill activations
+correctly. When unset, plugin skill activation events emit `tool_name` but not
+`skill_name`, so the Skills page falls back to `<unknown>` for those rows.
+
+`cmc doctor` (check 14) warns when this env var is unset. The warning is
+informational, not a hard failure: plain CLI / non-plugin workflows do not depend
+on it. The setting can be added to `~/.claude/settings.json` via
+`make setup-otel`, or exported in your shell profile.
+
+### Phase 12 OTEL spike
+
+The Phase 12 spike documented at [`.planning/research/SPIKE.md`](./.planning/research/SPIKE.md)
+captures what the dashboard relies on from Claude Code OTEL output (verified
+against `claude-code 2.1.116`):
+
+- The cache TTL split (5-minute vs 1-hour `cache_creation` writes) is **JSONL-only**
+  at this version — `api_request` OTEL events carry the aggregate
+  `cache_creation_tokens`, but the 5m/1h split lives only on JSONL
+  `message.usage.cache_creation.ephemeral_{5m,1h}_input_tokens`. The cost engine
+  joins via OTEL `request_id` ↔ JSONL `requestId`.
+- Session correlation key on OTEL events is `session.id` (dotted), not
+  `session_id` (underscore).
+- Skill-event attribute keys (`skill_name`, `duration_ms`) are tentative pending
+  a re-run with the OTLP exporter env vars set in the spawned `claude` session.
+
+See `SPIKE.md` for the full lock list, evidence, and Phase 13 follow-up
+instructions. Future minor Claude Code versions trigger a re-run; check 10 of
+`cmc doctor` (when added) flags `service.version` drift.
+
 ## Frontend
 
 The frontend is a Vite app using React 19, TanStack Router, TanStack Query, Radix UI
@@ -412,9 +494,68 @@ Routes:
   top skills, and session table.
 - `/skills` renders decisions, inbox, task board, schedules, skills registry, MCP,
   skill cost, and context health.
+- `/skills/$name` (v1.1) renders a per-skill detail page with cost, latency, and
+  recent activations.
+- `/alerts` (v1.1) renders threshold/anomaly alert rules and firing history.
+- `/sessions/compare?a=&b=` (v1.1) renders a two-up session diff.
 
 The typed API surface lives in `frontend/src/lib/api.ts`; React Query wrappers live in
 `frontend/src/lib/queries.ts`.
+
+### v1.1 Dashboard Panels
+
+An external companion guide (`build-your-own-dashboard-guide.html`) covers a subset
+of these topics from a different angle and is maintained outside this repo.
+
+#### `/alerts`
+
+Threshold and anomaly alert rules with firing history.
+
+- **Rules list** (`AlertRulesList`): table of configured rules with an enabled/disabled
+  toggle and a Delete action. Toggle round-trips through `PATCH /api/alerts/rules/{id}`
+  with a surgical optimistic update gated to `enabled`-only single-field changes.
+- **Composer** (`AlertRuleForm`): two-tab segmented control (Threshold / Anomaly) that
+  maps the Pydantic v2 discriminated union on `kind`. Threshold rules require
+  `threshold_fire`; anomaly rules require `min_samples` and `params_json.window_n`
+  with z-score defaults (fire=3.0 / clear=1.5).
+- **Events history** (`AlertEventsList`): fired_at / rule / scope / status (Firing /
+  Cleared) / value, with a 4-tier range toggle (1d / 7d / 14d / 30d) persisted under
+  `alert-events-range`.
+- **Acknowledgement**: v1.1 uses Telegram callback (`POST /api/alerts/_ack`) only —
+  there is no in-UI Ack button.
+
+Route file: `frontend/src/routes/alerts.tsx`. Backend routes live under
+`/api/alerts/*` (see [Backend API](#backend-api)).
+
+#### `/sessions/compare?a=&b=`
+
+Two-up session diff. The URL is deep-linkable; both query parameters are validated as
+UUIDs (anything else is stripped to `undefined`).
+
+- Two entry points: per-row Compare button in `SessionsTable`, and a context-aware
+  Cmd+K "Compare with…" action that opens a `ComparePicker` Sheet.
+- Renders KPI strips (cost / tokens / tool calls / duration / model) per side, plus a
+  side-by-side bar chart, a skill-set diff (SHARED / ONLY A / ONLY B), and a
+  tool-counts diff with a delta column.
+- Falls back to summary-only when either session has more than 500 tool calls
+  (`SESSION_COMPARE_CAP=500`); KPI strips and token charts still render, only the
+  tool-counts diff is replaced with an `EmptyState`.
+- All diffs are tabular — no character-level diff library is loaded.
+
+Route file: `frontend/src/routes/sessions_.compare.tsx`. Backend handler lives at
+`GET /api/sessions/compare?a=&b=`.
+
+#### `/skills` and `/skills/$name`
+
+Per-skill cost and latency surfaces (Phase 13 / 14):
+
+- The `/skills` page renders a top-skills table with cost and p95 latency columns.
+- `/skills/$name` deep-links to a per-skill detail page driven by the skill name in
+  the URL. The page renders cost, latency percentiles, and recent activations.
+
+See [Pricing And Cost Engine](#pricing-and-cost-engine) for the cost computation
+pipeline and the [OTEL spike](#observability-and-otel-spike) for the env var that
+gates plugin/marketplace skill attribution.
 
 ## Testing And Quality
 
@@ -440,6 +581,20 @@ Frontend-specific targets still live under `frontend/` when you need them:
 cd frontend
 pnpm run test:e2e
 ```
+
+## Doctor And Health Checks
+
+`cmc doctor` (or `make doctor`) runs a sequence of local health checks and prints a
+single-screen report. The current set covers Python and Claude CLI presence,
+`~/.claude/settings.json` validity, the JSONL projects root, port `8765` availability,
+the `/api/health` endpoint, launchd job state, Telegram configuration, pricing
+freshness and drift, unpriced tokens, OTEL session-id NULL count, unmapped OTEL
+models, and the `OTEL_LOG_TOOL_DETAILS` env var (see
+[Observability And OTEL Spike](#observability-and-otel-spike)).
+
+Run `cmc doctor --help` for the canonical list and exit-code semantics. The CLI
+returns non-zero only when at least one check fails; warnings are informational and
+do not block startup.
 
 ## Operational Notes
 
