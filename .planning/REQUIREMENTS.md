@@ -80,29 +80,38 @@
 
 ## Traceability
 
-Will be populated by roadmap creation (Phase 18–23 mapping).
+Mapped to v1.2 ROADMAP.md (Phases 18–23) on 2026-05-05.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SKLP-08 | (pending roadmap) | Pending |
-| SKLP-09 | (pending roadmap) | Pending |
-| SKLP-10 | (pending roadmap) | Pending |
-| SKLP-11 | (pending roadmap) | Pending |
-| ANLY-06 | (pending roadmap) | Pending |
-| ANLY-07 | (pending roadmap) | Pending |
-| ALRT-13 | (pending roadmap) | Pending |
-| ALRT-14 | (pending roadmap) | Pending |
-| CMPR-06 | (pending roadmap) | Pending |
-| CMPR-07 | (pending roadmap) | Pending |
-| POLI-06 | (pending roadmap) | Pending |
-| POLI-07 | (pending roadmap) | Pending |
-| POLI-08 | (pending roadmap) | Pending |
+| POLI-06 | Phase 18 | Pending |
+| POLI-07 | Phase 18 | Pending |
+| POLI-08 | Phase 18 | Pending |
+| SKLP-08 | Phase 19 | Pending |
+| SKLP-09 | Phase 19 | Pending |
+| SKLP-10 | Phase 19 | Pending |
+| ANLY-06 | Phase 20 | Pending |
+| ANLY-07 | Phase 20 | Pending |
+| ALRT-13 | Phase 21 | Pending |
+| ALRT-14 | Phase 21 | Pending |
+| SKLP-11 | Phase 22 | Pending (spike-gated; descopes to v1.3 if feasibility fails) |
+| CMPR-06 | Phase 23 | Pending |
+| CMPR-07 | Phase 23 | Pending |
 
 **Coverage:**
 - v1.2 requirements: 13 total
-- Mapped to phases: 0 (roadmap pending)
-- Unmapped: 13 ⚠️
+- Mapped to phases: 13 ✓
+- Unmapped: 0 ✓
+
+**Phase distribution:**
+- Phase 18 (Polish & Cleanup): 3 requirements (POLI-06, POLI-07, POLI-08)
+- Phase 19 (Skills Per-Project/Deltas/Badges): 3 requirements (SKLP-08, SKLP-09, SKLP-10)
+- Phase 20 (Cost Forecast & Per-Project Card): 2 requirements (ANLY-06, ANLY-07)
+- Phase 21 (Alert Anomaly Depth & NL Authoring): 2 requirements (ALRT-13, ALRT-14)
+- Phase 22 (Skill Latency Overhead, spike-gated): 1 requirement (SKLP-11)
+- Phase 23 (Compare Depth & Milestone Close): 2 requirements (CMPR-06, CMPR-07)
 
 ---
 *Requirements defined: 2026-05-05*
-*Last updated: 2026-05-05 after initial definition*
+*Roadmap mapped: 2026-05-05 (Phases 18–23)*
+*Last updated: 2026-05-05 after roadmap creation*

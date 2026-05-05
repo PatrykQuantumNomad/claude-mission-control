@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: "Depth & Polish"
 status: planning
-stopped_at: "v1.2 milestone started 2026-05-05. PROJECT.md updated with Current Milestone section, STATE.md reset. Awaiting requirements + roadmap creation."
+stopped_at: "v1.2 roadmap created 2026-05-05. Phases 18–23 defined (6 phases) covering 13 requirements. Awaiting `/gsd-plan-phase 18` to begin execution."
 last_updated: "2026-05-05"
-last_activity: "2026-05-05 — v1.2 Depth & Polish milestone started. 4 lanes locked in (Skills polish SKLP-08..11, Cost differentiators ANLY-06..07, Alert differentiators ALRT-13..14, Compare differentiators CMPR-06..07) + dedicated polish phase folding in v1.1 deferred items (test flakes + cosmetic cleanup + datetime.utcnow deprecation). Wide scope, all 4 lanes."
+last_activity: "2026-05-05 — v1.2 ROADMAP.md written. Phase 18 Polish/Cleanup → Phase 19 Skills Per-Project/Deltas/Badges → Phase 20 Cost Forecast/Per-Project Card → Phase 21 Alert Anomaly Depth/NL Authoring → Phase 22 Skill Latency Overhead (spike-gated) → Phase 23 Compare Depth/Milestone Close. 13/13 requirements mapped (SKLP-08..11, ANLY-06..07, ALRT-13..14, CMPR-06..07, POLI-06..08). Migration 0003_project_key owned by Phase 19, consumed by Phase 20."
 progress:
-  total_phases: 0
+  total_phases: 6
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -22,57 +22,72 @@ See: .planning/PROJECT.md (updated 2026-05-05 after v1.1 ship)
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, what each skill costs and how often it fails, queue and approve tasks, compare two sessions side-by-side, get paged when metrics breach thresholds, and kill runaway sessions — all from one browser tab without maintaining external infrastructure.
 
-**Current focus:** v1.2 Depth & Polish — milestone defined 2026-05-05. 4 lanes locked (skills polish, cost differentiators, alert differentiators, compare differentiators) + polish/cleanup phase. Carried backlog: SKLP-08..11, ANLY-06..07, ALRT-13..14, CMPR-06..07. Awaiting requirements + roadmap creation.
+**Current focus:** v1.2 Depth & Polish — roadmap written 2026-05-05. 6 phases (18–23) covering 13 requirements across 4 v1.1 lanes (skills polish, cost differentiators, alert differentiators, compare differentiators) plus polish/cleanup. Phase 22 is spike-gated for SKLP-11; descopes cleanly to v1.3 if `tools` temporal-JOIN derivation proves unreliable.
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 18 — Polish & Carry-Forward Cleanup (not started)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-05-05 — Milestone v1.2 started
+Status: Roadmap complete; awaiting `/gsd-plan-phase 18`
+Last activity: 2026-05-05 — ROADMAP.md written, REQUIREMENTS.md traceability filled
 
-Progress: [          ] v1.2 0% (requirements pending)
+Progress: [          ] v1.2 0% (0/6 phases complete)
 
 ## Accumulated Context
 
 ### Decisions
 
-Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.1 added:
+Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.2 roadmap-time decisions:
+
+- **Phase 22 is spike-gated for SKLP-11.** Phase opens with a mandatory feasibility spike (`tools` temporal JOIN against `skill_activated.duration_ms`); negative finding descopes SKLP-11 to v1.3 cleanly without blocking Phase 23. No fake decomposition ships under any circumstance (PITFALLS Pitfall 10).
+- **Migration `0003_project_key` is owned by Phase 19.** Both SKLP-08 (Phase 19) and ANLY-07 (Phase 20) need `project_key` normalization (sha1[:12] of `realpath(cwd.rstrip('/'))`); migration ships in Phase 19 since it runs first (PITFALLS Pitfall 7 prevails over ARCHITECTURE's "zero migrations" claim).
+- **ALRT-13 extends `evaluate_anomaly` via `params_json.window_kind`.** No third `kind` value, no parallel detector function, no second dispatch branch — single-detector invariant carried from v1.1 (PITFALLS Pitfall 1; SUMMARY Conflict 1 resolution).
+- **ALRT-14 returns `None` on Haiku hallucination.** No fallback rule, no "best-guess" save path; UI surfaces honest "could not parse" message. Hard-validation against `_SCOPE_EXTRACTORS.keys()` via `is_known_metric()`.
+- **Phase ordering follows ARCHITECTURE: 18 → 19 → (20 ‖ 21) → 22 → 23.** Phase 18 first for green CI baseline; Phase 19 before Phase 22 to establish CTE patterns SKLP-11 reuses; Phase 23 last to close the milestone.
+- **Zero net-new dependencies.** Every v1.2 feature implementable with existing tools (stdlib `math`/`Decimal` for OLS + Welford, SQLAlchemy CTEs, existing `cmdk` + `anthropic` SDK 0.97, vitest + Playwright). STACK research confirmed.
+
+v1.1 carried decisions (still active):
 
 - Cost stored as tokens, $ computed at read time (window logic via `effective_from`/`effective_until`)
-- Single Alembic migration 0002 bundling skills + alerts + cache TTL split
-- Alerts emit decisions only — ALRT-12 invariant (alert engine NEVER imports `cmc.dispatcher.tasks`)
+- ALRT-12 invariant: alert engine NEVER imports `cmc.dispatcher.tasks`
 - Stable `dedup_key = f"alert:{rule_id}:{scope_key}"` reusing `notification_log` UNIQUE
-- `UTCDatetime` PlainSerializer with `when_used='json'` gate (8 schemas / 37 fields)
-- `cmc/telegram/callback_verbs.py` central StrEnum
-- Hand-written `validateSearch` UUID validator (no zod added)
-- TanStack parent-layout opt-out via trailing-underscore filenames (`skills_.$name.tsx`, `sessions_.compare.tsx`)
+- `UTCDatetime` PlainSerializer with `when_used='json'` gate
 - CMPR-04 over-cap = render branch (HTTP 200 + `over_cap=true`), not error branch
 - CMPR-05 tabular-only compare (no diff library, no raw message rendering)
-- Wave-1/wave-2 single-writer convention for REQUIREMENTS.md (Phase 16-04 + 17-06)
+- Wave-1/wave-2 single-writer convention for REQUIREMENTS.md
 
 ### Pending Todos
 
-None — v1.1 closed cleanly.
+- Begin Phase 18 via `/gsd-plan-phase 18` — discharge POLI-06/07/08 carried debt, establish green CI baseline.
+- Phase 22 plan front-matter MUST cite SQL columns or temporal-JOIN derivation source for body_ms / subagent_ms / tool_ms before any UI work begins (Pitfall 10 acceptance criterion).
+- Phase 19 plan owns migration `0003_project_key` (sessions.project_key VARCHAR(12), backfill, index).
+- Phase 23 closes the milestone — audit hooks (full pytest + vitest + playwright green; `cmc doctor` clean; REQUIREMENTS.md traceability 13/13 or honest 12/13 + descope) belong in the final phase plan.
 
 ### Blockers/Concerns
 
-None blocking. Two operational human-verify items carry forward to next milestone (non-blocking, auto-discharging):
+None blocking roadmap → planning. Risk register:
 
-- Apply Alembic migration 0002 to live `data/cmc.db` — auto-applies on next `cmc start` via `lifespan.py:98-100`
-- Phase 14 visual checkpoint per Plan 14-05 (visual rendering on `/activity` TopSkills, `/skills` 3 panels, `/skills/$name` detail) — operator-driven dashboard navigation
+- **SKLP-11 feasibility unknown until Phase 22 spike.** Roadmap accommodates "spike-only, descope to v1.3" outcome; Phase 23 has no hard dependency on SKLP-11.
+- **NL grammar edge cases (ALRT-14).** Unit ambiguity, implicit metrics, nested conditions, time-window vs duration confusion — all need explicit system-prompt handling. MEDIUM confidence until tested against real prompts in Phase 21.
+- **KNOWN_METRICS sync drift.** Phase 21 plan must lock either `GET /api/alerts/metrics` dynamic endpoint or CI sync test before merging.
+
+Two operational human-verify items still carry forward (non-blocking, auto-discharging):
+
+- Apply Alembic migration 0002 to live `data/cmc.db` — auto-applies on next `cmc start` via `lifespan.py:98-100` (will be joined by `0003_project_key` in Phase 19).
+- Phase 14 visual checkpoint per Plan 14-05 (visual rendering on `/activity` TopSkills, `/skills` 3 panels, `/skills/$name` detail) — operator-driven dashboard navigation.
 
 ## Deferred Items
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| Skill differentiators | SKLP-08..11 (per-project breakdown, period-over-period delta, badges, latency overhead) | v1.2 candidate | 2026-05-02 |
-| Cost differentiators | ANLY-06..07 (monthly forecast, per-project cost card) | v1.2 candidate | 2026-05-02 |
-| Alert differentiators | ALRT-13..14 (full anomaly detection, NL-authored rules) | v1.2 candidate | 2026-05-02 |
-| Compare differentiators | CMPR-06..07 (per-skill latency delta, Cmd+K previous-session shortcut) | v1.2 candidate | 2026-05-02 |
-| Test stabilization | `SchedulesCard.test.tsx > stale row` time-of-day flake; `schedule-composer.spec.ts` strict-mode aria-label collision | v1.2 polish | 2026-05-05 |
-| Doc cleanup | REQUIREMENTS.md ALRT-01/02 cosmetic `[ ]` markers (table live since Phase 13); CMPR-01 `cmc/cost/engine.py` citation drift | v1.2 polish | 2026-05-05 |
-| Cosmetic | `Field(default_factory=datetime.utcnow)` deprecated in 3.12+ (UTCDatetime serializer handles wire output) | v1.2 polish | 2026-05-05 |
+| Skills (v1.3+) | SKLP-12 percentile-split overhead breakdown (only if SKLP-11 ships) | v1.3 candidate | 2026-05-05 |
+| Skills (v1.3+) | SKLP-13 heatmap toggle on per-project breakdown | v1.3 candidate | 2026-05-05 |
+| Cost (v1.3+) | ANLY-08 confidence band on monthly forecast | v1.3 candidate | 2026-05-05 |
+| Cost (v1.3+) | ANLY-09 per-project cost budgets with alert integration | v1.3 candidate | 2026-05-05 |
+| Alerts (v1.3+) | ALRT-15 predictive alerts (forecast × anomaly combination) | v1.3 candidate | 2026-05-05 |
+| Alerts (v1.3+) | ALRT-16 NL queries beyond AlertRule schema (NL2SQL) | v1.3 candidate | 2026-05-05 |
+| Compare (v1.3+) | CMPR-08 sessions-table right-click "compare with previous" | v1.3 candidate | 2026-05-05 |
+| Compare (v1.3+) | CMPR-09 per-skill cost delta in compare | v1.3 candidate | 2026-05-05 |
 | Platform | PLAT-01 (Linux/systemd) | v2 | 2026-04-28 (carried from v1.0) |
 | Automation | AUTO-01..03 (NL schedules beyond cron, auto-retry, task dependencies) | v2 | 2026-04-28 (carried from v1.0) |
 
@@ -80,15 +95,17 @@ None blocking. Two operational human-verify items carry forward to next mileston
 
 **v1.0 baseline:** 47 plans, 4 days (2026-04-25 → 2026-04-28), ~39,800 LOC.
 **v1.1:** 28 plans, 4 days (2026-05-02 → 2026-05-05), +81,397 / -13,435 lines vs v1.0, ~56,232 LOC at close.
-**Cumulative:** 75 plans across 17 phases (11 v1.0 + 6 v1.1) over 8 calendar days of active development.
+**v1.2:** Phases 18–23 defined (6 phases, 13 requirements). Plan counts and timing pending `/gsd-plan-phase` execution.
+**Cumulative:** 75 plans across 17 phases (11 v1.0 + 6 v1.1) over 8 calendar days of active development pre-v1.2.
 
 ## Session Continuity
 
-Last session: 2026-05-05 — v1.1 milestone archival
-Stopped at: v1.1 Skills & Cost Intelligence milestone shipped and archived. Tag `v1.1` created at `af6d308`. Awaiting `/gsd:new-milestone` to begin next milestone cycle.
-Resume file: None — milestone closed cleanly.
+Last session: 2026-05-05 — v1.2 roadmap creation (Phases 18–23 defined, REQUIREMENTS.md traceability filled, STATE.md updated).
+Stopped at: ROADMAP.md written with 6 phases mapped to 13 requirements (100% coverage). Phase 22 spike-gated; migration `0003_project_key` owned by Phase 19. Awaiting `/gsd-plan-phase 18` to begin execution.
+Resume file: .planning/ROADMAP.md (Phase Details section)
 
 ---
 
 *v1.0 shipped 2026-04-28 — see `.planning/milestones/v1.0-ROADMAP.md` for full phase history.*
 *v1.1 shipped 2026-05-05 — see `.planning/milestones/v1.1-ROADMAP.md` for full phase history.*
+*v1.2 active — see `.planning/ROADMAP.md` Phase Details section for current milestone scope.*
