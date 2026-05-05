@@ -43,6 +43,12 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 - **No speculative time helpers.** Only `now_utc` and `UTCDatetime` ship in Phase 18 (D-Module-shape). Future helpers (`today_utc`, `parse_iso_utc`) promote inline if/when Plan 02's sweep finds 3+ uses of a pattern.
 - **Two-commit migration enforced.** Plan 01 creates the helper; Plan 02 owns the 22-site mechanical replace. Bisect-friendly; the sweep commit can be uniform mechanical.
 
+Phase 18 Plan 03 (SchedulesCard determinism, POLI-07):
+
+- **`vi.spyOn(Date, 'now')` is the locked clock-pin mechanism for boundary-threshold tests** (NOT `vi.useFakeTimers`). Narrowest blast radius — targets exactly the one `Date.now()` call the production code reads, no interaction with React-Query or userEvent timer scheduling. Used describe-scoped in `SchedulesCard.test.tsx` with `NOW_MS = 2026-05-05T23:55:00Z`.
+- **Test factories MUST default time-dependent fields to a sentinel ('never run' = `null`), never a hard-coded ISO string.** Hard-coded ISO defaults age with calendar time and silently flip "fresh" fixtures to "stale" — exactly the bit-rot that broke `SchedulesCard.test.tsx > stale row` 8 days after the original timestamp was written.
+- **No cleanup-sweep migrations beyond SchedulesCard.** Audited 9 other component tests using `Date.now()`; all use it for relative timestamps without threshold/boundary assertions, so no flake risk. `RelativeTime.test.tsx` and `EmergencyStopBanner.test.tsx` left untouched per Pitfall 3 (load-bearing useFakeTimers usage).
+
 v1.2 roadmap-time decisions:
 
 - **Phase 22 is spike-gated for SKLP-11.** Phase opens with a mandatory feasibility spike (`tools` temporal JOIN against `skill_activated.duration_ms`); negative finding descopes SKLP-11 to v1.3 cleanly without blocking Phase 23. No fake decomposition ships under any circumstance (PITFALLS Pitfall 10).
@@ -102,7 +108,7 @@ Two operational human-verify items still carry forward (non-blocking, auto-disch
 
 **v1.0 baseline:** 47 plans, 4 days (2026-04-25 → 2026-04-28), ~39,800 LOC.
 **v1.1:** 28 plans, 4 days (2026-05-02 → 2026-05-05), +81,397 / -13,435 lines vs v1.0, ~56,232 LOC at close.
-**v1.2:** Phases 18–23 defined (6 phases, 13 requirements). Phase 18: 1/5 plans complete (Plan 01 ~10 min execution). Backend pytest baseline at 561; post-Plan-01 at 566 (5 new helper tests, 0 regressions).
+**v1.2:** Phases 18–23 defined (6 phases, 13 requirements). Phase 18: 1/5 plans complete (Plan 01 ~10 min execution). Backend pytest baseline at 561; post-Plan-01 at 566 (5 new helper tests, 0 regressions). Plan 03 (~3 min) flipped vitest 1 fail → 0 fail (293 pass) and TZ-pinned `SchedulesCard.test.tsx > stale row`.
 **Cumulative:** 75 plans across 17 phases (11 v1.0 + 6 v1.1) over 8 calendar days of active development pre-v1.2.
 
 ## Session Continuity
