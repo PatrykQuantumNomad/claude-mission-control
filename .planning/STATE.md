@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Depth & Polish
-status: Plan 01 (`18-01-time-helper-and-test`) shipped; helper module + tests in place
-stopped_at: Plan 01 SUMMARY written. Plan 02 (utcnow sweep across 22 sites) is next. The 22 real call sites are still untouched per plan scope.
-last_updated: "2026-05-05T20:23:58.660Z"
-last_activity: 2026-05-05 — Plan 01 executed (commits 4247f56 test, 3256760 feat, 6e01645 refactor); SUMMARY written
+status: Plan 02 (`18-02-utcnow-sweep`) shipped; POLI-06 dual gate green (ruff --select UP + git grep both 0). Plan 05 is the only remaining Phase 18 plan.
+stopped_at: Plan 02 (utcnow sweep) complete; Plan 05 is the only remaining Phase 18 plan (baseline-and-phase-close).
+last_updated: "2026-05-05T21:02:27.849Z"
+last_activity: 2026-05-05 — Plan 02 executed (commit c3d792f atomic D-Sweep, 22 call sites migrated, POLI-06 dual gate green, pytest 566 unchanged, 0 deprecation warnings); SUMMARY written
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 5
-  completed_plans: 3
-  percent: 60
+  completed_plans: 4
+  percent: 80
 ---
 
 # Project State
@@ -26,12 +26,12 @@ See: .planning/PROJECT.md (updated 2026-05-05 after v1.1 ship)
 
 ## Current Position
 
-Phase: 18 — Polish & Carry-Forward Cleanup (in progress, 1/5 plans complete)
-Plan: 18-02 (utcnow sweep) is next
-Status: Plan 01 (`18-01-time-helper-and-test`) shipped; helper module + tests in place
-Last activity: 2026-05-05 — Plan 01 executed (commits 4247f56 test, 3256760 feat, 6e01645 refactor); SUMMARY written
+Phase: 18 — Polish & Carry-Forward Cleanup (in progress, 4/5 plans complete)
+Plan: 18-05 (baseline-and-phase-close) is next
+Status: Plan 02 (`18-02-utcnow-sweep`) shipped; POLI-06 dual gate green (ruff --select UP + git grep both 0)
+Last activity: 2026-05-05 — Plan 02 executed (commit c3d792f atomic D-Sweep, 22 call sites migrated, POLI-06 dual gate green, pytest 566 unchanged, 0 deprecation warnings); SUMMARY written
 
-Progress: [██████░░░░] 60%
+Progress: [████████░░] 80%
 
 ## Accumulated Context
 
@@ -42,6 +42,14 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 - **`cmc.core.time` is the canonical home for naive-UTC time concerns.** `now_utc()` returns `datetime.now(UTC).replace(tzinfo=None)`; `UTCDatetime` PlainSerializer is colocated. `cmc.api.schemas.common` re-exports `UTCDatetime` (one-line, `# noqa: F401`) so the 8 existing schema importers keep working without an 8-file cosmetic sweep (D-Pitfall-9). `cmc.core` re-exports `now_utc` for ergonomic access.
 - **No speculative time helpers.** Only `now_utc` and `UTCDatetime` ship in Phase 18 (D-Module-shape). Future helpers (`today_utc`, `parse_iso_utc`) promote inline if/when Plan 02's sweep finds 3+ uses of a pattern.
 - **Two-commit migration enforced.** Plan 01 creates the helper; Plan 02 owns the 22-site mechanical replace. Bisect-friendly; the sweep commit can be uniform mechanical.
+
+Phase 18 Plan 02 (utcnow sweep, POLI-06):
+
+- **D-Sweep atomic commit (c3d792f).** Tasks 1+2 merged into a single bisect-friendly mechanical-replacement commit. The 22-site replacement either fully reverts or fully applies — no half-migrated intermediate state on the bisect timeline. Per the locked two-commit migration: Plan 01 created the helper, Plan 02 adopts it across the codebase.
+- **Docstring substring discipline.** When a verify gate uses `git grep`, prose mentioning the banned API must paraphrase. Three docstring blocks in `cmc/core/time.py` and one in `tests/test_core_time.py` were reworded ("the deprecated stdlib naive-UTC factory") to clear the POLI-06 structural verify gate while preserving explanatory intent.
+- **Adjacent lint cleanup folds into the sweep when the same file is already touched.** Pre-existing I001 import-sort errors in `tests/test_core_time.py` (Plan 18-01 carry-over) blocked the pre-commit ruff hook on the sweep commit; auto-fixed via `ruff check --select I --fix` and folded into the same commit (vs. a separate "lint" commit on a single file already in the sweep's modification set).
+- **Did not activate ruff DTZ** (Open-Question 3 deferred — would surface 38 unrelated DTZ findings out of POLI-06 scope).
+- **Did not introduce a Field constants module / NOW_UTC sentinel.** Kept all 19 default_factory= references as direct function imports — matches D-Field-factories.
 
 Phase 18 Plan 03 (SchedulesCard determinism, POLI-07):
 
@@ -71,8 +79,7 @@ v1.1 carried decisions (still active):
 
 ### Pending Todos
 
-- Execute Phase 18 Plan 02 (`18-02-utcnow-sweep`) — mechanical replacement of all 22 `datetime.utcnow` call sites with `now_utc` from `cmc.core.time`; dual verify gate (`ruff check --select UP` clean + `git grep` zero) + ~1429 deprecation warnings drop to 0.
-- Phase 18 Plans 03 (SchedulesCard determinism), 04 (Playwright strict-mode), 05 (BASELINE.md) follow.
+- Execute Phase 18 Plan 05 (`18-05-baseline-and-phase-close`) — refresh BASELINE.md (suite-wide warning count and pass-count baselines now that 308 fewer pytest warnings emit + the 4 unique `datetime.datetime.utcnow` deprecation sources are gone), update REQUIREMENTS.md traceability table, run phase verifier hooks, and close Phase 18.
 - Phase 22 plan front-matter MUST cite SQL columns or temporal-JOIN derivation source for body_ms / subagent_ms / tool_ms before any UI work begins (Pitfall 10 acceptance criterion).
 - Phase 19 plan owns migration `0003_project_key` (sessions.project_key VARCHAR(12), backfill, index).
 - Phase 23 closes the milestone — audit hooks (full pytest + vitest + playwright green; `cmc doctor` clean; REQUIREMENTS.md traceability 13/13 or honest 12/13 + descope) belong in the final phase plan.
@@ -109,13 +116,13 @@ Two operational human-verify items still carry forward (non-blocking, auto-disch
 
 **v1.0 baseline:** 47 plans, 4 days (2026-04-25 → 2026-04-28), ~39,800 LOC.
 **v1.1:** 28 plans, 4 days (2026-05-02 → 2026-05-05), +81,397 / -13,435 lines vs v1.0, ~56,232 LOC at close.
-**v1.2:** Phases 18–23 defined (6 phases, 13 requirements). Phase 18: 1/5 plans complete (Plan 01 ~10 min execution). Backend pytest baseline at 561; post-Plan-01 at 566 (5 new helper tests, 0 regressions). Plan 03 (~3 min) flipped vitest 1 fail → 0 fail (293 pass) and TZ-pinned `SchedulesCard.test.tsx > stale row`.
+**v1.2:** Phases 18–23 defined (6 phases, 13 requirements). Phase 18: 4/5 plans complete (Plan 01 ~10 min, Plan 02 ~42 min, Plan 03 ~3 min, Plan 04). Backend pytest baseline at 561 → post-Plan-01 at 566 (5 new helper tests). Plan 02 swept 22 `datetime.utcnow` call sites onto `now_utc` (commit c3d792f, atomic D-Sweep): pytest 566 unchanged, total warnings 340 → 32 (308 fewer), 4 unique `datetime.datetime.utcnow` deprecation sources → 0. POLI-06 dual gate (ruff --select UP + git grep) green. Plan 03 (~3 min) flipped vitest 1 fail → 0 fail (293 pass) and TZ-pinned `SchedulesCard.test.tsx > stale row`.
 **Cumulative:** 75 plans across 17 phases (11 v1.0 + 6 v1.1) over 8 calendar days of active development pre-v1.2.
 
 ## Session Continuity
 
-Last session: 2026-05-05T20:23:42.636Z
-Stopped at: Plan 01 SUMMARY written. Plan 02 (utcnow sweep across 22 sites) is next. The 22 real call sites are still untouched per plan scope.
+Last session: 2026-05-05T21:02:27.842Z
+Stopped at: Plan 02 (utcnow sweep) complete; Plan 05 is the only remaining Phase 18 plan (baseline-and-phase-close).
 Resume file: None
 
 ---

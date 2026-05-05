@@ -63,7 +63,7 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
   4. Backend (`pytest`) and frontend (`vitest run` + `playwright test`) suites are green at phase close; verifier records baseline pass counts for downstream phases to compare against.
 **Plans**: 5 plans
   - [x] 18-01-time-helper-and-test-PLAN.md — Create `cmc/core/time.py` with `now_utc()` + colocated `UTCDatetime`; add unit tests; re-export to preserve 9 import sites (helper-first commit per D-Sweep-style) — completed 2026-05-05
-  - [ ] 18-02-utcnow-sweep-PLAN.md — Mechanical sweep of all 22 `datetime.utcnow` call sites (20 Field defaults + 2 inline calls); dual verify gate (ruff UP + git grep zero) + drop ~1429 deprecation warnings to 0
+  - [x] 18-02-utcnow-sweep-PLAN.md — Mechanical sweep of all 22 `datetime.utcnow` call sites (20 Field defaults + 2 inline calls); dual verify gate (ruff UP + git grep zero) + drop ~1429 deprecation warnings to 0
   - [x] 18-03-schedules-card-determinism-PLAN.md — Migrate `SchedulesCard.test.tsx > stale row` to `vi.spyOn(Date, 'now')` + fix bit-rotted fixture; verify under TZ=UTC and TZ=America/New_York at 23:55 boundary — completed 2026-05-05
   - [x] 18-04-playwright-strict-mode-and-readme-PLAN.md — Add `data-testid` to source components for the strict-mode collision in schedule-composer; create `frontend/tests/e2e/README.md` documenting the `feature-component-element` convention
   - [ ] 18-05-baseline-and-phase-close-PLAN.md — Record `BASELINE.md` (pytest/vitest/playwright counts + deprecation-warning delta) for Phase 19+ verifier comparison; confirm all 4 ROADMAP success criteria green
@@ -153,7 +153,7 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 | 15. Alert Engine & UI | v1.1 | 5/5 | Complete | 2026-05-04 |
 | 16. Session Comparison | v1.1 | 4/4 | Complete | 2026-05-05 |
 | 17. Polish, Doctor & Tests | v1.1 | 6/6 | Complete | 2026-05-05 |
-| 18. Polish & Carry-Forward Cleanup | v1.2 | 3/5 | In Progress|  |
+| 18. Polish & Carry-Forward Cleanup | v1.2 | 4/5 | In Progress|  |
 | 19. Skills Per-Project, Deltas & Badges | v1.2 | 0/? | Not started | — |
 | 20. Cost Forecast & Per-Project Card | v1.2 | 0/? | Not started | — |
 | 21. Alert Anomaly Depth & NL Authoring | v1.2 | 0/? | Not started | — |

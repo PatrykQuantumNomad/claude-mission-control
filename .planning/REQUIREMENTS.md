@@ -32,7 +32,7 @@
 
 ### Polish & Cleanup
 
-- [ ] **POLI-06**: Replace deprecated `Field(default_factory=datetime.utcnow)` with naive-UTC helper across 18+ sites — centralized `cmc/core/time.py` helper returning `datetime.now(UTC).replace(tzinfo=None)` to preserve SQLite-compatible naive datetime; Pydantic v2 / Python 3.13 forward-compatible; `ruff check --select UP` passes
+- [x] **POLI-06**: Replace deprecated `Field(default_factory=datetime.utcnow)` with naive-UTC helper across 18+ sites — centralized `cmc/core/time.py` helper returning `datetime.now(UTC).replace(tzinfo=None)` to preserve SQLite-compatible naive datetime; Pydantic v2 / Python 3.13 forward-compatible; `ruff check --select UP` passes
 - [x] **POLI-07**: Stabilize `SchedulesCard.test.tsx > stale row` time-of-day flake — fix is `vi.spyOn(Date, 'now')` (NOT `vi.useFakeTimers`); test runs deterministically across all clock conditions
 - [x] **POLI-08**: Disambiguate `schedule-composer.spec.ts` strict-mode aria-label collision with Phase 14 firehose `Filter skill name` control — establish `data-testid` convention for colliding controls; convention documented in repo (CONTRIBUTING or e2e README); both Playwright suites pass strict-mode
 
@@ -84,7 +84,7 @@ Mapped to v1.2 ROADMAP.md (Phases 18–23) on 2026-05-05.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| POLI-06 | Phase 18 | Pending |
+| POLI-06 | Phase 18 | Complete |
 | POLI-07 | Phase 18 | Complete (2026-05-05, commit 3457c32) |
 | POLI-08 | Phase 18 | Complete |
 | SKLP-08 | Phase 19 | Pending |
