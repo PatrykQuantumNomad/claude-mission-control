@@ -50,8 +50,12 @@ test('TEST-03: schedule composer creates a schedule end-to-end', async ({
   // Sheet opens with title "New schedule".
   await expect(page.getByText('New schedule', { exact: true })).toBeVisible()
 
-  // Fill name (required).
-  await page.getByLabel('Name').fill(name)
+  // Fill name (required). Use getByTestId to disambiguate from
+  // SkillTimeline's <input aria-label="Filter skill name"> on the same /skills
+  // page — Playwright's getByLabel matches aria-label substrings, so 'Name'
+  // matches 'Filter skill name' under strict mode (Pitfall 4). Convention:
+  // feature-component-element kebab-case (see frontend/tests/e2e/README.md).
+  await page.getByTestId('schedule-composer-name').fill(name)
 
   // Use advanced cron — overrides time/days, simpler to drive deterministically.
   await page.getByLabel('Advanced cron').fill('0 9 * * 1-5')

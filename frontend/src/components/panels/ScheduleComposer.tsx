@@ -188,6 +188,7 @@ export function ScheduleComposer({ open, onOpenChange }: ScheduleComposerProps) 
             maxLength={120}
             required
             disabled={m.isPending}
+            data-testid="schedule-composer-name"
           />
         </label>
 
