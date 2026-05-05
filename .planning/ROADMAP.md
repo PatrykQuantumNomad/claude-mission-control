@@ -34,7 +34,7 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 - [x] **Phase 13: Cost Foundation & Skill Ingest** - Pricing module, `pricing` table, cost engine, cost API, skill-name ingest column (backend-only, no UI) (completed 2026-05-03)
 - [x] **Phase 14: Skills API & Page Panels** - Skills aggregation endpoints + four reactivated/new skill panels (TopSkills, SkillCostCard, SkillLatencyTable, SkillTimeline) + per-skill detail route (completed 2026-05-04)
 - [x] **Phase 15: Alert Engine & UI** - Hysteresis-aware threshold + z-score detector, dispatcher hook, decisions/Telegram delivery, ack flow, CRUD + composer UI (completed 2026-05-04)
-- [ ] **Phase 16: Session Comparison** - Single-endpoint paired-metrics diff, two-up compare view, Cmd+K + sessions-table picker
+- [x] **Phase 16: Session Comparison** - Single-endpoint paired-metrics diff, two-up compare view, Cmd+K + sessions-table picker (completed 2026-05-05)
 - [ ] **Phase 17: Polish, Doctor & Tests** - Doctor warnings, parse_mode CI guard, callback round-trips, alert integration test, Playwright e2e, upgrade docs
 
 ## Phase Details
@@ -120,11 +120,11 @@ Plans:
   3. User can pick the second session via Cmd+K "Compare with…" action (extends existing `CommandPalette`) or via a "Compare with…" row action on the sessions table.
   4. User can compare sessions up to 500 tool calls each; sessions exceeding the cap render a "session too long for full diff" fallback with summary metrics only.
   5. User can trust that comparison shows structured tabular data only — no text/code diff library, no raw LLM message content rendered.
-**Plans**: 4 plans (3/4 executed)
+**Plans**: 4/4 plans executed
 - [x] 16-01-PLAN.md — Backend `GET /api/sessions/compare` endpoint + Pydantic v2 schemas + 10-test pytest coverage (TDD) (commits 102c7d6 + b506804, 2026-05-05; full backend suite 540 → 550 with zero regressions)
 - [x] 16-02-PLAN.md — Frontend `/sessions/compare` route (validateSearch UUID validator) + extracted `SessionCompareView` panel + `useSessionCompare` hook + vitest coverage (commits ed9a0fb + 920c09f + db7622a, 2026-05-05; closes CMPR-02 + CMPR-05; first `validateSearch` use in the codebase, hand-written UUID validator — no zod / valibot added; routeTree.gen.ts auto-regenerated; full vitest 284/285 with 1 pre-existing SchedulesCard wall-clock failure logged as deferred)
 - [x] 16-03-PLAN.md — Cmd+K context-aware "Compare with…" action + SessionsTable per-row Compare button + vitest (commits 1a16ae6 + 206c9f4, 2026-05-05; closes CMPR-03 end-to-end; FIRST `useRouterState({ select: (s) => s.location })` usage in the codebase; ComparePicker subcomponent mounts Sheet + useSessionsList list with self-compare guard; SessionsTable 7th 'actions' column with optional onCompareClick prop for picker-drawer reuse; 9 new vitest cases — full vitest 292/293 with the same pre-existing SchedulesCard failure as Plan 16-02)
-- [ ] 16-04-PLAN.md — Browser human-verify checkpoint (8 manual checks across CMPR-01..05)
+- [x] 16-04-PLAN.md — Browser human-verify checkpoint APPROVED across 7 active checks + 1 optional Lighthouse skipped (2026-05-05; verification driven by Chrome DevTools MCP — receipts: empty state on /sessions/compare and on ?a=zzz&b=zzz validateSearch-stripped; populated two-up via Activity Compare → /sessions/compare?a=ebe8c9af-… → Cmd+K context-aware 'Compare with…' → Sheet picker self-compare guard verified at row attribute level → ?a=ebe8c9af&b=b6c7cd41 fully rendered; Decimal precision Pitfall 1 cost_usd JSON-string '4.2527715' / '7.664035' rendered verbatim in KPI as `$4.2527715` / `$7.664035`; over-cap CMPR-04 fallback EmptyState 'Session too long for full diff' rendered with mid-plan reversible seed UPDATE sessions tool_call_count 433→501→433 on session 2ef8b544-… now rolled back; CMPR-05 tabular-only DevTools Sources scan 43 scripts loaded / 0 matches for diff|jsdiff|react-diff; 400/404/400 error shapes confirmed via in-browser fetch; pre-existing /api/system/state?key=emergency_stop 404 noise documented out-of-scope, deferred to Phase 17 polish; CMPR-01..05 each now traced to ≥1 passing automated test PLUS browser human-verify; Phase 17 unblocked)
 **UI hint**: yes
 
 ### Phase 17: Polish, Doctor & Tests
@@ -161,7 +161,7 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 (Phase 16
 | 13. Cost Foundation & Skill Ingest | v1.1 | 6/6 | Complete | 2026-05-03 |
 | 14. Skills API & Page Panels | v1.1 | 5/5 | Complete | 2026-05-04 |
 | 15. Alert Engine & UI | v1.1 | 5/5 | Complete | 2026-05-04 |
-| 16. Session Comparison | v1.1 | 3/4 | In progress | - |
+| 16. Session Comparison | v1.1 | 4/4 | Complete | 2026-05-05 |
 | 17. Polish, Doctor & Tests | v1.1 | 0/TBD | Not started | - |
 
 **v1.0 milestone shipped: 47/47 plans, 11/11 phases verified (9 base + 2 audit gap-closure).**

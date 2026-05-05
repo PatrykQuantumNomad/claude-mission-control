@@ -159,11 +159,11 @@ Which phases cover which requirements. Populated by gsd-roadmapper on 2026-05-02
 | ALRT-10 | Phase 15 | Complete |
 | ALRT-11 | Phase 15 | Complete |
 | ALRT-12 | Phase 15 | Complete |
-| CMPR-01 | Phase 16 | Complete (Plan 16-01) |
-| CMPR-02 | Phase 16 | Complete (Plan 16-02) |
-| CMPR-03 | Phase 16 | Complete (Plan 16-03) |
-| CMPR-04 | Phase 16 | Complete (Plan 16-01 backend + Plan 16-02 frontend) |
-| CMPR-05 | Phase 16 | Complete (Plan 16-02) |
+| CMPR-01 | Phase 16 | Complete (Plan 16-01 backend + Plan 16-04 browser verify checks #2,3,7 — 2026-05-05) |
+| CMPR-02 | Phase 16 | Complete (Plan 16-02 frontend + Plan 16-04 browser verify checks #1,2 — 2026-05-05) |
+| CMPR-03 | Phase 16 | Complete (Plan 16-03 picker UX + Plan 16-04 browser verify checks #2,5 — 2026-05-05) |
+| CMPR-04 | Phase 16 | Complete (Plan 16-01 backend + Plan 16-02 frontend + Plan 16-04 browser verify check #4 over-cap EmptyState fallback render branch — 2026-05-05) |
+| CMPR-05 | Phase 16 | Complete (Plan 16-02 source-side grep + Plan 16-04 runtime DevTools Sources scan check #6 — 0/43 scripts match diff/jsdiff/react-diff — 2026-05-05) |
 | POLI-01 | Phase 17 | Pending |
 | POLI-02 | Phase 17 | Pending |
 | POLI-03 | Phase 17 | Pending |
