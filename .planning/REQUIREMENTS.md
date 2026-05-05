@@ -64,12 +64,13 @@
 
 ### Polish, Doctor, Tests
 
-- [ ] **POLI-01**: User can run `cmc doctor` and see warnings for stale pricing rows (>30 days), `unpriced_tokens > 0`, and `OTEL_LOG_TOOL_DETAILS` env var unset (which would mask plugin/marketplace skill attrs)
-- [ ] **POLI-02**: User can rely on a CI grep test that fails on any `parse_mode=` occurrence anywhere in `cmc/telegram/` (extends Phase 9-01 enforcement to alert paths)
-- [ ] **POLI-03**: User can rely on round-trip unit tests for every Telegram callback verb in `cmc/telegram/callback_verbs.py` (covers new `ack_alert` verb)
-- [ ] **POLI-04**: User can rely on an integration test that creates an always-firing alert rule, runs the dispatcher one-shot, and asserts exactly one decision row + one notification_log row exist (covers Pitfalls 5/6/7)
-- [ ] **TEST-05**: User can rely on Playwright e2e coverage for `/alerts` (create rule → fire → ack) and `/sessions/compare?a=&b=` (pick two sessions → see diff)
-- [ ] **POLI-05**: User can rely on updated docs (`build-your-own-dashboard-guide.html`, env-var reference) covering pricing seed workflow, OTEL spike findings, and v1.1 panels
+- [x] **POLI-01**: User can run `cmc doctor` and see warnings for stale pricing rows (>30 days), `unpriced_tokens > 0`, and `OTEL_LOG_TOOL_DETAILS` env var unset (which would mask plugin/marketplace skill attrs)
+- [x] **POLI-02**: User can rely on a CI grep test that fails on any `parse_mode=` occurrence anywhere in `cmc/telegram/` (extends Phase 9-01 enforcement to alert paths)
+- [x] **POLI-03**: User can rely on round-trip unit tests for every Telegram callback verb in `cmc/telegram/callback_verbs.py` (covers new `ack_alert` verb)
+- [x] **POLI-04**: User can rely on an integration test that creates an always-firing alert rule, runs the dispatcher one-shot, and asserts exactly one decision row + one notification_log row exist (covers Pitfalls 5/6/7)
+- [x] **TEST-05**: User can rely on Playwright e2e coverage for `/alerts` (create rule → fire → ack) and `/sessions/compare?a=&b=` (pick two sessions → see diff)
+- [x] **POLI-05**: User can rely on updated docs (`build-your-own-dashboard-guide.html`, env-var reference) covering pricing seed workflow, OTEL spike findings, and v1.1 panels
+  - *Note: `build-your-own-dashboard-guide.html` is the user's externally-maintained companion guide and lives outside this repo (see PROJECT.md:94). Phase 17 closes POLI-05 by updating in-repo docs only — README.md + backend/.env.example.*
 
 ## v2 Requirements
 
@@ -164,12 +165,12 @@ Which phases cover which requirements. Populated by gsd-roadmapper on 2026-05-02
 | CMPR-03 | Phase 16 | Complete (Plan 16-03 picker UX + Plan 16-04 browser verify checks #2,5 — 2026-05-05) |
 | CMPR-04 | Phase 16 | Complete (Plan 16-01 backend + Plan 16-02 frontend + Plan 16-04 browser verify check #4 over-cap EmptyState fallback render branch — 2026-05-05) |
 | CMPR-05 | Phase 16 | Complete (Plan 16-02 source-side grep + Plan 16-04 runtime DevTools Sources scan check #6 — 0/43 scripts match diff/jsdiff/react-diff — 2026-05-05) |
-| POLI-01 | Phase 17 | Pending |
-| POLI-02 | Phase 17 | Pending |
-| POLI-03 | Phase 17 | Pending |
-| POLI-04 | Phase 17 | Pending |
-| POLI-05 | Phase 17 | Pending |
-| TEST-05 | Phase 17 | Pending |
+| POLI-01 | Phase 17 | Complete |
+| POLI-02 | Phase 17 | Complete |
+| POLI-03 | Phase 17 | Complete |
+| POLI-04 | Phase 17 | Complete |
+| POLI-05 | Phase 17 | Complete |
+| TEST-05 | Phase 17 | Complete |
 
 **Coverage:**
 - v1.1 requirements: **41 total** (initial REQUIREMENTS.md header said 38; verified count by REQ-ID grep is 41 — header corrected during roadmap creation)
