@@ -651,7 +651,14 @@ async def test_heartbeat_hook_after_estop(
 async def test_heartbeat_hook_calls_evaluate_alerts(
     test_settings, monkeypatch, tmp_pid_dir_monkey, mock_psutil_pids
 ):
-    """emergency_stop=0 + firing rule → exactly 1 decision row from the heartbeat tick."""
+    """POLI-04: emergency_stop=0 + firing rule → run_one_cycle() produces exactly
+    1 decision row AND 1 notification_log row from the heartbeat tick.
+
+    This is the canonical POLI-04 integration test referenced from
+    .planning/REQUIREMENTS.md. The notification_log assertion is what
+    distinguishes POLI-04 from earlier per-function variants (which only
+    asserted decision count).
+    """
     from cmc.config import load_settings
     from cmc.dispatcher import heartbeat as hb
 
@@ -685,5 +692,6 @@ async def test_heartbeat_hook_calls_evaluate_alerts(
         assert rc == 0
         dedup_key = f"alert:{rule_id}:<global>"
         assert await _count_decisions(sessions, dedup_key=dedup_key) == 1
+        assert await _count_notification_log(sessions, entity_id=dedup_key) == 1
     finally:
         await engine.dispose()
