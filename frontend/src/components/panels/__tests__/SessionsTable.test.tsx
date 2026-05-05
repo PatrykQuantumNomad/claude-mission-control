@@ -1,6 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  RouterProvider,
+} from '@tanstack/react-router'
 import { render, screen, userEvent } from '../../../test/utils'
 import { SessionsTable } from '../SessionsTable'
 import { qk } from '../../../lib/queries'
@@ -16,6 +23,51 @@ function makeClient() {
 
 function Wrap({ client, children }: { client: QueryClient; children: ReactNode }) {
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>
+}
+
+// Phase 16 Plan 03 — the per-row Compare button calls `useNavigate()`. Tests
+// that exercise the click need a mounted TanStack Router. We mirror the
+// CommandPalette.test.tsx pattern: register the routes the test will navigate
+// to (`/sessions/compare` with hand-written validateSearch matching the
+// production route file routes/sessions_.compare.tsx) and use createMemoryHistory.
+//
+// Tests that don't click Compare (rendering / pagination / search) still work
+// fine without a router because useNavigate() falls back to a no-op when no
+// router is mounted (verified — the existing 6 ACTV-06 tests pass on this
+// commit without a Router wrapper).
+const UUID_RE =
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
+
+type CompareSearch = { a?: string; b?: string }
+
+function validateCompareSearch(raw: Record<string, unknown>): CompareSearch {
+  const a =
+    typeof raw.a === 'string' && UUID_RE.test(raw.a) ? raw.a : undefined
+  const b =
+    typeof raw.b === 'string' && UUID_RE.test(raw.b) ? raw.b : undefined
+  return { a, b }
+}
+
+function makeRouter(client: QueryClient, ui: ReactNode) {
+  const rootRoute = createRootRoute({
+    component: () => <Wrap client={client}>{ui}</Wrap>,
+  })
+  const indexRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/',
+    component: () => null,
+  })
+  const compareRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/sessions/compare',
+    validateSearch: validateCompareSearch,
+    component: () => null,
+  })
+  const routeTree = rootRoute.addChildren([indexRoute, compareRoute])
+  return createRouter({
+    routeTree,
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  })
 }
 
 function makeRow(i: number, overrides: Partial<SessionListItemFull> = {}): SessionListItemFull {
@@ -195,5 +247,98 @@ describe('SessionsTable', () => {
     const next = screen.getByRole('button', { name: 'Next page' })
     await userEvent.click(next)
     expect(screen.getByText(/Page 2 of 3/)).toBeInTheDocument()
+  })
+
+  // ─── Phase 16 Plan 03 (CMPR-03) — per-row Compare button ─────────────────
+
+  it('renders one Compare button per data row in the new "actions" column', () => {
+    const client = makeClient()
+    const items = [
+      makeRow(1, { session_id: 'sid00000001' }),
+      makeRow(2, { session_id: 'sid00000002' }),
+      makeRow(3, { session_id: 'sid00000003' }),
+    ]
+    client.setQueryData(
+      qk.sessionsList({ range: '7d', limit: 50, offset: 0 }),
+      { items, total: 3, offset: 0, limit: 50 } satisfies SessionListResponse,
+    )
+    render(
+      <Wrap client={client}>
+        <SessionsTable />
+      </Wrap>,
+    )
+    // Match aria-label `Compare session sid...` (the visible label is just
+    // "Compare" — the same string is rendered N times, so the test queries by
+    // the unique aria-label that includes the session_id).
+    expect(
+      screen.getAllByRole('button', { name: /^Compare session sid\d+$/ }),
+    ).toHaveLength(3)
+    // The bare "Compare" text appears 3 times in the visible label nodes too.
+    expect(screen.getAllByText('Compare')).toHaveLength(3)
+  })
+
+  it('clicking the row Compare button navigates to /sessions/compare?a={session_id} (default behaviour)', async () => {
+    // Use canonical UUIDs because the test router mirrors the production
+    // /sessions/compare validateSearch which strips non-UUID values to
+    // undefined (Plan 16-02 hand-written UUID_RE validator). A row with
+    // session_id='sid00000001' would navigate but the search param would
+    // strip — that's a test-fixture concern, not a SessionsTable bug.
+    const UUID_FIRST = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    const UUID_SECOND = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+    const client = makeClient()
+    const items = [
+      makeRow(1, { session_id: UUID_FIRST }),
+      makeRow(2, { session_id: UUID_SECOND }),
+    ]
+    client.setQueryData(
+      qk.sessionsList({ range: '7d', limit: 50, offset: 0 }),
+      { items, total: 2, offset: 0, limit: 50 } satisfies SessionListResponse,
+    )
+    const router = makeRouter(client, <SessionsTable />)
+    await router.load()
+    render(<RouterProvider router={router} />)
+    const firstCompare = await screen.findByRole('button', {
+      name: `Compare session ${UUID_FIRST}`,
+    })
+    await userEvent.click(firstCompare)
+    // The default navigate target is /sessions/compare with `a={sid}`.
+    expect(router.state.location.pathname).toBe('/sessions/compare')
+    const search = router.state.location.search as Record<string, unknown>
+    expect(search.a).toBe(UUID_FIRST)
+    // `b` should NOT be set on the default-navigate path.
+    expect(search.b).toBeUndefined()
+  })
+
+  it('onCompareClick prop overrides default navigate behaviour', async () => {
+    // When the consumer (the Cmd+K compare-route picker drawer) provides
+    // onCompareClick, the row button calls that handler with the session_id
+    // and does NOT navigate. Used so the picker can do
+    // `navigate({ search: (prev) => ({ ...prev, b: sid }) })` instead of
+    // a fresh navigate-to-a.
+    //
+    // Non-UUID session_id is fine here because we're asserting the handler
+    // receives the raw value — no router navigation is involved.
+    const client = makeClient()
+    const items = [makeRow(1, { session_id: 'sid00000001' })]
+    client.setQueryData(
+      qk.sessionsList({ range: '7d', limit: 50, offset: 0 }),
+      { items, total: 1, offset: 0, limit: 50 } satisfies SessionListResponse,
+    )
+    const onCompareClick = vi.fn()
+    const router = makeRouter(
+      client,
+      <SessionsTable onCompareClick={onCompareClick} />,
+    )
+    await router.load()
+    render(<RouterProvider router={router} />)
+    const compare = await screen.findByRole('button', {
+      name: 'Compare session sid00000001',
+    })
+    await userEvent.click(compare)
+    expect(onCompareClick).toHaveBeenCalledTimes(1)
+    expect(onCompareClick).toHaveBeenCalledWith('sid00000001')
+    // Critically, the router did NOT navigate to /sessions/compare — the
+    // consumer is in charge of any URL change.
+    expect(router.state.location.pathname).toBe('/')
   })
 })

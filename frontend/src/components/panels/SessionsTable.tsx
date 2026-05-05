@@ -9,8 +9,23 @@
 // columns, searchKeys, and cell renders use those real field names. The
 // pagination strip is keyed off `data.total` (the backend total), not the
 // in-memory filtered length, because the search filter is page-local.
+//
+// Phase 16 Plan 03 (CMPR-03) — added a 7th 'actions' column rendering a
+// per-row "Compare" button. Default behaviour navigates to
+// /sessions/compare?a={r.session_id}; when the optional `onCompareClick`
+// prop is provided, the button calls that handler instead (used by the
+// Cmd+K picker drawer to set `b` rather than `a` when the table is mounted
+// inside the compare-route picker). The button stops event propagation so
+// future onRowClick wiring on DataTable doesn't double-fire.
+//
+// COLUMNS is now built inside the component (useMemo) so the `navigate` /
+// `onCompareClick` callback is in scope. Keeping the array stable across
+// renders preserves DataTable's referential-equality fast path. `onCompareClick`
+// flows through the dep array — when the consumer flips the handler the
+// columns rebuild once, no perf concern at the ≤50-row workload.
 
-import { useState, ChangeEvent } from 'react'
+import { useState, useMemo, ChangeEvent } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import { Button, DataTable, PanelCard, RelativeTime } from '../ui'
 import type { DataTableColumn } from '../ui'
 import { useSessionsList } from '../../lib/queries'
@@ -24,47 +39,21 @@ const RANGE_OPTIONS: ReadonlyArray<{ value: Range; label: string }> = [
 
 const PAGE_SIZE = 50
 
-const COLUMNS: DataTableColumn<SessionListItemFull>[] = [
-  {
-    id: 'session_id',
-    header: 'Session',
-    sortable: true,
-    sort: (a, b) => a.session_id.localeCompare(b.session_id),
-    cell: (r) => (
-      <span className="cmc-mono" title={r.session_id}>
-        {r.session_id.slice(0, 8)}
-        {'\u2026'}
-      </span>
-    ),
-  },
-  {
-    id: 'cwd',
-    header: 'Project',
-    cell: (r) => <span className="cmc-mono">{r.cwd ?? '—'}</span>,
-  },
-  {
-    id: 'model',
-    header: 'Model',
-    cell: (r) => <span>{r.model ?? '—'}</span>,
-  },
-  {
-    id: 'started_at',
-    header: 'Started',
-    cell: (r) => <RelativeTime value={r.started_at} />,
-  },
-  {
-    id: 'tokens_input',
-    header: 'In',
-    cell: (r) => <span className="cmc-numeric">{r.tokens_input.toLocaleString()}</span>,
-  },
-  {
-    id: 'tokens_output',
-    header: 'Out',
-    cell: (r) => <span className="cmc-numeric">{r.tokens_output.toLocaleString()}</span>,
-  },
-]
+interface SessionsTableProps {
+  /**
+   * Optional override for the per-row Compare button click handler. When
+   * provided, the button calls `onCompareClick(row.session_id)` instead of
+   * navigating to `/sessions/compare?a={sid}`. Used by the Cmd+K compare
+   * picker drawer to set `b` on the existing route rather than starting a
+   * fresh comparison. Self-compare guard (button disabled when sid ===
+   * `currentA`) is the consumer's responsibility — typically the picker
+   * passes a `disabled` set or the handler is a no-op for the matching sid.
+   */
+  onCompareClick?: (session_id: string) => void
+}
 
-export function SessionsTable() {
+export function SessionsTable({ onCompareClick }: SessionsTableProps = {}) {
+  const navigate = useNavigate()
   const [range, setRange] = useState<Range>('7d')
   const [source, setSource] = useState<string>('')
   const [model, setModel] = useState<string>('')
@@ -78,6 +67,78 @@ export function SessionsTable() {
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   })
+
+  const columns: DataTableColumn<SessionListItemFull>[] = useMemo(
+    () => [
+      {
+        id: 'session_id',
+        header: 'Session',
+        sortable: true,
+        sort: (a, b) => a.session_id.localeCompare(b.session_id),
+        cell: (r) => (
+          <span className="cmc-mono" title={r.session_id}>
+            {r.session_id.slice(0, 8)}
+            {'…'}
+          </span>
+        ),
+      },
+      {
+        id: 'cwd',
+        header: 'Project',
+        cell: (r) => <span className="cmc-mono">{r.cwd ?? '—'}</span>,
+      },
+      {
+        id: 'model',
+        header: 'Model',
+        cell: (r) => <span>{r.model ?? '—'}</span>,
+      },
+      {
+        id: 'started_at',
+        header: 'Started',
+        cell: (r) => <RelativeTime value={r.started_at} />,
+      },
+      {
+        id: 'tokens_input',
+        header: 'In',
+        cell: (r) => <span className="cmc-numeric">{r.tokens_input.toLocaleString()}</span>,
+      },
+      {
+        id: 'tokens_output',
+        header: 'Out',
+        cell: (r) => <span className="cmc-numeric">{r.tokens_output.toLocaleString()}</span>,
+      },
+      {
+        id: 'actions',
+        header: '',
+        width: '100px',
+        cell: (r) => (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              // stopPropagation is forward-compat: if a future refactor
+              // wires onRowClick on the DataTable primitive (deferred per
+              // SkillRunsTable.tsx:11-15), this prevents the row handler
+              // from also firing when the user clicks Compare.
+              e.stopPropagation()
+              if (onCompareClick) {
+                onCompareClick(r.session_id)
+              } else {
+                navigate({
+                  to: '/sessions/compare',
+                  search: { a: r.session_id },
+                })
+              }
+            }}
+            aria-label={`Compare session ${r.session_id}`}
+          >
+            Compare
+          </Button>
+        ),
+      },
+    ],
+    [navigate, onCompareClick],
+  )
 
   function bumpPage(delta: number) {
     setPage((p) => Math.max(0, p + delta))
@@ -168,7 +229,7 @@ export function SessionsTable() {
           <div>
             <DataTable<SessionListItemFull>
               rows={data.items}
-              columns={COLUMNS}
+              columns={columns}
               rowKey={(r) => r.session_id}
               search={search}
               searchKeys={['session_id', 'cwd']}
