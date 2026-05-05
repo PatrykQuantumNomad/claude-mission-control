@@ -170,3 +170,15 @@ Each task was committed atomically:
 *Phase: 17-polish-doctor-tests*
 *Plan: 04*
 *Completed: 2026-05-05*
+
+## Self-Check: PASSED
+
+- frontend/tests/e2e/sessions-compare.spec.ts → FOUND (113 LOC on disk + tracked in commit 166e235)
+- .planning/phases/17-polish-doctor-tests/17-04-SUMMARY.md → FOUND (this file)
+- .planning/phases/17-polish-doctor-tests/deferred-items.md → FOUND
+- git commit 166e235 (test) → FOUND on main
+- git commit 97ced92 (docs) → FOUND on main
+- Test verification: `cd frontend && npm run test:e2e -- sessions-compare.spec.ts --reporter=list` → 1 passed in 1.8s
+- STATE.md Plan 17-04 entry → FOUND (incorporated into shared history via 8614355)
+- ROADMAP.md row for 17-04 → checked `[x]` (already in shared history via 8614355's docs commit)
+- REQUIREMENTS.md not modified → confirmed (deferred to 17-06 per single-writer wave-2 convention)
