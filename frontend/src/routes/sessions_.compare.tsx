@@ -1,0 +1,73 @@
+// Session compare page (URL `/sessions/compare?a={uuid}&b={uuid}`) — first
+// `validateSearch` use in the codebase (Phase 16 Plan 02).
+//
+// FILENAME CHOICE (`sessions_.compare.tsx`, NOT `sessions.compare.tsx`):
+//   The trailing-underscore convention opts the route OUT of the parent
+//   layout (TanStack Router flat-routing — same precedent as
+//   `skills_.$name.tsx` Phase 14 Plan 05). There is no `routes/sessions.tsx`
+//   parent today, so the underscore is technically optional — but the lock
+//   in 16-02-PLAN.md decisions §1 keeps it for forward compat: if a future
+//   sessions index page lands at `routes/sessions.tsx`, the underscore
+//   prevents silent nesting and keeps `/sessions/compare` rendering its
+//   own page rather than an empty <Outlet/> placeholder.
+//
+// SEARCH-PARAM VALIDATION:
+//   Hand-written validator — NO zod, NO valibot (verified absent from
+//   package.json; this is the FIRST validateSearch use in the codebase, so
+//   adding a schema lib would be unjustified surface). Both `a` and `b` must
+//   be canonical UUIDv4-shape (lowercase 8-4-4-4-12 hex with dashes — case-
+//   insensitive). Anything else strips to `undefined` so the page never sends
+//   bad params to the backend (defense in depth: backend also rejects with
+//   400 on malformed UUID — see backend/cmc/api/routes/sessions.py:_UUID_RE
+//   + Phase 16 Plan 01 SUMMARY error contract).
+
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { SessionCompareView } from '../components/panels/SessionCompareView'
+
+type CompareSearch = { a?: string; b?: string }
+
+const UUID_RE =
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
+
+function validateSearch(raw: Record<string, unknown>): CompareSearch {
+  const a =
+    typeof raw.a === 'string' && UUID_RE.test(raw.a) ? raw.a : undefined
+  const b =
+    typeof raw.b === 'string' && UUID_RE.test(raw.b) ? raw.b : undefined
+  return { a, b }
+}
+
+function SessionComparePage() {
+  const { a, b } = Route.useSearch()
+  return (
+    <section className="cmc-page" aria-labelledby="session-compare-heading">
+      <header className="cmc-page__header">
+        <Link
+          to="/activity"
+          className="cmc-label"
+          style={{ color: 'var(--cmc-text-subtle)', textDecoration: 'none' }}
+        >
+          {'←'} Back to Activity
+        </Link>
+        <span className="cmc-label" style={{ color: 'var(--cmc-text-subtle)' }}>
+          Sessions • Compare
+        </span>
+        <h1
+          id="session-compare-heading"
+          className="cmc-page__heading cmc-page__heading--gradient"
+        >
+          Session Compare
+        </h1>
+        <p className="cmc-page__subheading">
+          Two-up paired metrics, skill-set diff, and tool-counts comparison.
+        </p>
+      </header>
+      <SessionCompareView a={a} b={b} />
+    </section>
+  )
+}
+
+export const Route = createFileRoute('/sessions_/compare')({
+  validateSearch,
+  component: SessionComparePage,
+})
