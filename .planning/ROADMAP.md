@@ -120,8 +120,8 @@ Plans:
   3. User can pick the second session via Cmd+K "Compare with…" action (extends existing `CommandPalette`) or via a "Compare with…" row action on the sessions table.
   4. User can compare sessions up to 500 tool calls each; sessions exceeding the cap render a "session too long for full diff" fallback with summary metrics only.
   5. User can trust that comparison shows structured tabular data only — no text/code diff library, no raw LLM message content rendered.
-**Plans**: 4 plans
-- [ ] 16-01-PLAN.md — Backend `GET /api/sessions/compare` endpoint + Pydantic v2 schemas + 10-test pytest coverage (TDD)
+**Plans**: 4 plans (1/4 executed)
+- [x] 16-01-PLAN.md — Backend `GET /api/sessions/compare` endpoint + Pydantic v2 schemas + 10-test pytest coverage (TDD) (commits 102c7d6 + b506804, 2026-05-05; full backend suite 540 → 550 with zero regressions)
 - [ ] 16-02-PLAN.md — Frontend `/sessions/compare` route (validateSearch UUID validator) + extracted `SessionCompareView` panel + `useSessionCompare` hook + vitest coverage
 - [ ] 16-03-PLAN.md — Cmd+K context-aware "Compare with…" action + SessionsTable per-row Compare button + vitest
 - [ ] 16-04-PLAN.md — Browser human-verify checkpoint (8 manual checks across CMPR-01..05)

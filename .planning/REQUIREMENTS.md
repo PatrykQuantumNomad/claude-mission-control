@@ -56,10 +56,10 @@
 
 ### Session Comparison
 
-- [ ] **CMPR-01**: User can hit `GET /api/sessions/compare?a={sid}&b={sid}` returning paired metrics payload (skill set diff, tool counts, token totals, computed cost from `cmc/cost/engine.py`, outcome row, duration) — single round-trip, no client-side aggregation
+- [x] **CMPR-01**: User can hit `GET /api/sessions/compare?a={sid}&b={sid}` returning paired metrics payload (skill set diff, tool counts, token totals, computed cost from `cmc.pricing` — Plan 16-01 deviation: REQUIREMENTS text said `cmc/cost/engine.py` but actual module is `cmc.pricing` per Phase 13 Plan 01; Plan 16-04 docs scope cleans up the citation, outcome row, duration) — single round-trip, no client-side aggregation
 - [ ] **CMPR-02**: User can navigate to `/sessions/compare?a=&b=` (URL state as source of truth, deep-linkable) showing a two-up `SessionCompareView` with summary metrics + skill-set diff
 - [ ] **CMPR-03**: User can pick the comparison target via Cmd+K "Compare with…" action (extends existing `CommandPalette`) and via a "Compare with…" row action on the sessions table
-- [ ] **CMPR-04**: User can compare sessions up to 500 tool calls each; sessions exceeding the cap show a "session too long for full diff" fallback with summary metrics only
+- [x] **CMPR-04**: User can compare sessions up to 500 tool calls each; sessions exceeding the cap show a "session too long for full diff" fallback with summary metrics only (Plan 16-01: HTTP 200 + `over_cap=true` + `tool_counts={}` on the over-cap side, summary KPIs still present, top-level `over_cap` and `cap=500` echoed for client copy; render branch, NOT 413/422 refusal)
 - [ ] **CMPR-05**: User can see structured tabular comparison only — recharts side-by-side panels, NOT a text/code diff library; raw LLM message content is excluded by design
 
 ### Polish, Doctor, Tests
@@ -159,10 +159,10 @@ Which phases cover which requirements. Populated by gsd-roadmapper on 2026-05-02
 | ALRT-10 | Phase 15 | Complete |
 | ALRT-11 | Phase 15 | Complete |
 | ALRT-12 | Phase 15 | Complete |
-| CMPR-01 | Phase 16 | Pending |
+| CMPR-01 | Phase 16 | Complete (Plan 16-01) |
 | CMPR-02 | Phase 16 | Pending |
 | CMPR-03 | Phase 16 | Pending |
-| CMPR-04 | Phase 16 | Pending |
+| CMPR-04 | Phase 16 | Complete (Plan 16-01) |
 | CMPR-05 | Phase 16 | Pending |
 | POLI-01 | Phase 17 | Pending |
 | POLI-02 | Phase 17 | Pending |
