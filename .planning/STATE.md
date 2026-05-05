@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Depth & Polish
-status: Plan 02 (`18-02-utcnow-sweep`) shipped; POLI-06 dual gate green (ruff --select UP + git grep both 0). Plan 05 is the only remaining Phase 18 plan.
-stopped_at: Plan 02 (utcnow sweep) complete; Plan 05 is the only remaining Phase 18 plan (baseline-and-phase-close).
-last_updated: "2026-05-05T21:02:27.849Z"
-last_activity: 2026-05-05 — Plan 02 executed (commit c3d792f atomic D-Sweep, 22 call sites migrated, POLI-06 dual gate green, pytest 566 unchanged, 0 deprecation warnings); SUMMARY written
+status: Phase 18 complete (5/5 plans shipped); BASELINE.md is the canonical reference for v1.2 phases 19+ verifiers
+stopped_at: Phase 18 (Polish & Carry-Forward Cleanup) complete; ready for Phase 19.
+last_updated: "2026-05-05T21:17:41.139Z"
+last_activity: 2026-05-05 — Plan 05 executed (commit eb65e1c BASELINE.md recorded: pytest 566/0/32, vitest 293/0, playwright 7/1/0, datetime.utcnow warnings ~1429 → 0, net-zero deps); SUMMARY written; all 4 ROADMAP success criteria green
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 4
-  percent: 80
+  completed_plans: 5
+  percent: 100
 ---
 
 # Project State
@@ -26,12 +26,12 @@ See: .planning/PROJECT.md (updated 2026-05-05 after v1.1 ship)
 
 ## Current Position
 
-Phase: 18 — Polish & Carry-Forward Cleanup (in progress, 4/5 plans complete)
-Plan: 18-05 (baseline-and-phase-close) is next
-Status: Plan 02 (`18-02-utcnow-sweep`) shipped; POLI-06 dual gate green (ruff --select UP + git grep both 0)
-Last activity: 2026-05-05 — Plan 02 executed (commit c3d792f atomic D-Sweep, 22 call sites migrated, POLI-06 dual gate green, pytest 566 unchanged, 0 deprecation warnings); SUMMARY written
+Phase: 18 — Polish & Carry-Forward Cleanup (complete, 5/5 plans shipped)
+Plan: All Phase 18 plans complete; Phase 19 is next
+Status: Phase 18 complete; BASELINE.md is the canonical reference for v1.2 phases 19+ verifiers
+Last activity: 2026-05-05 — Plan 05 executed (commit eb65e1c BASELINE.md recorded: pytest 566/0/32, vitest 293/0, playwright 7/1/0, datetime.utcnow warnings ~1429 → 0, net-zero deps); SUMMARY written; all 4 ROADMAP success criteria green
 
-Progress: [████████░░] 80%
+Progress: [██████████] 100%
 
 ## Accumulated Context
 
@@ -57,6 +57,21 @@ Phase 18 Plan 03 (SchedulesCard determinism, POLI-07):
 - **Test factories MUST default time-dependent fields to a sentinel ('never run' = `null`), never a hard-coded ISO string.** Hard-coded ISO defaults age with calendar time and silently flip "fresh" fixtures to "stale" — exactly the bit-rot that broke `SchedulesCard.test.tsx > stale row` 8 days after the original timestamp was written.
 - **No cleanup-sweep migrations beyond SchedulesCard.** Audited 9 other component tests using `Date.now()`; all use it for relative timestamps without threshold/boundary assertions, so no flake risk. `RelativeTime.test.tsx` and `EmergencyStopBanner.test.tsx` left untouched per Pitfall 3 (load-bearing useFakeTimers usage).
 
+Phase 18 Plan 04 (Playwright strict-mode + e2e README, POLI-08):
+
+- **`data-testid` lives on the source React component, not test-only wrappers.** `data-testid="schedule-composer-name"` ships on `ScheduleComposer.tsx:193`. Specs reach it via `page.getByTestId('feature-component-element')`. Test wrappers were rejected to avoid render-layer maintenance burden.
+- **`feature-component-element` kebab-case path-style is the locked testid convention** (e.g., `schedule-composer-name`, `alerts-firehose-skill-filter`, `skills-detail-projects-table`). Documented in `frontend/tests/e2e/README.md` (NOT `CONTRIBUTING.md`) per CONTEXT D-Documentation-location lock — rule lives next to the tooling that enforces it.
+- **Decorate only when strict mode collides — pre-decoration is anti-pattern.** Full-suite strict-mode run found exactly one collision (`getByLabel('Name')` matched both ScheduleComposer wrap and SkillTimeline aria-label). Only that selector got a testid; `getByLabel('Advanced cron')`, `getByRole('button', {name: 'Create schedule'})`, `getByRole('button', {name: '+ New'})` all stayed as-is.
+- **Steady-state alerts.spec.ts skip preserved (Pitfall 6).** README documents that "1 skipped" (alerts TEST-05a) is the baseline so verifiers don't regress on it.
+
+Phase 18 Plan 05 (baseline-and-phase-close, phase-exit artifact):
+
+- **BASELINE.md lives in the phase directory, not at `.planning/` root.** Per CONTEXT D-Verifier-baseline. A future "Phase 24 Polish v2" or similar would write its own baseline in *its* phase directory rather than mutating Phase 18's frozen baseline.
+- **Verifier rules embedded as prose-with-bounds inside BASELINE.md** (e.g., `passed >= 566 → pass`, `warnings_datetime_utcnow > 0 → fail`, `total_warnings > 132 → warn`). Single source of truth: a downstream verifier reads one file and gets both the baseline counts AND the comparison thresholds.
+- **Warning-delta is a load-bearing baseline metric.** Pytest total warnings (32) AND `datetime.utcnow`-specific warnings (0) are both recorded; the second is the load-bearing POLI-06 reverse-direction signal; the first gives a 100-warning headroom before flagging an investigation.
+- **Dev-DB context capture for state-dependent skips.** Recorded `failed_tasks_total=1` and `failed_tasks_recent_5min=0` to explain the alerts.spec.ts steady-state skip. Lets future verifiers distinguish "baseline preserved" from "state drifted" (skipped >= 2 → human review).
+- **Even ad-hoc inspection scripts respect the POLI-06 ban.** The dev-DB capture script uses `cmc.core.time.now_utc` (not `datetime.utcnow`) — structural enforcement is across the codebase, not just shipped code.
+
 v1.2 roadmap-time decisions:
 
 - **Phase 22 is spike-gated for SKLP-11.** Phase opens with a mandatory feasibility spike (`tools` temporal JOIN against `skill_activated.duration_ms`); negative finding descopes SKLP-11 to v1.3 cleanly without blocking Phase 23. No fake decomposition ships under any circumstance (PITFALLS Pitfall 10).
@@ -75,14 +90,13 @@ v1.1 carried decisions (still active):
 - CMPR-04 over-cap = render branch (HTTP 200 + `over_cap=true`), not error branch
 - CMPR-05 tabular-only compare (no diff library, no raw message rendering)
 - Wave-1/wave-2 single-writer convention for REQUIREMENTS.md
-- [Phase ?]: Phase 18 Plan 04: data-testid on source React components per feature-component-element kebab-case; documented in frontend/tests/e2e/README.md (NOT CONTRIBUTING.md). Decorate only when strict-mode collides.
 
 ### Pending Todos
 
-- Execute Phase 18 Plan 05 (`18-05-baseline-and-phase-close`) — refresh BASELINE.md (suite-wide warning count and pass-count baselines now that 308 fewer pytest warnings emit + the 4 unique `datetime.datetime.utcnow` deprecation sources are gone), update REQUIREMENTS.md traceability table, run phase verifier hooks, and close Phase 18.
-- Phase 22 plan front-matter MUST cite SQL columns or temporal-JOIN derivation source for body_ms / subagent_ms / tool_ms before any UI work begins (Pitfall 10 acceptance criterion).
 - Phase 19 plan owns migration `0003_project_key` (sessions.project_key VARCHAR(12), backfill, index).
+- Phase 22 plan front-matter MUST cite SQL columns or temporal-JOIN derivation source for body_ms / subagent_ms / tool_ms before any UI work begins (Pitfall 10 acceptance criterion).
 - Phase 23 closes the milestone — audit hooks (full pytest + vitest + playwright green; `cmc doctor` clean; REQUIREMENTS.md traceability 13/13 or honest 12/13 + descope) belong in the final phase plan.
+- v1.2 verifiers (Phase 19+) MUST read `.planning/phases/18-polish-carry-forward-cleanup/BASELINE.md` at phase-close time and apply the embedded per-suite verifier rules (pytest >= 566, vitest >= 293, playwright >= 7, `warnings_datetime_utcnow > 0` → fail).
 
 ### Blockers/Concerns
 
@@ -116,13 +130,13 @@ Two operational human-verify items still carry forward (non-blocking, auto-disch
 
 **v1.0 baseline:** 47 plans, 4 days (2026-04-25 → 2026-04-28), ~39,800 LOC.
 **v1.1:** 28 plans, 4 days (2026-05-02 → 2026-05-05), +81,397 / -13,435 lines vs v1.0, ~56,232 LOC at close.
-**v1.2:** Phases 18–23 defined (6 phases, 13 requirements). Phase 18: 4/5 plans complete (Plan 01 ~10 min, Plan 02 ~42 min, Plan 03 ~3 min, Plan 04). Backend pytest baseline at 561 → post-Plan-01 at 566 (5 new helper tests). Plan 02 swept 22 `datetime.utcnow` call sites onto `now_utc` (commit c3d792f, atomic D-Sweep): pytest 566 unchanged, total warnings 340 → 32 (308 fewer), 4 unique `datetime.datetime.utcnow` deprecation sources → 0. POLI-06 dual gate (ruff --select UP + git grep) green. Plan 03 (~3 min) flipped vitest 1 fail → 0 fail (293 pass) and TZ-pinned `SchedulesCard.test.tsx > stale row`.
+**v1.2:** Phases 18–23 defined (6 phases, 13 requirements). **Phase 18 complete (5/5 plans, 2026-05-05)**: Plan 01 ~10 min (cmc.core.time helper + 5 unit tests), Plan 02 ~42 min (atomic 22-site sweep `datetime.utcnow` → `now_utc`, commit c3d792f), Plan 03 ~3 min (`vi.spyOn(Date, 'now')` pin in SchedulesCard.test.tsx), Plan 04 ~5 min (Playwright strict-mode disambiguation + e2e/README.md), Plan 05 ~9 min (BASELINE.md phase-exit artifact). Final phase-18 baseline: backend pytest 566 passed / 0 failed / 32 warnings / 0 datetime.utcnow lines; frontend vitest 293 passed / 66 files; Playwright 7 passed / 1 skipped (alerts steady-state) / 0 failed. Pytest deprecation-warning delta ~1429 → 0. Net-zero dependency change across the phase. POLI-06/POLI-07/POLI-08 all green; BASELINE.md (`.planning/phases/18-polish-carry-forward-cleanup/BASELINE.md`) is the canonical reference for v1.2 phases 19+ verifiers.
 **Cumulative:** 75 plans across 17 phases (11 v1.0 + 6 v1.1) over 8 calendar days of active development pre-v1.2.
 
 ## Session Continuity
 
-Last session: 2026-05-05T21:02:27.842Z
-Stopped at: Plan 02 (utcnow sweep) complete; Plan 05 is the only remaining Phase 18 plan (baseline-and-phase-close).
+Last session: 2026-05-05T21:17:38.092Z
+Stopped at: Phase 18 (Polish & Carry-Forward Cleanup) complete; ready for Phase 19. BASELINE.md is canonical reference for v1.2 phases 19+ regressions.
 Resume file: None
 
 ---

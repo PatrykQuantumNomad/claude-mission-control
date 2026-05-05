@@ -43,7 +43,7 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 
 ### 🚧 v1.2 Depth & Polish (Phases 18–23) — ACTIVE
 
-- [ ] **Phase 18: Polish & Carry-Forward Cleanup** — Discharge v1.1 carried debt; green CI baseline before feature work (POLI-06, POLI-07, POLI-08)
+- [x] **Phase 18: Polish & Carry-Forward Cleanup** — Discharge v1.1 carried debt; green CI baseline before feature work (POLI-06, POLI-07, POLI-08) (completed 2026-05-05)
 - [ ] **Phase 19: Skills Per-Project, Deltas & Badges** — Per-project breakdown, period-over-period deltas, new/dormant badges; ships migration `0003_project_key` (SKLP-08, SKLP-09, SKLP-10)
 - [ ] **Phase 20: Cost Forecast & Per-Project Card** — Monthly forecast (linear OLS) and per-project cost breakdown card; consumes `project_key` from Phase 19 (ANLY-06, ANLY-07)
 - [ ] **Phase 21: Alert Anomaly Depth & NL Authoring** — Sliding-window anomaly detection extension and Haiku-backed NL alert authoring (ALRT-13, ALRT-14)
@@ -66,7 +66,7 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
   - [x] 18-02-utcnow-sweep-PLAN.md — Mechanical sweep of all 22 `datetime.utcnow` call sites (20 Field defaults + 2 inline calls); dual verify gate (ruff UP + git grep zero) + drop ~1429 deprecation warnings to 0
   - [x] 18-03-schedules-card-determinism-PLAN.md — Migrate `SchedulesCard.test.tsx > stale row` to `vi.spyOn(Date, 'now')` + fix bit-rotted fixture; verify under TZ=UTC and TZ=America/New_York at 23:55 boundary — completed 2026-05-05
   - [x] 18-04-playwright-strict-mode-and-readme-PLAN.md — Add `data-testid` to source components for the strict-mode collision in schedule-composer; create `frontend/tests/e2e/README.md` documenting the `feature-component-element` convention
-  - [ ] 18-05-baseline-and-phase-close-PLAN.md — Record `BASELINE.md` (pytest/vitest/playwright counts + deprecation-warning delta) for Phase 19+ verifier comparison; confirm all 4 ROADMAP success criteria green
+  - [x] 18-05-baseline-and-phase-close-PLAN.md — Record `BASELINE.md` (pytest/vitest/playwright counts + deprecation-warning delta) for Phase 19+ verifier comparison; confirm all 4 ROADMAP success criteria green
 
 ### Phase 19: Skills Per-Project, Deltas & Badges
 **Goal**: User can drill into any skill on `/skills/$name` and see *where* it runs (per-project breakdown), *how its trajectory is changing* (period-over-period deltas), and *whether it's freshly active or going dormant* (badges) — backed by a normalized `project_key` that prevents cwd cardinality blowup and path leakage.
@@ -153,7 +153,7 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 | 15. Alert Engine & UI | v1.1 | 5/5 | Complete | 2026-05-04 |
 | 16. Session Comparison | v1.1 | 4/4 | Complete | 2026-05-05 |
 | 17. Polish, Doctor & Tests | v1.1 | 6/6 | Complete | 2026-05-05 |
-| 18. Polish & Carry-Forward Cleanup | v1.2 | 4/5 | In Progress|  |
+| 18. Polish & Carry-Forward Cleanup | v1.2 | 5/5 | Complete   | 2026-05-05 |
 | 19. Skills Per-Project, Deltas & Badges | v1.2 | 0/? | Not started | — |
 | 20. Cost Forecast & Per-Project Card | v1.2 | 0/? | Not started | — |
 | 21. Alert Anomaly Depth & NL Authoring | v1.2 | 0/? | Not started | — |
