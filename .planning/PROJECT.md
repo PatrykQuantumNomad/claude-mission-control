@@ -14,15 +14,19 @@ A solo Claude Code developer can see what every agent session is doing, how toke
 
 **v1.1 Skills & Cost Intelligence shipped 2026-05-05** at git `af6d308` — 4-day milestone (2026-05-02 → 2026-05-05), 6 phases (12–17), 28 plans, 666 files changed vs v1.0, +81,397 / -13,435 lines. ~56,232 LOC at close (~35,700 Python + ~20,500 TypeScript/TSX). Test suites green at close: 552 backend + 292 frontend + 8 Playwright e2e specs. Audit re-verified 41/41 v1.1 requirements + 6/6 phases + 9/9 cross-phase integration + 6/6 E2E flows.
 
-## Next Milestone Goals (TBD)
+## Current Milestone: v1.2 Depth & Polish
 
-Define via `/gsd:new-milestone`. Carried backlog candidates:
+**Goal:** Differentiate the four v1.1 lanes (skills / cost / alerts / compare) from baseline observability into a polished, opinionated tool — and discharge accumulated polish/test-flake debt in a dedicated cleanup phase.
 
-- **Skill polish (v1.2 candidates):** SKLP-08 per-project breakdown, SKLP-09 period-over-period deltas, SKLP-10 "new this week" / "dormant" badges, SKLP-11 per-skill latency overhead breakdown
+**Target features:**
+
+- **Skills polish:** SKLP-08 per-project breakdown, SKLP-09 period-over-period deltas, SKLP-10 "new this week" / "dormant" badges, SKLP-11 per-skill latency overhead breakdown
 - **Cost differentiators:** ANLY-06 monthly cost forecast (linear extrapolation), ANLY-07 per-project cost breakdown card
 - **Alert differentiators:** ALRT-13 full anomaly detection (rolling mean ± stddev), ALRT-14 NL-authored alert rules via Haiku
 - **Compare differentiators:** CMPR-06 per-skill latency delta in compare view, CMPR-07 Cmd+K "compare with previous session" shortcut
-- **Platform / automation:** PLAT-01 Linux/systemd support, AUTO-01..03 NL schedules beyond cron, auto-retry, task dependencies
+- **Polish / cleanup:** stabilize `SchedulesCard.test.tsx` time-of-day flake, fix `schedule-composer.spec.ts` aria-label collision, REQUIREMENTS.md cosmetic checkbox cleanup, replace `Field(default_factory=datetime.utcnow)` deprecation, plus any v1.1 carried debt surfaced during planning
+
+**Out of scope for this milestone (deferred to v2 / TBD):** PLAT-01 Linux/systemd support, AUTO-01..03 (NL schedules beyond cron, auto-retry, task dependencies)
 
 ## Requirements
 
@@ -88,7 +92,7 @@ Define via `/gsd:new-milestone`. Carried backlog candidates:
 
 ### Active
 
-(Next milestone TBD — see "Next Milestone Goals" above. Run `/gsd:new-milestone` to define requirements.)
+v1.2 Depth & Polish — see "Current Milestone" section above. Detailed REQ-IDs land in `.planning/REQUIREMENTS.md` once requirements step completes.
 
 ### Out of Scope
 
@@ -211,4 +215,4 @@ Hysteresis-aware threshold + EWMA z-score detector (stdlib `math` only). Stable 
 
 ---
 
-*Last updated: 2026-05-05 after v1.1 Skills & Cost Intelligence milestone shipped*
+*Last updated: 2026-05-05 after v1.2 Depth & Polish milestone start*
