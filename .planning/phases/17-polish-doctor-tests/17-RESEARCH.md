@@ -519,32 +519,39 @@ webServer: [
 | A4 | Frontend Playwright tests run against the developer's existing `data/cmc.db` (no test-DB reset in `playwright.config.ts`) | Pitfall 6 | If a CI environment runs e2e against a fresh DB, TEST-05b fails — needs conditional skip or seeding |
 | A5 | The phrase "stale pricing rows (>30 days)" in POLI-01 maps to the existing 30-day threshold in `_check_pricing_freshness` (verified at doctor.py:382) — not a different / stricter threshold | POLI-01 audit | If the user wants a stricter threshold (e.g., 14 days), an in-code change is needed |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> All five questions were resolved during planning (2026-05-05). Resolutions are baked into the plan files referenced below. This section is preserved as a research-trail audit so future readers can see what was unclear at research time and how planning reconciled it.
 
 1. **POLI-05 interpretation: companion HTML guide vs. inside-repo docs?**
    - What we know: `build-your-own-dashboard-guide.html` is referenced in `.planning/PROJECT.md:94` and `REQUIREMENTS.md:72` but does not exist in the repo file tree (verified via `find`). The README.md and `backend/.env.example` ARE the de-facto in-repo docs for v1.0 builders.
    - What's unclear: Whether the plan should (a) update README + .env.example only, or (b) treat the HTML as a from-scratch deliverable in-repo.
    - Recommendation: Surface to user with explicit phrasing — "POLI-05 references `build-your-own-dashboard-guide.html` which is not in this repo. Should we (a) update README + .env.example to reflect v1.1, or (b) author the HTML guide here as a new artifact?" Default to (a). Plan as (a) unless user picks (b).
+   - **RESOLVED** — README + .env.example only; companion HTML guide is out-of-repo per planner bake-in (see 17-05 Task 3 — POLI-05 companion-guide-out-of-repo sub-bullet, now flipped through 17-06 single-writer plan).
 
 2. **Does Phase 15 ship an in-UI ack button on `/alerts`?**
    - What we know: ALRT-08 ships ack via Telegram callback (`ack_alert` verb → `POST /api/alerts/_ack`). The Phase 15 verify table at line 27 doesn't explicitly mention a UI ack button — only the AlertEventsList rendering events.
    - What's unclear: Whether TEST-05a's "ack" step exercises a UI button or whether the test should POST directly to `/api/alerts/_ack`.
    - Recommendation: Plan-time grep `frontend/src/components/panels/AlertEventsList.tsx` and `AlertRulesList.tsx` for "ack" / "Ack" / `ackAlert`. If found → click via Playwright. If not found → test posts to `/api/alerts/_ack` and asserts state pill flips on the events list refresh.
+   - **RESOLVED** — no in-UI ack button; planner verified via reading `frontend/src/components/.../AlertEventsList.tsx`. Test 17-03 acks via `POST /api/alerts/_ack` directly.
 
 3. **POLI-04 already-shipped? Confirm with planner before authoring redundant tests.**
    - What we know: `test_evaluate_alerts_threshold_fires_once:210` already asserts 1 decision + 1 notification_log. `test_heartbeat_hook_calls_evaluate_alerts:651` exercises through `run_one_cycle()`.
    - What's unclear: Whether POLI-04 wants a *new* test case explicitly named with `POLI-04` traceability, or whether retagging the existing two with a docstring backreference suffices.
    - Recommendation: Adopt the lighter option (retag existing tests with `POLI-04 traceability` in docstrings + extend `test_heartbeat_hook_calls_evaluate_alerts` to also assert `_count_notification_log == 1`). If verifier insists on a new test by name, add a parametric variant later.
+   - **RESOLVED** — retag + 1-line `_count_notification_log == 1` assertion in `test_heartbeat_hook_calls_evaluate_alerts` per 17-01 Task 2.
 
 4. **Does `POST /api/dispatcher/trigger` return synchronously after the tick completes?**
    - What we know: The endpoint is registered (Make target `make sync` calls `cmc sync` which POSTs here). It's used by the dashboard's "Run sync" button.
    - What's unclear: Whether it `await`s `run_one_cycle()` inline (synchronous response after tick) or fires-and-forgets (returns 200 immediately, tick runs in background).
    - Recommendation: Plan-time read `cmc/api/routes/system.py` (or wherever `/dispatcher/trigger` is mounted) to confirm. If sync → TEST-05a is straightforward. If async → TEST-05a needs `await page.waitForResponse(/.*\/api\/alerts\/events/)` or a poll loop.
+   - **RESOLVED** — async (HTTP 202 + detached subprocess via `start_new_session=True`); planner verified by reading `backend/cmc/api/routes/tasks.py:281`. Test 17-03 polls 35s through one full 30s `refetchInterval` cycle.
 
 5. **TEST-05b session seeding — does the test require pre-seeded sessions, or is `POST /api/sync` enough?**
    - What we know: `POST /api/sync` ingests JSONL from `~/.claude/projects/`. On a developer machine with active Claude Code sessions, this populates the DB. On a fresh CI, there are no JSONLs → no sessions.
    - What's unclear: Whether Phase 17 wants TEST-05b to be CI-resilient (with seeding) or developer-resilient (skip if <2 sessions).
    - Recommendation: Skip-with-reason for now (`test.skip(sids.length < 2, 'requires ≥2 sessions')`) — matches the local-only nature of CMC per `README.md:91`. Re-evaluate when CI gets richer.
+   - **RESOLVED** — skip-with-reason when `sessions.length < 2`; no synthetic seeding (matches local-first per README:91). The same skip-with-reason pattern was extended to TEST-05a's preflight (skip when `dispatcher_failed_tasks_5m` would be 0 against the strict-greater detector — see 17-03 Task 1 preflight; planner-checker fix-option (c)).
 
 ## Project Constraints (from CLAUDE.md)
 
@@ -714,13 +721,15 @@ No `./CLAUDE.md` exists at the repo root [VERIFIED: ls /Users/patrykattc/work/gi
 | Architecture | HIGH | POLI-01 already maps to doctor.py at file:line; POLI-04 to test_alerts_dispatcher.py; TEST-05 to playwright.config.ts. Verbatim patterns available for POLI-02 (test_alerts_telegram.py:148) and POLI-03 (callback_verbs.py:26 enum iteration). |
 | Pitfalls | HIGH | Each pitfall references a verified file:line in HEAD or a previously-locked carry-forward decision. False-positive avoidance for the parse_mode regex is empirically testable against current HEAD. |
 
-### Open Questions
+### Open Questions (RESOLVED)
 
-1. POLI-05 interpretation — companion HTML (out-of-repo) vs README+.env.example (in-repo)? **Recommend (b); surface to user.**
-2. Does Phase 15 ship a UI ack button on `/alerts`, or is ack only via Telegram callback? **Plan-time grep `AlertEventsList.tsx` to confirm.**
-3. POLI-04 already shipped — retag existing tests vs author new? **Recommend retag + 1-line assertion add.**
-4. `POST /api/dispatcher/trigger` synchronous or async? **Plan-time read `cmc/api/routes/system.py` to confirm.**
-5. TEST-05b session seeding — skip-when-<2 vs synthetic seed? **Recommend skip-with-reason; revisit if CI gets richer.**
+> All five questions were resolved at planning time (2026-05-05). Full per-question resolutions live in the main "Open Questions (RESOLVED)" section above.
+
+1. POLI-05 interpretation — companion HTML (out-of-repo) vs README+.env.example (in-repo)? **RESOLVED — README + .env.example only (planner bake-in, see 17-05).**
+2. Does Phase 15 ship a UI ack button on `/alerts`, or is ack only via Telegram callback? **RESOLVED — no in-UI ack button; test 17-03 acks via /api/alerts/_ack directly.**
+3. POLI-04 already shipped — retag existing tests vs author new? **RESOLVED — retag + 1-line _count_notification_log == 1 assertion (17-01 Task 2).**
+4. `POST /api/dispatcher/trigger` synchronous or async? **RESOLVED — async (HTTP 202 + detached subprocess); test 17-03 polls 35s.**
+5. TEST-05b session seeding — skip-when-<2 vs synthetic seed? **RESOLVED — skip-with-reason; same pattern extended to 17-03 preflight (no recent failed task → skip).**
 
 ### Ready for Planning
 
