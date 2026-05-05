@@ -1,0 +1,108 @@
+# Requirements: Claude Mission Control
+
+**Defined:** 2026-05-05
+**Milestone:** v1.2 Depth & Polish
+**Core Value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, what each skill costs and how often it fails, queue and approve tasks, compare two sessions side-by-side, get paged when metrics breach thresholds, and kill runaway sessions — all from one browser tab without maintaining external infrastructure.
+
+## v1.2 Requirements
+
+13 requirements across 5 categories. All are P1 (table stakes) — closing visible gaps in v1.1 lanes during one-cycle daily use.
+
+### Skills Polish
+
+- [ ] **SKLP-08**: User can see per-project breakdown of skill usage on `/skills/$name` (sortable table by cost / latency / count; backed by `/api/skills/{name}/projects` endpoint; uses `project_key` normalization to prevent cwd cardinality blowup and path leakage)
+- [ ] **SKLP-09**: User can see period-over-period delta pills (7d-vs-prev-7d) for skill cost and usage count on TopSkills panel, SkillCostCard, and per-skill detail page (prev-period CTE, ↑/↓ pill with absolute delta + percent)
+- [ ] **SKLP-10**: User sees "new this week" / "dormant" badges on skills (backend-computed from `first_activated_at` / `last_activated_at`; thresholds: 7d for "new", 30d for "dormant"; cold-start suppression for skills <14 days old)
+- [ ] **SKLP-11**: User can see per-skill latency overhead breakdown (body / subagent / tool stacked bar) — **spike-gated**: Phase 22 opens with mandatory feasibility check via `tools` temporal JOIN against `skill_activated.duration_ms`; if derivation unreliable, descopes to v1.3
+
+### Cost Differentiators
+
+- [ ] **ANLY-06**: User sees monthly cost forecast on the cost dashboard (linear extrapolation, 14d rolling baseline, Decimal-only OLS, `insufficient_data` guard when <7 days elapsed; partial-month bias banner during week 1)
+- [ ] **ANLY-07**: User sees per-project cost breakdown card with cost and token volume by `project_key` over 7d/30d (UI-only addition; backend endpoint `/api/cost/breakdown?dim=project` already ships from Phase 13)
+
+### Alert Differentiators
+
+- [ ] **ALRT-13**: User can configure rolling-mean-±-stddev anomaly detection rules (extends `evaluate_anomaly` via `params_json.window_kind: "ewma" | "sliding"` discriminator inside the single function; Welford variance recurrence reused verbatim; warmup-boundary PENDING_FIRE guard; no new `kind` value, no parallel detector function)
+- [ ] **ALRT-14**: User can author alert rules in natural language via `POST /api/alerts/parse-nl` ("alert me when haiku skill p95 exceeds 5s for 10 minutes" → preview modal showing the parsed AlertRule → save). Mirrors `nlcron.py` / `skill_router.py` pattern: lazy AsyncAnthropic, `_SCOPE_EXTRACTORS` vocabulary in system prompt, hard-validation via `is_known_metric()`, returns `None` on hallucination (no fallback rule)
+
+### Compare Differentiators
+
+- [ ] **CMPR-06**: User sees per-skill latency delta in `/sessions/compare` view (extends `_build_compare_side` with `skill_latencies` dict; `low_sample_a` / `low_sample_b` flags suppress delta when sample count <30; respects existing CMPR-04 9-SQL-per-request budget and 200-with-flag over-cap fallback)
+- [ ] **CMPR-07**: User can jump from any session view to compare-with-previous via Cmd+K (`/api/sessions/{sid}/previous` endpoint returns most-recent same-cwd session with `ended_at IS NOT NULL`; cmdk context-aware action visible only when there is a previous session; reuses self-compare guard)
+
+### Polish & Cleanup
+
+- [ ] **POLI-06**: Replace deprecated `Field(default_factory=datetime.utcnow)` with naive-UTC helper across 18+ sites — centralized `cmc/core/time.py` helper returning `datetime.now(UTC).replace(tzinfo=None)` to preserve SQLite-compatible naive datetime; Pydantic v2 / Python 3.13 forward-compatible; `ruff check --select UP` passes
+- [ ] **POLI-07**: Stabilize `SchedulesCard.test.tsx > stale row` time-of-day flake — fix is `vi.spyOn(Date, 'now')` (NOT `vi.useFakeTimers`); test runs deterministically across all clock conditions
+- [ ] **POLI-08**: Disambiguate `schedule-composer.spec.ts` strict-mode aria-label collision with Phase 14 firehose `Filter skill name` control — establish `data-testid` convention for colliding controls; convention documented in repo (CONTRIBUTING or e2e README); both Playwright suites pass strict-mode
+
+## Future Requirements (deferred)
+
+### Skills (v1.3+)
+- **SKLP-12**: SKLP-11 percentile-split breakdown (p50 / p95 / p99 per overhead category) — only if SKLP-11 ships
+- **SKLP-13**: Heatmap toggle on per-project skill breakdown (alternative view)
+
+### Cost (v1.3+)
+- **ANLY-08**: Confidence band on monthly cost forecast (residual-stddev-derived ± range)
+- **ANLY-09**: Per-project cost budgets with alert integration
+
+### Alerts (v1.3+)
+- **ALRT-15**: Predictive alerts (forecast × anomaly combination — tabled until false-positive UX validated)
+- **ALRT-16**: NL queries beyond AlertRule schema (its own milestone; NL2SQL is a separate concern)
+
+### Compare (v1.3+)
+- **CMPR-08**: Sessions-table right-click "compare with previous" entry point (LOW differentiator)
+- **CMPR-09**: Per-skill cost delta (cost is currently rolled up; per-skill breakdown depends on Phase 14 panels)
+
+### Platform / Automation (v2.0+)
+- **PLAT-01**: Linux / systemd support (currently macOS-only)
+- **AUTO-01**: NL schedules beyond cron (e.g., "every business day at 9am unless I'm on PTO")
+- **AUTO-02**: Auto-retry policy for failed scheduled tasks
+- **AUTO-03**: Task dependencies (run B only after A succeeds)
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Multi-user collaboration | Locked v1.0 — single-user tool by design |
+| NL2SQL queries | Outside the AlertRule grammar; its own milestone if ever |
+| 3+ way session comparison | Locked v1.1 — layout collapses; Linear/Honeycomb/Langfuse all stop at 2 |
+| CSV / Parquet export | Localhost-only, browser is the surface; users can `.read .dump` SQLite directly |
+| Sankey diagrams for skill→tool flow | Density wins over diagram-style at this UI bar |
+| Per-project budgets that block invocation | Locked v1.1 — alerts are sensors, not actuators (ALRT-12 invariant) |
+| New top-level routes | v1.2 is depth, not breadth — every feature extends an existing page |
+| New external dependencies (numpy, scipy, pandas, instructor, date-fns) | STACK research confirmed zero new deps needed |
+| Cost stamping at ingest time | Locked v1.1 — read-time only; `/v1/logs` MUST always return 200 |
+| Cost stored as $ in DB | Locked v1.1 — tokens stored, $ computed at read time; pricing edits self-correct historical totals |
+| ALRT-13 as parallel detector function | PITFALLS-locked — extend `evaluate_anomaly`; never add a sibling or third `kind` |
+| ALRT-14 fallback rule on hallucination | PITFALLS-locked — return `None`; never ship a "best-guess" AlertRule |
+| Raw `cwd` as project grouping key | PITFALLS-locked — must use `project_key` (sha1 hash) to prevent cardinality blowup and path leakage |
+
+## Traceability
+
+Will be populated by roadmap creation (Phase 18–23 mapping).
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| SKLP-08 | (pending roadmap) | Pending |
+| SKLP-09 | (pending roadmap) | Pending |
+| SKLP-10 | (pending roadmap) | Pending |
+| SKLP-11 | (pending roadmap) | Pending |
+| ANLY-06 | (pending roadmap) | Pending |
+| ANLY-07 | (pending roadmap) | Pending |
+| ALRT-13 | (pending roadmap) | Pending |
+| ALRT-14 | (pending roadmap) | Pending |
+| CMPR-06 | (pending roadmap) | Pending |
+| CMPR-07 | (pending roadmap) | Pending |
+| POLI-06 | (pending roadmap) | Pending |
+| POLI-07 | (pending roadmap) | Pending |
+| POLI-08 | (pending roadmap) | Pending |
+
+**Coverage:**
+- v1.2 requirements: 13 total
+- Mapped to phases: 0 (roadmap pending)
+- Unmapped: 13 ⚠️
+
+---
+*Requirements defined: 2026-05-05*
+*Last updated: 2026-05-05 after initial definition*
