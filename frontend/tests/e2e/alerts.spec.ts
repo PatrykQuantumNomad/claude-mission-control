@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 // TEST-05a — /alerts lifecycle: create rule → fire → ack → cleanup.
 //
 // Architecture notes:
