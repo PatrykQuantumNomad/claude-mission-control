@@ -37,6 +37,7 @@ import type {
   RangeAll,
   ScheduleCreate,
   SchedulePatch,
+  SessionCompareResponse,
   SessionsListParams,
   SkillAutonomyRequest,
   SkillCostResponse,
@@ -104,6 +105,10 @@ export const qk = {
   // 'alert-*' keys (e.g. 'alert-state' if ever exposed to UI).
   alertRules: () => ['alert-rules'] as const,
   alertEvents: (range: AlertRange) => ['alert-events', range] as const,
+  // Phase 16 (CMPR-01..05) — session compare. Kebab-prefix per Pitfall 5
+  // from 14-RESEARCH.md: never reuse the bare 'sessions' prefix; that would
+  // invalidate compare on every session-list mutation.
+  sessionCompare: (a: string, b: string) => ['session-compare', a, b] as const,
   contextHealth: () => ['context', 'health'] as const,
   systemState: (key: string) => ['system', 'state', key] as const,
 } as const
@@ -293,6 +298,24 @@ export const useSkillRuns = (name: string, limit: number = 20) =>
     queryFn: () => api.skillRuns(name, limit),
     refetchInterval: 30_000,
     staleTime: 15_000,
+  })
+
+// Phase 16 (CMPR-01..05) — session compare. Two-side paired metrics +
+// skill-set diff. Locked to the 60s/45s daily-aggregate bucket: read-only
+// rollup over two specific sessions, doesn't need the 30s urgency tier of
+// alert events, and live sessions move via separate /sessions/live cadence.
+// `enabled: Boolean(a && b)` gate keeps the hook idle until both UUIDs are
+// present in the URL (validateSearch may strip malformed values to undefined).
+export const useSessionCompare = (
+  a: string | undefined,
+  b: string | undefined,
+) =>
+  useQuery<SessionCompareResponse>({
+    queryKey: qk.sessionCompare(a ?? '', b ?? ''),
+    queryFn: () => api.sessionCompare(a!, b!),
+    enabled: Boolean(a && b),
+    refetchInterval: 60_000,
+    staleTime: 45_000,
   })
 
 // ============================================================================

@@ -30,6 +30,7 @@ import {
   usePatchAlertRule,
   usePressure,
   useProductivity,
+  useSessionCompare,
   useSessionDetails,
   useSessionsList,
   useSkillCost,
@@ -175,7 +176,7 @@ describe('queries.qk factory', () => {
 // ---------------------------------------------------------------------------
 
 describe('queries surface area', () => {
-  it('exports the panel hooks + the mutations (Phase 15 adds 2 hooks + 4 mutations)', () => {
+  it('exports the panel hooks + the mutations (Phase 16 adds 1 hook: useSessionCompare)', () => {
     // Smoke test: importing the names succeeds. If any export is removed
     // or renamed, the import line at the top of this file would have
     // failed at module-load time. This test pins the surface explicitly
@@ -214,9 +215,11 @@ describe('queries surface area', () => {
       useDeleteAlertRule,
       useAckAlert,
       useFollowUpMessage,
+      // Phase 16 (CMPR-01..05) — 1 paired-session compare hook
+      useSessionCompare,
     ]
-    // 26 query hooks + 5 mutations (4 alert + 1 follow-up) = 31 callable exports
-    expect(exported).toHaveLength(31)
+    // 27 query hooks + 5 mutations (4 alert + 1 follow-up) = 32 callable exports
+    expect(exported).toHaveLength(32)
     for (const fn of exported) {
       expect(typeof fn).toBe('function')
     }

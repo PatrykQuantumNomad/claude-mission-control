@@ -149,6 +149,51 @@ export interface SessionDetailsResponse {
   tools: ToolTimelineEntry[]
 }
 
+// ----------------------------------------------------------------------------
+// Phase 16 — Session Compare (CMPR-01..05). Mirror backend Pydantic v2 schemas
+// in cmc/api/schemas/sessions.py (SessionCompareSide / SkillSetDiff /
+// SessionCompareResponse). cost_usd is DECIMAL-AS-JSON-STRING (Pydantic v2
+// default) — frontend MUST display via template literal (`$${cost_usd}`),
+// NEVER coerce via Number() (Phase 13/14/16 lock; Pitfall 1 in 16-RESEARCH).
+// ----------------------------------------------------------------------------
+
+export interface SessionCompareSide {
+  session_id: string
+  started_at: string
+  ended_at: string | null
+  duration_ms: number | null
+  cwd: string | null
+  model: string | null
+  source: string | null
+  outcome: string | null
+  tokens_input: number
+  tokens_output: number
+  tokens_cache_read: number
+  tokens_cache_create_5m: number
+  tokens_cache_create_1h: number
+  tool_call_count: number
+  message_count: number
+  cost_usd: string             // Decimal-string — NEVER Number()
+  skills_used: string[]
+  over_cap: boolean
+  tool_counts: Record<string, number>
+}
+
+export interface SkillSetDiff {
+  shared: string[]
+  only_a: string[]
+  only_b: string[]
+}
+
+export interface SessionCompareResponse {
+  a: SessionCompareSide
+  b: SessionCompareSide
+  skill_diff: SkillSetDiff
+  rates_as_of: string | null
+  over_cap: boolean
+  cap: number
+}
+
 export interface LiveSessionItem {
   session_id: string
   started_at: string
@@ -906,6 +951,11 @@ export const api = {
   },
   sessionDetails: (id: string) =>
     fetchJson<SessionDetailsResponse>(`/api/sessions/${encodeURIComponent(id)}/details`),
+  // Phase 16 (CMPR-01) — paired-session compare. Single-round-trip read.
+  sessionCompare: (a: string, b: string) =>
+    fetchJson<SessionCompareResponse>(
+      `/api/sessions/compare?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`,
+    ),
   sessionsLive: () => fetchJson<LiveSessionItem[]>('/api/sessions/live'),
   sessionLiveState: (sid: string) =>
     fetchJson<unknown>(`/api/sessions/live/${encodeURIComponent(sid)}/state`),
