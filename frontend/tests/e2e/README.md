@@ -126,9 +126,39 @@ for the presence of a recent failure before exercising the firehose; on
 most dev databases this condition is not met and the test reports
 `1 skipped`.
 
-**`1 skipped` is the steady-state baseline** for this spec on a clean dev
-database. Phase verifiers compare failed counts only, not skip counts —
-do not regress this spec into "fixing" the skip by mocking the dispatcher.
+`skills-detail.spec.ts` (SKLP-08/09/10, Phase 19 Plan 04) skips when the
+dev DB has no skills seeded — `/api/skills` returns an empty registry, so
+there is no skill name to drill into. Run `cmc start` and
+`POST /api/skills/sync` to ingest local Claude Code skills, then re-run.
+
+`cost-dashboard.spec.ts` (ANLY-06/07, Phase 20 Plan 04) may show up to 2
+skips on `cost-by-project-card-table has no path-leakage` and
+`7d→30d toggle fires a /api/cost/breakdown?range=30d request` when the
+dev DB has no `sessions.project_key != ''` rows for the current 7d
+window. The path-leakage assertion is structurally vacuous in that
+branch (the empty-state PanelCard renders no project keys to leak), and
+the RangeToggle trailing slot only mounts in the data branch — so the
+toggle test cannot fire a real refetch. Both skips degrade gracefully;
+the spec passes when seed data is present (one keyed session within 7d
+satisfies both). The first two tests
+(`opens /cost and mounts both panels`,
+`NavBar Cost link navigates from / to /cost`) are dev-DB-state-
+independent and ALWAYS pass.
+
+**`1-3 skipped` is the steady-state baseline** for this suite on a clean
+dev database. Phase verifiers compare failed counts only, not skip
+counts — do not regress these specs into "fixing" the skip by mocking
+state-dependent endpoints.
+
+**Steady-state Playwright baseline (Phase 20 close):**
+
+- Passed: ≥ 8 (Phase 19 floor 7 + Phase 20's `cost-dashboard.spec.ts` 4
+  tests minus up-to-2 conditional skips → effective floor 8 when no seed
+  data; floor 11 with seeded `project_key` rows).
+- Skipped: 1–3 (`alerts.spec.ts` steady-state +
+  `skills-detail.spec.ts` when no skill seeded + `cost-dashboard.spec.ts`
+  up-to-2 conditional skips when no `project_key` rows).
+- Failed: 0.
 
 ---
 
