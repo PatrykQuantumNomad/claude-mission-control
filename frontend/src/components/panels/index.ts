@@ -44,6 +44,10 @@ export { SkillRunsTable } from './SkillRunsTable'
 // Phase 19 Plan 04 — SKLP-08 per-project breakdown panel (composed below
 // SkillCostCard on /skills/$name; see routes/skills_.$name.tsx).
 export { SkillProjectsTable } from './SkillProjectsTable'
+// Phase 20 Plan 03 — ANLY-06 + ANLY-07 cost dashboard panels (composed on
+// the new /cost route; see routes/cost.tsx).
+export { CostForecastCard } from './CostForecastCard'
+export { CostByProjectCard } from './CostByProjectCard'
 // Phase 15 Plan 05 — ALRT-10 alert engine UI panels (composed inside the
 // new /alerts file-based route).
 export { AlertEventsList } from './AlertEventsList'
