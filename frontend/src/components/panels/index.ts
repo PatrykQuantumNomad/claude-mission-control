@@ -41,6 +41,9 @@ export { SkillTimeline } from './SkillTimeline'
 // Phase 14 Plan 05 — SKIL-07 per-skill recent invocations panel (composed
 // inside the new /skills/$name dynamic route).
 export { SkillRunsTable } from './SkillRunsTable'
+// Phase 19 Plan 04 — SKLP-08 per-project breakdown panel (composed below
+// SkillCostCard on /skills/$name; see routes/skills_.$name.tsx).
+export { SkillProjectsTable } from './SkillProjectsTable'
 // Phase 15 Plan 05 — ALRT-10 alert engine UI panels (composed inside the
 // new /alerts file-based route).
 export { AlertEventsList } from './AlertEventsList'

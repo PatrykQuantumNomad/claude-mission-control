@@ -32,6 +32,7 @@ import { createFileRoute, Link, useParams } from '@tanstack/react-router'
 import { KpiTile } from '../components/ui'
 import {
   SkillCostCard,
+  SkillProjectsTable,
   SkillRunsTable,
 } from '../components/panels'
 import { useSkillLatency } from '../lib/queries'
@@ -165,6 +166,10 @@ function SkillDetailPage() {
       </header>
       {/* Single-column stack — each panel is wide enough on its own. */}
       <SkillCostCard name={name} />
+      {/* Phase 19 Plan 04 — SKLP-08 per-project breakdown. Range mirrors
+       * SkillLatencySnapshot's '14d' default (the panel manages its own
+       * sort state but inherits range from the page composition). */}
+      <SkillProjectsTable name={name} range="14d" />
       <SkillLatencySnapshot name={name} />
       <SkillRunsTable name={name} />
     </section>
