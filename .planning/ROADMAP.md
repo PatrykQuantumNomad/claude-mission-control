@@ -44,7 +44,7 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 ### 🚧 v1.2 Depth & Polish (Phases 18–23) — ACTIVE
 
 - [x] **Phase 18: Polish & Carry-Forward Cleanup** — Discharge v1.1 carried debt; green CI baseline before feature work (POLI-06, POLI-07, POLI-08) (completed 2026-05-05)
-- [ ] **Phase 19: Skills Per-Project, Deltas & Badges** — Per-project breakdown, period-over-period deltas, new/dormant badges; ships migration `0003_project_key` (SKLP-08, SKLP-09, SKLP-10)
+- [x] **Phase 19: Skills Per-Project, Deltas & Badges** — Per-project breakdown, period-over-period deltas, new/dormant badges; ships migration `0003_project_key` (SKLP-08, SKLP-09, SKLP-10) (completed 2026-05-06)
 - [ ] **Phase 20: Cost Forecast & Per-Project Card** — Monthly forecast (linear OLS) and per-project cost breakdown card; consumes `project_key` from Phase 19 (ANLY-06, ANLY-07)
 - [ ] **Phase 21: Alert Anomaly Depth & NL Authoring** — Sliding-window anomaly detection extension and Haiku-backed NL alert authoring (ALRT-13, ALRT-14)
 - [ ] **Phase 22: Skill Latency Overhead (spike-gated)** — Feasibility-gated body/subagent/tool latency decomposition; phase opens with mandatory spike, descopes cleanly to v1.3 if data is unreliable (SKLP-11)
@@ -82,7 +82,7 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
   - [x] 19-01-migration-and-project-key-PLAN.md — Alembic migration `0003_project_key` (sessions.project_key VARCHAR(12) NOT NULL DEFAULT '', indexed, Python-loop backfill via realpath); `cmc.core.project_key.compute_project_key` helper; scheduler.py + repository.py wiring so new/re-synced sessions get keyed (completed 2026-05-06)
   - [x] 19-02-skills-projects-endpoint-PLAN.md — SKLP-08 `GET /api/skills/{name}/projects` endpoint returning `SkillProjectRow[]` (project_key, count, p50/p95, cost_usd, cost_attribution, low_sample); structural no-path-leakage test (response shape carries project_key only) (completed 2026-05-06)
   - [x] 19-03-deltas-and-badges-PLAN.md — SKLP-09 prev-period CTE (7d-vs-prev-7d) extends `/skills/usage` and `/skills/{name}/cost`; SKLP-10 new/dormant badges via MIN/MAX(ts) with cold-start suppression; DST spring-forward unit test (ROADMAP success criterion #5) (completed 2026-05-06)
-  - [ ] 19-04-frontend-deltas-projects-badges-PLAN.md — DeltaPill primitive, SkillProjectsTable panel mount on `/skills/$name`, badges on TopSkills + SkillsRegistry, DeltaPill wiring on TopSkills + SkillCostCard, Playwright skills-detail spec with path-leakage guard
+  - [x] 19-04-frontend-deltas-projects-badges-PLAN.md — DeltaPill primitive, SkillProjectsTable panel mount on `/skills/$name`, badges on TopSkills + SkillsRegistry, DeltaPill wiring on TopSkills + SkillCostCard, Playwright skills-detail spec with path-leakage guard (completed 2026-05-06)
 **UI hint**: yes
 
 ### Phase 20: Cost Forecast & Per-Project Card
@@ -158,7 +158,7 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 | 16. Session Comparison | v1.1 | 4/4 | Complete | 2026-05-05 |
 | 17. Polish, Doctor & Tests | v1.1 | 6/6 | Complete | 2026-05-05 |
 | 18. Polish & Carry-Forward Cleanup | v1.2 | 5/5 | Complete   | 2026-05-05 |
-| 19. Skills Per-Project, Deltas & Badges | v1.2 | 1/4 | In progress | — |
+| 19. Skills Per-Project, Deltas & Badges | v1.2 | 4/4 | Complete    | 2026-05-06 |
 | 20. Cost Forecast & Per-Project Card | v1.2 | 0/? | Not started | — |
 | 21. Alert Anomaly Depth & NL Authoring | v1.2 | 0/? | Not started | — |
 | 22. Skill Latency Overhead (spike-gated) | v1.2 | 0/? | Not started | — |
