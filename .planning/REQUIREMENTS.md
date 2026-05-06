@@ -11,8 +11,8 @@
 ### Skills Polish
 
 - [x] **SKLP-08**: User can see per-project breakdown of skill usage on `/skills/$name` (sortable table by cost / latency / count; backed by `/api/skills/{name}/projects` endpoint; uses `project_key` normalization to prevent cwd cardinality blowup and path leakage) — backend complete 2026-05-06 (Phase 19 Plan 02, commits b6d73a7 + 056141b); frontend wires up in Plan 19-04
-- [ ] **SKLP-09**: User can see period-over-period delta pills (7d-vs-prev-7d) for skill cost and usage count on TopSkills panel, SkillCostCard, and per-skill detail page (prev-period CTE, ↑/↓ pill with absolute delta + percent)
-- [ ] **SKLP-10**: User sees "new this week" / "dormant" badges on skills (backend-computed from `first_activated_at` / `last_activated_at`; thresholds: 7d for "new", 30d for "dormant"; cold-start suppression for skills <14 days old)
+- [x] **SKLP-09**: User can see period-over-period delta pills (7d-vs-prev-7d) for skill cost and usage count on TopSkills panel, SkillCostCard, and per-skill detail page (prev-period CTE, ↑/↓ pill with absolute delta + percent) — backend complete 2026-05-06 (Phase 19 Plan 03, commits ee662cb + ea0d1cb + 68aeb5c); frontend wires up in Plan 19-04
+- [x] **SKLP-10**: User sees "new this week" / "dormant" badges on skills (backend-computed from `first_activated_at` / `last_activated_at`; thresholds: 7d for "new", 30d for "dormant"; cold-start suppression for skills <14 days old) — backend complete 2026-05-06 (Phase 19 Plan 03, commits ee662cb + ea0d1cb + 68aeb5c); frontend wires up in Plan 19-04
 - [ ] **SKLP-11**: User can see per-skill latency overhead breakdown (body / subagent / tool stacked bar) — **spike-gated**: Phase 22 opens with mandatory feasibility check via `tools` temporal JOIN against `skill_activated.duration_ms`; if derivation unreliable, descopes to v1.3
 
 ### Cost Differentiators
@@ -88,8 +88,8 @@ Mapped to v1.2 ROADMAP.md (Phases 18–23) on 2026-05-05.
 | POLI-07 | Phase 18 | Complete (2026-05-05, commit 3457c32) |
 | POLI-08 | Phase 18 | Complete |
 | SKLP-08 | Phase 19 | Backend complete (2026-05-06, commits b6d73a7 + 056141b); frontend wires up in Plan 19-04 |
-| SKLP-09 | Phase 19 | Pending |
-| SKLP-10 | Phase 19 | Pending |
+| SKLP-09 | Phase 19 | Backend complete (2026-05-06, commits ee662cb + ea0d1cb + 68aeb5c); frontend wires up in Plan 19-04 |
+| SKLP-10 | Phase 19 | Backend complete (2026-05-06, commits ee662cb + ea0d1cb + 68aeb5c); frontend wires up in Plan 19-04 |
 | ANLY-06 | Phase 20 | Pending |
 | ANLY-07 | Phase 20 | Pending |
 | ALRT-13 | Phase 21 | Pending |

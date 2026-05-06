@@ -81,7 +81,7 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 **Plans**: 4 plans
   - [x] 19-01-migration-and-project-key-PLAN.md — Alembic migration `0003_project_key` (sessions.project_key VARCHAR(12) NOT NULL DEFAULT '', indexed, Python-loop backfill via realpath); `cmc.core.project_key.compute_project_key` helper; scheduler.py + repository.py wiring so new/re-synced sessions get keyed (completed 2026-05-06)
   - [x] 19-02-skills-projects-endpoint-PLAN.md — SKLP-08 `GET /api/skills/{name}/projects` endpoint returning `SkillProjectRow[]` (project_key, count, p50/p95, cost_usd, cost_attribution, low_sample); structural no-path-leakage test (response shape carries project_key only) (completed 2026-05-06)
-  - [ ] 19-03-deltas-and-badges-PLAN.md — SKLP-09 prev-period CTE (7d-vs-prev-7d) extends `/skills/usage` and `/skills/{name}/cost`; SKLP-10 new/dormant badges via MIN/MAX(ts) with cold-start suppression; DST spring-forward unit test (ROADMAP success criterion #5)
+  - [x] 19-03-deltas-and-badges-PLAN.md — SKLP-09 prev-period CTE (7d-vs-prev-7d) extends `/skills/usage` and `/skills/{name}/cost`; SKLP-10 new/dormant badges via MIN/MAX(ts) with cold-start suppression; DST spring-forward unit test (ROADMAP success criterion #5) (completed 2026-05-06)
   - [ ] 19-04-frontend-deltas-projects-badges-PLAN.md — DeltaPill primitive, SkillProjectsTable panel mount on `/skills/$name`, badges on TopSkills + SkillsRegistry, DeltaPill wiring on TopSkills + SkillCostCard, Playwright skills-detail spec with path-leakage guard
 **UI hint**: yes
 

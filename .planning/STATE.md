@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Depth & Polish
-status: Phase 19 in progress (2/4 plans shipped — SKLP-08 per-project endpoint live); Phase 18 BASELINE.md verifier rules preserved (pytest 586/0/32, datetime.utcnow=0).
-stopped_at: Phase 19 Plan 02 (skills-projects-endpoint) complete; ready for Phase 19 Plan 03 (skills-deltas-and-badges, SKLP-09/10).
-last_updated: "2026-05-06T12:00:39Z"
-last_activity: 2026-05-06 — Plan 19-02 executed (commits b6d73a7 schemas + 056141b endpoint+7tests); pytest 586/0/32 (+7 vs 19-01, +20 vs Phase 18 baseline); 0 datetime.utcnow warnings; ruff clean. SUMMARY at .planning/phases/19-skills-per-project-deltas-badges/19-02-SUMMARY.md
+status: Phase 19 in progress (3/4 plans shipped — SKLP-08/09/10 backend complete); Phase 18 BASELINE.md verifier rules preserved (pytest 598/0/32, datetime.utcnow=0).
+stopped_at: Phase 19 Plan 03 (skills-deltas-and-badges, SKLP-09/10) complete; ready for Phase 19 Plan 04 (frontend-deltas-projects-badges).
+last_updated: "2026-05-06T12:29:13Z"
+last_activity: 2026-05-06 — Plan 19-03 executed (commits ee662cb DeltaPill schema + ea0d1cb handlers/CTEs + 68aeb5c 12 tests); pytest 598/0/32 (+12 vs 19-02, +32 vs Phase 18 baseline); 0 datetime.utcnow warnings; ruff clean. DST spring-forward test load-bearing for ROADMAP success criterion #5; adversarial-mutation verified. SUMMARY at .planning/phases/19-skills-per-project-deltas-badges/19-03-SUMMARY.md
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 9
-  completed_plans: 7
-  percent: 78
+  completed_plans: 8
+  percent: 89
 ---
 
 # Project State
@@ -26,12 +26,12 @@ See: .planning/PROJECT.md (updated 2026-05-05 after v1.1 ship)
 
 ## Current Position
 
-Phase: 19 — Skills Per-Project, Deltas & Badges (in progress, 2/4 plans shipped)
-Plan: 19-03 (skills-deltas-and-badges, SKLP-09/10) is next
-Status: Phase 19 Plan 02 complete (SKLP-08: GET /api/skills/{name}/projects + path-leakage-resistant DTOs); Phase 18 BASELINE.md verifier rules preserved
-Last activity: 2026-05-06 — Plan 19-02 executed (commits b6d73a7 schemas + 056141b endpoint+7tests); pytest 586/0/32 (+7 vs 19-01, +20 vs baseline); SUMMARY at .planning/phases/19-skills-per-project-deltas-badges/19-02-SUMMARY.md
+Phase: 19 — Skills Per-Project, Deltas & Badges (in progress, 3/4 plans shipped)
+Plan: 19-04 (frontend-deltas-projects-badges) is next
+Status: Phase 19 Plan 03 complete (SKLP-09 DeltaPill primitive + SKLP-10 new/dormant badges with cold-start suppression + DST spring-forward unit test load-bearing for ROADMAP success criterion #5); Phase 18 BASELINE.md verifier rules preserved
+Last activity: 2026-05-06 — Plan 19-03 executed (commits ee662cb DeltaPill schema + ea0d1cb handlers/CTEs + 68aeb5c 12 tests); pytest 598/0/32 (+12 vs 19-02, +32 vs baseline); SUMMARY at .planning/phases/19-skills-per-project-deltas-badges/19-03-SUMMARY.md
 
-Progress: [████████░░] 78%
+Progress: [█████████░] 89%
 
 ## Accumulated Context
 
@@ -81,6 +81,17 @@ Phase 19 Plan 01 (migration 0003_project_key + project_key helper + ingest wirin
 - **Helper-first / wiring-second commit split (53fe578 + 95bd1df).** Two atomic commits on `main`: Task 1 lands compute_project_key + 11 unit tests in isolation; Task 2 lands the migration + sessions model + scheduler/repository wiring + 2 migration tests as one unit. Bisect-friendly: a regression in either layer is attributable to one commit.
 - **Test count grew from 7 (plan) to 11 (delivered).** Each addition pins an invariant the original 7 didn't: re-export shape (`test_reexport_via_cmc_core`), formula equality vs inlined migration code (`test_matches_inline_sha1_logic`, drift guard), parametric falsy-input coverage. No deviation cost — pure-function tests run in 0.02s combined.
 
+Phase 19 Plan 03 (SKLP-09/10 deltas + badges + DST spring-forward correctness):
+
+- **DeltaPill is the canonical period-over-period primitive going forward.** `curr/prev/delta/delta_pct/direction` shape works for both integer counts (usage) AND Decimal cost (money). `delta_pct=None` invariant when `prev=0` — server's job to decide '—' vs '+inf%' (RESEARCH §Pattern 3, server is source of truth, frontend never re-derives). Reusable for cost forecasts (Phase 20 ANLY-08), alert frequency comparisons, compare-mode session diffs — anywhere a curr/prev/delta/direction shape is needed.
+- **Python-side badge classification (over pure SQL CASE WHEN).** The plan offered both as acceptable; Python won on readability + unit-testability of the cold-start gate. The DST safety property still holds: SQL emits UTC-clean MIN/MAX(ts) (verified by grep guard) and Python does timedelta arithmetic (DST-immune by construction). Documented in `_derive_badges` docstring.
+- **Cost-delta windows are LITERAL in SQL, not parameterized.** Four new dedicated SQL fragments (`_COST_DELTA_CURR_REQUEST_SQL` / `_PREV` / `_CURR_SESSION` / `_PREV_SESSION`) with hardcoded `datetime('now', '-7 days')` / `'-14 days'` bounds. Could have parameterized the existing `_COST_*_SCOPED_SQL` pair — risked Pitfall 2 (caller binds `?range=` to delta windows). Hardcoding the 7d horizon in SQL is the structural guard.
+- **`_USAGE_DELTA_BADGE_SQL_PORTABLE` uses skills_seen UNION + LEFT JOIN trio.** SQLite < 3.39 lacks FULL OUTER JOIN; the portable form gives the same result and ships everywhere. The FULL OUTER form preserved as source-only documentation.
+- **DST test combines Python helper assertion + structural grep guard.** Either alone is insufficient: helper-only misses an SQL regression that swaps to `'localtime'` and corrupts the inputs; grep-only misses a Python regression that drops timezone info. Together they form the load-bearing structural guard for ROADMAP success criterion #5. Adversarial-mutation verification (in-place sed in `'localtime'`, observe RED, restore, observe GREEN) proved the guard isn't vacuous.
+- **The 30d window literal is NOT in route SQL.** Dormant threshold runs in Python against `MIN/MAX(ts)` hoisted out of SQL. The DST positive-presence assertion was scoped to `-7 days` / `-14 days` (which DO appear as delta CTE bounds); the `-30 days` arithmetic is pinned by the Python helper's UTC-anchored timedelta math.
+- **`cost_delta` emitted on the empty-case branch.** Frontend never has to special-case "this response has no delta" — the field is always present (flat-zero pill). Mirrors Plan 19-02's path-leakage-by-construction discipline: structural property of the response shape rather than a runtime invariant the consumer must remember to check.
+- **Atomic three-commit task split (ee662cb schema + ea0d1cb handlers + 68aeb5c tests).** Task 1's commit landed required new fields temporarily failing one existing test; Task 2's handlers populated them; Task 3 fixed the existing test + added 12 new ones. Bisect-friendly — a regression in any layer attributable to one commit. The intermediate test-failing state on Task 1's commit is acceptable per plan's explicit sequence (the plan never claims tests are green between commits, only that they're green at plan-close).
+
 Phase 19 Plan 02 (SKLP-08 per-project endpoint, GET /api/skills/{name}/projects):
 
 - **Path-leakage prohibition is enforced TWICE — schema + runtime test.** `SkillProjectRow` enumerates exactly 7 fields (`project_key`, `count`, `p50_ms`, `p95_ms`, `cost_usd`, `cost_attribution`, `low_sample`); no `cwd`/`path`/`display_path` exists, ever. The `test_skill_projects_no_path_leakage` test programmatically scans every row's keys AND values for filesystem-shape leakage (no `/`-prefixed string, no occurrence of the seeded secret cwd, no segment substring). LOAD-BEARING for ROADMAP success criterion #1. New project-keyed responses elsewhere in cmc.api SHOULD ship the same dual guard.
@@ -113,7 +124,8 @@ v1.1 carried decisions (still active):
 
 - ~~Phase 19 plan owns migration `0003_project_key`~~ — **landed in Phase 19 Plan 01 (commit 95bd1df, 2026-05-06)**. `sessions.project_key VARCHAR(12) NOT NULL DEFAULT ''` + `idx_sessions_project_key` + Python-loop backfill; ingest path keeps it fresh via scheduler.py and repository.py. Phase 20 ANLY-07 unblocked.
 - ~~Phase 19 Plan 02 (SKLP-08 endpoint, per-project rollup)~~ — **landed in Phase 19 Plan 02 (commits b6d73a7 schemas + 056141b endpoint+7tests, 2026-05-06)**. `GET /api/skills/{name}/projects` returns the path-leakage-resistant per-project rollup; ROADMAP success criterion #1 satisfied on the backend side.
-- Phase 19 Plans 03/04 still to execute: SKLP-09/10 prev-period CTE + badges with DST spring-forward unit test, frontend wiring (DeltaPill primitive, SkillProjectsTable panel, badges on TopSkills + SkillsRegistry).
+- ~~Phase 19 Plan 03 (SKLP-09/10 deltas + badges + DST spring-forward unit test)~~ — **landed in Phase 19 Plan 03 (commits ee662cb DeltaPill schema + ea0d1cb handlers/CTEs + 68aeb5c 12 tests, 2026-05-06)**. `usage_delta` + `badges` on `/api/skills/usage`; `cost_delta` on `/api/skills/{name}/cost`; ROADMAP success criteria #3, #4, #5 satisfied on the backend side. DST test load-bearing — adversarial-mutation verified.
+- Phase 19 Plan 04 still to execute: frontend wiring (DeltaPill primitive, SkillProjectsTable panel mount on `/skills/$name`, badges on TopSkills + SkillsRegistry, DeltaPill wiring on TopSkills + SkillCostCard, Playwright skills-detail spec with path-leakage guard).
 - Phase 22 plan front-matter MUST cite SQL columns or temporal-JOIN derivation source for body_ms / subagent_ms / tool_ms before any UI work begins (Pitfall 10 acceptance criterion).
 - Phase 23 closes the milestone — audit hooks (full pytest + vitest + playwright green; `cmc doctor` clean; REQUIREMENTS.md traceability 13/13 or honest 12/13 + descope) belong in the final phase plan.
 - v1.2 verifiers (Phase 19+) MUST read `.planning/phases/18-polish-carry-forward-cleanup/BASELINE.md` at phase-close time and apply the embedded per-suite verifier rules (pytest >= 566, vitest >= 293, playwright >= 7, `warnings_datetime_utcnow > 0` → fail).
@@ -150,13 +162,13 @@ Two operational human-verify items still carry forward (non-blocking, auto-disch
 
 **v1.0 baseline:** 47 plans, 4 days (2026-04-25 → 2026-04-28), ~39,800 LOC.
 **v1.1:** 28 plans, 4 days (2026-05-02 → 2026-05-05), +81,397 / -13,435 lines vs v1.0, ~56,232 LOC at close.
-**v1.2:** Phases 18–23 defined (6 phases, 13 requirements). **Phase 18 complete (5/5 plans, 2026-05-05)**: Plan 01 ~10 min (cmc.core.time helper + 5 unit tests), Plan 02 ~42 min (atomic 22-site sweep `datetime.utcnow` → `now_utc`, commit c3d792f), Plan 03 ~3 min (`vi.spyOn(Date, 'now')` pin in SchedulesCard.test.tsx), Plan 04 ~5 min (Playwright strict-mode disambiguation + e2e/README.md), Plan 05 ~9 min (BASELINE.md phase-exit artifact). Final phase-18 baseline: backend pytest 566 passed / 0 failed / 32 warnings / 0 datetime.utcnow lines; frontend vitest 293 passed / 66 files; Playwright 7 passed / 1 skipped (alerts steady-state) / 0 failed. Pytest deprecation-warning delta ~1429 → 0. Net-zero dependency change across the phase. POLI-06/POLI-07/POLI-08 all green; BASELINE.md (`.planning/phases/18-polish-carry-forward-cleanup/BASELINE.md`) is the canonical reference for v1.2 phases 19+ verifiers. **Phase 19 in progress (2/4 plans, 2026-05-06)**: Plan 01 ~8 min (commits 53fe578 helper + 95bd1df migration/wiring): `cmc.core.project_key.compute_project_key` helper (11 unit tests), Alembic migration `0003_project_key` (sessions.project_key VARCHAR(12) NOT NULL DEFAULT '' + indexed + Python-loop backfill via realpath), sessions model field, scheduler.py + repository.py wiring; pytest 579 passed / 0 failed / 32 warnings / 0 datetime.utcnow (+13 vs baseline), ruff clean. Plan 02 ~16 min (commits b6d73a7 schemas + 056141b endpoint+7tests): `SkillProjectRow` + `SkillProjectsResponse` DTOs (path-leakage-resistant by enumeration), `GET /api/skills/{name}/projects` endpoint with two-CTE rollup (`_PROJECTS_PERCENTILE_SQL` window-CTE adapted from `_LATENCY_SQL` + `_PROJECTS_TOKEN_SQL` per-project token sums), 7 tests including the LOAD-BEARING `test_skill_projects_no_path_leakage` programmatic key+value scan; pytest 586 passed / 0 failed / 32 warnings / 0 datetime.utcnow (+7 vs 19-01, +20 vs Phase 18 baseline), ruff clean.
+**v1.2:** Phases 18–23 defined (6 phases, 13 requirements). **Phase 18 complete (5/5 plans, 2026-05-05)**: Plan 01 ~10 min (cmc.core.time helper + 5 unit tests), Plan 02 ~42 min (atomic 22-site sweep `datetime.utcnow` → `now_utc`, commit c3d792f), Plan 03 ~3 min (`vi.spyOn(Date, 'now')` pin in SchedulesCard.test.tsx), Plan 04 ~5 min (Playwright strict-mode disambiguation + e2e/README.md), Plan 05 ~9 min (BASELINE.md phase-exit artifact). Final phase-18 baseline: backend pytest 566 passed / 0 failed / 32 warnings / 0 datetime.utcnow lines; frontend vitest 293 passed / 66 files; Playwright 7 passed / 1 skipped (alerts steady-state) / 0 failed. Pytest deprecation-warning delta ~1429 → 0. Net-zero dependency change across the phase. POLI-06/POLI-07/POLI-08 all green; BASELINE.md (`.planning/phases/18-polish-carry-forward-cleanup/BASELINE.md`) is the canonical reference for v1.2 phases 19+ verifiers. **Phase 19 in progress (3/4 plans, 2026-05-06)**: Plan 01 ~8 min (commits 53fe578 helper + 95bd1df migration/wiring): `cmc.core.project_key.compute_project_key` helper (11 unit tests), Alembic migration `0003_project_key` (sessions.project_key VARCHAR(12) NOT NULL DEFAULT '' + indexed + Python-loop backfill via realpath), sessions model field, scheduler.py + repository.py wiring; pytest 579 passed / 0 failed / 32 warnings / 0 datetime.utcnow (+13 vs baseline), ruff clean. Plan 02 ~16 min (commits b6d73a7 schemas + 056141b endpoint+7tests): `SkillProjectRow` + `SkillProjectsResponse` DTOs (path-leakage-resistant by enumeration), `GET /api/skills/{name}/projects` endpoint with two-CTE rollup (`_PROJECTS_PERCENTILE_SQL` window-CTE adapted from `_LATENCY_SQL` + `_PROJECTS_TOKEN_SQL` per-project token sums), 7 tests including the LOAD-BEARING `test_skill_projects_no_path_leakage` programmatic key+value scan; pytest 586 passed / 0 failed / 32 warnings / 0 datetime.utcnow (+7 vs 19-01, +20 vs Phase 18 baseline), ruff clean. Plan 03 ~23 min (commits ee662cb DeltaPill schema + ea0d1cb handlers/CTEs + 68aeb5c 12 tests): `DeltaPill` Pydantic primitive (curr/prev/delta/delta_pct/direction; delta_pct=None when prev=0), `SkillUsageRow.usage_delta` + `.badges`, `SkillCostResponse.cost_delta`, module constants `_DELTA_WINDOW_DAYS=7` / `_BADGE_NEW_DAYS=7` / `_BADGE_DORMANT_DAYS=30` / `_BADGE_COLDSTART_DAYS=14`, `_build_delta_pill` + `_derive_badges` + `_compute_cost_delta` helpers, `_USAGE_DELTA_BADGE_SQL_PORTABLE` (skills_seen UNION + LEFT JOIN trio for SQLite <3.39 compatibility) + four cost-delta SQL fragments (curr/prev × request/session) with LITERAL `datetime('now', '-7 days')` / `'-14 days'` bounds (Pitfall 2 enforced at the SQL level — `?range=` cannot bind to delta windows), 12 tests covering delta math (4) + badge boundaries (3) + cold-start suppression (1) + DST spring-forward (1, LOAD-BEARING for ROADMAP success criterion #5; combines Python helper UTC-arithmetic assertion + structural grep guard asserting source contains NO `'localtime'` modifier on any 7d/14d/30d window; adversarial-mutation verified RED→GREEN) + cost_delta on growth+empty (2) + default-pill invariant (1); pytest 598 passed / 0 failed / 32 warnings / 0 datetime.utcnow (+12 vs 19-02, +32 vs Phase 18 baseline), ruff + pyright clean.
 **Cumulative:** 75 plans across 17 phases (11 v1.0 + 6 v1.1) over 8 calendar days of active development pre-v1.2.
 
 ## Session Continuity
 
-Last session: 2026-05-06T12:00:39Z
-Stopped at: Phase 19 Plan 02 (skills-projects-endpoint, SKLP-08) complete; ready for Phase 19 Plan 03 (skills-deltas-and-badges, SKLP-09/10).
+Last session: 2026-05-06T12:29:13Z
+Stopped at: Phase 19 Plan 03 (skills-deltas-and-badges, SKLP-09/10) complete; ready for Phase 19 Plan 04 (frontend-deltas-projects-badges).
 Resume file: None
 
 ---
