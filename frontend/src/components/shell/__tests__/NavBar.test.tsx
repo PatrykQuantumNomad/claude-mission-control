@@ -34,7 +34,24 @@ function makeRouter() {
     path: '/skills',
     component: () => null,
   })
-  const routeTree = rootRoute.addChildren([indexRoute, activityRoute, skillsRoute])
+  // Phase 20 Plan 03 — /cost route added between Skills and Alerts.
+  const costRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/cost',
+    component: () => null,
+  })
+  const alertsRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/alerts',
+    component: () => null,
+  })
+  const routeTree = rootRoute.addChildren([
+    indexRoute,
+    activityRoute,
+    skillsRoute,
+    costRoute,
+    alertsRoute,
+  ])
   return createRouter({
     routeTree,
     history: createMemoryHistory({ initialEntries: ['/'] }),
@@ -62,24 +79,32 @@ describe('NavBar', () => {
     vi.restoreAllMocks()
   })
 
-  it('renders brand, three nav links, the EmergencyStopBanner, and the Cmd+K trigger inside a Primary nav landmark', async () => {
+  it('renders brand, five nav links (Phase 20: + Cost), the EmergencyStopBanner, and the Cmd+K trigger inside a Primary nav landmark', async () => {
     const router = makeRouter()
     const client = makeClient()
     // TanStack Router's RouterProvider mounts asynchronously — block on the
     // router's first transition resolution so tests assert on a settled tree.
     await router.load()
-    const { findByText, getByText, getByLabelText, getByRole } = render(
-      <QueryClientProvider client={client}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>,
-    )
+    const { findByText, getByText, getByLabelText, getByRole, getAllByRole } =
+      render(
+        <QueryClientProvider client={client}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>,
+      )
     expect(await findByText('Mission Control')).toBeInTheDocument()
     expect(getByText('Command')).toBeInTheDocument()
     expect(getByText('Activity')).toBeInTheDocument()
     expect(getByText('Skills')).toBeInTheDocument()
+    // Phase 20 Plan 03 — Cost link added between Skills and Alerts.
+    expect(getByText('Cost')).toBeInTheDocument()
+    expect(getByText('Alerts')).toBeInTheDocument()
     expect(getByLabelText('Open command palette (Cmd+K)')).toBeInTheDocument()
     expect(getByRole('navigation', { name: 'Primary' })).toBeInTheDocument()
     // implementation — TPNL-05 banner mounted globally, visible from boot.
     expect(getByRole('button', { name: /Emergency stop/i })).toBeInTheDocument()
+
+    // 5 nav links exactly: Command / Activity / Skills / Cost / Alerts.
+    expect(getAllByRole('link')).toHaveLength(5)
+    expect(getByRole('link', { name: 'Cost' })).toHaveAttribute('href', '/cost')
   })
 })

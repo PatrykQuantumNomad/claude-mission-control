@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SkillsRouteImport } from './routes/skills'
+import { Route as CostRouteImport } from './routes/cost'
 import { Route as AlertsRouteImport } from './routes/alerts'
 import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as IndexRouteImport } from './routes/index'
@@ -19,6 +20,11 @@ import { Route as SessionsCompareRouteImport } from './routes/sessions_.compare'
 const SkillsRoute = SkillsRouteImport.update({
   id: '/skills',
   path: '/skills',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CostRoute = CostRouteImport.update({
+  id: '/cost',
+  path: '/cost',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AlertsRoute = AlertsRouteImport.update({
@@ -51,6 +57,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/activity': typeof ActivityRoute
   '/alerts': typeof AlertsRoute
+  '/cost': typeof CostRoute
   '/skills': typeof SkillsRoute
   '/sessions/compare': typeof SessionsCompareRoute
   '/skills/$name': typeof SkillsNameRoute
@@ -59,6 +66,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/activity': typeof ActivityRoute
   '/alerts': typeof AlertsRoute
+  '/cost': typeof CostRoute
   '/skills': typeof SkillsRoute
   '/sessions/compare': typeof SessionsCompareRoute
   '/skills/$name': typeof SkillsNameRoute
@@ -68,6 +76,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/activity': typeof ActivityRoute
   '/alerts': typeof AlertsRoute
+  '/cost': typeof CostRoute
   '/skills': typeof SkillsRoute
   '/sessions_/compare': typeof SessionsCompareRoute
   '/skills_/$name': typeof SkillsNameRoute
@@ -78,6 +87,7 @@ export interface FileRouteTypes {
     | '/'
     | '/activity'
     | '/alerts'
+    | '/cost'
     | '/skills'
     | '/sessions/compare'
     | '/skills/$name'
@@ -86,6 +96,7 @@ export interface FileRouteTypes {
     | '/'
     | '/activity'
     | '/alerts'
+    | '/cost'
     | '/skills'
     | '/sessions/compare'
     | '/skills/$name'
@@ -94,6 +105,7 @@ export interface FileRouteTypes {
     | '/'
     | '/activity'
     | '/alerts'
+    | '/cost'
     | '/skills'
     | '/sessions_/compare'
     | '/skills_/$name'
@@ -103,6 +115,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ActivityRoute: typeof ActivityRoute
   AlertsRoute: typeof AlertsRoute
+  CostRoute: typeof CostRoute
   SkillsRoute: typeof SkillsRoute
   SessionsCompareRoute: typeof SessionsCompareRoute
   SkillsNameRoute: typeof SkillsNameRoute
@@ -115,6 +128,13 @@ declare module '@tanstack/react-router' {
       path: '/skills'
       fullPath: '/skills'
       preLoaderRoute: typeof SkillsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cost': {
+      id: '/cost'
+      path: '/cost'
+      fullPath: '/cost'
+      preLoaderRoute: typeof CostRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/alerts': {
@@ -159,6 +179,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ActivityRoute: ActivityRoute,
   AlertsRoute: AlertsRoute,
+  CostRoute: CostRoute,
   SkillsRoute: SkillsRoute,
   SessionsCompareRoute: SessionsCompareRoute,
   SkillsNameRoute: SkillsNameRoute,

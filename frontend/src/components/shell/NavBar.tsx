@@ -6,6 +6,8 @@ const routes = [
   { to: '/', label: 'Command' },
   { to: '/activity', label: 'Activity' },
   { to: '/skills', label: 'Skills' },
+  // Phase 20 Plan 03 — /cost added between Skills and Alerts (ANLY-06+07).
+  { to: '/cost', label: 'Cost' },
   { to: '/alerts', label: 'Alerts' },
 ] as const
 
