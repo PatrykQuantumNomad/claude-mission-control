@@ -45,7 +45,7 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 
 - [x] **Phase 18: Polish & Carry-Forward Cleanup** — Discharge v1.1 carried debt; green CI baseline before feature work (POLI-06, POLI-07, POLI-08) (completed 2026-05-05)
 - [x] **Phase 19: Skills Per-Project, Deltas & Badges** — Per-project breakdown, period-over-period deltas, new/dormant badges; ships migration `0003_project_key` (SKLP-08, SKLP-09, SKLP-10) (completed 2026-05-06)
-- [ ] **Phase 20: Cost Forecast & Per-Project Card** — Monthly forecast (linear OLS) and per-project cost breakdown card; consumes `project_key` from Phase 19 (ANLY-06, ANLY-07)
+- [x] **Phase 20: Cost Forecast & Per-Project Card** — Monthly forecast (linear OLS) and per-project cost breakdown card; consumes `project_key` from Phase 19 (ANLY-06, ANLY-07) (completed 2026-05-06)
 - [ ] **Phase 21: Alert Anomaly Depth & NL Authoring** — Sliding-window anomaly detection extension and Haiku-backed NL alert authoring (ALRT-13, ALRT-14)
 - [ ] **Phase 22: Skill Latency Overhead (spike-gated)** — Feasibility-gated body/subagent/tool latency decomposition; phase opens with mandatory spike, descopes cleanly to v1.3 if data is unreliable (SKLP-11)
 - [ ] **Phase 23: Compare Depth & Milestone Close** — Per-skill latency delta and Cmd+K compare-with-previous shortcut; closes the milestone (CMPR-06, CMPR-07)
@@ -159,7 +159,7 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 | 17. Polish, Doctor & Tests | v1.1 | 6/6 | Complete | 2026-05-05 |
 | 18. Polish & Carry-Forward Cleanup | v1.2 | 5/5 | Complete   | 2026-05-05 |
 | 19. Skills Per-Project, Deltas & Badges | v1.2 | 4/4 | Complete    | 2026-05-06 |
-| 20. Cost Forecast & Per-Project Card | v1.2 | 3/4 | In Progress|  |
+| 20. Cost Forecast & Per-Project Card | v1.2 | 4/4 | Complete   | 2026-05-06 |
 | 21. Alert Anomaly Depth & NL Authoring | v1.2 | 0/? | Not started | — |
 | 22. Skill Latency Overhead (spike-gated) | v1.2 | 0/? | Not started | — |
 | 23. Compare Depth & Milestone Close | v1.2 | 0/? | Not started | — |
