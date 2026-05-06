@@ -44,6 +44,8 @@ from cmc.api.schemas.skills import (
     SkillCostResponse,
     SkillLatencyResponse,
     SkillListResponse,
+    SkillProjectRow,
+    SkillProjectsResponse,
     SkillRange,
     SkillRow,
     SkillRunRow,
@@ -796,3 +798,187 @@ async def skill_latency(
         error_rate=error_rate,
         low_sample=sample_count < MIN_LATENCY_SAMPLES,
     )
+
+
+# ===== Phase 19 — SKLP-08 (per-project breakdown) =========================
+#
+# Per-project rollup of one skill's runs. Joins otel_events.skill_activated
+# -> sessions on session_id, GROUPs by sessions.project_key, EXCLUDES the
+# empty-key sentinel (legacy/missing-cwd rows).
+#
+# Response shape carries project_key only — NO cwd, NO path, NO display_path.
+# This is the structural side of ROADMAP success criterion #1; the matching
+# `test_skill_projects_no_path_leakage` test asserts it at runtime.
+#
+# Percentile pattern mirrors _LATENCY_SQL (window-function CTE), but the
+# PARTITION key is project_key instead of skill_name. Token sums are
+# session-scoped (mirrors _COST_SESSION_SCOPED_SQL) — there's no
+# request-scoped path here because the rollup is across many sessions per
+# project; per-request token correlation would multiply the SQL cost
+# without buying meaningfully different numbers at the project granularity.
+_PROJECTS_PERCENTILE_SQL = text("""
+    WITH events AS (
+      SELECT
+        s.project_key AS project_key,
+        CAST(
+          (SELECT json_extract(value, '$.value.stringValue')
+             FROM json_each(json_extract(o.body, '$.record.attributes'))
+            WHERE json_extract(value, '$.key') = 'duration_ms'
+            LIMIT 1)
+          AS INTEGER
+        ) AS duration_ms
+      FROM otel_events o
+      JOIN sessions s ON s.session_id = o.session_id
+      WHERE o.event_name = 'skill_activated'
+        AND o.attrs_skill_name = :name
+        AND o.ts >= datetime(:since)
+        AND s.project_key != ''
+    ),
+    ranked AS (
+      SELECT project_key, duration_ms,
+        ROW_NUMBER() OVER (PARTITION BY project_key ORDER BY duration_ms) AS rnk,
+        COUNT(*) OVER (PARTITION BY project_key) AS n
+      FROM events
+      WHERE duration_ms IS NOT NULL
+    ),
+    agg AS (
+      SELECT
+        project_key,
+        COUNT(*) AS count
+      FROM events
+      GROUP BY project_key
+    ),
+    p50 AS (
+      SELECT project_key, duration_ms AS p50_ms
+      FROM ranked
+      WHERE rnk = MAX(CAST(n * 0.5 AS INTEGER), 1)
+    ),
+    p95 AS (
+      SELECT project_key, duration_ms AS p95_ms
+      FROM ranked
+      WHERE rnk = MAX(CAST(n * 0.95 AS INTEGER), 1)
+    )
+    SELECT a.project_key, a.count, p50.p50_ms, p95.p95_ms
+    FROM agg a
+    LEFT JOIN p50 ON p50.project_key = a.project_key
+    LEFT JOIN p95 ON p95.project_key = a.project_key
+    ORDER BY a.count DESC
+    LIMIT 100
+""")
+
+# Per-project session-scoped token totals + a representative model for pricing.
+# Tokens are summed over the DISTINCT sessions that fired this skill in the
+# window (same SUM as Path S in skill_cost, but GROUP BY project_key).
+# Pitfall: a session firing the same skill N times still contributes ONCE to
+# the per-project token sum — the inner DISTINCT subquery enforces this.
+_PROJECTS_TOKEN_SQL = text("""
+    WITH skill_sessions AS (
+      SELECT DISTINCT s.session_id, s.project_key, s.model,
+                      s.tokens_input, s.tokens_output, s.tokens_cache_read,
+                      s.tokens_cache_create_5m, s.tokens_cache_create_1h
+      FROM otel_events o
+      JOIN sessions s ON s.session_id = o.session_id
+      WHERE o.event_name = 'skill_activated'
+        AND o.attrs_skill_name = :name
+        AND o.ts >= datetime(:since)
+        AND s.project_key != ''
+    )
+    SELECT
+      project_key,
+      COALESCE(SUM(tokens_input), 0)            AS tokens_input,
+      COALESCE(SUM(tokens_output), 0)           AS tokens_output,
+      COALESCE(SUM(tokens_cache_read), 0)       AS tokens_cache_read,
+      COALESCE(SUM(tokens_cache_create_5m), 0)  AS tokens_cache_create_5m,
+      COALESCE(SUM(tokens_cache_create_1h), 0)  AS tokens_cache_create_1h,
+      MAX(model)                                AS model
+    FROM skill_sessions
+    GROUP BY project_key
+""")
+
+
+@router.get("/skills/{name}/projects", response_model=SkillProjectsResponse)
+async def skill_projects(
+    name: str,
+    db: AsyncSession = Depends(get_session),
+    range_: SkillRange = Query("14d", alias="range"),
+) -> SkillProjectsResponse:
+    """SKLP-08: per-project breakdown of a skill's runs.
+
+    Joins otel_events.skill_activated -> sessions on session_id, groups
+    by sessions.project_key (excluding the empty-string sentinel for
+    legacy/missing-cwd rows). Returns {count, p50_ms, p95_ms, cost_usd,
+    cost_attribution, low_sample} per project.
+
+    Cost is computed read-time via cmc.pricing.compute_cost — NEVER
+    stored as $ in DB (v1.1 invariant).
+
+    Response shape carries project_key only — NO cwd, NO path, NO
+    display_path. ROADMAP success criterion #1; structurally enforced
+    by the SkillProjectRow schema AND the test_skill_projects_no_path_leakage
+    runtime assertion.
+
+    Validation:
+      - name must match `^[a-zA-Z0-9_-]+$` AND not contain `..` (V12) -> 400
+      - skill must exist in the registry -> else 404 (consistent with the
+        plan's must_have: "rejects unknown skills with 404")
+      - range Literal "14d"|"30d" -> 422 on mismatch (7d reserved for the
+        Plan 19-03 delta CTE, NOT exposed here)
+
+    Empty-rows case (skill exists, no events / all events on empty
+    project_key sessions): returns 200 with rows=[].
+    """
+    if not _SKILL_NAME_RE.match(name) or ".." in name:
+        raise HTTPException(status_code=400, detail="invalid skill name")
+
+    # Skill registry existence check — unknown skill is 404, NOT empty rows.
+    skill_exists = (await db.execute(
+        select(Skill).where(Skill.name == name)
+    )).scalar_one_or_none()
+    if skill_exists is None:
+        raise HTTPException(status_code=404, detail=f"skill {name!r} not found")
+
+    since_iso = _range_start(range_).isoformat()
+
+    perc_rows = (await db.execute(
+        _PROJECTS_PERCENTILE_SQL, {"name": name, "since": since_iso}
+    )).mappings().all()
+    if not perc_rows:
+        return SkillProjectsResponse(range=range_, name=name, rows=[])
+
+    tok_rows = (await db.execute(
+        _PROJECTS_TOKEN_SQL, {"name": name, "since": since_iso}
+    )).mappings().all()
+    tok_by_pk: dict[str, dict] = {r["project_key"]: dict(r) for r in tok_rows}
+
+    rates = await load_rates(db)
+
+    rows: list[SkillProjectRow] = []
+    for r in perc_rows:
+        pk = r["project_key"]
+        count = int(r["count"] or 0)
+        tok = tok_by_pk.get(pk, {})
+        model_for_pricing = tok.get("model") or "<unknown>"
+        cost = compute_cost(
+            model_for_pricing,
+            int(tok.get("tokens_input") or 0),
+            int(tok.get("tokens_output") or 0),
+            int(tok.get("tokens_cache_read") or 0),
+            int(tok.get("tokens_cache_create_5m") or 0),
+            int(tok.get("tokens_cache_create_1h") or 0),
+            rates,
+        )
+        # cost_attribution: "session" when pricing was applied (model in rates);
+        # "approximate" when the model is missing/unpriced — compute_cost
+        # returns Decimal(0) AND increments cmc.pricing.unpriced_tokens.
+        attribution: str = "session" if model_for_pricing in rates else "approximate"
+        rows.append(SkillProjectRow(
+            project_key=pk,
+            count=count,
+            p50_ms=int(r["p50_ms"]) if r["p50_ms"] is not None else None,
+            p95_ms=int(r["p95_ms"]) if r["p95_ms"] is not None else None,
+            cost_usd=cost,
+            cost_attribution=attribution,
+            low_sample=count < MIN_LATENCY_SAMPLES,
+        ))
+
+    return SkillProjectsResponse(range=range_, name=name, rows=rows)

@@ -547,8 +547,15 @@ async def _seed_otel_event(app, *, event_name: str,
 async def _seed_session_row(app, *, session_id: str, cwd: str = "/Users/test/proj",
                             model: str = "claude-opus-4-7",
                             tokens_input: int = 0, tokens_output: int = 0,
-                            tokens_cache_read: int = 0) -> None:
-    """Insert one sessions row (used by cwd LEFT JOIN tests)."""
+                            tokens_cache_read: int = 0,
+                            project_key: str = "") -> None:
+    """Insert one sessions row (used by cwd LEFT JOIN tests).
+
+    project_key defaults to '' (empty sentinel) so existing tests keep their
+    pre-Phase-19 behaviour. Phase 19 SKLP-08 tests pass an explicit non-empty
+    key — usually computed via cmc.core.compute_project_key(cwd) so the
+    test mirrors the production scheduler/repository wiring.
+    """
     from cmc.db.base import SQLModel
     engine = app.state.engine
     table = SQLModel.metadata.tables["sessions"]
@@ -562,6 +569,7 @@ async def _seed_session_row(app, *, session_id: str, cwd: str = "/Users/test/pro
             jsonl_mtime=now,
             jsonl_path=f"/tmp/{session_id}.jsonl",
             cwd=cwd,
+            project_key=project_key,
             model=model,
             source="claude-code",
             outcome=None,
@@ -574,6 +582,32 @@ async def _seed_session_row(app, *, session_id: str, cwd: str = "/Users/test/pro
             tool_call_count=0,
             message_count=0,
             error_message=None,
+        ))
+
+
+async def _seed_skill_row(app, *, name: str,
+                          environment: str = "personal",
+                          autonomy: str = "manual") -> None:
+    """Insert one skills row (used by SKLP-08 registry-lookup tests).
+
+    The /api/skills/{name}/projects endpoint returns 404 when the skill
+    is not in the registry, so SKLP-08 tests must seed a skill row before
+    calling it. Mirrors the inline seeding pattern of test_skills_list_with_filters.
+    """
+    from cmc.db.base import SQLModel
+    engine = app.state.engine
+    table = SQLModel.metadata.tables["skills"]
+    now = datetime.now(UTC)
+    async with engine.begin() as conn:
+        await conn.execute(insert(table).values(
+            name=name,
+            environment=environment,
+            user_invocable=True,
+            autonomy=autonomy,
+            description=None,
+            frontmatter={},
+            path=f"/tmp/{name}/SKILL.md",
+            updated_at=now,
         ))
 
 
@@ -1010,4 +1044,247 @@ async def test_skill_latency_invalid_range_returns_422(client) -> None:
 
 async def test_skill_latency_path_traversal_rejected(client) -> None:
     r = await client.get("/api/skills/has..dotdot/latency?range=14d")
+    assert r.status_code == 400
+
+
+# =============================================================================
+# Phase 19 Plan 02: SKLP-08 (per-project breakdown endpoint)
+# =============================================================================
+#
+# GET /api/skills/{name}/projects -> SkillProjectsResponse
+#
+# ROADMAP success criterion #1: response shape carries project_key only —
+# NO cwd, NO path, NO display_path. Structurally enforced by the schema
+# (SkillProjectRow's explicit field list) AND by test_skill_projects_no_path_leakage
+# which programmatically scans every value in every row.
+
+
+async def test_skill_projects_happy_path(client) -> None:
+    """SKLP-08: per-project rollup groups runs by sessions.project_key.
+
+    Seeds 2 sessions for one project (cwd '/tmp/proj-a') and 3 sessions
+    for another (cwd '/tmp/proj-b'), each with a skill_activated event for
+    'analyze'. Asserts response.rows has 2 entries, counts are 2 and 3,
+    and project_keys match compute_project_key(cwd) for both projects.
+    """
+    from cmc.core.project_key import compute_project_key
+
+    app = client._transport.app  # type: ignore[attr-defined]
+    await _seed_skill_row(app, name="analyze")
+
+    pk_a = compute_project_key("/tmp/proj-a")
+    pk_b = compute_project_key("/tmp/proj-b")
+
+    base = datetime.now(UTC) - timedelta(hours=1)
+    # 2 sessions / 2 events for project A.
+    for i in range(2):
+        sid = f"sess-a-{i}"
+        await _seed_session_row(
+            app, session_id=sid, cwd="/tmp/proj-a", project_key=pk_a,
+            tokens_input=100_000, tokens_output=50_000,
+        )
+        await _seed_otel_event(
+            app, event_name="skill_activated", attrs_skill_name="analyze",
+            session_id=sid, body=_make_skill_body(duration_ms=120),
+            ts=base + timedelta(minutes=i),
+        )
+    # 3 sessions / 3 events for project B.
+    for i in range(3):
+        sid = f"sess-b-{i}"
+        await _seed_session_row(
+            app, session_id=sid, cwd="/tmp/proj-b", project_key=pk_b,
+            tokens_input=200_000, tokens_output=100_000,
+        )
+        await _seed_otel_event(
+            app, event_name="skill_activated", attrs_skill_name="analyze",
+            session_id=sid, body=_make_skill_body(duration_ms=80),
+            ts=base + timedelta(minutes=10 + i),
+        )
+
+    r = await client.get("/api/skills/analyze/projects?range=14d")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["name"] == "analyze"
+    assert body["range"] == "14d"
+    assert len(body["rows"]) == 2
+
+    by_key = {row["project_key"]: row for row in body["rows"]}
+    assert pk_a in by_key
+    assert pk_b in by_key
+    assert by_key[pk_a]["count"] == 2
+    assert by_key[pk_b]["count"] == 3
+    # Decimal-as-JSON-string regression
+    assert isinstance(by_key[pk_a]["cost_usd"], str)
+    # Cost path is session-scoped (model is priced).
+    assert by_key[pk_a]["cost_attribution"] == "session"
+    assert by_key[pk_b]["cost_attribution"] == "session"
+    # Both samples are < 30 -> low_sample True for both.
+    assert by_key[pk_a]["low_sample"] is True
+    assert by_key[pk_b]["low_sample"] is True
+
+
+async def test_skill_projects_unknown_skill_404(client) -> None:
+    """Unknown skill name returns 404, not empty rows (registry lookup)."""
+    r = await client.get("/api/skills/no-such-skill/projects?range=14d")
+    assert r.status_code == 404
+
+
+async def test_skill_projects_no_path_leakage(client) -> None:
+    """ROADMAP success criterion #1: response leaks no filesystem paths.
+
+    Seeds a session with a deeply-nested cwd that would be unmistakable if
+    leaked (`/tmp/super/secret/path`), then calls the endpoint and scans
+    every row's keys AND values for filesystem-shape leakage. LOAD-BEARING:
+    this is the structural guard for SKLP-08's project_key-only contract.
+    """
+    from cmc.core.project_key import compute_project_key
+
+    app = client._transport.app  # type: ignore[attr-defined]
+    await _seed_skill_row(app, name="leakcheck")
+
+    secret_cwd = "/tmp/super/secret/path"
+    pk = compute_project_key(secret_cwd)
+    await _seed_session_row(
+        app, session_id="sess-leak-1", cwd=secret_cwd, project_key=pk,
+        tokens_input=10, tokens_output=5,
+    )
+    await _seed_otel_event(
+        app, event_name="skill_activated", attrs_skill_name="leakcheck",
+        session_id="sess-leak-1", body=_make_skill_body(duration_ms=42),
+    )
+
+    r = await client.get("/api/skills/leakcheck/projects?range=14d")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert len(body["rows"]) == 1
+
+    forbidden_keys = {"cwd", "path", "display_path"}
+    for row in body["rows"]:
+        # Forbidden field names absent.
+        leaked_keys = forbidden_keys & set(row.keys())
+        assert not leaked_keys, f"row leaked keys: {leaked_keys}"
+        # No string value looks like a filesystem path or contains the secret.
+        for key, value in row.items():
+            if isinstance(value, str):
+                assert not value.startswith("/"), (
+                    f"{key}={value!r} looks like a filesystem path"
+                )
+                assert secret_cwd not in value, (
+                    f"{key}={value!r} contains the seeded secret cwd"
+                )
+                # Defensive: forbid any 'tmp' substring leakage too — the
+                # 12-char hex project_key has 1/16^3 chance of containing
+                # 'tmp' which is acceptable; widening to substring 'super'
+                # which the project_key cannot produce by construction.
+                assert "super" not in value, (
+                    f"{key}={value!r} contains a path segment from the seeded cwd"
+                )
+        # The project_key MUST be present and 12-hex.
+        assert "project_key" in row
+        assert len(row["project_key"]) == 12
+        assert all(c in "0123456789abcdef" for c in row["project_key"])
+
+
+async def test_skill_projects_low_sample_flag(client) -> None:
+    """low_sample=True when count < 30; False when count >= 30 (MIN_LATENCY_SAMPLES).
+
+    Seeds one project with 10 activations (low_sample=True) and another with
+    35 activations (low_sample=False). Asserts the boundary.
+    """
+    from cmc.core.project_key import compute_project_key
+
+    app = client._transport.app  # type: ignore[attr-defined]
+    await _seed_skill_row(app, name="boundary")
+
+    pk_low = compute_project_key("/tmp/proj-low")
+    pk_high = compute_project_key("/tmp/proj-high")
+
+    # One session per project; many events per session (count = events, not sessions).
+    await _seed_session_row(
+        app, session_id="sess-low", cwd="/tmp/proj-low", project_key=pk_low,
+    )
+    await _seed_session_row(
+        app, session_id="sess-high", cwd="/tmp/proj-high", project_key=pk_high,
+    )
+
+    base = datetime.now(UTC) - timedelta(hours=1)
+    for i in range(10):
+        await _seed_otel_event(
+            app, event_name="skill_activated", attrs_skill_name="boundary",
+            session_id="sess-low", body=_make_skill_body(duration_ms=100),
+            ts=base + timedelta(seconds=i),
+        )
+    for i in range(35):
+        await _seed_otel_event(
+            app, event_name="skill_activated", attrs_skill_name="boundary",
+            session_id="sess-high", body=_make_skill_body(duration_ms=100),
+            ts=base + timedelta(seconds=100 + i),
+        )
+
+    r = await client.get("/api/skills/boundary/projects?range=14d")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    by_key = {row["project_key"]: row for row in body["rows"]}
+    assert by_key[pk_low]["count"] == 10
+    assert by_key[pk_low]["low_sample"] is True
+    assert by_key[pk_high]["count"] == 35
+    assert by_key[pk_high]["low_sample"] is False
+
+
+async def test_skill_projects_excludes_empty_project_key(client) -> None:
+    """Sessions with project_key='' (legacy/missing-cwd) are excluded.
+
+    Seeds two sessions: one with a real project_key, one with the empty
+    sentinel. Both fire 'excluder' skill_activated. Response must contain
+    exactly one row — the keyed project — with no '' bucket.
+    """
+    from cmc.core.project_key import compute_project_key
+
+    app = client._transport.app  # type: ignore[attr-defined]
+    await _seed_skill_row(app, name="excluder")
+
+    pk_real = compute_project_key("/tmp/proj-real")
+    # Session with real project_key.
+    await _seed_session_row(
+        app, session_id="sess-keyed", cwd="/tmp/proj-real", project_key=pk_real,
+    )
+    # Session with empty project_key (legacy / missing-cwd path).
+    await _seed_session_row(
+        app, session_id="sess-empty", cwd=None, project_key="",
+    )
+
+    base = datetime.now(UTC) - timedelta(hours=1)
+    await _seed_otel_event(
+        app, event_name="skill_activated", attrs_skill_name="excluder",
+        session_id="sess-keyed", body=_make_skill_body(duration_ms=100),
+        ts=base,
+    )
+    await _seed_otel_event(
+        app, event_name="skill_activated", attrs_skill_name="excluder",
+        session_id="sess-empty", body=_make_skill_body(duration_ms=100),
+        ts=base + timedelta(seconds=1),
+    )
+
+    r = await client.get("/api/skills/excluder/projects?range=14d")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert len(body["rows"]) == 1
+    assert body["rows"][0]["project_key"] == pk_real
+    # No '' bucket leaks through.
+    assert all(row["project_key"] != "" for row in body["rows"])
+
+
+async def test_skill_projects_invalid_range_returns_422(client) -> None:
+    """range Literal accepts only '14d'|'30d' — '7d' is reserved for Plan 19-03 delta CTE."""
+    app = client._transport.app  # type: ignore[attr-defined]
+    await _seed_skill_row(app, name="rangecheck")
+    r = await client.get("/api/skills/rangecheck/projects?range=7d")
+    assert r.status_code == 422
+    r2 = await client.get("/api/skills/rangecheck/projects?range=2d")
+    assert r2.status_code == 422
+
+
+async def test_skill_projects_path_traversal_rejected(client) -> None:
+    """SKLP-08 V12: ?name=has..dotdot returns 400 (regex + '..' check)."""
+    r = await client.get("/api/skills/has..dotdot/projects?range=14d")
     assert r.status_code == 400
