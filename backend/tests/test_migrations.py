@@ -1,5 +1,7 @@
 """Phase 13 INGST-12 — migration upgrade/downgrade tests against ephemeral SQLite."""
+import hashlib
 import json
+import os
 import sqlite3
 from pathlib import Path
 
@@ -111,3 +113,119 @@ def test_0002_bug_b_backfill(tmp_path):
     sid = conn.execute("SELECT session_id FROM otel_events").fetchone()[0]
     conn.close()
     assert sid == "abc-123"
+
+
+def _seed_session_for_0003(
+    conn: sqlite3.Connection, session_id: str, cwd: str | None
+) -> None:
+    """Insert a minimal sessions row at revision 0002.
+
+    Sets every NOT NULL column the schema requires after 0002 (started_at,
+    synced_at, jsonl_mtime, jsonl_path, the 6 token counters that default to 0,
+    the cache TTL split columns, etc.). Leaves cwd/ended_at flexible.
+    """
+    conn.execute(
+        """
+        INSERT INTO sessions (
+            session_id, started_at, ended_at, synced_at, jsonl_mtime,
+            jsonl_path, cwd, project_hash, model, source, outcome,
+            tokens_input, tokens_output, tokens_cache_read, tokens_cache_create,
+            tokens_cache_create_5m, tokens_cache_create_1h,
+            tool_call_count, message_count, error_message
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0, NULL)
+        """,
+        (
+            session_id,
+            "2026-05-06T00:00:00",
+            None,
+            "2026-05-06T00:00:00",
+            "2026-05-06T00:00:00",
+            f"/tmp/{session_id}.jsonl",
+            cwd,
+            None,
+            None,
+            "claude-code",
+            None,
+        ),
+    )
+
+
+def test_0003_upgrade_from_0002(tmp_path):
+    """Migration 0003 adds project_key column with index and backfills existing rows.
+
+    Steps:
+      1. Initialize DB at revision 0002.
+      2. Insert two seed rows: one with cwd='/tmp/proj/a', one with cwd=''.
+      3. Upgrade to 0003 — backfill should populate the first, leave the second blank.
+      4. Assert column + index exist; backfilled values match the inlined formula.
+    """
+    db = tmp_path / "test.db"
+    cfg = _alembic_cfg(db)
+    command.upgrade(cfg, "0002_v1_1_alerts_and_skills")
+
+    seeded_cwd = "/tmp/proj/a"  # non-existent path — Pitfall 5 path
+    conn = sqlite3.connect(str(db))
+    _seed_session_for_0003(conn, "sess-with-cwd", seeded_cwd)
+    _seed_session_for_0003(conn, "sess-empty-cwd", "")
+    conn.commit()
+    conn.close()
+
+    command.upgrade(cfg, "0003_project_key")
+
+    conn = sqlite3.connect(str(db))
+    # 1. Column exists.
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(sessions)")}
+    assert "project_key" in cols, "project_key column missing after 0003 upgrade"
+    # 2. Index exists.
+    indexes = [r[1] for r in conn.execute("PRAGMA index_list(sessions)")]
+    assert "idx_sessions_project_key" in indexes, (
+        "idx_sessions_project_key missing after 0003 upgrade"
+    )
+    # 3. Backfilled value matches sha1[:12](realpath(cwd.rstrip('/'))) — the
+    # inline formula in the migration must agree with cmc.core.project_key.
+    pk_with = conn.execute(
+        "SELECT project_key FROM sessions WHERE session_id = ?",
+        ("sess-with-cwd",),
+    ).fetchone()[0]
+    canonical = os.path.realpath(seeded_cwd.rstrip("/"))
+    expected = hashlib.sha1(canonical.encode("utf-8")).hexdigest()[:12]
+    assert pk_with == expected, (
+        f"backfilled project_key mismatch: got {pk_with!r}, expected {expected!r}"
+    )
+    assert len(pk_with) == 12, f"expected 12-char key, got {len(pk_with)}"
+    # 4. Empty-cwd row keeps the empty default — no backfill, no error.
+    pk_empty = conn.execute(
+        "SELECT project_key FROM sessions WHERE session_id = ?",
+        ("sess-empty-cwd",),
+    ).fetchone()[0]
+    assert pk_empty == "", (
+        f"empty-cwd session should have project_key='', got {pk_empty!r}"
+    )
+    conn.close()
+
+
+def test_0003_downgrade_to_0002(tmp_path):
+    """Downgrade removes the column and index without error."""
+    db = tmp_path / "test.db"
+    cfg = _alembic_cfg(db)
+    command.upgrade(cfg, "0003_project_key")
+    # Confirm pre-downgrade state.
+    conn = sqlite3.connect(str(db))
+    cols_before = {r[1] for r in conn.execute("PRAGMA table_info(sessions)")}
+    assert "project_key" in cols_before
+    indexes_before = [r[1] for r in conn.execute("PRAGMA index_list(sessions)")]
+    assert "idx_sessions_project_key" in indexes_before
+    conn.close()
+
+    command.downgrade(cfg, "0002_v1_1_alerts_and_skills")
+
+    conn = sqlite3.connect(str(db))
+    cols_after = {r[1] for r in conn.execute("PRAGMA table_info(sessions)")}
+    assert "project_key" not in cols_after, (
+        "project_key column should be dropped on downgrade"
+    )
+    indexes_after = [r[1] for r in conn.execute("PRAGMA index_list(sessions)")]
+    assert "idx_sessions_project_key" not in indexes_after, (
+        "idx_sessions_project_key should be dropped on downgrade"
+    )
+    conn.close()

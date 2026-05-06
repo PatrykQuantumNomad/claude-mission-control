@@ -27,6 +27,7 @@ from pathlib import Path
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from cmc.config import Settings
+from cmc.core.project_key import compute_project_key
 from cmc.ingest.jsonl_parser import parse_session_file
 from cmc.ingest.repository import (
     accumulate_token_usage,
@@ -116,6 +117,9 @@ async def _sync_one_file(
         sess["source"] = sess.get("source") or "claude-code"
         # project_hash = the parent directory name (e.g. -Users-test-project).
         sess["project_hash"] = jsonl_path.parent.name
+        # Phase 19 SKLP-08: project_key = sha1[:12](realpath(cwd.rstrip('/'))).
+        # compute_project_key handles None/empty cwd by returning ''.
+        sess["project_key"] = compute_project_key(sess.get("cwd"))
 
         # Compute Option B previous-totals BEFORE upsert (so we still have the
         # existing row's old values).

@@ -21,6 +21,16 @@ class Session(SQLModel, table=True):
     jsonl_path: str
     cwd: str | None = None
     project_hash: str | None = None
+    # Phase 19 SKLP-08: sha1[:12] of realpath(cwd.rstrip('/')); '' for empty cwd.
+    # Set on insert by cmc.ingest.scheduler via cmc.core.project_key.compute_project_key,
+    # backfilled by migration 0003. NEVER expose `cwd` in API responses; use this.
+    project_key: str = Field(
+        default="",
+        max_length=12,
+        nullable=False,
+        sa_column_kwargs={"server_default": ""},
+        index=True,
+    )
     model: str | None = None
     # source enum values flagged [NEEDS USER CONFIRMATION] in 01-01-SCHEMA.md;
     # accepted as-is per APPROVED 2026-04-25 — stored as free-text for now.

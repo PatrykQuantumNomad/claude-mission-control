@@ -54,7 +54,12 @@ async def get_existing_session_for_path(
 # `started_at` is intentionally OMITTED — it's set on first insert only.
 _SESSION_MUTABLE_COLS = (
     "ended_at", "synced_at", "jsonl_mtime", "jsonl_path",
-    "cwd", "project_hash", "model", "source", "outcome",
+    "cwd", "project_hash",
+    # Phase 19 SKLP-08: project_key must be in the mutable set so re-syncs
+    # of existing sessions (e.g. late-arriving cwd corrections) recompute and
+    # write the new key — Pitfall 9 in 19-RESEARCH.md.
+    "project_key",
+    "model", "source", "outcome",
     "tokens_input", "tokens_output", "tokens_cache_read",
     "tokens_cache_create",
     # Phase 13 LOCK-4 cache TTL split — must be in the mutable set so re-parses
