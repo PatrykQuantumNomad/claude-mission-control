@@ -164,3 +164,34 @@ class SkillRunsResponse(BaseModel):
 
     name: str
     rows: list[SkillRunRow]
+
+
+# ---- Phase 19 (SKLP-08) per-project breakdown ----------------------------
+
+
+class SkillProjectRow(BaseModel):
+    """One row of SkillProjectsResponse — per-project rollup of a skill's runs.
+
+    SKLP-08 invariant: the response shape leaks no filesystem paths.
+    The ONLY project-shaped value is project_key (sha1[:12] of
+    realpath(cwd)). NEVER add a 'cwd', 'path', 'display_path', or any
+    other filesystem-shaped field to this schema. ROADMAP success
+    criterion #1 is structural — enforced here AND in the
+    no-path-leakage test (test_skills_router.py).
+    """
+
+    project_key: str  # 12-char hex; '' is excluded from rollups by the SQL
+    count: int
+    p50_ms: int | None  # null when no completed runs (duration_ms IS NULL)
+    p95_ms: int | None
+    cost_usd: Decimal  # serialized as JSON string per Pydantic v2 default
+    cost_attribution: Literal["session", "approximate"]
+    low_sample: bool  # count < MIN_LATENCY_SAMPLES (30)
+
+
+class SkillProjectsResponse(BaseModel):
+    """SKLP-08 — per-project breakdown for one skill on /skills/{name}."""
+
+    name: str
+    range: SkillRange
+    rows: list[SkillProjectRow]
