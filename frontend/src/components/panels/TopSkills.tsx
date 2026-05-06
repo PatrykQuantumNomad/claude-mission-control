@@ -15,7 +15,7 @@
 import { useMemo, useState, type ReactElement, type ReactNode } from 'react'
 import { Line, LineChart, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from 'recharts'
 import { Link } from '@tanstack/react-router'
-import { DataTable, PanelCard, RangeToggle } from '../ui'
+import { Badge, DataTable, DeltaPill, PanelCard, RangeToggle } from '../ui'
 import type { DataTableColumn, RangeOption } from '../ui'
 import { useSkillUsage } from '../../lib/queries'
 import type { SkillRange, SkillUsageResponse, SkillUsageRow } from '../../lib/api'
@@ -42,6 +42,29 @@ const SkillLink = Link as unknown as (props: {
   children?: ReactNode
 }) => ReactElement
 
+// Phase 19 SKLP-10 — render zero, one, or both badges per row.
+// 'new_this_week' → info variant; 'dormant' → warning variant. Badge text
+// is human-readable (e.g. "new this week"), the variant carries the
+// semantic color, and the data-testid identifies the badge for e2e
+// path-leakage and presence assertions.
+function RowBadges({ badges }: { badges: SkillUsageRow['badges'] }) {
+  if (!badges || badges.length === 0) return null
+  return (
+    <span style={{ display: 'inline-flex', gap: 'var(--space-2xs)', marginLeft: 'var(--space-2xs)' }}>
+      {badges.includes('new_this_week') ? (
+        <Badge variant="info" data-testid="top-skills-new-badge">
+          new this week
+        </Badge>
+      ) : null}
+      {badges.includes('dormant') ? (
+        <Badge variant="warning" data-testid="top-skills-dormant-badge">
+          dormant
+        </Badge>
+      ) : null}
+    </span>
+  )
+}
+
 const COLUMNS: DataTableColumn<SkillUsageRow>[] = [
   {
     id: 'skill_name',
@@ -49,13 +72,18 @@ const COLUMNS: DataTableColumn<SkillUsageRow>[] = [
     sortable: true,
     sort: (a, b) => a.skill_name.localeCompare(b.skill_name),
     cell: (r) => (
-      <SkillLink
-        to="/skills/$name"
-        params={{ name: r.skill_name }}
-        className="cmc-link cmc-mono"
-      >
-        {r.skill_name}
-      </SkillLink>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2xs)' }}>
+        <SkillLink
+          to="/skills/$name"
+          params={{ name: r.skill_name }}
+          className="cmc-link cmc-mono"
+        >
+          {r.skill_name}
+        </SkillLink>
+        {/* SKLP-10 — new/dormant badges live next to the skill name so
+         * the user sees the qualifier before the count. */}
+        <RowBadges badges={r.badges} />
+      </span>
     ),
   },
   {
@@ -63,7 +91,19 @@ const COLUMNS: DataTableColumn<SkillUsageRow>[] = [
     header: 'Invocations',
     sortable: true,
     sort: (a, b) => a.total - b.total,
-    cell: (r) => <span className="cmc-numeric">{r.total}</span>,
+    cell: (r) => (
+      <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 'var(--space-2xs)' }}>
+        <span className="cmc-numeric">{r.total}</span>
+        {/* SKLP-09 — usage_delta is a server-computed period-over-period
+         * pill. Decimal-as-JSON-string from Pydantic v2 → Number-coerce
+         * before passing the numeric primitive. */}
+        <DeltaPill
+          delta={Number(r.usage_delta.delta)}
+          deltaPct={r.usage_delta.delta_pct}
+          data-testid="top-skills-delta-pill"
+        />
+      </span>
+    ),
   },
 ]
 

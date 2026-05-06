@@ -29,7 +29,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { KpiTile, PanelCard, RangeToggle } from '../ui'
+import { DeltaPill, KpiTile, PanelCard, RangeToggle } from '../ui'
 import { useSkillCost } from '../../lib/queries'
 import type { SkillCostResponse, SkillRange } from '../../lib/api'
 
@@ -67,8 +67,26 @@ export function SkillCostCard({ name }: { name: string }) {
         return (
           <div className="cmc-skill-cost">
             <div className="cmc-skill-cost__top">
-              {/* Decimal-as-JSON-string — NEVER Number-coerce. */}
-              <KpiTile label="Total cost" value={`$${data.cost_usd}`} mono />
+              {/* Decimal-as-JSON-string — NEVER Number-coerce the displayed
+                * dollar figure. Trailing DeltaPill (SKLP-09) shows 7d-vs-
+                * prev-7d cost movement; its `delta` arrives as a Decimal-
+                * string and IS Number-coerced for the inline numeric pill,
+                * which is a UX summary, not a money source-of-truth. */}
+              <KpiTile
+                label="Total cost"
+                value={
+                  <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 'var(--space-2xs)' }}>
+                    <span>{`$${data.cost_usd}`}</span>
+                    <DeltaPill
+                      delta={Number(data.cost_delta.delta)}
+                      deltaPct={data.cost_delta.delta_pct}
+                      format="currency"
+                      data-testid="skill-cost-card-delta-pill"
+                    />
+                  </span>
+                }
+                mono
+              />
               <KpiTile label="Input" value={nf.format(data.tokens_input)} mono />
               <KpiTile label="Output" value={nf.format(data.tokens_output)} mono />
               <KpiTile label="Cache" value={nf.format(cacheTotal)} mono />
