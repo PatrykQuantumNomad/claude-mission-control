@@ -94,7 +94,11 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
   2. During the first week of any month the forecast card shows a partial-month bias banner so the user understands the projection is volatile; banner clears once `days_elapsed >= 7`.
   3. User sees a per-project cost card with cost and token volume by `project_key` over 7d/30d toggle, populated from the existing `GET /api/cost/breakdown?dim=project` endpoint shipped in v1.1 Phase 13 (no new endpoint needed; UI-only addition).
   4. No dollar values are stored in the database at any point; all cost figures are computed at read time via `cmc.pricing.compute_cost`, preserving the v1.1 self-correcting historical-totals property.
-**Plans**: TBD
+**Plans**: 4 plans
+  - [x] 20-01-cost-breakdown-project-key-refactor-PLAN.md — Refactor `_BREAKDOWN_BY_PROJECT_SQL` to group by `s.project_key` (Phase 19 column) + `WHERE s.project_key != ''`; structural path-leakage test mirrors Phase 19 SKLP-08 (completed 2026-05-06)
+  - [x] 20-02-cost-forecast-module-and-endpoint-PLAN.md — `cmc/cost/forecast.py` Decimal-only OLS + `GET /api/cost/forecast`; insufficient_data when `days_elapsed < 7`; baseline excludes today (completed 2026-05-06)
+  - [x] 20-03-cost-dashboard-route-and-cards-PLAN.md — `/cost` route + `CostForecastCard` + `CostByProjectCard` (7d/30d toggle); partial_month_bias banner driven by server flag, NavBar Cost link (completed 2026-05-06)
+  - [x] 20-04-cost-dashboard-e2e-PLAN.md — Playwright `cost-dashboard.spec.ts` (4 tests); path-leakage regex on real DOM; adversarial-mutation verified (completed 2026-05-06)
 **UI hint**: yes
 
 ### Phase 21: Alert Anomaly Depth & NL Authoring
