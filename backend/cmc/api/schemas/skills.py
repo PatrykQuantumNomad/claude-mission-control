@@ -22,12 +22,41 @@ from datetime import date
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from cmc.api.schemas.common import ORMBase, UTCDatetime
 
 # Phase 14 range alias — narrower than CostRange (1d/7d not used by skill panels).
 SkillRange = Literal["14d", "30d"]
+
+
+# ---- Phase 19 (SKLP-09) period-over-period delta pill --------------------
+
+
+class DeltaPill(BaseModel):
+    """SKLP-09 — server-computed period-over-period delta.
+
+    Curr/prev/delta as Decimal so the same shape works for both integer
+    counts (usage) and Decimal cost (money). Pydantic v2 serializes Decimal
+    as a JSON string; the frontend treats both numeric and string
+    serializations as opaque "render this number" payloads.
+
+    delta_pct == None when prev == 0 (avoid div-by-zero / infinity); the UI
+    renders '—' instead of fabricating a +0% / +inf%.
+
+    direction is the rendered arrow:
+      - 'up'   when delta > 0 (more activations / more cost)
+      - 'down' when delta < 0
+      - 'flat' when delta == 0
+    Color/sign treatment is the frontend's responsibility — backend just
+    declares the sign.
+    """
+
+    curr: Decimal
+    prev: Decimal
+    delta: Decimal
+    delta_pct: float | None
+    direction: Literal["up", "down", "flat"]
 
 
 class SkillRow(ORMBase):
@@ -88,11 +117,25 @@ class SkillSparklineRow(BaseModel):
 
 
 class SkillUsageRow(BaseModel):
-    """One row of SkillUsageResponse — top-N skill + per-day sparkline."""
+    """One row of SkillUsageResponse — top-N skill + per-day sparkline.
+
+    Phase 19 (SKLP-09 / SKLP-10) extensions:
+      - `usage_delta`: 7d-vs-prev-7d invocation count delta (server-computed).
+      - `badges`: list of zero or more derived markers — 'new_this_week'
+        (first_activated_at within last 7d UTC) and/or 'dormant'
+        (last_activated_at older than 30d UTC AND skill is >= 14d old —
+        cold-start suppression). All thresholds use SQLite
+        datetime('now', '-N days') in UTC, never the 'localtime' modifier
+        (DST safety, ROADMAP success criterion #5).
+    """
 
     skill_name: str
     total: int
     sparkline: list[SkillSparklineRow]
+    # Phase 19 — SKLP-09 (period-over-period delta):
+    usage_delta: DeltaPill
+    # Phase 19 — SKLP-10 (new/dormant markers; cold-start-suppressed):
+    badges: list[Literal["new_this_week", "dormant"]] = Field(default_factory=list)
 
 
 class SkillUsageResponse(BaseModel):
@@ -128,6 +171,8 @@ class SkillCostResponse(BaseModel):
     cost_usd: Decimal  # Pydantic v2: serialized as JSON string
     cost_attribution: Literal["request", "session"]
     trend: list[SkillSparklineRow]
+    # Phase 19 — SKLP-09 (period-over-period cost delta):
+    cost_delta: DeltaPill
 
 
 class SkillLatencyResponse(BaseModel):
