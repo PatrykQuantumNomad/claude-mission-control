@@ -605,11 +605,15 @@ async def _seed_session_row(app, *, session_id: str, cwd: str = "/Users/test/pro
 async def _seed_skill_row(app, *, name: str,
                           environment: str = "personal",
                           autonomy: str = "manual") -> None:
-    """Insert one skills row (used by SKLP-08 registry-lookup tests).
+    """Insert one skills row (used by SKLP-08 tests that need a registered skill).
 
-    The /api/skills/{name}/projects endpoint returns 404 when the skill
-    is not in the registry, so SKLP-08 tests must seed a skill row before
-    calling it. Mirrors the inline seeding pattern of test_skills_list_with_filters.
+    Phase 19 hotfix: /api/skills/{name}/projects no longer 404s on
+    unregistered names — it mirrors the regex-only validation of /cost,
+    /latency, /runs and returns 200 + rows=[] for unregistered skills.
+    Tests that exercise the populated path still seed a skills row so
+    rows[] is non-empty (the SQL itself joins through skill_activated
+    events, not the registry). Mirrors the inline seeding pattern of
+    test_skills_list_with_filters.
     """
     from cmc.db.base import SQLModel
     engine = app.state.engine
@@ -1144,10 +1148,22 @@ async def test_skill_projects_happy_path(client) -> None:
     assert by_key[pk_b]["low_sample"] is True
 
 
-async def test_skill_projects_unknown_skill_404(client) -> None:
-    """Unknown skill name returns 404, not empty rows (registry lookup)."""
+async def test_skill_projects_unregistered_skill_returns_empty(client) -> None:
+    """Skill name not in the `skills` registry returns 200 + rows=[].
+
+    Phase 19 hotfix: the registry-lookup 404 was inconsistent with the
+    sibling /skills/{name}/cost, /latency, /runs endpoints (regex-only
+    validation, return empty data for unregistered names) and broke
+    /skills/$name when the user navigated to an events-only skill (e.g.,
+    a skill present in otel_events.skill_activated but never inserted
+    into the catalog). The endpoint now mirrors its peers.
+    """
     r = await client.get("/api/skills/no-such-skill/projects?range=14d")
-    assert r.status_code == 404
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["name"] == "no-such-skill"
+    assert body["range"] == "14d"
+    assert body["rows"] == []
 
 
 async def test_skill_projects_no_path_leakage(client) -> None:

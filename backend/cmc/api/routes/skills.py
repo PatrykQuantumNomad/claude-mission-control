@@ -1382,23 +1382,22 @@ async def skill_projects(
 
     Validation:
       - name must match `^[a-zA-Z0-9_-]+$` AND not contain `..` (V12) -> 400
-      - skill must exist in the registry -> else 404 (consistent with the
-        plan's must_have: "rejects unknown skills with 404")
       - range Literal "14d"|"30d" -> 422 on mismatch (7d reserved for the
         Plan 19-03 delta CTE, NOT exposed here)
 
-    Empty-rows case (skill exists, no events / all events on empty
-    project_key sessions): returns 200 with rows=[].
+    Skills present in `otel_events.skill_activated` but absent from the
+    `skills` registry table (events without a registry catalog entry —
+    legacy data or skills invoked before catalog ingest) return 200 with
+    rows=[], NOT 404. This mirrors /skills/{name}/cost, /latency, and
+    /runs, which all do regex-only validation and return empty data
+    rather than 404 for unregistered names — preserving graceful render
+    on /skills/$name when the user navigates to an events-only skill.
+
+    Empty-rows case (no events / all events on empty project_key
+    sessions / unregistered skill): returns 200 with rows=[].
     """
     if not _SKILL_NAME_RE.match(name) or ".." in name:
         raise HTTPException(status_code=400, detail="invalid skill name")
-
-    # Skill registry existence check — unknown skill is 404, NOT empty rows.
-    skill_exists = (await db.execute(
-        select(Skill).where(Skill.name == name)
-    )).scalar_one_or_none()
-    if skill_exists is None:
-        raise HTTPException(status_code=404, detail=f"skill {name!r} not found")
 
     since_iso = _range_start(range_).isoformat()
 
