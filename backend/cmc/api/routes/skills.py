@@ -491,7 +491,7 @@ _RUNS_SQL = text("""
 async def skills_usage(
     db: AsyncSession = Depends(get_session),
     range_: SkillRange = Query("14d", alias="range"),
-    limit: int = Query(10, ge=1, le=50),
+    limit: int = Query(10, ge=1, le=200),
 ) -> SkillUsageResponse:
     """SKIL-04 + SKLP-09 + SKLP-10: top-N skills with sparkline, delta pill, badges.
 

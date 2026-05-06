@@ -130,8 +130,11 @@ describe('queries.qk factory', () => {
   // from 14-RESEARCH.md: never reuse the bare 'skills' prefix used by the
   // catalog endpoint or the analytics keys would collide on invalidation).
   it('skill analytics keys are scoped per dimension and per param', () => {
-    expect(qk.skillUsage('14d')).toEqual(['skill-usage', '14d'])
-    expect(qk.skillUsage('30d')).not.toEqual(qk.skillUsage('14d'))
+    expect(qk.skillUsage('14d', 10)).toEqual(['skill-usage', '14d', 10])
+    expect(qk.skillUsage('30d', 10)).not.toEqual(qk.skillUsage('14d', 10))
+    // Phase 19 hotfix: limit is part of the key so the four production
+    // callers (limit=1/10/20/200) don't share a single cache entry.
+    expect(qk.skillUsage('14d', 1)).not.toEqual(qk.skillUsage('14d', 200))
 
     expect(qk.skillCost('analyze', '14d')).toEqual(['skill-cost', 'analyze', '14d'])
     expect(qk.skillCost('analyze', '14d')).not.toEqual(qk.skillCost('build', '14d'))
@@ -149,7 +152,7 @@ describe('queries.qk factory', () => {
     // None of the skill-analytics keys collide with the catalog 'skills' key.
     const catalog = qk.skills() as readonly string[]
     expect(catalog).toEqual(['skills'])
-    expect(qk.skillUsage('14d')[0]).not.toBe(catalog[0])
+    expect(qk.skillUsage('14d', 10)[0]).not.toBe(catalog[0])
     expect(qk.skillCost('a', '14d')[0]).not.toBe(catalog[0])
   })
 

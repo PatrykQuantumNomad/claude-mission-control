@@ -160,7 +160,7 @@ describe('TopSkills (Phase 14 Plan 03 reactivation)', () => {
 
   it('renders ACTV-04 reqId, title, and top-N rows when data is non-empty', async () => {
     const client = makeClient()
-    client.setQueryData(qk.skillUsage('14d'), HAPPY_14D)
+    client.setQueryData(qk.skillUsage('14d', 10), HAPPY_14D)
     const router = makeRouter()
     await router.load()
 
@@ -184,7 +184,7 @@ describe('TopSkills (Phase 14 Plan 03 reactivation)', () => {
 
   it('row link href points to /skills/<name> (TanStack Router builds the real URL)', async () => {
     const client = makeClient()
-    client.setQueryData(qk.skillUsage('14d'), HAPPY_14D)
+    client.setQueryData(qk.skillUsage('14d', 10), HAPPY_14D)
     const router = makeRouter()
     await router.load()
 
@@ -200,7 +200,7 @@ describe('TopSkills (Phase 14 Plan 03 reactivation)', () => {
 
   it('renders the PanelCard empty state when rows is []', async () => {
     const client = makeClient()
-    client.setQueryData(qk.skillUsage('14d'), EMPTY)
+    client.setQueryData(qk.skillUsage('14d', 10), EMPTY)
     const router = makeRouter()
     await router.load()
 
@@ -216,8 +216,8 @@ describe('TopSkills (Phase 14 Plan 03 reactivation)', () => {
 
   it('RangeToggle exposes 14d / 30d buttons and clicking 30d rebinds the query (asserted via cache lookup)', async () => {
     const client = makeClient()
-    client.setQueryData(qk.skillUsage('14d'), HAPPY_14D)
-    client.setQueryData(qk.skillUsage('30d'), HAPPY_30D)
+    client.setQueryData(qk.skillUsage('14d', 10), HAPPY_14D)
+    client.setQueryData(qk.skillUsage('30d', 10), HAPPY_30D)
     const router = makeRouter()
     await router.load()
 
@@ -252,7 +252,7 @@ describe('TopSkills (Phase 14 Plan 03 reactivation)', () => {
 
   it('renders an aggregate recharts container above the table (sparkline mounted)', async () => {
     const client = makeClient()
-    client.setQueryData(qk.skillUsage('14d'), HAPPY_14D)
+    client.setQueryData(qk.skillUsage('14d', 10), HAPPY_14D)
     const router = makeRouter()
     await router.load()
 

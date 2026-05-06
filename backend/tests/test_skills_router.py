@@ -676,9 +676,13 @@ async def test_skills_usage_invalid_range_returns_422(client) -> None:
 
 
 async def test_skills_usage_limit_clamping(client) -> None:
-    """?limit=99 exceeds the Query(le=50) clamp -> 422."""
-    r = await client.get("/api/skills/usage?range=14d&limit=99")
+    """?limit=201 exceeds the Query(le=200) clamp -> 422; cap raised in Phase 19
+    Plan 04 hotfix to support SkillsRegistry's badge-join coverage call."""
+    r = await client.get("/api/skills/usage?range=14d&limit=201")
     assert r.status_code == 422
+    # Boundary: 200 is the new cap, must be accepted.
+    r200 = await client.get("/api/skills/usage?range=14d&limit=200")
+    assert r200.status_code == 200, r200.text
     # Lower bound also rejected.
     r0 = await client.get("/api/skills/usage?range=14d&limit=0")
     assert r0.status_code == 422

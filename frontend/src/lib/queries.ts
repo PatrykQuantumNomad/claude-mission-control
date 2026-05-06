@@ -93,7 +93,11 @@ export const qk = {
   skills: () => ['skills'] as const,
   // Phase 14 (SKIL-04..07) — never reuse the bare 'skills' prefix; each
   // analytics dimension is its own scoped key. Pitfall 5 from 14-RESEARCH.md.
-  skillUsage: (range: SkillRange) => ['skill-usage', range] as const,
+  // limit is part of the key — four callers (SkillCostCardForTopSkill=1,
+  // TopSkills=10, SkillLatencyTable=20, SkillsRegistry=200) must NOT share
+  // a cache entry, otherwise a 422 from one limit corrupts the other three.
+  skillUsage: (range: SkillRange, limit: number) =>
+    ['skill-usage', range, limit] as const,
   skillCost: (name: string, range: SkillRange) =>
     ['skill-cost', name, range] as const,
   skillLatency: (name: string, range: SkillRange) =>
@@ -272,7 +276,7 @@ export const useEdits = (range: Range) =>
 
 export const useSkillUsage = (range: SkillRange, limit: number = 10) =>
   useQuery<SkillUsageResponse>({
-    queryKey: qk.skillUsage(range),
+    queryKey: qk.skillUsage(range, limit),
     queryFn: () => api.skillUsage(range, limit),
     refetchInterval: 60_000,
     staleTime: 45_000,

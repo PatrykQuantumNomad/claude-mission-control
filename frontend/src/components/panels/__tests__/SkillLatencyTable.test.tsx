@@ -86,7 +86,7 @@ const latencyReview: SkillLatencyResponse = {
 }
 
 function seedAll(client: QueryClient): void {
-  client.setQueryData(qk.skillUsage('14d'), usage)
+  client.setQueryData(qk.skillUsage('14d', 20), usage)
   client.setQueryData(qk.skillLatency('analyze', '14d'), latencyAnalyze)
   client.setQueryData(qk.skillLatency('refactor', '14d'), latencyRefactor)
   client.setQueryData(qk.skillLatency('review', '14d'), latencyReview)
@@ -172,7 +172,7 @@ describe('SkillLatencyTable', () => {
 
   it('renders empty state when usage rows: []', () => {
     const client = makeClient()
-    client.setQueryData(qk.skillUsage('14d'), {
+    client.setQueryData(qk.skillUsage('14d', 20), {
       range: '14d',
       rows: [],
     } satisfies SkillUsageResponse)
