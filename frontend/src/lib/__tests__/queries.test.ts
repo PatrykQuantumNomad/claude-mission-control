@@ -30,6 +30,8 @@ import {
   usePatchAlertRule,
   usePressure,
   useProductivity,
+  useCostBreakdown,
+  useCostForecast,
   useSessionCompare,
   useSessionDetails,
   useSessionsList,
@@ -172,6 +174,43 @@ describe('queries.qk factory', () => {
     expect(qk.alertRules()[0]).toBe('alert-rules')
     expect(qk.alertEvents('7d')[0]).toBe('alert-events')
   })
+
+  // Phase 20 Plan 03 (ANLY-06 + ANLY-07) — verify cost-* keys are uniquely
+  // scoped (kebab-prefixed) AND that qk.costBreakdown discriminates on BOTH
+  // dim and range. STATE.md L121 cache-key discipline lesson from Phase 19
+  // hotfix da592ff: every TanStack-Query hook param affecting response shape
+  // MUST appear in the queryKey.
+  it('cost keys are kebab-prefixed and discriminate on every shape-affecting param', () => {
+    // costForecast — no params (server-clock derived); stable identity per
+    // call (different array references but structurally equal).
+    expect(qk.costForecast()).toEqual(['cost-forecast'])
+    // costBreakdown — both dim AND range are part of the key.
+    expect(qk.costBreakdown('project', '7d')).toEqual([
+      'cost-breakdown',
+      'project',
+      '7d',
+    ])
+    // dim discriminates
+    expect(qk.costBreakdown('project', '7d')).not.toEqual(
+      qk.costBreakdown('model', '7d'),
+    )
+    expect(qk.costBreakdown('project', '7d')).not.toEqual(
+      qk.costBreakdown('skill', '7d'),
+    )
+    // range discriminates (the Phase 19 hotfix lesson — both params keyed)
+    expect(qk.costBreakdown('project', '7d')).not.toEqual(
+      qk.costBreakdown('project', '30d'),
+    )
+    expect(qk.costBreakdown('project', '1d')).not.toEqual(
+      qk.costBreakdown('project', '14d'),
+    )
+
+    // No collision with bare 'cost' or with skill/alert kebab prefixes.
+    expect(qk.costForecast()[0]).toBe('cost-forecast')
+    expect(qk.costBreakdown('project', '7d')[0]).toBe('cost-breakdown')
+    expect(qk.costForecast()).not.toEqual(qk.skills())
+    expect(qk.costForecast()).not.toEqual(qk.alertRules())
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -220,9 +259,12 @@ describe('queries surface area', () => {
       useFollowUpMessage,
       // Phase 16 (CMPR-01..05) — 1 paired-session compare hook
       useSessionCompare,
+      // Phase 20 (ANLY-06 + ANLY-07) — 2 cost dashboard hooks
+      useCostForecast,
+      useCostBreakdown,
     ]
-    // 27 query hooks + 5 mutations (4 alert + 1 follow-up) = 32 callable exports
-    expect(exported).toHaveLength(32)
+    // 27 query hooks + 5 mutations (4 alert + 1 follow-up) + 2 cost = 34
+    expect(exported).toHaveLength(34)
     for (const fn of exported) {
       expect(typeof fn).toBe('function')
     }

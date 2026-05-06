@@ -25,6 +25,10 @@ import type {
   AlertRuleCreate,
   AlertRuleListResponse,
   AlertRulePatch,
+  BreakdownDim,
+  CostBreakdownResponse,
+  CostForecastResponse,
+  CostRange,
   DecisionAnswerRequest,
   DecisionListItem,
   DecisionListResponse,
@@ -120,6 +124,14 @@ export const qk = {
   sessionCompare: (a: string, b: string) => ['session-compare', a, b] as const,
   contextHealth: () => ['context', 'health'] as const,
   systemState: (key: string) => ['system', 'state', key] as const,
+  // Phase 20 (ANLY-06) — monthly cost forecast. No params (server-clock
+  // derived; current month implicit).
+  costForecast: () => ['cost-forecast'] as const,
+  // Phase 20 (ANLY-07) — per-project cost breakdown. BOTH dim AND range
+  // affect response shape — both MUST be in the queryKey (cache-key
+  // discipline lesson from Phase 19 hotfix da592ff, STATE.md L121).
+  costBreakdown: (dim: BreakdownDim, range: CostRange) =>
+    ['cost-breakdown', dim, range] as const,
 } as const
 
 // ============================================================================
@@ -316,6 +328,26 @@ export const useSkillProjects = (name: string, range: SkillRange) =>
   useQuery<SkillProjectsResponse>({
     queryKey: qk.skillProjects(name, range),
     queryFn: () => api.skillProjects(name, range),
+    refetchInterval: 60_000,
+    staleTime: 45_000,
+  })
+
+// Phase 20 (ANLY-06 + ANLY-07) — cost dashboard. 60s/45s daily-aggregate
+// cadence — same bucket as useSkillCost / useTokens (cost data updates
+// daily, not per-second). Cadence lives HERE, never inlined in panel
+// components (project convention; see file header).
+export const useCostForecast = () =>
+  useQuery<CostForecastResponse>({
+    queryKey: qk.costForecast(),
+    queryFn: () => api.costForecast(),
+    refetchInterval: 60_000,
+    staleTime: 45_000,
+  })
+
+export const useCostBreakdown = (dim: BreakdownDim, range: CostRange) =>
+  useQuery<CostBreakdownResponse>({
+    queryKey: qk.costBreakdown(dim, range),
+    queryFn: () => api.costBreakdown(dim, range),
     refetchInterval: 60_000,
     staleTime: 45_000,
   })

@@ -554,6 +554,52 @@ export interface SkillProjectsResponse {
   rows: SkillProjectRow[]
 }
 
+// ============================================================================
+// Phase 20 cost surface (ANLY-06 + ANLY-07).
+// CostRange + BreakdownDim mirror backend cmc.api.schemas.cost Literal types.
+// Decimal fields are JSON strings (Pydantic v2 default) — NEVER coerce to
+// Number for display; render via template literals to preserve full precision
+// (Pitfall 5 from 14-RESEARCH.md, carried forward).
+// ============================================================================
+
+export type CostRange = '1d' | '7d' | '14d' | '30d'
+export type BreakdownDim = 'model' | 'skill' | 'project'
+
+// CostBreakdownRow.key is a 12-char hex project_key when dim=project (Phase 19
+// SKLP-08 invariant + Plan 20-01 SQL refactor) — NEVER a raw filesystem path.
+export interface CostBreakdownRow {
+  key: string
+  tokens_input: number
+  tokens_output: number
+  tokens_cache_read: number
+  tokens_cache_create_5m: number
+  tokens_cache_create_1h: number
+  cost_usd: string  // Decimal-as-JSON-string
+}
+
+export interface CostBreakdownResponse {
+  range: CostRange
+  dim: BreakdownDim
+  rates_as_of: string | null
+  total_usd: string
+  rows: CostBreakdownRow[]
+}
+
+// CostForecastResponse — ANLY-06. Matches backend Pydantic CostForecastResponse
+// shape (Plan 20-02). insufficient_data + partial_month_bias are server-source-
+// of-truth flags (Pitfall 7 in 20-RESEARCH.md): never re-derive client-side
+// from days_elapsed.
+export interface CostForecastResponse {
+  rates_as_of: string | null
+  days_elapsed: number
+  days_in_month: number
+  baseline_days: number
+  month_to_date_usd: string                  // Decimal-as-JSON-string, ALWAYS present
+  projected_month_total_usd: string | null   // null when insufficient_data
+  insufficient_data: boolean
+  partial_month_bias: boolean
+}
+
 export interface SkillLatencyResponse {
   range: SkillRange
   name: string
@@ -1088,6 +1134,21 @@ export const api = {
       `/api/skills/${encodeURIComponent(name)}/projects?range=${range}`,
     ),
 
+  // Phase 20 (ANLY-06) — monthly cost forecast. Read-time-computed; current
+  // month implicit (server-clock derived). Decimal-as-JSON-string fields.
+  costForecast: () =>
+    fetchJson<CostForecastResponse>('/api/cost/forecast'),
+
+  // Phase 20 (ANLY-07) — per-project cost breakdown. The Cost dashboard
+  // surface uses dim='project' (path-leakage-resistant via Plan 20-01 SQL
+  // refactor: GROUP BY sessions.project_key + WHERE != '' filter), but the
+  // param is left general so future dim=model / dim=skill consumers can
+  // share the fetcher without schema change.
+  costBreakdown: (dim: BreakdownDim, range: CostRange) =>
+    fetchJson<CostBreakdownResponse>(
+      `/api/cost/breakdown?dim=${dim}&range=${range}`,
+    ),
+
   // Phase 15 (ALRT-09) — alert rules CRUD + events list + ack. Body shapes
   // (AlertRuleCreate / AlertRulePatch / AlertAckRequest) are validated
   // server-side; mutations in queries.ts surface 422 via mutation.onError.
@@ -1324,3 +1385,13 @@ export const fetchAlertRulePatch = api.alertRulePatch
 export const fetchAlertRuleDelete = api.alertRuleDelete
 export const fetchAlertEvents = api.alertEvents
 export const fetchAlertAck = api.alertAck
+
+// ============================================================================
+// Phase 20 — Cost dashboard standalone fetcher exports (ANLY-06 + ANLY-07).
+// Same dual-surface pattern as Phase 14 / 15: panel/hook layer goes through
+// queries.ts which calls api.* — these standalone aliases satisfy direct
+// callers + the must_haves grep contract.
+// ============================================================================
+
+export const fetchCostForecast = api.costForecast
+export const fetchCostBreakdown = api.costBreakdown
