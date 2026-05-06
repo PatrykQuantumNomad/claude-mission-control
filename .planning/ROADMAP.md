@@ -78,7 +78,11 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
   3. TopSkills panel, SkillCostCard, and per-skill detail page each render a 7d-vs-prev-7d delta pill (↑/↓ with absolute delta + percent) for cost and usage count, derived via prev-period CTE in the existing skills router.
   4. Skills with `first_activated_at` within the last 7 days display a "new this week" badge, and skills with `last_activated_at` older than 30 days display a "dormant" badge — with cold-start suppression for skills <14 days old (no false-positive "dormant" on a freshly-installed skill).
   5. DST day-boundary windowing is correct: badge thresholds use SQLite `datetime('now', '-N days')` (UTC), not local-time arithmetic, verified by a unit test crossing the spring-forward boundary.
-**Plans**: TBD
+**Plans**: 4 plans
+  - [x] 19-01-migration-and-project-key-PLAN.md — Alembic migration `0003_project_key` (sessions.project_key VARCHAR(12) NOT NULL DEFAULT '', indexed, Python-loop backfill via realpath); `cmc.core.project_key.compute_project_key` helper; scheduler.py + repository.py wiring so new/re-synced sessions get keyed (completed 2026-05-06)
+  - [ ] 19-02-skills-projects-endpoint-PLAN.md — SKLP-08 `GET /api/skills/{name}/projects` endpoint returning `SkillProjectRow[]` (project_key, count, p50/p95, cost_usd, low_sample); structural no-path-leakage test (response shape carries project_key only)
+  - [ ] 19-03-deltas-and-badges-PLAN.md — SKLP-09 prev-period CTE (7d-vs-prev-7d) extends `/skills/usage` and `/skills/{name}/cost`; SKLP-10 new/dormant badges via MIN/MAX(ts) with cold-start suppression; DST spring-forward unit test (ROADMAP success criterion #5)
+  - [ ] 19-04-frontend-deltas-projects-badges-PLAN.md — DeltaPill primitive, SkillProjectsTable panel mount on `/skills/$name`, badges on TopSkills + SkillsRegistry, DeltaPill wiring on TopSkills + SkillCostCard, Playwright skills-detail spec with path-leakage guard
 **UI hint**: yes
 
 ### Phase 20: Cost Forecast & Per-Project Card
@@ -154,7 +158,7 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 | 16. Session Comparison | v1.1 | 4/4 | Complete | 2026-05-05 |
 | 17. Polish, Doctor & Tests | v1.1 | 6/6 | Complete | 2026-05-05 |
 | 18. Polish & Carry-Forward Cleanup | v1.2 | 5/5 | Complete   | 2026-05-05 |
-| 19. Skills Per-Project, Deltas & Badges | v1.2 | 0/? | Not started | — |
+| 19. Skills Per-Project, Deltas & Badges | v1.2 | 1/4 | In progress | — |
 | 20. Cost Forecast & Per-Project Card | v1.2 | 0/? | Not started | — |
 | 21. Alert Anomaly Depth & NL Authoring | v1.2 | 0/? | Not started | — |
 | 22. Skill Latency Overhead (spike-gated) | v1.2 | 0/? | Not started | — |

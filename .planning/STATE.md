@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Depth & Polish
-status: Phase 18 complete (5/5 plans shipped); BASELINE.md is the canonical reference for v1.2 phases 19+ verifiers
-stopped_at: Phase 18 (Polish & Carry-Forward Cleanup) complete; ready for Phase 19.
-last_updated: "2026-05-05T21:17:41.139Z"
-last_activity: 2026-05-05 — Plan 05 executed (commit eb65e1c BASELINE.md recorded: pytest 566/0/32, vitest 293/0, playwright 7/1/0, datetime.utcnow warnings ~1429 → 0, net-zero deps); SUMMARY written; all 4 ROADMAP success criteria green
+status: Phase 19 in progress (1/4 plans shipped — migration 0003_project_key foundation landed); Phase 18 BASELINE.md verifier rules preserved (pytest 579/0/32, datetime.utcnow=0).
+stopped_at: Phase 19 Plan 01 complete; ready for Phase 19 Plan 02 (skills-projects-endpoint, SKLP-08).
+last_updated: "2026-05-06T11:39:00Z"
+last_activity: 2026-05-06 — Phase 19 Plan 01 executed (commits 53fe578 helper + 95bd1df migration/wiring); pytest 579/0/32 (+13 vs Phase 18 baseline); 0 datetime.utcnow warnings; ruff clean.
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
-  percent: 100
+  total_plans: 9
+  completed_plans: 6
+  percent: 67
 ---
 
 # Project State
@@ -26,12 +26,12 @@ See: .planning/PROJECT.md (updated 2026-05-05 after v1.1 ship)
 
 ## Current Position
 
-Phase: 18 — Polish & Carry-Forward Cleanup (complete, 5/5 plans shipped)
-Plan: All Phase 18 plans complete; Phase 19 is next
-Status: Phase 18 complete; BASELINE.md is the canonical reference for v1.2 phases 19+ verifiers
-Last activity: 2026-05-05 — Plan 05 executed (commit eb65e1c BASELINE.md recorded: pytest 566/0/32, vitest 293/0, playwright 7/1/0, datetime.utcnow warnings ~1429 → 0, net-zero deps); SUMMARY written; all 4 ROADMAP success criteria green
+Phase: 19 — Skills Per-Project, Deltas & Badges (in progress, 1/4 plans shipped)
+Plan: 19-02 (skills-projects-endpoint, SKLP-08) is next
+Status: Phase 19 Plan 01 complete (foundation: migration 0003_project_key + project_key helper + ingest wiring); Phase 18 BASELINE.md verifier rules preserved
+Last activity: 2026-05-06 — Plan 19-01 executed (commits 53fe578 helper + 95bd1df migration/wiring); pytest 579/0/32 (+13 vs baseline); SUMMARY at .planning/phases/19-skills-per-project-deltas-badges/19-01-SUMMARY.md
 
-Progress: [██████████] 100%
+Progress: [██████░░░░] 67%
 
 ## Accumulated Context
 
@@ -72,6 +72,15 @@ Phase 18 Plan 05 (baseline-and-phase-close, phase-exit artifact):
 - **Dev-DB context capture for state-dependent skips.** Recorded `failed_tasks_total=1` and `failed_tasks_recent_5min=0` to explain the alerts.spec.ts steady-state skip. Lets future verifiers distinguish "baseline preserved" from "state drifted" (skipped >= 2 → human review).
 - **Even ad-hoc inspection scripts respect the POLI-06 ban.** The dev-DB capture script uses `cmc.core.time.now_utc` (not `datetime.utcnow`) — structural enforcement is across the codebase, not just shipped code.
 
+Phase 19 Plan 01 (migration 0003_project_key + project_key helper + ingest wiring, SKLP-08 foundation):
+
+- **Migration 0003 INLINES the sha1[:12] backfill logic instead of importing `compute_project_key`.** Defensive against future helper refactors — Alembic migrations must remain runnable against historical revisions even if `cmc.core.project_key` is renamed/moved/restructured. Mirrors how 0002 inlined `json_extract` for session_id backfill instead of importing from `cmc.ingest.parser`. The unit test `test_matches_inline_sha1_logic` in `test_core_project_key.py` pins the formula equality so the helper and the migration cannot silently diverge.
+- **Empty-string sentinel for `compute_project_key(None)` and `compute_project_key('')`.** Both return `''` (never raises). The `sessions.project_key` column is NOT NULL, so the empty string is the natural "no canonical project" marker — queries naturally exclude `WHERE project_key != ''`. Mirrors the COALESCE pattern in cost.py:168.
+- **Python-loop backfill for filesystem-aware migrations.** SQLite has no `realpath` builtin, so the migration iterates rows in Python and calls `os.path.realpath` per row. Pure-SQL backfill (the 0002 idiom for session_id) was unavailable because the canonicalization crosses into the filesystem layer.
+- **`_SESSION_MUTABLE_COLS` includes `project_key`.** Pitfall 9 — the migration is one-shot; ingest must keep the column fresh on every re-sync, including rows where the cwd value arrives or is corrected later. Without this, a session with cwd corrected after first sync would never get re-keyed.
+- **Helper-first / wiring-second commit split (53fe578 + 95bd1df).** Two atomic commits on `main`: Task 1 lands compute_project_key + 11 unit tests in isolation; Task 2 lands the migration + sessions model + scheduler/repository wiring + 2 migration tests as one unit. Bisect-friendly: a regression in either layer is attributable to one commit.
+- **Test count grew from 7 (plan) to 11 (delivered).** Each addition pins an invariant the original 7 didn't: re-export shape (`test_reexport_via_cmc_core`), formula equality vs inlined migration code (`test_matches_inline_sha1_logic`, drift guard), parametric falsy-input coverage. No deviation cost — pure-function tests run in 0.02s combined.
+
 v1.2 roadmap-time decisions:
 
 - **Phase 22 is spike-gated for SKLP-11.** Phase opens with a mandatory feasibility spike (`tools` temporal JOIN against `skill_activated.duration_ms`); negative finding descopes SKLP-11 to v1.3 cleanly without blocking Phase 23. No fake decomposition ships under any circumstance (PITFALLS Pitfall 10).
@@ -93,7 +102,8 @@ v1.1 carried decisions (still active):
 
 ### Pending Todos
 
-- Phase 19 plan owns migration `0003_project_key` (sessions.project_key VARCHAR(12), backfill, index).
+- ~~Phase 19 plan owns migration `0003_project_key`~~ — **landed in Phase 19 Plan 01 (commit 95bd1df, 2026-05-06)**. `sessions.project_key VARCHAR(12) NOT NULL DEFAULT ''` + `idx_sessions_project_key` + Python-loop backfill; ingest path keeps it fresh via scheduler.py and repository.py. Phase 20 ANLY-07 unblocked.
+- Phase 19 Plans 02/03/04 still to execute: SKLP-08 endpoint (per-project rollup), SKLP-09/10 prev-period CTE + badges with DST spring-forward unit test, frontend wiring (DeltaPill primitive, SkillProjectsTable panel, badges on TopSkills + SkillsRegistry).
 - Phase 22 plan front-matter MUST cite SQL columns or temporal-JOIN derivation source for body_ms / subagent_ms / tool_ms before any UI work begins (Pitfall 10 acceptance criterion).
 - Phase 23 closes the milestone — audit hooks (full pytest + vitest + playwright green; `cmc doctor` clean; REQUIREMENTS.md traceability 13/13 or honest 12/13 + descope) belong in the final phase plan.
 - v1.2 verifiers (Phase 19+) MUST read `.planning/phases/18-polish-carry-forward-cleanup/BASELINE.md` at phase-close time and apply the embedded per-suite verifier rules (pytest >= 566, vitest >= 293, playwright >= 7, `warnings_datetime_utcnow > 0` → fail).
@@ -108,7 +118,7 @@ None blocking roadmap → planning. Risk register:
 
 Two operational human-verify items still carry forward (non-blocking, auto-discharging):
 
-- Apply Alembic migration 0002 to live `data/cmc.db` — auto-applies on next `cmc start` via `lifespan.py:98-100` (will be joined by `0003_project_key` in Phase 19).
+- Apply Alembic migrations 0002 and 0003 to live `data/cmc.db` — auto-applies on next `cmc start` via `lifespan.py:98-100`. `0003_project_key` (Phase 19 Plan 01) will backfill existing sessions on first boot post-merge.
 - Phase 14 visual checkpoint per Plan 14-05 (visual rendering on `/activity` TopSkills, `/skills` 3 panels, `/skills/$name` detail) — operator-driven dashboard navigation.
 
 ## Deferred Items
@@ -130,13 +140,13 @@ Two operational human-verify items still carry forward (non-blocking, auto-disch
 
 **v1.0 baseline:** 47 plans, 4 days (2026-04-25 → 2026-04-28), ~39,800 LOC.
 **v1.1:** 28 plans, 4 days (2026-05-02 → 2026-05-05), +81,397 / -13,435 lines vs v1.0, ~56,232 LOC at close.
-**v1.2:** Phases 18–23 defined (6 phases, 13 requirements). **Phase 18 complete (5/5 plans, 2026-05-05)**: Plan 01 ~10 min (cmc.core.time helper + 5 unit tests), Plan 02 ~42 min (atomic 22-site sweep `datetime.utcnow` → `now_utc`, commit c3d792f), Plan 03 ~3 min (`vi.spyOn(Date, 'now')` pin in SchedulesCard.test.tsx), Plan 04 ~5 min (Playwright strict-mode disambiguation + e2e/README.md), Plan 05 ~9 min (BASELINE.md phase-exit artifact). Final phase-18 baseline: backend pytest 566 passed / 0 failed / 32 warnings / 0 datetime.utcnow lines; frontend vitest 293 passed / 66 files; Playwright 7 passed / 1 skipped (alerts steady-state) / 0 failed. Pytest deprecation-warning delta ~1429 → 0. Net-zero dependency change across the phase. POLI-06/POLI-07/POLI-08 all green; BASELINE.md (`.planning/phases/18-polish-carry-forward-cleanup/BASELINE.md`) is the canonical reference for v1.2 phases 19+ verifiers.
+**v1.2:** Phases 18–23 defined (6 phases, 13 requirements). **Phase 18 complete (5/5 plans, 2026-05-05)**: Plan 01 ~10 min (cmc.core.time helper + 5 unit tests), Plan 02 ~42 min (atomic 22-site sweep `datetime.utcnow` → `now_utc`, commit c3d792f), Plan 03 ~3 min (`vi.spyOn(Date, 'now')` pin in SchedulesCard.test.tsx), Plan 04 ~5 min (Playwright strict-mode disambiguation + e2e/README.md), Plan 05 ~9 min (BASELINE.md phase-exit artifact). Final phase-18 baseline: backend pytest 566 passed / 0 failed / 32 warnings / 0 datetime.utcnow lines; frontend vitest 293 passed / 66 files; Playwright 7 passed / 1 skipped (alerts steady-state) / 0 failed. Pytest deprecation-warning delta ~1429 → 0. Net-zero dependency change across the phase. POLI-06/POLI-07/POLI-08 all green; BASELINE.md (`.planning/phases/18-polish-carry-forward-cleanup/BASELINE.md`) is the canonical reference for v1.2 phases 19+ verifiers. **Phase 19 in progress (1/4 plans, 2026-05-06)**: Plan 01 ~8 min (commits 53fe578 helper + 95bd1df migration/wiring): `cmc.core.project_key.compute_project_key` helper (11 unit tests), Alembic migration `0003_project_key` (sessions.project_key VARCHAR(12) NOT NULL DEFAULT '' + indexed + Python-loop backfill via realpath), sessions model field, scheduler.py + repository.py wiring; pytest 579 passed / 0 failed / 32 warnings / 0 datetime.utcnow (+13 vs baseline), ruff clean.
 **Cumulative:** 75 plans across 17 phases (11 v1.0 + 6 v1.1) over 8 calendar days of active development pre-v1.2.
 
 ## Session Continuity
 
-Last session: 2026-05-05T21:17:38.092Z
-Stopped at: Phase 18 (Polish & Carry-Forward Cleanup) complete; ready for Phase 19. BASELINE.md is canonical reference for v1.2 phases 19+ regressions.
+Last session: 2026-05-06T11:39:00Z
+Stopped at: Phase 19 Plan 01 (migration-and-project-key) complete; ready for Phase 19 Plan 02 (skills-projects-endpoint, SKLP-08).
 Resume file: None
 
 ---
