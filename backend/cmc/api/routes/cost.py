@@ -161,11 +161,20 @@ _BREAKDOWN_BY_SKILL_SQL = text("""
     GROUP BY o.attrs_skill_name
 """)
 
-# By project: cwd rollup (project_hash isn't in sessions schema; cwd is the
-# canonical project key per OBSV-06).
+# By project: project_key rollup (sha1[:12] of realpath(cwd)). Phase 19's
+# 0003_project_key migration added sessions.project_key; mirror the
+# skills router's _PROJECTS_TOKEN_SQL discipline (skills.py per Phase 19
+# Plan 02): WHERE s.project_key != '' EXCLUDES the empty-key sentinel
+# rows (legacy sessions whose cwd was missing/None at ingest time).
+#
+# 20-RESEARCH.md Pitfall 1 — naive cwd→project_key swap without the
+# WHERE filter would surface a phantom "" bucket. ROADMAP Phase 20
+# success criterion #3 inherits Phase 19's path-leakage prohibition
+# (SKLP-08): the response `key` field MUST be project_key, never cwd.
+# Structural guard pinned by tests/test_cost_no_path_leakage.py.
 _BREAKDOWN_BY_PROJECT_SQL = text("""
     SELECT
-      COALESCE(s.cwd, '<unknown>')                AS key,
+      s.project_key                               AS key,
       COALESCE(SUM(s.tokens_input), 0)            AS tokens_input,
       COALESCE(SUM(s.tokens_output), 0)           AS tokens_output,
       COALESCE(SUM(s.tokens_cache_read), 0)       AS tokens_cache_read,
@@ -174,7 +183,8 @@ _BREAKDOWN_BY_PROJECT_SQL = text("""
       MAX(s.model)                                AS model
     FROM sessions s
     WHERE s.started_at >= :since
-    GROUP BY COALESCE(s.cwd, '<unknown>')
+      AND s.project_key != ''
+    GROUP BY s.project_key
 """)
 
 
