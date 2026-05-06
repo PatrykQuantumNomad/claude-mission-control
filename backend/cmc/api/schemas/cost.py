@@ -68,3 +68,33 @@ class PricingFreshnessResponse(BaseModel):
     is_stale: bool             # True if rates_as_of < now - 30 days
     on_disk_hash: str          # sha256 of data/pricing.json
     model_count: int           # how many distinct models have currently-effective rates
+
+
+class CostForecastResponse(BaseModel):
+    """ANLY-06 — monthly cost forecast envelope.
+
+    Decimal fields serialize as JSON strings (Pydantic v2 default).
+    Never pipe through fastapi.encoders.jsonable_encoder — silent precision
+    loss on Decimal -> float conversion.
+
+    Locked semantics (20-RESEARCH.md):
+      - days_elapsed = today.day - 1 (D-01).
+      - 14d baseline EXCLUDES today (D-02; uses [today-14..today-1]).
+      - insufficient_data = days_elapsed < 7 (D-05); projected_month_total_usd
+        is None in that case.
+      - partial_month_bias uses the same threshold as insufficient_data
+        (D-05); both flags flip together. Future-proofed as separate booleans
+        in case the policy diverges later.
+      - No clamp on negative projections (D-03); UI handles presentation.
+      - No degenerate_baseline flag (D-04); zero-variance baseline yields
+        slope=0 / projection = mean * days_in_month — bias banner is
+        sufficient signaling.
+    """
+    rates_as_of: date | None
+    days_elapsed: int                          # 0..30; today.day - 1
+    days_in_month: int                         # 28..31
+    baseline_days: int                         # always 14 in v1
+    month_to_date_usd: Decimal                 # always present
+    projected_month_total_usd: Decimal | None  # null when insufficient_data
+    insufficient_data: bool
+    partial_month_bias: bool

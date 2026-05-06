@@ -341,3 +341,149 @@ async def test_breakdown_project_excludes_empty_key(client) -> None:
     assert rows[0]["key"] == pk_known
     for row in rows:
         assert row["key"] != "", "empty project_key surfaced as a row"
+
+
+# ---- ANLY-06 forecast endpoint tests (Phase 20 Plan 02) -----------------
+#
+# GET /api/cost/forecast — Decimal-only OLS, 14d rolling baseline.
+# Locked decisions:
+#   D-01: days_elapsed = today.day - 1.
+#   D-02: 14d baseline EXCLUDES today (uses [today-14..today-1]).
+#   D-03: no clamp on negative-slope projections.
+#   D-04: no degenerate_baseline flag (zero-variance → slope=0, mean intercept).
+#   D-05: insufficient_data and partial_month_bias share the same threshold
+#         (days_elapsed < 7); both flags flip together at the day-7→day-8
+#         boundary.
+#
+# Date freezing: pytest_freezer (freezegun under the hood). `now_utc()` reads
+# `datetime.now(UTC)`, which freezegun patches globally — no cmc-internal
+# monkeypatch needed.
+
+
+async def _seed_n_days_token_usage(
+    client, days: list[tuple[date, int]],
+) -> None:
+    """Seed token_usage rows for forecast tests.
+
+    Each tuple is (day, daily_input_tokens). Output/cache fields zero.
+    Single 'claude-opus-4-5' model so cost is monotonic in input tokens
+    via the existing pricing seed. Use this to construct deterministic
+    14d baselines with known slopes.
+    """
+    app = client._transport.app  # type: ignore[attr-defined]
+    rows = [
+        make_token_usage_bucket(
+            day=day_.isoformat(),
+            model="claude-opus-4-5",
+            tokens_input=tokens,
+            tokens_output=0,
+            tokens_cache_read=0,
+            tokens_cache_create=0,
+        )
+        for day_, tokens in days
+    ]
+    await _seed_token_usage(app, rows)
+
+
+async def test_forecast_returns_decimal_strings(client, freezer) -> None:
+    """ANLY-06 / Anti-Pattern guard: Decimal fields serialize as JSON strings."""
+    # Freeze to a date past day 7 so we get a non-null projection.
+    freezer.move_to("2026-05-15T12:00:00Z")
+    today = date(2026, 5, 15)
+    # Seed 14 complete days [May 1..May 14] + today (May 15).
+    days = [(today - timedelta(days=i), 1_000_000) for i in range(15)]
+    await _seed_n_days_token_usage(client, days)
+
+    r = await client.get("/api/cost/forecast")
+    assert r.status_code == 200, r.text
+    payload = r.json()
+    assert isinstance(payload["month_to_date_usd"], str), (
+        f"expected str, got {type(payload['month_to_date_usd'])}: "
+        f"{payload['month_to_date_usd']!r}"
+    )
+    assert payload["projected_month_total_usd"] is not None
+    assert isinstance(payload["projected_month_total_usd"], str)
+    assert payload["baseline_days"] == 14
+
+
+async def test_forecast_insufficient_data_threshold(client, freezer) -> None:
+    """D-01 / D-05: day 3 of month → insufficient_data=true, partial_bias=true."""
+    freezer.move_to("2026-01-03T12:00:00Z")
+    # Seed minimal data — even with data, days_elapsed=2 < 7 should suppress.
+    await _seed_n_days_token_usage(
+        client,
+        [(date(2026, 1, 1), 1000), (date(2026, 1, 2), 2000)],
+    )
+
+    r = await client.get("/api/cost/forecast")
+    assert r.status_code == 200, r.text
+    payload = r.json()
+    assert payload["days_elapsed"] == 2, (
+        f"expected days_elapsed=2, got {payload['days_elapsed']}"
+    )
+    assert payload["insufficient_data"] is True
+    assert payload["partial_month_bias"] is True
+    assert payload["projected_month_total_usd"] is None
+    # MTD still reported even when insufficient.
+    assert isinstance(payload["month_to_date_usd"], str)
+
+
+async def test_forecast_flags_clear_on_day_8(client, freezer) -> None:
+    """D-01: day 8 → days_elapsed=7 >= 7 → both flags clear."""
+    freezer.move_to("2026-05-08T12:00:00Z")
+    today = date(2026, 5, 8)
+    # Seed 14 days [Apr 24..May 7] (today excluded from baseline).
+    days = [(today - timedelta(days=i + 1), 1_000_000) for i in range(14)]
+    days.append((today, 500_000))  # today's MTD contribution
+    # Also include earlier-month days to round out MTD (May 1..May 7 already
+    # in the 14d baseline, so no overlap-seed needed).
+    await _seed_n_days_token_usage(client, days)
+
+    r = await client.get("/api/cost/forecast")
+    assert r.status_code == 200, r.text
+    payload = r.json()
+    assert payload["days_elapsed"] == 7
+    assert payload["insufficient_data"] is False
+    assert payload["partial_month_bias"] is False
+    assert payload["projected_month_total_usd"] is not None
+
+
+async def test_forecast_excludes_today_from_baseline(client, freezer) -> None:
+    """D-02: today is NOT included in the 14d baseline used for OLS slope.
+
+    Seed identical [today-14..today-1] (slope should be 0 → flat projection).
+    Seed a wildly different value for today. Assert projection reflects
+    only the historical days, not today's outlier.
+    """
+    freezer.move_to("2026-05-20T12:00:00Z")
+    today = date(2026, 5, 20)
+    flat_input = 1_000_000  # constant baseline
+    days = [(today - timedelta(days=i + 1), flat_input) for i in range(14)]
+    days.append((today, 999_999_999))  # today's outlier — should not bias slope
+    await _seed_n_days_token_usage(client, days)
+
+    r = await client.get("/api/cost/forecast")
+    assert r.status_code == 200, r.text
+    payload = r.json()
+    # With a flat 14d baseline, slope=0; projection = days_in_month *
+    # mean_daily_cost. Today's outlier MTD is large, but the projection
+    # should reflect the baseline mean * 31, NOT 31 * today's value.
+    projected_str = payload["projected_month_total_usd"]
+    assert projected_str is not None
+    projected = Decimal(projected_str)
+    mtd = Decimal(payload["month_to_date_usd"])
+    # Outlier today shouldn't lift projection above 100x the prior daily mean.
+    # If today were included in the baseline, slope would be enormous and
+    # projection would be much larger than mtd by orders of magnitude.
+    assert projected < mtd * 100, (
+        f"projection {projected!r} appears to include today's outlier; "
+        f"D-02 (today excluded) violated"
+    )
+
+
+async def test_forecast_baseline_days_constant(client, freezer) -> None:
+    """v1 invariant: baseline_days is always 14, surfaced for transparency."""
+    freezer.move_to("2026-05-15T12:00:00Z")
+    r = await client.get("/api/cost/forecast")
+    assert r.status_code == 200, r.text
+    assert r.json()["baseline_days"] == 14
