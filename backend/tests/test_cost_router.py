@@ -366,15 +366,15 @@ async def _seed_n_days_token_usage(
     """Seed token_usage rows for forecast tests.
 
     Each tuple is (day, daily_input_tokens). Output/cache fields zero.
-    Single 'claude-opus-4-5' model so cost is monotonic in input tokens
-    via the existing pricing seed. Use this to construct deterministic
-    14d baselines with known slopes.
+    Single 'claude-opus-4-7' model (priced via lifespan-loaded pricing.json
+    seed; see backend/data/pricing.json). Cost is monotonic in input tokens,
+    enabling deterministic 14d baselines with known slopes.
     """
     app = client._transport.app  # type: ignore[attr-defined]
     rows = [
         make_token_usage_bucket(
             day=day_.isoformat(),
-            model="claude-opus-4-5",
+            model="claude-opus-4-7",
             tokens_input=tokens,
             tokens_output=0,
             tokens_cache_read=0,

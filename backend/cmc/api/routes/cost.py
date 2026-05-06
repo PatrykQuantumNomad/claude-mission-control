@@ -33,9 +33,17 @@ from cmc.api.schemas.cost import (
     CostBreakdownResponse,
     CostBreakdownRow,
     CostByModelRow,
+    CostForecastResponse,
     CostRange,
     CostSummaryResponse,
     PricingFreshnessResponse,
+)
+from cmc.core.time import now_utc
+from cmc.cost.forecast import (
+    days_elapsed_in_month,
+    days_in_month,
+    decimal_ols,
+    project_month_total,
 )
 from cmc.db import get_session
 from cmc.pricing import compute_cost, load_rates, pricing_json_hash
@@ -238,6 +246,168 @@ async def cost_breakdown(
     return CostBreakdownResponse(
         range=range_, dim=dim, rates_as_of=rates_as_of,
         total_usd=total, rows=out,
+    )
+
+
+# ----- /api/cost/forecast ------------------------------------------------
+
+# Forecast over the last 14 COMPLETE days of token_usage (today excluded
+# per D-02). Read-time computation; no $ stored. Decimal-only OLS lives in
+# cmc.cost.forecast; this handler is the SQL+pricing wiring + envelope build.
+_FORECAST_BASELINE_SQL = text("""
+    SELECT
+      day,
+      model,
+      COALESCE(SUM(tokens_input), 0)            AS tokens_input,
+      COALESCE(SUM(tokens_output), 0)           AS tokens_output,
+      COALESCE(SUM(tokens_cache_read), 0)       AS tokens_cache_read,
+      COALESCE(SUM(tokens_cache_create_5m), 0)  AS tokens_cache_create_5m,
+      COALESCE(SUM(tokens_cache_create_1h), 0)  AS tokens_cache_create_1h
+    FROM token_usage
+    WHERE day >= DATE(:since_baseline)
+      AND day <= DATE(:until_baseline)
+    GROUP BY day, model
+    ORDER BY day ASC
+""")
+
+# MTD: month_start <= day <= today (inclusive of today; today's row may
+# reflect partial accumulation but MTD legitimately includes that).
+_FORECAST_MTD_SQL = text("""
+    SELECT
+      day,
+      model,
+      COALESCE(SUM(tokens_input), 0)            AS tokens_input,
+      COALESCE(SUM(tokens_output), 0)           AS tokens_output,
+      COALESCE(SUM(tokens_cache_read), 0)       AS tokens_cache_read,
+      COALESCE(SUM(tokens_cache_create_5m), 0)  AS tokens_cache_create_5m,
+      COALESCE(SUM(tokens_cache_create_1h), 0)  AS tokens_cache_create_1h
+    FROM token_usage
+    WHERE day >= DATE(:month_start)
+      AND day <= DATE(:today)
+    GROUP BY day, model
+""")
+
+
+@router.get("/cost/forecast", response_model=CostForecastResponse)
+async def cost_forecast(
+    db: AsyncSession = Depends(get_session),
+) -> CostForecastResponse:
+    """ANLY-06 — monthly cost forecast (Decimal-only OLS, 14d rolling baseline).
+
+    No query params. Current month derived from server clock via
+    cmc.core.time.now_utc.
+
+    Returns:
+      - month_to_date_usd: SUM Decimal cost across [month_start, today].
+      - projected_month_total_usd: trapezoidal-sum of linear OLS projection
+        across all days of the month, OR None when insufficient_data.
+      - insufficient_data: True iff days_elapsed < 7.
+      - partial_month_bias: same threshold (D-05).
+
+    Locked decisions: D-01 (days_elapsed = today.day - 1), D-02 (14d baseline
+    excludes today), D-03 (no negative-slope clamp), D-04 (no degenerate flag),
+    D-05 (single threshold for both flags).
+    """
+    today = now_utc().date()
+    days_elapsed_count = days_elapsed_in_month(today)
+    days_in_month_count = days_in_month(today)
+
+    insufficient = days_elapsed_count < 7
+    # D-05 — same threshold; surfaced as separate field for forward-compat.
+
+    rates = await load_rates(db)
+
+    # ---- MTD (always computed) -----------------------------------------
+    month_start = today.replace(day=1)
+    mtd_rows = (await db.execute(
+        _FORECAST_MTD_SQL,
+        {"month_start": month_start.isoformat(), "today": today.isoformat()},
+    )).mappings().all()
+
+    mtd_total = Decimal(0)
+    rates_dates: list[date] = []
+    for r in mtd_rows:
+        cost = compute_cost(
+            r["model"],
+            int(r["tokens_input"] or 0),
+            int(r["tokens_output"] or 0),
+            int(r["tokens_cache_read"] or 0),
+            int(r["tokens_cache_create_5m"] or 0),
+            int(r["tokens_cache_create_1h"] or 0),
+            rates,
+        )
+        mtd_total += cost
+        ef = _coerce_effective_from(rates, r["model"])
+        if ef is not None:
+            rates_dates.append(ef)
+
+    # Early return when insufficient.
+    if insufficient:
+        rates_as_of = max(rates_dates) if rates_dates else None
+        return CostForecastResponse(
+            rates_as_of=rates_as_of,
+            days_elapsed=days_elapsed_count,
+            days_in_month=days_in_month_count,
+            baseline_days=14,
+            month_to_date_usd=mtd_total,
+            projected_month_total_usd=None,
+            insufficient_data=True,
+            partial_month_bias=True,
+        )
+
+    # ---- 14d baseline (today excluded — D-02) --------------------------
+    until_baseline = today - timedelta(days=1)
+    since_baseline = today - timedelta(days=14)
+    baseline_rows = (await db.execute(
+        _FORECAST_BASELINE_SQL,
+        {
+            "since_baseline": since_baseline.isoformat(),
+            "until_baseline": until_baseline.isoformat(),
+        },
+    )).mappings().all()
+
+    # Bucket into per-day Decimal cost. Days with no rows -> Decimal(0).
+    per_day: dict[date, Decimal] = {}
+    for r in baseline_rows:
+        day_value = r["day"]
+        # token_usage.day is stored as DATE in SQLite; SQLAlchemy may return
+        # it as a `date` or a `str` depending on the bind. Normalize:
+        if isinstance(day_value, str):
+            day_value = date.fromisoformat(day_value)
+        cost = compute_cost(
+            r["model"],
+            int(r["tokens_input"] or 0),
+            int(r["tokens_output"] or 0),
+            int(r["tokens_cache_read"] or 0),
+            int(r["tokens_cache_create_5m"] or 0),
+            int(r["tokens_cache_create_1h"] or 0),
+            rates,
+        )
+        per_day[day_value] = per_day.get(day_value, Decimal(0)) + cost
+        ef = _coerce_effective_from(rates, r["model"])
+        if ef is not None:
+            rates_dates.append(ef)
+
+    # Build the 14-day series indexed by day-offset from since_baseline.
+    xs: list[Decimal] = [Decimal(i) for i in range(14)]
+    ys: list[Decimal] = [
+        per_day.get(since_baseline + timedelta(days=i), Decimal(0))
+        for i in range(14)
+    ]
+
+    slope, intercept = decimal_ols(xs, ys)
+    projected = project_month_total(slope, intercept, days_in_month_count)
+
+    rates_as_of = max(rates_dates) if rates_dates else None
+    return CostForecastResponse(
+        rates_as_of=rates_as_of,
+        days_elapsed=days_elapsed_count,
+        days_in_month=days_in_month_count,
+        baseline_days=14,
+        month_to_date_usd=mtd_total,
+        projected_month_total_usd=projected,
+        insufficient_data=False,
+        partial_month_bias=False,
     )
 
 
