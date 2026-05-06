@@ -31,3 +31,6 @@ export { KpiTile } from './KpiTile'
 export { ErrorState } from './ErrorState'
 // current destructive-confirm primitive
 export { AlertDialog } from './AlertDialog'
+// Phase 19 Plan 04 — SKLP-09 period-over-period delta pill primitive.
+export { DeltaPill } from './DeltaPill'
+export type { DeltaPillProps } from './DeltaPill'

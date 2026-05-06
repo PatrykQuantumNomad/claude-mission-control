@@ -27,6 +27,19 @@ function Wrap({ client, children }: { client: QueryClient; children: ReactNode }
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>
 }
 
+// Phase 19 SKLP-09 added required cost_delta field. Existing tests in this
+// file pre-date the delta-pill render; the new render is exercised by the
+// dedicated DeltaPill+SkillCostCard wiring tests in Plan 19-04 Task 3.
+// A flat-zero pill satisfies the schema minimally without changing the
+// existing assertions.
+const _flatPill = {
+  curr: '0',
+  prev: '0',
+  delta: '0',
+  delta_pct: null,
+  direction: 'flat' as const,
+}
+
 const happy: SkillCostResponse = {
   range: '14d',
   name: 'analyze',
@@ -42,6 +55,7 @@ const happy: SkillCostResponse = {
     { day: '2026-04-26', invocations: 3, cost_usd: '0.42' },
     { day: '2026-04-27', invocations: 5, cost_usd: '0.81' },
   ],
+  cost_delta: _flatPill,
 }
 
 describe('SkillCostCard', () => {

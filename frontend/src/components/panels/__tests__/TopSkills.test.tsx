@@ -70,6 +70,18 @@ function Wrap({ client, children }: { client: QueryClient; children: ReactNode }
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>
 }
 
+// Phase 19 SKLP-09/10 added required usage_delta + badges fields. Tests in
+// THIS file pre-date the delta-pill render (covered separately by the new
+// TopSkills wiring tests in Plan 19-04 Task 3). Flat-zero pills + empty
+// badge lists satisfy the schema minimally.
+const _flatPill = {
+  curr: '0',
+  prev: '0',
+  delta: '0',
+  delta_pct: null,
+  direction: 'flat' as const,
+}
+
 const HAPPY_14D: SkillUsageResponse = {
   range: '14d',
   rows: [
@@ -81,6 +93,8 @@ const HAPPY_14D: SkillUsageResponse = {
         { day: '2026-05-01', invocations: 15 },
         { day: '2026-05-02', invocations: 17 },
       ],
+      usage_delta: _flatPill,
+      badges: [],
     },
     {
       skill_name: 'doc-writer',
@@ -90,6 +104,8 @@ const HAPPY_14D: SkillUsageResponse = {
         { day: '2026-05-01', invocations: 12 },
         { day: '2026-05-02', invocations: 10 },
       ],
+      usage_delta: _flatPill,
+      badges: [],
     },
     {
       skill_name: 'gsd-execute',
@@ -99,6 +115,8 @@ const HAPPY_14D: SkillUsageResponse = {
         { day: '2026-05-01', invocations: 3 },
         { day: '2026-05-02', invocations: 4 },
       ],
+      usage_delta: _flatPill,
+      badges: [],
     },
   ],
 }
@@ -110,6 +128,8 @@ const HAPPY_30D: SkillUsageResponse = {
       skill_name: 'data-analyze',
       total: 99,
       sparkline: [{ day: '2026-04-15', invocations: 50 }],
+      usage_delta: _flatPill,
+      badges: [],
     },
   ],
 }

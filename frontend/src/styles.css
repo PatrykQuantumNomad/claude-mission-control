@@ -270,6 +270,22 @@ body {
 .cmc-badge--warning { background: rgba(245, 158, 11, 0.1); color: var(--cmc-status-amber); border-color: rgba(245, 158, 11, 0.3); }
 .cmc-badge--danger  { background: rgba(239, 68, 68, 0.1); color: var(--cmc-status-red); border-color: rgba(239, 68, 68, 0.3); }
 
+/* DeltaPill — SKLP-09 (Phase 19 Plan 04). Neutral chrome; color reserved
+ * for sign. Tabular-numeric so columns of pills align by digit. */
+.cmc-delta-pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2xs);
+  padding: 0 var(--space-2xs);
+  font-size: var(--size-label);
+  color: var(--cmc-text-dim);
+}
+.cmc-delta-pill__abs,
+.cmc-delta-pill__pct { font-variant-numeric: tabular-nums; }
+.cmc-delta-pill--up   { color: var(--cmc-status-green); }
+.cmc-delta-pill--down { color: var(--cmc-status-red); }
+.cmc-delta-pill--flat { color: var(--cmc-text-dim); }
+
 /* StatePill — UI-SPEC FESH-06 + Color palette (status colors only, never accent) */
 .cmc-state-pill {
   display: inline-flex;

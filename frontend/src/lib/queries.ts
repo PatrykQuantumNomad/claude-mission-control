@@ -43,6 +43,7 @@ import type {
   SkillCostResponse,
   SkillLatencyResponse,
   SkillListResponse,
+  SkillProjectsResponse,
   SkillRange,
   SkillRow,
   SkillRunsResponse,
@@ -99,6 +100,10 @@ export const qk = {
     ['skill-latency', name, range] as const,
   skillRuns: (name: string, limit: number) =>
     ['skill-runs', name, limit] as const,
+  // Phase 19 (SKLP-08) — per-project rollup. Distinct kebab-prefix per
+  // Pitfall 5 from 14-RESEARCH.md: never reuse the bare 'skills' prefix.
+  skillProjects: (name: string, range: SkillRange) =>
+    ['skill-projects', name, range] as const,
   // Phase 15 (ALRT-09/10) — alerts. Kebab-prefix per Pitfall 5 from
   // 14-RESEARCH.md: never reuse a bare 'alerts' prefix; each surface gets
   // its own scoped key so analytics invalidation never collides with future
@@ -298,6 +303,17 @@ export const useSkillRuns = (name: string, limit: number = 20) =>
     queryFn: () => api.skillRuns(name, limit),
     refetchInterval: 30_000,
     staleTime: 15_000,
+  })
+
+// Phase 19 (SKLP-08) — per-project rollup for /skills/$name. Same 60s/45s
+// daily-aggregate cadence as useSkillCost (read-time-computed rollup,
+// doesn't move per-second).
+export const useSkillProjects = (name: string, range: SkillRange) =>
+  useQuery<SkillProjectsResponse>({
+    queryKey: qk.skillProjects(name, range),
+    queryFn: () => api.skillProjects(name, range),
+    refetchInterval: 60_000,
+    staleTime: 45_000,
   })
 
 // Phase 16 (CMPR-01..05) — session compare. Two-side paired metrics +

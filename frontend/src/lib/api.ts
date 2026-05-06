@@ -488,10 +488,27 @@ export interface SkillSparklineRow {
   cost_usd?: string | null     // Decimal-as-JSON-string (Pydantic v2 default)
 }
 
+// Phase 19 — SKLP-09 period-over-period delta primitive.
+// Mirror backend cmc/api/schemas/skills.py DeltaPill: curr/prev/delta are
+// Decimal (Pydantic v2 default → JSON STRING); delta_pct is float | null
+// (null when prev=0; UI renders '—'); direction is the rendered arrow class.
+// Frontend treats the numeric strings as opaque payloads and Number-coerces
+// only when passing to DeltaPill (which expects number).
+export interface DeltaPill {
+  curr: string                 // Decimal-as-JSON-string
+  prev: string
+  delta: string
+  delta_pct: number | null     // null when prev=0 (no baseline)
+  direction: 'up' | 'down' | 'flat'
+}
+
 export interface SkillUsageRow {
   skill_name: string
   total: number
   sparkline: SkillSparklineRow[]
+  // Phase 19 — SKLP-09 / SKLP-10:
+  usage_delta: DeltaPill
+  badges: Array<'new_this_week' | 'dormant'>
 }
 
 export interface SkillUsageResponse {
@@ -511,6 +528,30 @@ export interface SkillCostResponse {
   cost_usd: string             // Decimal serialized as JSON string — keep as string!
   cost_attribution: 'request' | 'session'
   trend: SkillSparklineRow[]
+  // Phase 19 — SKLP-09 (period-over-period cost delta, server-computed):
+  cost_delta: DeltaPill
+}
+
+// Phase 19 — SKLP-08 per-project breakdown (GET /api/skills/{name}/projects).
+// CRITICAL: SkillProjectRow has NO 'cwd' / 'path' / 'display_path' fields —
+// project_key (12-char hex of sha1[:12]) is the ONLY project-shaped value.
+// Backend enforces this structurally (test_skill_projects_no_path_leakage);
+// the frontend mirrors the same enumeration so the type system rejects any
+// renderer that tries to surface a path-shaped value.
+export interface SkillProjectRow {
+  project_key: string          // 12-char hex (sha1[:12] of realpath(cwd))
+  count: number
+  p50_ms: number | null        // null when no completed runs
+  p95_ms: number | null
+  cost_usd: string             // Decimal-as-JSON-string per Pydantic v2 default
+  cost_attribution: 'session' | 'approximate'
+  low_sample: boolean          // count < MIN_LATENCY_SAMPLES (30)
+}
+
+export interface SkillProjectsResponse {
+  name: string
+  range: SkillRange
+  rows: SkillProjectRow[]
 }
 
 export interface SkillLatencyResponse {
@@ -1040,6 +1081,12 @@ export const api = {
     fetchJson<SkillRunsResponse>(
       `/api/skills/${encodeURIComponent(name)}/runs?limit=${limit}`,
     ),
+  // Phase 19 (SKLP-08) — per-project rollup for /skills/$name. Path-leakage-
+  // resistant by schema construction (no cwd/path field on the wire).
+  skillProjects: (name: string, range: SkillRange) =>
+    fetchJson<SkillProjectsResponse>(
+      `/api/skills/${encodeURIComponent(name)}/projects?range=${range}`,
+    ),
 
   // Phase 15 (ALRT-09) — alert rules CRUD + events list + ack. Body shapes
   // (AlertRuleCreate / AlertRulePatch / AlertAckRequest) are validated
@@ -1261,6 +1308,8 @@ export const fetchSkillUsage = api.skillUsage
 export const fetchSkillCost = api.skillCost
 export const fetchSkillLatency = api.skillLatency
 export const fetchSkillRuns = api.skillRuns
+// Phase 19 (SKLP-08) — per-project rollup fetcher.
+export const fetchSkillProjects = api.skillProjects
 
 // ============================================================================
 // Phase 15 — Alerts standalone fetcher exports.

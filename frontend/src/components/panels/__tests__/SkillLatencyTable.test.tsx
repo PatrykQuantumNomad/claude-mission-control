@@ -29,12 +29,23 @@ function Wrap({ client, children }: { client: QueryClient; children: ReactNode }
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>
 }
 
+// Phase 19 SKLP-09/10 added required usage_delta + badges fields. Tests in
+// THIS file don't exercise those fields; we satisfy the schema with a
+// flat-zero pill + empty badge list so the fixture remains minimal.
+const _flatPill = {
+  curr: '0',
+  prev: '0',
+  delta: '0',
+  delta_pct: null,
+  direction: 'flat' as const,
+}
+
 const usage: SkillUsageResponse = {
   range: '14d',
   rows: [
-    { skill_name: 'analyze', total: 500, sparkline: [] },
-    { skill_name: 'refactor', total: 200, sparkline: [] },
-    { skill_name: 'review', total: 5, sparkline: [] },
+    { skill_name: 'analyze', total: 500, sparkline: [], usage_delta: _flatPill, badges: [] },
+    { skill_name: 'refactor', total: 200, sparkline: [], usage_delta: _flatPill, badges: [] },
+    { skill_name: 'review', total: 5, sparkline: [], usage_delta: _flatPill, badges: [] },
   ],
 }
 
