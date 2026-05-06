@@ -18,7 +18,7 @@
 ### Cost Differentiators
 
 - [ ] **ANLY-06**: User sees monthly cost forecast on the cost dashboard (linear extrapolation, 14d rolling baseline, Decimal-only OLS, `insufficient_data` guard when <7 days elapsed; partial-month bias banner during week 1)
-- [ ] **ANLY-07**: User sees per-project cost breakdown card with cost and token volume by `project_key` over 7d/30d (UI-only addition; backend endpoint `/api/cost/breakdown?dim=project` already ships from Phase 13)
+- [x] **ANLY-07**: User sees per-project cost breakdown card with cost and token volume by `project_key` over 7d/30d (UI-only addition; backend endpoint `/api/cost/breakdown?dim=project` already ships from Phase 13)
 
 ### Alert Differentiators
 
@@ -91,7 +91,7 @@ Mapped to v1.2 ROADMAP.md (Phases 18–23) on 2026-05-05.
 | SKLP-09 | Phase 19 | Complete end-to-end (2026-05-06, backend ee662cb + ea0d1cb + 68aeb5c; frontend 2333b46 + b729ecc) |
 | SKLP-10 | Phase 19 | Complete end-to-end (2026-05-06, backend ee662cb + ea0d1cb + 68aeb5c; frontend b729ecc) |
 | ANLY-06 | Phase 20 | Pending |
-| ANLY-07 | Phase 20 | Pending |
+| ANLY-07 | Phase 20 | Complete |
 | ALRT-13 | Phase 21 | Pending |
 | ALRT-14 | Phase 21 | Pending |
 | SKLP-11 | Phase 22 | Pending (spike-gated; descopes to v1.3 if feasibility fails) |
