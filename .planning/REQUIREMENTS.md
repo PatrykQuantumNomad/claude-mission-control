@@ -17,7 +17,7 @@
 
 ### Cost Differentiators
 
-- [ ] **ANLY-06**: User sees monthly cost forecast on the cost dashboard (linear extrapolation, 14d rolling baseline, Decimal-only OLS, `insufficient_data` guard when <7 days elapsed; partial-month bias banner during week 1)
+- [ ] **ANLY-06**: User sees monthly cost forecast on the cost dashboard (linear extrapolation, 14d rolling baseline, Decimal-only OLS, `insufficient_data` guard when <7 days elapsed; partial-month bias banner during week 1) — **backend complete 2026-05-06 (Phase 20 Plan 02 commits 01b25a1 + 10e0757 + 54f922b + 2765f07: cmc/cost/forecast.py module + GET /api/cost/forecast endpoint with CostForecastResponse, 26 unit + 5 integration tests)**; frontend dashboard wiring in Phase 20 Plan 03
 - [x] **ANLY-07**: User sees per-project cost breakdown card with cost and token volume by `project_key` over 7d/30d (UI-only addition; backend endpoint `/api/cost/breakdown?dim=project` already ships from Phase 13)
 
 ### Alert Differentiators
@@ -90,7 +90,7 @@ Mapped to v1.2 ROADMAP.md (Phases 18–23) on 2026-05-05.
 | SKLP-08 | Phase 19 | Complete end-to-end (2026-05-06, backend b6d73a7 + 056141b; frontend 5092e51 + b729ecc) |
 | SKLP-09 | Phase 19 | Complete end-to-end (2026-05-06, backend ee662cb + ea0d1cb + 68aeb5c; frontend 2333b46 + b729ecc) |
 | SKLP-10 | Phase 19 | Complete end-to-end (2026-05-06, backend ee662cb + ea0d1cb + 68aeb5c; frontend b729ecc) |
-| ANLY-06 | Phase 20 | Pending |
+| ANLY-06 | Phase 20 | Backend complete (2026-05-06, Plan 02: 01b25a1 + 10e0757 + 54f922b + 2765f07); frontend pending in Plan 03 |
 | ANLY-07 | Phase 20 | Complete |
 | ALRT-13 | Phase 21 | Pending |
 | ALRT-14 | Phase 21 | Pending |
