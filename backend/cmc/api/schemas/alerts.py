@@ -175,3 +175,37 @@ class AlertAckRequest(BaseModel):
     scope_hash: str = Field(
         ..., min_length=8, max_length=8, pattern=r"^[0-9a-f]{8}$"
     )
+
+
+# ---- AlertRule NL parse + metrics endpoints (Phase 21 / ALRT-14) ----------
+
+
+class AlertRuleParseRequest(BaseModel):
+    """POST /api/alerts/parse-nl body — natural-language alert rule description."""
+
+    model_config = ConfigDict(extra="forbid")
+    description: str = Field(..., min_length=1, max_length=1000)
+
+
+class AlertRuleParseResponse(BaseModel):
+    """POST /api/alerts/parse-nl response on successful parse + validation.
+
+    Mirrors NLCronResponse (schemas/schedules.py:58-60) — echoes the input
+    description back so the frontend preview modal can show "you typed: ...".
+    On hallucination / missing API key, the route emits 503 (NOT a null-rule
+    envelope) per V11 collapsed-failure-mode contract.
+    """
+
+    rule: AlertRuleCreate
+    description: str
+
+
+class AlertMetricsResponse(BaseModel):
+    """GET /api/alerts/metrics response — canonical metric vocabulary.
+
+    Body is sorted(_SCOPE_EXTRACTORS.keys()) for deterministic ordering
+    (consumed by the frontend useAlertMetrics query AND by Plan 21-03's
+    test_alerts_metrics_sync drift guard).
+    """
+
+    metrics: list[str]

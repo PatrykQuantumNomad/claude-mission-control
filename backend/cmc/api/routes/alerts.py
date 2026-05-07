@@ -42,13 +42,18 @@ from sqlalchemy import delete, func, select
 from sqlalchemy import update as _upd
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from cmc.alerts.nl_parser import parse_alert_nl
+from cmc.alerts.scopes import _SCOPE_EXTRACTORS
 from cmc.api.schemas.alerts import (
     AlertAckRequest,
     AlertEvent,
     AlertEventsResponse,
+    AlertMetricsResponse,
     AlertRange,
     AlertRuleCreate,
     AlertRuleListResponse,
+    AlertRuleParseRequest,
+    AlertRuleParseResponse,
     AlertRulePatch,
     AlertRuleRow,
 )
@@ -387,3 +392,39 @@ async def ack_alert(
         "ok": True,
         "acked_until": (now + timedelta(hours=1)).isoformat(),
     }
+
+
+# ---------- POST /api/alerts/parse-nl (ALRT-14) ----------------------------
+
+
+@router.post("/alerts/parse-nl", response_model=AlertRuleParseResponse)
+async def parse_nl_alert(payload: AlertRuleParseRequest) -> AlertRuleParseResponse:
+    """ALRT-14: NL → AlertRule preview via Haiku 4.5.
+
+    Single 503 covers both failure modes (missing API key OR invalid Haiku
+    output) per V11 collapsed-failure-mode contract — mirror
+    routes/schedules.py:269-281. The returned AlertRuleCreate has already been
+    validator-piped through is_known_metric + threshold_clear < threshold_fire,
+    so callers can persist via POST /api/alerts/rules without re-validating.
+    """
+    rule = await parse_alert_nl(payload.description)
+    if rule is None:
+        raise HTTPException(
+            status_code=503,
+            detail="natural-language alerts unavailable",
+        )
+    return AlertRuleParseResponse(rule=rule, description=payload.description)
+
+
+# ---------- GET /api/alerts/metrics (ALRT-14) ------------------------------
+
+
+@router.get("/alerts/metrics", response_model=AlertMetricsResponse)
+async def list_metrics() -> AlertMetricsResponse:
+    """Return the canonical metric vocabulary — sorted keys of _SCOPE_EXTRACTORS.
+
+    Frontend AlertRuleForm fetches this on mount via React Query so
+    KNOWN_METRICS stays in sync at runtime. Sort makes ordering deterministic
+    for Plan 21-03's CI drift-guard test.
+    """
+    return AlertMetricsResponse(metrics=sorted(_SCOPE_EXTRACTORS.keys()))
