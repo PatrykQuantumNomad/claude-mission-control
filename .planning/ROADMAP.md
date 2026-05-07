@@ -126,7 +126,8 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
   2. **If spike succeeds:** User sees a stacked-bar overhead breakdown on `/skills/$name` populated from `GET /api/skills/{name}/overhead` showing body / subagent / tool components, with a `low_sample` badge when sample count is below the established `MIN_LATENCY_SAMPLES=30` threshold.
   3. **If spike fails:** SKLP-11 is marked descoped in REQUIREMENTS.md (status: `Deferred to v1.3`), the SPIKE plan's negative-finding document anchors the descope decision, and Phase 23 begins on schedule with no blocking dependency.
   4. No new top-level routes, no new dependencies, and no parallel skill-event types are introduced; any new endpoint slots into the existing `/api/skills/{name}/*` pattern.
-**Plans**: TBD
+**Plans**: 1 plan written so far (sequential branching per 22-RESEARCH.md §Architecture Patterns — Plan 02+ written after Plan 01 commits SPIKE-FINDINGS.md)
+  - [ ] 22-01-PLAN.md — Run SQL spike against live data/cmc.db (CT-1 coverage / CT-3 negative-residual / CT-4 subagent containment); commit SPIKE-FINDINGS.md with binary YES/NO outcome banner; user re-invokes /gsd-plan-phase 22 after commit to add Plan 02-success (endpoint) + 03-success (panel) on YES, or Plan 02-descope (REQUIREMENTS.md flip) on NO
 **UI hint**: yes
 
 ### Phase 23: Compare Depth & Milestone Close
@@ -168,7 +169,7 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 | 19. Skills Per-Project, Deltas & Badges | v1.2 | 4/4 | Complete    | 2026-05-06 |
 | 20. Cost Forecast & Per-Project Card | v1.2 | 4/4 | Complete   | 2026-05-06 |
 | 21. Alert Anomaly Depth & NL Authoring | v1.2 | 3/3 | Complete    | 2026-05-07 |
-| 22. Skill Latency Overhead (spike-gated) | v1.2 | 0/? | Not started | — |
+| 22. Skill Latency Overhead (spike-gated) | v1.2 | 0/1 | Planned (spike) | — |
 | 23. Compare Depth & Milestone Close | v1.2 | 0/? | Not started | — |
 
 **v1.0 milestone shipped: 47/47 plans, 11/11 phases verified (9 base + 2 audit gap-closure).**
