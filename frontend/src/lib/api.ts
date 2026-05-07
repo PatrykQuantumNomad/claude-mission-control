@@ -709,6 +709,39 @@ export interface AlertAckRequest {
   scope_hash: string                     // 8-char hex
 }
 
+// Phase 21 Plan 21-03 (ALRT-14) — NL → AlertRule parse + metrics vocabulary.
+// Mirrors backend cmc/api/schemas/alerts.py:253-281 verbatim.
+//
+// Failure-mode contract (V11 collapsed-failure-mode, mirrors NLCronResponse):
+// the backend collapses missing-API-key AND Haiku-hallucination to a single
+// 503 with body literal "natural-language alerts unavailable". The frontend
+// surfaces an actionable message ("Could not parse — please rephrase …")
+// rather than echoing the 503 verbatim — see AlertRuleForm.tsx parse-error UI.
+//
+// Note (Plan 21-02 wiring): the project's HTTPException handler maps `detail`
+// to the `error` body field (cmc/core/errors.py); ApiError captures the raw
+// response text so consumers don't need to branch on field name.
+
+/** Body for POST /api/alerts/parse-nl. */
+export interface AlertRuleParseRequest {
+  description: string
+}
+
+/** Response from POST /api/alerts/parse-nl. The `rule` is already validator-
+ * piped (is_known_metric + threshold_clear < threshold_fire) so callers can
+ * forward to POST /api/alerts/rules without re-validating. */
+export interface AlertRuleParseResponse {
+  rule: AlertRuleCreate
+  description: string
+}
+
+/** Response from GET /api/alerts/metrics. `metrics` is sorted(_SCOPE_EXTRACTORS.keys())
+ * for deterministic ordering — consumed by useAlertMetrics() at runtime AND
+ * by backend test_alerts_metrics_sync.py at static-time. */
+export interface AlertMetricsResponse {
+  metrics: string[]
+}
+
 // ============================================================================
 // HITL (HITL-*) — typed from backend schema
 // Mirror backend/cmc/api/schemas/hitl.py verbatim.
@@ -1178,6 +1211,21 @@ export const api = {
       headers: jsonHeaders,
       body: JSON.stringify(body),
     }),
+  // Phase 21 (ALRT-14) — NL → AlertRule parse via Haiku 4.5. Single 503
+  // covers missing-API-key AND Haiku-hallucination per V11 collapsed-failure-
+  // mode contract; frontend renders an actionable message (NOT the raw 503
+  // body) — see AlertRuleForm.tsx.
+  alertsParseNl: (body: AlertRuleParseRequest) =>
+    fetchJson<AlertRuleParseResponse>('/api/alerts/parse-nl', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify(body),
+    }),
+  // Phase 21 (ALRT-14) — canonical metric vocabulary. Server returns
+  // sorted(_SCOPE_EXTRACTORS.keys()); useAlertMetrics() caches with
+  // staleTime: Infinity (vocabulary changes only on backend deploys).
+  alertMetrics: () =>
+    fetchJson<AlertMetricsResponse>('/api/alerts/metrics'),
 
   // HITL
   decisions: (params: DecisionListParams = {}) => {
@@ -1385,6 +1433,9 @@ export const fetchAlertRulePatch = api.alertRulePatch
 export const fetchAlertRuleDelete = api.alertRuleDelete
 export const fetchAlertEvents = api.alertEvents
 export const fetchAlertAck = api.alertAck
+// Phase 21 (ALRT-14) — NL parse + metrics vocabulary fetchers.
+export const fetchAlertsParseNl = api.alertsParseNl
+export const fetchAlertMetrics = api.alertMetrics
 
 // ============================================================================
 // Phase 20 — Cost dashboard standalone fetcher exports (ANLY-06 + ANLY-07).

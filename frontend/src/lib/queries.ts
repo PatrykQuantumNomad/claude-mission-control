@@ -20,11 +20,13 @@ import { api } from './api'
 import type {
   AlertAckRequest,
   AlertEventsResponse,
+  AlertMetricsResponse,
   AlertRange,
   AlertRule,
   AlertRuleCreate,
   AlertRuleListResponse,
   AlertRulePatch,
+  AlertRuleParseRequest,
   BreakdownDim,
   CostBreakdownResponse,
   CostForecastResponse,
@@ -118,6 +120,9 @@ export const qk = {
   // 'alert-*' keys (e.g. 'alert-state' if ever exposed to UI).
   alertRules: () => ['alert-rules'] as const,
   alertEvents: (range: AlertRange) => ['alert-events', range] as const,
+  // Phase 21 (ALRT-14) — canonical metric vocabulary. Deploy-stable; the
+  // useAlertMetrics() hook caches with staleTime: Infinity.
+  alertMetrics: () => ['alert-metrics'] as const,
   // Phase 16 (CMPR-01..05) — session compare. Kebab-prefix per Pitfall 5
   // from 14-RESEARCH.md: never reuse the bare 'sessions' prefix; that would
   // invalidate compare on every session-list mutation.
@@ -234,6 +239,20 @@ export const useAlertEvents = (range: AlertRange = '7d') =>
     queryFn: () => api.alertEvents(range),
     refetchInterval: 30_000,
     staleTime: 20_000,
+  })
+
+// Phase 21 (ALRT-14) — canonical metric vocabulary. staleTime: Infinity
+// because the vocabulary changes only on backend deploys; the AlertRuleForm
+// loading-window fallback (FALLBACK_KNOWN_METRICS) covers the brief window
+// before the first response lands.
+export const useAlertMetrics = () =>
+  useQuery<AlertMetricsResponse>({
+    queryKey: qk.alertMetrics(),
+    queryFn: () => api.alertMetrics(),
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchInterval: false,
   })
 
 // ============================================================================
@@ -745,6 +764,17 @@ export function useDeleteSchedule() {
 export function useParseNlCron() {
   return useMutation({
     mutationFn: (body: NLCronRequest) => api.schedulesParseNl(body),
+  })
+}
+
+/** ALRT-14 — NL→AlertRule via Claude Haiku 4.5 (Phase 21 Plan 21-03).
+ * Mirrors useParseNlCron above. Single 503 covers missing-API-key AND
+ * Haiku-hallucination per V11 collapsed-failure-mode contract; the consumer
+ * (AlertRuleForm) renders an actionable inline message rather than echoing
+ * the raw 503 body — see PITFALLS lockout in 21-RESEARCH.md. */
+export function useParseAlertNl() {
+  return useMutation({
+    mutationFn: (body: AlertRuleParseRequest) => api.alertsParseNl(body),
   })
 }
 
