@@ -111,7 +111,10 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
   3. User can `POST /api/alerts/parse-nl` with a natural-language string and see a preview modal showing the parsed `AlertRule` (scope, metric, comparator, threshold, window) before saving; the parser mirrors `nlcron.py` / `skill_router.py` (lazy `AsyncAnthropic`, `_SCOPE_EXTRACTORS.keys()` injected verbatim into the system prompt).
   4. ALRT-14 hard-validates parser output against `_SCOPE_EXTRACTORS.keys()` via `is_known_metric()` and returns `None` on hallucination — there is no fallback rule, no "best-guess" save path, and the UI surfaces an honest "could not parse" message instead.
   5. KNOWN_METRICS stays in sync between backend `_SCOPE_EXTRACTORS` and the frontend AlertRuleForm constant, either via a new `GET /api/alerts/metrics` dynamic endpoint or a CI sync test that fails fast on drift.
-**Plans**: TBD
+**Plans**: 3 plans
+  - [x] 21-01-detector-window-kind-discriminator-PLAN.md — `_resolve_alpha` helper inside `evaluate_anomaly` (sliding=`1/N`, ewma=`2/(N+1)`); `params_json.window_kind` validator + `min_samples >= window_n` coupling on `AlertRuleCreate`/`AlertRulePatch`; AST static-import test pinning the single-detector invariant (completed 2026-05-07, commit c2a7793)
+  - [x] 21-02-nl-parser-route-and-metrics-PLAN.md — `cmc/alerts/nl_parser.py` (lazy `AsyncAnthropic`, `_SCOPE_EXTRACTORS.keys()` in system prompt, `None` on hallucination); `POST /api/alerts/parse-nl` (503 collapse) + `GET /api/alerts/metrics`; parser unit tests + router tests (completed 2026-05-07, commits dfeb6fa + ef2a3d7 — landed in parallel during 21-01 execution; SUMMARY pending)
+  - [ ] 21-03-frontend-nl-input-and-metrics-sync-PLAN.md — `useParseAlertNl` + `useAlertMetrics` hooks; NL input + `AlertDialog` preview modal in `AlertRuleForm`; FALLBACK_KNOWN_METRICS sourced via React Query; backend `test_alerts_metrics_sync.py` regex drift guard
 **UI hint**: yes
 
 ### Phase 22: Skill Latency Overhead (spike-gated)
@@ -164,7 +167,7 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 | 18. Polish & Carry-Forward Cleanup | v1.2 | 5/5 | Complete   | 2026-05-05 |
 | 19. Skills Per-Project, Deltas & Badges | v1.2 | 4/4 | Complete    | 2026-05-06 |
 | 20. Cost Forecast & Per-Project Card | v1.2 | 4/4 | Complete   | 2026-05-06 |
-| 21. Alert Anomaly Depth & NL Authoring | v1.2 | 0/? | Not started | — |
+| 21. Alert Anomaly Depth & NL Authoring | v1.2 | 2/3 | In progress | — |
 | 22. Skill Latency Overhead (spike-gated) | v1.2 | 0/? | Not started | — |
 | 23. Compare Depth & Milestone Close | v1.2 | 0/? | Not started | — |
 
