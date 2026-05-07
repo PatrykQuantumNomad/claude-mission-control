@@ -182,6 +182,41 @@ def test_no_tasks_import():
     )
 
 
+def test_only_one_anomaly_detector():
+    """ALRT-13 (Phase 21): the sliding-window detector ships as a
+    params_json.window_kind discriminator INSIDE evaluate_anomaly, NOT a
+    parallel detector function. AST-asserts that cmc/alerts/detector.py
+    defines exactly ONE FunctionDef whose name equals 'evaluate_anomaly'.
+
+    Mirrors the precedent at test_no_tasks_import (this file:147-183).
+
+    Exact-equality check (`node.name == "evaluate_anomaly"`) — NOT startswith.
+    A future `_evaluate_anomaly_helper` could trip a prefix match (RESEARCH
+    Pitfall 7); the contract is "no parallel/sibling DETECTOR function", not
+    "no helper named like the detector".
+    """
+    from pathlib import Path
+
+    src_path = (
+        Path(__file__).resolve().parent.parent
+        / "cmc"
+        / "alerts"
+        / "detector.py"
+    )
+    tree = ast.parse(src_path.read_text())
+    anomaly_fns = [
+        node.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "evaluate_anomaly"
+    ]
+    assert anomaly_fns == ["evaluate_anomaly"], (
+        "ALRT-13 must extend evaluate_anomaly via params_json.window_kind, "
+        "not add a parallel detector function. "
+        f"Found: {anomaly_fns}"
+    )
+
+
 # --------------------------------------------------------------------------
 # Test (b): empty rules table — returns 0, no side effects.
 # --------------------------------------------------------------------------

@@ -173,6 +173,29 @@ def _resolve_window_n(rule: AlertRule) -> int:
     return max(n, 1)  # alpha = 2/(N+1); N=0 would div-zero, clamp to 1.
 
 
+def _resolve_alpha(rule: AlertRule, n: int) -> float:
+    """Map params_json.window_kind to the recurrence's smoothing factor (ALRT-13).
+
+    "ewma":    alpha = 2 / (N + 1)  — exponential decay (default, v1.0 behavior).
+    "sliding": alpha = 1 / N        — uniform-weight rolling mean (rolling-mean ± stddev).
+
+    Unknown / missing window_kind defaults to "ewma" — preserves v1.0 behavior
+    for rules persisted before Phase 21 without a migration. The API-side
+    validator (cmc.api.schemas.alerts) rejects unknown values up front; this
+    helper is defense in depth.
+
+    The recurrence body itself (in evaluate_anomaly) is unchanged between
+    branches — only the smoothing factor differs. Per Phase 21 lock, the
+    sliding branch reuses the SAME EWMA-style recurrence verbatim; do NOT
+    introduce a textbook Welford `M2 += (x - mean_old)*(x - mean_new)` here.
+    """
+    pj = rule.params_json or {}
+    kind = pj.get("window_kind", "ewma")
+    if kind == "sliding":
+        return 1.0 / float(n)
+    return 2.0 / (float(n) + 1.0)
+
+
 def evaluate_anomaly(
     rule: AlertRule,
     current_value: float,
@@ -191,8 +214,13 @@ def evaluate_anomaly(
       - state.params_json = {**state.params_json, "ewma_mean": m, "ewma_var": v}
       - state.sample_count = int(sample_count)
 
-    Math (per RESEARCH.md detector math section):
-      alpha = 2 / (N + 1) where N = rule.params_json.get("window_n", 50)
+    Math (per RESEARCH.md detector math section + Phase 21 ALRT-13 extension):
+      alpha = _resolve_alpha(rule, n)  where N = rule.params_json.get("window_n", 50)
+        - window_kind = "ewma"    (default, v1.0): alpha = 2 / (N + 1)
+        - window_kind = "sliding" (Phase 21):       alpha = 1 / N
+      The recurrence body below ("Welford-style") is shared between branches —
+      only the smoothing factor differs. Sliding is uniform-weight rolling
+      mean ± stddev; ewma is exponential decay.
       Seed (sample_count == 0):
         new_mean = current_value
         new_var  = 0.0
@@ -209,7 +237,7 @@ def evaluate_anomaly(
     |z| vs (threshold_fire / threshold_clear) instead of raw value.
     """
     n = _resolve_window_n(rule)
-    alpha = 2.0 / (n + 1.0)
+    alpha = _resolve_alpha(rule, n)
     prior_mean, prior_var, prior_sc = _read_anomaly_state(state)
 
     # ---- Seed sample (no prior baseline) ----

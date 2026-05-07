@@ -27,6 +27,14 @@ from cmc.api.schemas.common import ORMBase, UTCDatetime
 AlertRange = Literal["1d", "7d", "14d", "30d"]
 AlertKind = Literal["threshold", "anomaly"]
 
+# Phase 21 ALRT-13: anomaly rules dispatch on params_json.window_kind inside
+# evaluate_anomaly. Surfaced as an explicit Literal so mypy / pyright / route
+# OpenAPI all see the closed set; the validator below rejects values outside
+# this set with HTTP 422. Defense in depth — `cmc.alerts.detector._resolve_alpha`
+# defensively defaults unknown values to "ewma" to preserve v1.0 behavior for
+# pre-Phase-21 persisted rules.
+WindowKind = Literal["ewma", "sliding"]
+
 
 # ---- AlertRuleCreate ------------------------------------------------------
 
@@ -68,6 +76,36 @@ class AlertRuleCreate(BaseModel):
             )
         if not is_known_metric(self.metric):
             raise ValueError(f"unknown metric: {self.metric}")
+
+        # Phase 21 ALRT-13: anomaly+window_kind validation.
+        # Strict enum rejection at the API boundary prevents typo-masking
+        # (e.g. "slidng" would silently default to ewma in the detector).
+        # The min_samples >= window_n coupling is the warmup-boundary guard
+        # for sliding rules — without it, the existing detector warmup gate
+        # at detector.py:239-240 (`new_sc < rule.min_samples`) cannot prevent
+        # spurious fires during the first window's worth of ticks.
+        if self.kind == "anomaly":
+            window_kind = self.params_json.get("window_kind")
+            if window_kind is not None and window_kind not in (
+                "ewma",
+                "sliding",
+            ):
+                raise ValueError(
+                    "params_json.window_kind must be 'ewma' or 'sliding'"
+                )
+            if window_kind == "sliding":
+                try:
+                    window_n = int(self.params_json.get("window_n", 50))
+                except (TypeError, ValueError) as exc:
+                    raise ValueError(
+                        "params_json.window_n must be an integer"
+                    ) from exc
+                if self.min_samples < window_n:
+                    raise ValueError(
+                        "sliding-window anomaly rules require "
+                        "min_samples >= params_json.window_n "
+                        "(warmup-boundary guard)"
+                    )
         return self
 
 
@@ -103,6 +141,38 @@ class AlertRulePatch(BaseModel):
             raise ValueError(
                 "threshold_clear must be < threshold_fire (hysteresis floor)"
             )
+
+        # Phase 21 ALRT-13: when patching params_json, enforce window_kind
+        # enum hard. Patches are partial — kind is not patchable, so we
+        # cannot tell from this body alone whether the underlying rule is
+        # anomaly. We therefore enforce the enum unconditionally when
+        # window_kind is present (a patch that supplies window_kind for a
+        # threshold rule is degenerate but the enum check itself is harmless),
+        # and apply the min_samples >= window_n coupling only when BOTH
+        # fields are present in the patch body (best-effort coupling per
+        # plan_context decision 4).
+        if self.params_json is not None:
+            window_kind = self.params_json.get("window_kind")
+            if window_kind is not None and window_kind not in (
+                "ewma",
+                "sliding",
+            ):
+                raise ValueError(
+                    "params_json.window_kind must be 'ewma' or 'sliding'"
+                )
+            if window_kind == "sliding" and self.min_samples is not None:
+                try:
+                    window_n = int(self.params_json.get("window_n", 50))
+                except (TypeError, ValueError) as exc:
+                    raise ValueError(
+                        "params_json.window_n must be an integer"
+                    ) from exc
+                if self.min_samples < window_n:
+                    raise ValueError(
+                        "sliding-window anomaly rules require "
+                        "min_samples >= params_json.window_n "
+                        "(warmup-boundary guard)"
+                    )
         return self
 
 

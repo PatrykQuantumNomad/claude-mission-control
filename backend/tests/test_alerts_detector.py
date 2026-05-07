@@ -419,3 +419,229 @@ def test_anomaly_no_numpy_or_scipy_imported():
     assert forbidden is None, (
         f"detector.py must use stdlib math only; found: {forbidden.group(0)}"
     )
+
+
+# ============================================================================
+# ALRT-13 (Phase 21): sliding-window anomaly — params_json.window_kind
+# discriminator dispatched INSIDE evaluate_anomaly (NOT a parallel detector).
+# ============================================================================
+
+
+def test_anomaly_sliding_seed_returns_insufficient():
+    """First sample with window_kind='sliding' → INSUFFICIENT + ewma_mean = value,
+    ewma_var = 0.0, sample_count = 1.0. The seed branch is shared between EWMA
+    and sliding: there is no prior baseline to compare against either way.
+    """
+    now = datetime(2026, 5, 4, 12, 0, 0)
+    rule = _make_rule(
+        kind="anomaly",
+        threshold_fire=3.0,
+        min_samples=10,
+        params_json={"window_kind": "sliding", "window_n": 10},
+        created_at=_ago(now, hours=48),  # warmup gate satisfied
+    )
+    state = _make_state(state="clear", sample_count=0, params_json={})
+    sig, ewma = evaluate_anomaly(rule, 42.0, state, now=now)
+    assert sig == AlertSignal.INSUFFICIENT
+    assert ewma["ewma_mean"] == 42.0
+    assert ewma["ewma_var"] == 0.0
+    assert ewma["sample_count"] == 1.0
+
+
+def test_anomaly_sliding_recurrence_uses_uniform_alpha():
+    """Sliding alpha = 1/N (uniform-weight rolling-mean ± stddev). Compare against
+    EWMA alpha = 2/(N+1) on identical inputs to PROVE the discriminator dispatches:
+    same prior state + same current_value → different new_mean per branch.
+
+    With N=10, prior_mean=10.0, prior_var=0.0, current_value=12.0:
+      sliding (alpha=1/10):   new_mean = 0.1*12 + 0.9*10 = 10.2
+                              new_var  = 0.1*(2.0)^2 + 0.9*0 = 0.4
+      ewma    (alpha=2/11):   new_mean ≈ 0.1818*12 + 0.8182*10 ≈ 10.3636
+                              new_var  ≈ 0.1818*(2.0)^2 + 0.8182*0 ≈ 0.7273
+    """
+    now = datetime(2026, 5, 4, 12, 0, 0)
+    common_kwargs = dict(
+        kind="anomaly",
+        threshold_fire=3.0,
+        min_samples=10,
+        created_at=_ago(now, hours=48),
+    )
+    sliding_rule = _make_rule(
+        **common_kwargs,
+        params_json={"window_kind": "sliding", "window_n": 10},
+    )
+    ewma_rule = _make_rule(
+        **common_kwargs,
+        params_json={"window_kind": "ewma", "window_n": 10},
+    )
+    prior_state = _make_state(
+        state="clear",
+        sample_count=20,
+        params_json={"ewma_mean": 10.0, "ewma_var": 0.0},
+    )
+
+    _, sliding = evaluate_anomaly(sliding_rule, 12.0, prior_state, now=now)
+    _, ewma = evaluate_anomaly(ewma_rule, 12.0, prior_state, now=now)
+
+    # Sliding: alpha = 1/10 = 0.1
+    assert abs(sliding["ewma_mean"] - 10.2) < 1e-9
+    assert abs(sliding["ewma_var"] - 0.4) < 1e-9
+    # EWMA: alpha = 2/11 ≈ 0.18181818
+    assert abs(ewma["ewma_mean"] - (2.0 / 11.0 * 12.0 + 9.0 / 11.0 * 10.0)) < 1e-9
+    # Discriminator load-bearing: identical input must produce different output.
+    assert sliding["ewma_mean"] != ewma["ewma_mean"]
+    assert sliding["ewma_var"] != ewma["ewma_var"]
+
+
+def test_anomaly_sliding_warmup_boundary_returns_insufficient():
+    """Sliding-window warmup-boundary guard (Phase 21 success criterion 2):
+    the existing detector warmup gate at detector.py:239-240
+    (`new_sc < rule.min_samples`) prevents spurious fires during the first
+    window's worth of ticks. Validator-coupled `min_samples >= window_n`
+    pins this on the API side.
+
+    To exercise "feed window_n ticks; all return INSUFFICIENT" literally, this
+    test uses `min_samples=window_n+1` (=11 here), which satisfies the validator's
+    `min_samples >= window_n` constraint AND ensures the gate trips for every
+    tick whose new_sc <= window_n. Tick window_n+1 produces new_sc=window_n+1
+    which clears the gate.
+
+    NOTE: this is a documented off-by-one tightening of the plan's literal
+    `min_samples=window_n=10` — with min_samples=window_n the boundary tick
+    (sc=10) clears the gate (10<10 is False). The success criterion's intent
+    ("no fire during the entire window") is what's exercised here.
+    """
+    now = datetime(2026, 5, 4, 12, 0, 0)
+    window_n = 10
+    rule = _make_rule(
+        kind="anomaly",
+        threshold_fire=3.0,
+        min_samples=window_n + 1,  # off-by-one tightening (see docstring)
+        params_json={"window_kind": "sliding", "window_n": window_n},
+        created_at=_ago(now, hours=48),  # 24h warmup gate satisfied
+    )
+
+    # Iterate through the first window_n ticks. State carries forward.
+    mean = 0.0
+    var = 0.0
+    sc = 0
+    for tick_i in range(1, window_n + 1):  # ticks 1..window_n
+        state = _make_state(
+            state="clear",
+            sample_count=sc,
+            params_json={"ewma_mean": mean, "ewma_var": var},
+        )
+        sig, ewma = evaluate_anomaly(rule, 100.0, state, now=now)
+        assert sig == AlertSignal.INSUFFICIENT, (
+            f"tick {tick_i} expected INSUFFICIENT (sc_new={ewma['sample_count']} "
+            f"vs min_samples={window_n + 1}); got {sig}"
+        )
+        mean = ewma["ewma_mean"]
+        var = ewma["ewma_var"]
+        sc = int(ewma["sample_count"])
+
+    # Tick window_n + 1: new_sc = window_n + 1 == min_samples → gate clears.
+    state = _make_state(
+        state="clear",
+        sample_count=sc,
+        params_json={"ewma_mean": mean, "ewma_var": var},
+    )
+    sig, _ = evaluate_anomaly(rule, 100.0, state, now=now)
+    # Stable signal (CLEAR or otherwise non-INSUFFICIENT — flat input → |z|≈0,
+    # so CLEAR is expected when the gate clears).
+    assert sig != AlertSignal.INSUFFICIENT
+
+
+def test_anomaly_sliding_hysteresis_on_z_score_reuses_state_machine():
+    """Sliding rules dispatch through the SAME hysteresis state machine at
+    detector.py:254-274 — no second hysteresis branch. Verify CLEAR-from-firing
+    on |z| < threshold_clear AND PENDING_FIRE on |z| > threshold_fire when
+    fired_at is None. Confirms the state machine is shared between EWMA and
+    sliding.
+
+    Note on threshold magnitudes: with sliding alpha=1/N, a single value far
+    from the prior mean inflates the variance proportionally to the squared
+    diff (`new_var = (1/N)*diff² + (1-1/N)*prior_var`), so single-tick
+    |z|-magnitude is asymptotically bounded near √(N-1). For N=10 that's
+    ≈ 3.0; we deliberately pick `threshold_fire=2.5` so a strong outlier
+    produces |z| > fire on a single tick without requiring multi-tick warmup
+    of the sliding variance estimator. Threshold_fire here is the z-score
+    fire boundary, NOT a raw-value boundary.
+    """
+    now = datetime(2026, 5, 4, 12, 0, 0)
+    rule = _make_rule(
+        kind="anomaly",
+        threshold_fire=2.5,
+        threshold_clear=1.0,
+        min_samples=10,
+        cooldown_seconds=300,
+        params_json={"window_kind": "sliding", "window_n": 10},
+        created_at=_ago(now, hours=48),
+    )
+
+    # (a) firing → clear: |z| < threshold_clear=1.0 → CLEAR.
+    # mean=50, var=4 (stddev=2). value=51 → |z|≈0.5 < 1.0 floor.
+    firing_state = _make_state(
+        state="firing",
+        sample_count=20,
+        fired_at=_ago(now, seconds=600),
+        params_json={"ewma_mean": 50.0, "ewma_var": 4.0},
+    )
+    sig_clear, _ = evaluate_anomaly(rule, 51.0, firing_state, now=now)
+    assert sig_clear == AlertSignal.CLEAR
+
+    # (b) clear → pending_fire on |z| > threshold_fire=2.5 when fired_at is None.
+    # mean=50, var=4, value=80 → recurrence:
+    #   diff = 80 - 50 = 30
+    #   new_mean = 0.1*80 + 0.9*50 = 53
+    #   new_var  = 0.1*(30)² + 0.9*4 = 93.6
+    #   |z|     = |80 - 53| / √93.6 ≈ 27/9.674 ≈ 2.79  →  > 2.5 fire
+    clear_state = _make_state(
+        state="clear",
+        sample_count=20,
+        fired_at=None,
+        params_json={"ewma_mean": 50.0, "ewma_var": 4.0},
+    )
+    sig_pending, _ = evaluate_anomaly(rule, 80.0, clear_state, now=now)
+    assert sig_pending == AlertSignal.PENDING_FIRE
+
+
+def test_anomaly_unknown_window_kind_defaults_to_ewma():
+    """`_resolve_alpha` defensive default: unknown / missing window_kind →
+    alpha = 2/(N+1) (EWMA, v1.0 behavior). Defense in depth: the API-side
+    validator rejects unknown values up front, so this defensive branch only
+    fires for rules persisted before Phase 21 without a migration.
+    """
+    from cmc.alerts.detector import _resolve_alpha
+
+    # Unknown value → ewma alpha
+    rule_garbage = _make_rule(
+        kind="anomaly",
+        threshold_fire=3.0,
+        params_json={"window_kind": "garbage"},
+    )
+    assert _resolve_alpha(rule_garbage, 50) == 2.0 / (50 + 1.0)
+
+    # Missing key → ewma alpha (preserves v1.0 default for legacy rules)
+    rule_missing = _make_rule(
+        kind="anomaly",
+        threshold_fire=3.0,
+        params_json={"window_n": 50},
+    )
+    assert _resolve_alpha(rule_missing, 50) == 2.0 / (50 + 1.0)
+
+    # Empty params_json → ewma alpha
+    rule_empty = _make_rule(
+        kind="anomaly",
+        threshold_fire=3.0,
+        params_json={},
+    )
+    assert _resolve_alpha(rule_empty, 100) == 2.0 / (100 + 1.0)
+
+    # Sliding sanity check (positive control)
+    rule_sliding = _make_rule(
+        kind="anomaly",
+        threshold_fire=3.0,
+        params_json={"window_kind": "sliding"},
+    )
+    assert _resolve_alpha(rule_sliding, 50) == 1.0 / 50.0
