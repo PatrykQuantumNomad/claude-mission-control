@@ -46,7 +46,7 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 - [x] **Phase 18: Polish & Carry-Forward Cleanup** — Discharge v1.1 carried debt; green CI baseline before feature work (POLI-06, POLI-07, POLI-08) (completed 2026-05-05)
 - [x] **Phase 19: Skills Per-Project, Deltas & Badges** — Per-project breakdown, period-over-period deltas, new/dormant badges; ships migration `0003_project_key` (SKLP-08, SKLP-09, SKLP-10) (completed 2026-05-06)
 - [x] **Phase 20: Cost Forecast & Per-Project Card** — Monthly forecast (linear OLS) and per-project cost breakdown card; consumes `project_key` from Phase 19 (ANLY-06, ANLY-07) (completed 2026-05-06)
-- [ ] **Phase 21: Alert Anomaly Depth & NL Authoring** — Sliding-window anomaly detection extension and Haiku-backed NL alert authoring (ALRT-13, ALRT-14)
+- [x] **Phase 21: Alert Anomaly Depth & NL Authoring** — Sliding-window anomaly detection extension and Haiku-backed NL alert authoring (ALRT-13, ALRT-14) — *completed 2026-05-07; all 3 plans shipped (21-01 detector + 21-02 nl-parser + 21-03 frontend NL input + metrics sync)*
 - [ ] **Phase 22: Skill Latency Overhead (spike-gated)** — Feasibility-gated body/subagent/tool latency decomposition; phase opens with mandatory spike, descopes cleanly to v1.3 if data is unreliable (SKLP-11)
 - [ ] **Phase 23: Compare Depth & Milestone Close** — Per-skill latency delta and Cmd+K compare-with-previous shortcut; closes the milestone (CMPR-06, CMPR-07)
 
@@ -114,7 +114,7 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 **Plans**: 3 plans
   - [x] 21-01-detector-window-kind-discriminator-PLAN.md — `_resolve_alpha` helper inside `evaluate_anomaly` (sliding=`1/N`, ewma=`2/(N+1)`); `params_json.window_kind` validator + `min_samples >= window_n` coupling on `AlertRuleCreate`/`AlertRulePatch`; AST static-import test pinning the single-detector invariant (completed 2026-05-07, commit c2a7793)
   - [x] 21-02-nl-parser-route-and-metrics-PLAN.md — `cmc/alerts/nl_parser.py` (lazy `AsyncAnthropic`, `_SCOPE_EXTRACTORS.keys()` in system prompt, `None` on hallucination); `POST /api/alerts/parse-nl` (503 collapse) + `GET /api/alerts/metrics`; parser unit tests + router tests (completed 2026-05-07, commits dfeb6fa feat + ef2a3d7 test; SUMMARY at .planning/phases/21-alert-anomaly-depth-nl-authoring/21-02-nl-parser-route-and-metrics-SUMMARY.md)
-  - [ ] 21-03-frontend-nl-input-and-metrics-sync-PLAN.md — `useParseAlertNl` + `useAlertMetrics` hooks; NL input + `AlertDialog` preview modal in `AlertRuleForm`; FALLBACK_KNOWN_METRICS sourced via React Query; backend `test_alerts_metrics_sync.py` regex drift guard
+  - [x] 21-03-frontend-nl-input-and-metrics-sync-PLAN.md — `useParseAlertNl` + `useAlertMetrics` hooks; NL input + `AlertDialog` preview modal in `AlertRuleForm`; FALLBACK_KNOWN_METRICS sourced via React Query; backend `test_alerts_metrics_sync.py` regex drift guard with single-line `//`-comment filter (completed 2026-05-07, commits b902661 feat + 379a673 test; SUMMARY at .planning/phases/21-alert-anomaly-depth-nl-authoring/21-03-frontend-nl-input-and-metrics-sync-SUMMARY.md)
 **UI hint**: yes
 
 ### Phase 22: Skill Latency Overhead (spike-gated)
