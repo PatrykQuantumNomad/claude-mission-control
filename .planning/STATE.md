@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Depth & Polish
 status: verifying
-stopped_at: Phase 20 Plan 04 (cost-dashboard-e2e, ANLY-06+07 final integration trust signal) complete; Phase 20 ready for closure. /cost dashboard is user-shippable end-to-end through real ASGI + Vite preview build; path-leakage prohibition is enforced at four defense layers (SQL filter, structural pytest, vitest container regex, Playwright real-DOM regex). Adversarial-mutation verification confirmed locally.
-last_updated: "2026-05-07T11:21:02.223Z"
-last_activity: "2026-05-07 — Plan 21-01 executed in one atomic commit: c2a7793 (feat — _resolve_alpha helper + window_kind validator + 5 sliding-window tests + AST guard); ~27 min; SUMMARY at .planning/phases/21-alert-anomaly-depth-nl-authoring/21-01-detector-window-kind-discriminator-SUMMARY.md"
+stopped_at: Phase 21 Plan 01 (detector-window-kind-discriminator, ALRT-13) complete; Plan 21-02 (NL parser + parse-nl/metrics routes, ALRT-14) landed in parallel earlier the same session. Plan 21-03 (frontend NL input + metrics sync) remaining for Phase 21 closure. Sliding-window anomaly detection ships as a single-function discriminator with AST-pinned single-detector invariant; backend-side ALRT-13 + ALRT-14 user-shippable.
+last_updated: "2026-05-07T11:24:19.262Z"
+last_activity: "2026-05-07 — Plan 21-01 executed in one atomic commit: c2a7793 (feat — `_resolve_alpha` helper + window_kind validator + 5 sliding-window tests + AST guard); ~27 min; SUMMARY at .planning/phases/21-alert-anomaly-depth-nl-authoring/21-01-detector-window-kind-discriminator-SUMMARY.md"
 progress:
   total_phases: 6
   completed_phases: 3
