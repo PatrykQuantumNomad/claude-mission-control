@@ -167,7 +167,7 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 | 18. Polish & Carry-Forward Cleanup | v1.2 | 5/5 | Complete   | 2026-05-05 |
 | 19. Skills Per-Project, Deltas & Badges | v1.2 | 4/4 | Complete    | 2026-05-06 |
 | 20. Cost Forecast & Per-Project Card | v1.2 | 4/4 | Complete   | 2026-05-06 |
-| 21. Alert Anomaly Depth & NL Authoring | v1.2 | 2/3 | In progress | — |
+| 21. Alert Anomaly Depth & NL Authoring | v1.2 | 3/3 | Complete    | 2026-05-07 |
 | 22. Skill Latency Overhead (spike-gated) | v1.2 | 0/? | Not started | — |
 | 23. Compare Depth & Milestone Close | v1.2 | 0/? | Not started | — |
 
