@@ -93,7 +93,7 @@ Mapped to v1.2 ROADMAP.md (Phases 18–23) on 2026-05-05.
 | ANLY-06 | Phase 20 | Complete user-shippable end-to-end (2026-05-06, backend Plan 02: 01b25a1 + 10e0757 + 54f922b + 2765f07; frontend Plan 03: f90ec21 + 1fc13e1 + 96ea120; e2e Plan 04: 0ad412a) |
 | ANLY-07 | Phase 20 | Complete user-shippable end-to-end (2026-05-06, backend Plan 01: 96dbc9e + 17e162f + 3b33b2d; frontend Plan 03: 1fc13e1 + 96ea120; e2e Plan 04: 0ad412a path-leakage guard at fourth defense layer) |
 | ALRT-13 | Phase 21 | Pending |
-| ALRT-14 | Phase 21 | Pending |
+| ALRT-14 | Phase 21 | Backend portion shipped (2026-05-07, Plan 21-02: dfeb6fa feat + ef2a3d7 test); frontend NL input + preview modal pending Plan 21-03 |
 | SKLP-11 | Phase 22 | Pending (spike-gated; descopes to v1.3 if feasibility fails) |
 | CMPR-06 | Phase 23 | Pending |
 | CMPR-07 | Phase 23 | Pending |
