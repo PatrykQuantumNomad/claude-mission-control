@@ -19,10 +19,12 @@ from __future__ import annotations
 
 import hashlib
 from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock
 
 import pytest
 from sqlalchemy import select
 
+from cmc.api.schemas.alerts import AlertRuleCreate
 from cmc.db.models.alert_rules import AlertRule
 from cmc.db.models.alert_state import AlertState
 from cmc.db.models.decisions import Decision
@@ -489,3 +491,114 @@ async def test_ack_alert_invalid_hash_format_422(client) -> None:
         json={"rule_id": 1, "scope_hash": "abc"},  # too short
     )
     assert r.status_code == 422, r.text
+
+
+# --------------------------------------------------------------------------
+# Phase 21 Plan 02 — POST /api/alerts/parse-nl + GET /api/alerts/metrics.
+# --------------------------------------------------------------------------
+#
+# Mirror tests/test_schedules_router.py:308-345 — bind-replace
+# `cmc.api.routes.alerts.parse_alert_nl` at the import binding via
+# monkeypatch.setattr (router-level integration), NOT the parser internals
+# (those are covered by tests/test_alerts_nl_parser.py).
+#
+# Note: the app's HTTPException handler (cmc/core/errors.py) wraps detail
+# into {"error": detail, "request_id": ...} — so we read r.json()["error"]
+# (NOT "detail") on 503, mirroring test_schedules_router.py's pattern.
+
+
+def _valid_anomaly_rule() -> AlertRuleCreate:
+    """Build an AlertRuleCreate the parser would return on a happy-path Haiku call."""
+    return AlertRuleCreate(
+        name="haiku-p95",
+        kind="anomaly",
+        metric="skill_p95_latency_ms",
+        threshold_fire=3.0,
+        min_samples=50,
+        params_json={"window_kind": "sliding", "window_n": 50},
+    )
+
+
+# (t) parse-nl happy path — 200 + echoed description.
+
+
+@pytest.mark.asyncio
+async def test_parse_nl_alert_happy_path_returns_200(client, monkeypatch) -> None:
+    """Mocked parse_alert_nl returns AlertRuleCreate → 200 + echoed description."""
+    monkeypatch.setattr(
+        "cmc.api.routes.alerts.parse_alert_nl",
+        AsyncMock(return_value=_valid_anomaly_rule()),
+    )
+    r = await client.post(
+        "/api/alerts/parse-nl",
+        json={"description": "alert me when haiku skill p95 exceeds 3 sigma"},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["rule"]["metric"] == "skill_p95_latency_ms"
+    assert body["rule"]["kind"] == "anomaly"
+    assert body["rule"]["threshold_fire"] == 3.0
+    assert body["description"] == "alert me when haiku skill p95 exceeds 3 sigma"
+
+
+# (u) parse-nl no API key — 503 + 'natural-language alerts unavailable'.
+
+
+@pytest.mark.asyncio
+async def test_parse_nl_alert_no_api_key_returns_503(client, monkeypatch) -> None:
+    """Parser returns None (missing API key) → router emits 503 with V11 body."""
+    monkeypatch.setattr(
+        "cmc.api.routes.alerts.parse_alert_nl",
+        AsyncMock(return_value=None),
+    )
+    r = await client.post(
+        "/api/alerts/parse-nl",
+        json={"description": "alert me when haiku skill p95 exceeds 3 sigma"},
+    )
+    assert r.status_code == 503, r.text
+    assert r.json()["error"] == "natural-language alerts unavailable"
+
+
+# (v) parse-nl invalid Haiku output — 503 (collapsed-failure-mode contract).
+
+
+@pytest.mark.asyncio
+async def test_parse_nl_alert_invalid_output_returns_503(client, monkeypatch) -> None:
+    """Parser returns None (invalid Haiku output, e.g. hallucinated metric) → 503.
+
+    Same response as no-API-key case — Pitfall 6 recommendation A / V11
+    collapsed-failure-mode contract: a single 503 covers both failure modes.
+    Test name documents the SEMANTIC distinction even though the wire shape
+    is identical to test_parse_nl_alert_no_api_key_returns_503.
+    """
+    monkeypatch.setattr(
+        "cmc.api.routes.alerts.parse_alert_nl",
+        AsyncMock(return_value=None),
+    )
+    r = await client.post(
+        "/api/alerts/parse-nl",
+        json={"description": "garbled prompt that haiku rejects"},
+    )
+    assert r.status_code == 503, r.text
+    assert r.json()["error"] == "natural-language alerts unavailable"
+
+
+# (w) GET /api/alerts/metrics — 200 + sorted _SCOPE_EXTRACTORS keys.
+
+
+@pytest.mark.asyncio
+async def test_get_alert_metrics_returns_200_with_sorted_keys(client) -> None:
+    """GET /api/alerts/metrics returns sorted(_SCOPE_EXTRACTORS.keys()).
+
+    Sort makes ordering deterministic for Plan 21-03's CI drift-guard test
+    (frontend KNOWN_METRICS must match this exact list verbatim).
+    """
+    r = await client.get("/api/alerts/metrics")
+    assert r.status_code == 200, r.text
+    assert r.json() == {
+        "metrics": [
+            "cost_usd_24h",
+            "dispatcher_failed_tasks_5m",
+            "skill_p95_latency_ms",
+        ]
+    }
