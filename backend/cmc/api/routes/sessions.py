@@ -388,6 +388,53 @@ async def compare_sessions(
     )
 
 
+@router.get("/sessions/{sid}/previous")
+async def previous_session(
+    sid: str,
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    """CMPR-07: resolve the most-recent prior ended session in the same project.
+
+    Locked decisions (Phase 23 D-01..D-06):
+      - Same project is sessions.project_key only
+      - Previous is most recent by ended_at strictly less than current.ended_at
+      - Ignore ended_at IS NULL sessions
+      - Tie-breaker: highest started_at when ended_at ties
+      - Empty case: 404 {error:"no previous session"}
+      - Response is ID-only: {session_id: <uuid>}
+    """
+    if not _UUID_RE.match(sid):
+        raise HTTPException(status_code=400, detail="invalid session_id format")
+
+    current = (
+        await db.execute(select(SessionModel).where(SessionModel.session_id == sid))
+    ).scalar_one_or_none()
+    if current is None:
+        raise HTTPException(status_code=404, detail="session not found")
+
+    # Ordering is undefined when ended_at is NULL; empty-key cannot match meaningfully.
+    if current.ended_at is None or not current.project_key:
+        raise HTTPException(status_code=404, detail="no previous session")
+
+    prev_sid = (
+        await db.execute(
+            select(SessionModel.session_id)
+            .where(
+                SessionModel.project_key == current.project_key,
+                SessionModel.ended_at.is_not(None),
+                SessionModel.ended_at < current.ended_at,
+            )
+            .order_by(SessionModel.ended_at.desc(), SessionModel.started_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+    if prev_sid is None:
+        raise HTTPException(status_code=404, detail="no previous session")
+
+    return {"session_id": prev_sid}
+
+
 @router.get("/sessions/{session_id}/details", response_model=SessionDetailsResponse)
 async def session_details(
     session_id: str,

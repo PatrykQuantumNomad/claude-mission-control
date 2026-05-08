@@ -1015,3 +1015,183 @@ async def test_compare_sql_budget_preserved_under_cap_and_over_cap(client) -> No
         r = await client.get(f"/api/sessions/compare?a={sid_a}&b={sid_b}")
         assert r.status_code == 200, r.text
     assert c2["n"] == 8
+
+
+# ---------- Phase 23 (CMPR-07): GET /api/sessions/{sid}/previous ----------
+
+
+@pytest.mark.asyncio
+async def test_previous_session_happy_path_selects_strictly_less_by_ended_at(client) -> None:
+    now = datetime.now(UTC)
+    pk = "aaaaaaaaaaaa"
+    sid_prev = _new_uuid()
+    sid_curr = _new_uuid()
+    sid_old = _new_uuid()
+
+    await _seed(client, [
+        (SessionModel, make_session_row(
+            session_id=sid_old,
+            started_at=now - timedelta(hours=3),
+            ended_at=now - timedelta(hours=2, minutes=30),
+        ) | {"project_key": pk}),
+        (SessionModel, make_session_row(
+            session_id=sid_prev,
+            started_at=now - timedelta(hours=2),
+            ended_at=now - timedelta(hours=1, minutes=30),
+        ) | {"project_key": pk}),
+        (SessionModel, make_session_row(
+            session_id=sid_curr,
+            started_at=now - timedelta(hours=1),
+            ended_at=now - timedelta(minutes=10),
+        ) | {"project_key": pk}),
+    ])
+
+    r = await client.get(f"/api/sessions/{sid_curr}/previous")
+    assert r.status_code == 200, r.text
+    assert r.json()["session_id"] == sid_prev
+
+
+@pytest.mark.asyncio
+async def test_previous_session_ignores_ended_at_null_candidates(client) -> None:
+    now = datetime.now(UTC)
+    pk = "bbbbbbbbbbbb"
+    sid_prev = _new_uuid()
+    sid_active = _new_uuid()
+    sid_curr = _new_uuid()
+
+    await _seed(client, [
+        (SessionModel, make_session_row(
+            session_id=sid_prev,
+            started_at=now - timedelta(hours=2),
+            ended_at=now - timedelta(hours=1, minutes=30),
+        ) | {"project_key": pk}),
+        (SessionModel, make_session_row(
+            session_id=sid_active,
+            started_at=now - timedelta(hours=1),
+            ended_at=None,
+        ) | {"project_key": pk}),
+        (SessionModel, make_session_row(
+            session_id=sid_curr,
+            started_at=now - timedelta(minutes=30),
+            ended_at=now - timedelta(minutes=5),
+        ) | {"project_key": pk}),
+    ])
+
+    r = await client.get(f"/api/sessions/{sid_curr}/previous")
+    assert r.status_code == 200, r.text
+    assert r.json()["session_id"] == sid_prev
+
+
+@pytest.mark.asyncio
+async def test_previous_session_tie_breaker_picks_highest_started_at(client) -> None:
+    now = datetime.now(UTC)
+    pk = "cccccccccccc"
+    ended = now - timedelta(hours=1)
+    sid_a = _new_uuid()
+    sid_b = _new_uuid()
+    sid_curr = _new_uuid()
+
+    await _seed(client, [
+        (SessionModel, make_session_row(
+            session_id=sid_a,
+            started_at=now - timedelta(hours=2),
+            ended_at=ended,
+        ) | {"project_key": pk}),
+        (SessionModel, make_session_row(
+            session_id=sid_b,
+            started_at=now - timedelta(hours=1, minutes=59),  # higher started_at wins
+            ended_at=ended,
+        ) | {"project_key": pk}),
+        (SessionModel, make_session_row(
+            session_id=sid_curr,
+            started_at=now - timedelta(minutes=30),
+            ended_at=now - timedelta(minutes=10),
+        ) | {"project_key": pk}),
+    ])
+
+    r = await client.get(f"/api/sessions/{sid_curr}/previous")
+    assert r.status_code == 200, r.text
+    assert r.json()["session_id"] == sid_b
+
+
+@pytest.mark.asyncio
+async def test_previous_session_returns_404_no_previous_session(client) -> None:
+    now = datetime.now(UTC)
+    pk = "dddddddddddd"
+    sid_curr = _new_uuid()
+    await _seed(client, [
+        (SessionModel, make_session_row(
+            session_id=sid_curr,
+            started_at=now - timedelta(minutes=30),
+            ended_at=now - timedelta(minutes=5),
+        ) | {"project_key": pk}),
+    ])
+
+    r = await client.get(f"/api/sessions/{sid_curr}/previous")
+    assert r.status_code == 404
+    assert r.json()["error"] == "no previous session"
+
+
+@pytest.mark.asyncio
+async def test_previous_session_ignores_different_project_key(client) -> None:
+    now = datetime.now(UTC)
+    pk_a = "eeeeeeeeeeee"
+    pk_b = "ffffffffffff"
+    sid_other = _new_uuid()
+    sid_curr = _new_uuid()
+
+    await _seed(client, [
+        (SessionModel, make_session_row(
+            session_id=sid_other,
+            started_at=now - timedelta(hours=2),
+            ended_at=now - timedelta(hours=1),
+        ) | {"project_key": pk_b}),
+        (SessionModel, make_session_row(
+            session_id=sid_curr,
+            started_at=now - timedelta(minutes=30),
+            ended_at=now - timedelta(minutes=5),
+        ) | {"project_key": pk_a}),
+    ])
+
+    r = await client.get(f"/api/sessions/{sid_curr}/previous")
+    assert r.status_code == 404
+    assert r.json()["error"] == "no previous session"
+
+
+@pytest.mark.asyncio
+async def test_previous_session_current_missing_returns_404_session_not_found(client) -> None:
+    r = await client.get(f"/api/sessions/{_new_uuid()}/previous")
+    assert r.status_code == 404
+    assert "session not found" in r.json()["error"].lower()
+
+
+@pytest.mark.asyncio
+async def test_previous_session_current_active_returns_404_no_previous_session(client) -> None:
+    now = datetime.now(UTC)
+    sid_curr = _new_uuid()
+    await _seed(client, [
+        (SessionModel, make_session_row(
+            session_id=sid_curr,
+            started_at=now - timedelta(minutes=30),
+            ended_at=None,
+        ) | {"project_key": "999999999999"}),
+    ])
+    r = await client.get(f"/api/sessions/{sid_curr}/previous")
+    assert r.status_code == 404
+    assert r.json()["error"] == "no previous session"
+
+
+@pytest.mark.asyncio
+async def test_previous_session_empty_project_key_returns_404_no_previous_session(client) -> None:
+    now = datetime.now(UTC)
+    sid_curr = _new_uuid()
+    await _seed(client, [
+        (SessionModel, make_session_row(
+            session_id=sid_curr,
+            started_at=now - timedelta(minutes=30),
+            ended_at=now - timedelta(minutes=5),
+        ) | {"project_key": ""}),
+    ])
+    r = await client.get(f"/api/sessions/{sid_curr}/previous")
+    assert r.status_code == 404
+    assert r.json()["error"] == "no previous session"
