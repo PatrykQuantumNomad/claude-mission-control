@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Depth & Polish
-status: in_progress
-stopped_at: Phase 22 Plan 01 complete — SQL feasibility spike resolved NO (SKLP-11 descope to v1.3); SPIKE-FINDINGS.md committed at 07abcfa; awaiting user re-invocation of /gsd-plan-phase 22 to author Plan 02-descope.
-last_updated: "2026-05-07T14:34:53Z"
-last_activity: 2026-05-07 — Phase 22 Plan 01 SQL spike resolved NO (CT-1 structural failure: skill_activated payload lacks duration_ms attribute); SPIKE-FINDINGS.md committed at 07abcfa; SUMMARY at .planning/phases/22-skill-latency-overhead-spike-gated/22-01-SUMMARY.md; ~3 min.
+status: ready_to_plan
+stopped_at: Phase 22 Plan 01 complete — SQL feasibility spike resolved NO (SKLP-11 descopes to v1.3); SPIKE-FINDINGS.md committed at 07abcfa; SUMMARY at .planning/phases/22-skill-latency-overhead-spike-gated/22-01-SUMMARY.md. User must re-invoke /gsd-plan-phase 22 to author Plan 02-descope (REQUIREMENTS.md flip).
+last_updated: "2026-05-08T13:28:11.319Z"
+last_activity: 2026-05-08 -- Phase 22 execution started
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 18
-  completed_plans: 18
-  percent: 100
+  completed_plans: 17
+  percent: 83
 ---
 
 # Project State
@@ -22,14 +22,14 @@ See: .planning/PROJECT.md (updated 2026-05-05 after v1.1 ship)
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, what each skill costs and how often it fails, queue and approve tasks, compare two sessions side-by-side, get paged when metrics breach thresholds, and kill runaway sessions — all from one browser tab without maintaining external infrastructure.
 
-**Current focus:** v1.2 Depth & Polish — roadmap written 2026-05-05. 6 phases (18–23) covering 13 requirements across 4 v1.1 lanes (skills polish, cost differentiators, alert differentiators, compare differentiators) plus polish/cleanup. Phase 22 is spike-gated for SKLP-11; descopes cleanly to v1.3 if `tools` temporal-JOIN derivation proves unreliable.
+**Current focus:** Phase 22 — skill-latency-overhead-spike-gated
 
 ## Current Position
 
-Phase: 22 — Skill Latency Overhead (spike-gated) — Plan 01 (mandatory feasibility spike) complete; phase awaits user re-invocation of /gsd-plan-phase 22 to author Plan 02-descope.
-Plan: Plan 22-01 (skill-latency-overhead-feasibility-spike, SKLP-11 gate) complete — SQL-only spike against live `data/cmc.db` resolved **NO — descope SKLP-11 to v1.3**. CT-1 (Coverage) failed structurally: only 1 row in `otel_events` with `event_name='skill_activated'` (the Phase 12 spike artifact, 2026-05-02), and that row's body.record.attributes does NOT carry a `duration_ms` key (verified by direct `json_each`-over-attributes attribute-key enumeration). With zero qualifying rows, the threshold `MIN_LATENCY_SAMPLES = 30` (cmc/api/routes/skills.py:606) cannot be met. CT-3 (negative-residual guard) and CT-4 (subagent containment) recorded as N/A per the failure-isolation rule (Plan §Action). Failure mode classified STRONG (structural absence in upstream emitter), not WEAK (no events in window) — re-evaluation in v1.3 requires upstream changes to Claude Code's `skill_activated` payload, not just user activity. SPIKE-FINDINGS.md committed at 07abcfa with regex-pinned `## Outcome: NO — descope SKLP-11 to v1.3` banner + verbatim sqlite3 stdout for Probes 0+1 + counter-evidence attribute-key enumeration + §Negative Finding with v1.3 re-evaluation criteria + §Anti-Fake-Decomposition Reaffirmation. Plan 22-02 NOT written this round per 22-RESEARCH.md §Architecture Patterns Option 1 (sequential branching: pre-branching would force placeholder citations into Plan 02 front-matter, violating ROADMAP Success Criterion #1). User must re-invoke /gsd-plan-phase 22 to author Plan 02-descope, which will flip SKLP-11 status in REQUIREMENTS.md (move §Skills Polish → §Future Requirements §Skills v1.3+) and update Traceability table.
-Status: Plan 22-01 complete — `.planning/phases/22-skill-latency-overhead-spike-gated/22-01-SPIKE-FINDINGS.md` (+195 lines, NO outcome banner, four mandatory sections + Negative Finding + Anti-Fake-Decomposition Reaffirmation) + `.planning/phases/22-skill-latency-overhead-spike-gated/22-01-SUMMARY.md` (this plan's summary, anchors next-step descope action). Zero source code touched (verified by `git show --stat 07abcfa`). Test baseline unchanged from Phase 21 (pytest 650 / vitest 320 / 1 pre-existing flaky). One atomic commit: 07abcfa (docs(22-01): spike findings — NO outcome (SKLP-11 descoped)).
-Last activity: 2026-05-07 — Plan 22-01 SUMMARY authored; commit 07abcfa; ~3 min; SUMMARY at .planning/phases/22-skill-latency-overhead-spike-gated/22-01-SUMMARY.md
+Phase: 23
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-05-08
 
 Progress: [██████████] 100% (5/6 phases complete; Phase 22 spike-gated and resolved to descope per SKLP-11 v1.3 deferral; Phase 23 unblocked per ROADMAP §Phase 22 Success Criteria)
 
