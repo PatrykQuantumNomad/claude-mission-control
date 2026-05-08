@@ -26,8 +26,8 @@
 
 ### Compare Differentiators
 
-- [ ] **CMPR-06**: User sees per-skill latency delta in `/sessions/compare` view (extends `_build_compare_side` with `skill_latencies` dict; `low_sample_a` / `low_sample_b` flags suppress delta when sample count <30; respects existing CMPR-04 9-SQL-per-request budget and 200-with-flag over-cap fallback)
-- [ ] **CMPR-07**: User can jump from any session view to compare-with-previous via Cmd+K (`/api/sessions/{sid}/previous` endpoint returns most-recent same-cwd session with `ended_at IS NOT NULL`; cmdk context-aware action visible only when there is a previous session; reuses self-compare guard)
+- [x] **CMPR-06**: User sees per-skill latency delta in `/sessions/compare` view (extends `_build_compare_side` with `skill_latencies` dict; `low_sample_a` / `low_sample_b` flags suppress delta when sample count <30; respects existing CMPR-04 9-SQL-per-request budget and 200-with-flag over-cap fallback)
+- [x] **CMPR-07**: User can jump from any session view to compare-with-previous via Cmd+K (`/api/sessions/{sid}/previous` endpoint returns most-recent same-cwd session with `ended_at IS NOT NULL`; cmdk context-aware action visible only when there is a previous session; reuses self-compare guard)
 
 ### Polish & Cleanup
 
@@ -95,8 +95,8 @@ Mapped to v1.2 ROADMAP.md (Phases 18–23) on 2026-05-05.
 | ALRT-13 | Phase 21 | Pending |
 | ALRT-14 | Phase 21 | Complete user-shippable end-to-end (2026-05-07, backend Plan 21-02: dfeb6fa + ef2a3d7; frontend Plan 21-03: b902661 + 379a673 — useParseAlertNl + useAlertMetrics + NL input + preview modal + drift-guard pytest) |
 | SKLP-11 | Phase 22 | Deferred to v1.3 (Phase 22 spike negative finding — see 22-01-SPIKE-FINDINGS.md) |
-| CMPR-06 | Phase 23 | Pending |
-| CMPR-07 | Phase 23 | Pending |
+| CMPR-06 | Phase 23 | Complete |
+| CMPR-07 | Phase 23 | Complete |
 
 **Coverage:**
 - v1.2 requirements: 13 total
