@@ -6,14 +6,13 @@
 
 ## v1.2 Requirements
 
-13 requirements across 5 categories. All are P1 (table stakes) — closing visible gaps in v1.1 lanes during one-cycle daily use.
+12 requirements across 5 categories. All are P1 (table stakes) — closing visible gaps in v1.1 lanes during one-cycle daily use.
 
 ### Skills Polish
 
 - [x] **SKLP-08**: User can see per-project breakdown of skill usage on `/skills/$name` (sortable table by cost / latency / count; backed by `/api/skills/{name}/projects` endpoint; uses `project_key` normalization to prevent cwd cardinality blowup and path leakage) — complete end-to-end 2026-05-06 (backend Phase 19 Plan 02 commits b6d73a7 + 056141b; frontend Phase 19 Plan 04 commits 5092e51 SkillProjectsTable + path-leakage scan, b729ecc Playwright e2e)
 - [x] **SKLP-09**: User can see period-over-period delta pills (7d-vs-prev-7d) for skill cost and usage count on TopSkills panel, SkillCostCard, and per-skill detail page (prev-period CTE, ↑/↓ pill with absolute delta + percent) — complete end-to-end 2026-05-06 (backend Phase 19 Plan 03 commits ee662cb + ea0d1cb + 68aeb5c; frontend Phase 19 Plan 04 commits 2333b46 DeltaPill primitive + b729ecc TopSkills/SkillCostCard wiring)
 - [x] **SKLP-10**: User sees "new this week" / "dormant" badges on skills (backend-computed from `first_activated_at` / `last_activated_at`; thresholds: 7d for "new", 30d for "dormant"; cold-start suppression for skills <14 days old) — complete end-to-end 2026-05-06 (backend Phase 19 Plan 03 commits ee662cb + ea0d1cb + 68aeb5c; frontend Phase 19 Plan 04 commit b729ecc TopSkills + SkillsRegistry badge wiring via useSkillUsage merge)
-- [ ] **SKLP-11**: User can see per-skill latency overhead breakdown (body / subagent / tool stacked bar) — **spike-gated**: Phase 22 opens with mandatory feasibility check via `tools` temporal JOIN against `skill_activated.duration_ms`; if derivation unreliable, descopes to v1.3
 
 ### Cost Differentiators
 
@@ -39,7 +38,8 @@
 ## Future Requirements (deferred)
 
 ### Skills (v1.3+)
-- **SKLP-12**: SKLP-11 percentile-split breakdown (p50 / p95 / p99 per overhead category) — only if SKLP-11 ships
+- **SKLP-11**: User can see per-skill latency overhead breakdown (body / subagent / tool stacked bar) — Deferred to v1.3 (Phase 22 spike negative finding; see .planning/phases/22-skill-latency-overhead-spike-gated/22-01-SPIKE-FINDINGS.md)
+- **SKLP-12**: SKLP-11 percentile-split breakdown (p50 / p95 / p99 per overhead category)
 - **SKLP-13**: Heatmap toggle on per-project skill breakdown (alternative view)
 
 ### Cost (v1.3+)
@@ -94,13 +94,14 @@ Mapped to v1.2 ROADMAP.md (Phases 18–23) on 2026-05-05.
 | ANLY-07 | Phase 20 | Complete user-shippable end-to-end (2026-05-06, backend Plan 01: 96dbc9e + 17e162f + 3b33b2d; frontend Plan 03: 1fc13e1 + 96ea120; e2e Plan 04: 0ad412a path-leakage guard at fourth defense layer) |
 | ALRT-13 | Phase 21 | Pending |
 | ALRT-14 | Phase 21 | Complete user-shippable end-to-end (2026-05-07, backend Plan 21-02: dfeb6fa + ef2a3d7; frontend Plan 21-03: b902661 + 379a673 — useParseAlertNl + useAlertMetrics + NL input + preview modal + drift-guard pytest) |
-| SKLP-11 | Phase 22 | Pending (spike-gated; descopes to v1.3 if feasibility fails) |
+| SKLP-11 | Phase 22 | Deferred to v1.3 (Phase 22 spike negative finding — see 22-01-SPIKE-FINDINGS.md) |
 | CMPR-06 | Phase 23 | Pending |
 | CMPR-07 | Phase 23 | Pending |
 
 **Coverage:**
 - v1.2 requirements: 13 total
-- Mapped to phases: 13 ✓
+- v1.2 requirements: 12 total
+- Mapped to phases: 12 ✓
 - Unmapped: 0 ✓
 
 **Phase distribution:**
@@ -108,7 +109,7 @@ Mapped to v1.2 ROADMAP.md (Phases 18–23) on 2026-05-05.
 - Phase 19 (Skills Per-Project/Deltas/Badges): 3 requirements (SKLP-08, SKLP-09, SKLP-10)
 - Phase 20 (Cost Forecast & Per-Project Card): 2 requirements (ANLY-06, ANLY-07)
 - Phase 21 (Alert Anomaly Depth & NL Authoring): 2 requirements (ALRT-13, ALRT-14)
-- Phase 22 (Skill Latency Overhead, spike-gated): 1 requirement (SKLP-11)
+- Phase 22 (Skill Latency Overhead, spike-gated): 0 requirements (descoped; SKLP-11 deferred to v1.3)
 - Phase 23 (Compare Depth & Milestone Close): 2 requirements (CMPR-06, CMPR-07)
 
 ---

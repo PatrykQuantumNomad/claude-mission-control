@@ -119,15 +119,17 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 
 ### Phase 22: Skill Latency Overhead (spike-gated)
 **Goal**: Feasibility-gated delivery of SKLP-11 — open with a mandatory data-availability spike against `tools` temporal JOIN vs `skill_activated.duration_ms`; if the derivation is reliable, ship the body/subagent/tool stacked-bar breakdown; if not, document the negative finding and descope SKLP-11 to v1.3 cleanly without blocking Phase 23.
+**Current branch**: **NO (descope)** — spike outcome committed in `22-01-SPIKE-FINDINGS.md` (`## Outcome: NO — descope SKLP-11 to v1.3`). Phase 22 execution for v1.2 is therefore docs-only: execute the descope plan and close as `Complete (descoped)`.
 **Depends on**: Phase 19 (reuses CTE patterns and `/skills/$name` panel scaffolding from skills work)
 **Requirements**: SKLP-11
 **Success Criteria** (what must be TRUE):
   1. Spike resolves yes/no with documented derivation source OR descope decision committed: phase plan front-matter cites the specific SQL column or temporal-JOIN derivation source for each of `body_ms` / `subagent_ms` / `tool_ms` — OR records a negative finding and commits SKLP-11's descope to v1.3 with REQUIREMENTS.md updated to match. No fake decomposition (ratio guesswork, fabricated event types, etc.) ships under any circumstance.
-  2. **If spike succeeds:** User sees a stacked-bar overhead breakdown on `/skills/$name` populated from `GET /api/skills/{name}/overhead` showing body / subagent / tool components, with a `low_sample` badge when sample count is below the established `MIN_LATENCY_SAMPLES=30` threshold.
+  2. **If spike succeeds:** User sees a stacked-bar overhead breakdown on `/skills/$name` populated from `GET /api/skills/{name}/overhead` showing body / subagent / tool components, with a `low_sample` badge when sample count is below the established `MIN_LATENCY_SAMPLES=30` threshold. *(N/A for v1.2 — spike resolved NO; success-branch work is deferred.)*
   3. **If spike fails:** SKLP-11 is marked descoped in REQUIREMENTS.md (status: `Deferred to v1.3`), the SPIKE plan's negative-finding document anchors the descope decision, and Phase 23 begins on schedule with no blocking dependency.
   4. No new top-level routes, no new dependencies, and no parallel skill-event types are introduced; any new endpoint slots into the existing `/api/skills/{name}/*` pattern.
-**Plans**: 1 plan written so far (sequential branching per 22-RESEARCH.md §Architecture Patterns — Plan 02+ written after Plan 01 commits SPIKE-FINDINGS.md)
-  - [ ] 22-01-PLAN.md — Run SQL spike against live data/cmc.db (CT-1 coverage / CT-3 negative-residual / CT-4 subagent containment); commit SPIKE-FINDINGS.md with binary YES/NO outcome banner; user re-invokes /gsd-plan-phase 22 after commit to add Plan 02-success (endpoint) + 03-success (panel) on YES, or Plan 02-descope (REQUIREMENTS.md flip) on NO
+**Plans**: 2 plans written so far (sequential branching per 22-RESEARCH.md §Architecture Patterns — Plan 02-success/03-success are written only if a future spike resolves YES)
+  - [ ] 22-01-PLAN.md — Run SQL spike against live data/cmc.db (CT-1 coverage / CT-3 negative-residual / CT-4 subagent containment); commit SPIKE-FINDINGS.md with binary YES/NO outcome banner
+  - [ ] 22-02-PLAN.md — **NO branch only**: flip SKLP-11 to `Deferred to v1.3` in REQUIREMENTS.md, anchored on SPIKE-FINDINGS.md outcome + negative finding; closes Phase 22 descope deliverable without blocking Phase 23
 **UI hint**: yes
 
 ### Phase 23: Compare Depth & Milestone Close
@@ -169,7 +171,7 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 | 19. Skills Per-Project, Deltas & Badges | v1.2 | 4/4 | Complete    | 2026-05-06 |
 | 20. Cost Forecast & Per-Project Card | v1.2 | 4/4 | Complete   | 2026-05-06 |
 | 21. Alert Anomaly Depth & NL Authoring | v1.2 | 3/3 | Complete    | 2026-05-07 |
-| 22. Skill Latency Overhead (spike-gated) | v1.2 | 0/1 | Planned (spike) | — |
+| 22. Skill Latency Overhead (spike-gated) | v1.2 | 2/2 | Complete (descoped) ([SPIKE-FINDINGS](phases/22-skill-latency-overhead-spike-gated/22-01-SPIKE-FINDINGS.md)) | 2026-05-08 |
 | 23. Compare Depth & Milestone Close | v1.2 | 0/? | Not started | — |
 
 **v1.0 milestone shipped: 47/47 plans, 11/11 phases verified (9 base + 2 audit gap-closure).**
