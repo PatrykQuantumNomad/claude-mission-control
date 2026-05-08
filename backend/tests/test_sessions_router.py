@@ -5,11 +5,12 @@ Every SESS-* test lives in this file.
 
 import json
 import subprocess
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import insert
+from sqlalchemy import event, insert, update
 
 from cmc.core.paths import repo_root
 from cmc.db.models.live_state import LiveState
@@ -58,6 +59,34 @@ async def _seed(client_fixture, rows: list[tuple[type, dict]]) -> None:
 
 def _new_uuid() -> str:
     return str(uuid4())
+
+
+def _skill_event_body_with_duration_ms(duration_ms: int) -> dict:
+    """Build an otel_events.body payload matching the duration_ms extraction SQL."""
+    return {
+        "record": {
+            "attributes": [
+                {"key": "duration_ms", "value": {"stringValue": str(duration_ms)}},
+            ]
+        }
+    }
+
+
+@contextmanager
+def _count_sql_statements(client_fixture):
+    """Count SQL statements executed against the app's engine within the context."""
+    app = client_fixture._transport.app
+    engine = app.state.engine.sync_engine
+    counts = {"n": 0}
+
+    def _before_cursor_execute(*_args, **_kwargs):
+        counts["n"] += 1
+
+    event.listen(engine, "before_cursor_execute", _before_cursor_execute)
+    try:
+        yield counts
+    finally:
+        event.remove(engine, "before_cursor_execute", _before_cursor_execute)
 
 
 # ---------- Task 1 tests: SESS-01, SESS-02, SESS-03, SESS-07 ----------
@@ -606,6 +635,12 @@ async def test_compare_basic_two_sessions(client) -> None:
     assert body["skill_diff"]["only_b"] == ["b-only"]
     assert body["a"]["skills_used"] == ["a-only", "shared"]
     assert body["b"]["skills_used"] == ["b-only", "shared"]
+    # Phase 23 (CMPR-06): shape invariants
+    assert isinstance(body["low_sample_a"], bool)
+    assert isinstance(body["low_sample_b"], bool)
+    assert "skill_latencies" not in body  # MUST be nested under sides, not top-level
+    assert isinstance(body["a"]["skill_latencies"], dict)
+    assert isinstance(body["b"]["skill_latencies"], dict)
 
 
 @pytest.mark.asyncio
@@ -670,6 +705,11 @@ async def test_compare_over_cap_returns_summary_only(client) -> None:
     assert body["b"]["over_cap"] is False
     assert body["over_cap"] is True
     assert body["cap"] == 500
+    # Phase 23 (D-18): over-cap still includes skill_latencies + low-sample flags.
+    assert isinstance(body["low_sample_a"], bool)
+    assert isinstance(body["low_sample_b"], bool)
+    assert isinstance(body["a"]["skill_latencies"], dict)
+    assert isinstance(body["b"]["skill_latencies"], dict)
     # Summary KPIs present on over-cap side
     assert body["a"]["tokens_input"] == 100
     assert body["a"]["tokens_output"] == 200
@@ -859,3 +899,119 @@ async def test_compare_tool_counts_present_when_under_cap(client) -> None:
     body = r.json()
     assert body["a"]["tool_counts"] == {"Bash": 2, "Read": 1}
     assert body["b"]["tool_counts"] == {}  # no tools seeded for B
+
+
+@pytest.mark.asyncio
+async def test_compare_low_sample_threshold_boundary(client) -> None:
+    """CMPR-06: low-sample threshold is exactly 30 duration samples per side."""
+    now = datetime.now(UTC)
+    sid_a = _new_uuid()
+    sid_b = _new_uuid()
+
+    rows: list[tuple[type, dict]] = [
+        (SessionModel, make_session_row(
+            session_id=sid_a, started_at=now - timedelta(minutes=10),
+            ended_at=now - timedelta(minutes=8), tool_call_count=0,
+        )),
+        (SessionModel, make_session_row(
+            session_id=sid_b, started_at=now - timedelta(minutes=9),
+            ended_at=now - timedelta(minutes=7), tool_call_count=0,
+        )),
+    ]
+
+    # Side A: 29 duration samples for one skill -> low_sample_a True
+    rows.extend([
+        (OtelEvent, make_otel_event(
+            ts=now - timedelta(minutes=9, seconds=i),
+            event_name="skill_activated",
+            session_id=sid_a,
+            body=_skill_event_body_with_duration_ms(100 + i),
+        ) | {"attrs_skill_name": "shared"})
+        for i in range(29)
+    ])
+
+    # Side B: 30 duration samples for one skill -> low_sample_b False
+    rows.extend([
+        (OtelEvent, make_otel_event(
+            ts=now - timedelta(minutes=8, seconds=i),
+            event_name="skill_activated",
+            session_id=sid_b,
+            body=_skill_event_body_with_duration_ms(200 + i),
+        ) | {"attrs_skill_name": "shared"})
+        for i in range(30)
+    ])
+
+    await _seed(client, rows)
+
+    r = await client.get(f"/api/sessions/compare?a={sid_a}&b={sid_b}")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["low_sample_a"] is True
+    assert body["low_sample_b"] is False
+    # skill_latencies dict present under each side (not top-level)
+    assert "skill_latencies" not in body
+    assert isinstance(body["a"]["skill_latencies"], dict)
+    assert isinstance(body["b"]["skill_latencies"], dict)
+    assert "shared" in body["a"]["skill_latencies"]
+    assert "shared" in body["b"]["skill_latencies"]
+
+
+@pytest.mark.asyncio
+async def test_compare_sql_budget_preserved_under_cap_and_over_cap(client) -> None:
+    """CMPR-04/06: compare stays within the expected SQL statement budget.
+
+    Under-cap path: 9 SQL statements:
+      - 2 session loads
+      - 1 rates load
+      - 2 sides * (skills+latency rollup + outcome + tool_counts)
+
+    Over-cap on one side: 8 SQL statements:
+      - tool_counts skipped for that side
+      - skill_latencies still computed
+    """
+    now = datetime.now(UTC)
+    sid_a = _new_uuid()
+    sid_b = _new_uuid()
+    await _seed(client, [
+        (SessionModel, make_session_row(
+            session_id=sid_a, started_at=now - timedelta(minutes=10),
+            ended_at=now - timedelta(minutes=8), tool_call_count=3,
+        )),
+        (SessionModel, make_session_row(
+            session_id=sid_b, started_at=now - timedelta(minutes=9),
+            ended_at=now - timedelta(minutes=7), tool_call_count=3,
+        )),
+        # One duration-bearing skill event per side (makes the skills rollup non-empty).
+        (OtelEvent, make_otel_event(
+            ts=now - timedelta(minutes=9),
+            event_name="skill_activated",
+            session_id=sid_a,
+            body=_skill_event_body_with_duration_ms(123),
+        ) | {"attrs_skill_name": "x"}),
+        (OtelEvent, make_otel_event(
+            ts=now - timedelta(minutes=8),
+            event_name="skill_activated",
+            session_id=sid_b,
+            body=_skill_event_body_with_duration_ms(234),
+        ) | {"attrs_skill_name": "y"}),
+    ])
+
+    with _count_sql_statements(client) as c1:
+        r = await client.get(f"/api/sessions/compare?a={sid_a}&b={sid_b}")
+        assert r.status_code == 200, r.text
+    assert c1["n"] == 9
+
+    # Flip A to over-cap. Tool counts query skipped for A but everything else stays.
+    sessionmaker = client._transport.app.state.sessions
+    async with sessionmaker() as s:
+        await s.execute(
+            update(SessionModel)
+            .where(SessionModel.session_id == sid_a)
+            .values(tool_call_count=501)
+        )
+        await s.commit()
+
+    with _count_sql_statements(client) as c2:
+        r = await client.get(f"/api/sessions/compare?a={sid_a}&b={sid_b}")
+        assert r.status_code == 200, r.text
+    assert c2["n"] == 8

@@ -152,6 +152,9 @@ class SessionCompareSide(BaseModel):
     message_count: int
     cost_usd: Decimal  # serialized as JSON string by Pydantic v2 default
     skills_used: list[str]  # DISTINCT attrs_skill_name for skill_activated events, sorted ASC
+    # Phase 23 (CMPR-06): per-skill p95 latency (ms) for this side.
+    # Keys are skill names; values are integer milliseconds.
+    skill_latencies: dict[str, int] = Field(default_factory=dict)
     over_cap: bool  # True iff tool_call_count > 500 (CMPR-04)
     tool_counts: dict[str, int]  # {} when over_cap; else {tool_name: count}
 
@@ -182,3 +185,7 @@ class SessionCompareResponse(BaseModel):
     rates_as_of: UTCDatetime | None = None
     over_cap: bool
     cap: int = 500
+    # Phase 23 (CMPR-06): low-sample gating for per-skill latency deltas.
+    # MUST be top-level (not nested under sides).
+    low_sample_a: bool = False
+    low_sample_b: bool = False

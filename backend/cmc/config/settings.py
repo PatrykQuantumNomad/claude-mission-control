@@ -17,7 +17,18 @@ from pathlib import Path
 from typing import Annotated, Any, Self
 
 from pydantic import Field, ValidationError, field_validator, model_validator
-from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+try:
+    # pydantic-settings >= 2.9: NoDecode marker for env parsing of list fields.
+    from pydantic_settings import NoDecode  # type: ignore
+except ImportError:  # pragma: no cover
+    # Older pydantic-settings (or older Python envs) may not expose NoDecode.
+    # When absent, settings parsing still works for default/test runs (the
+    # TELEGRAM_ALLOWED_USER_IDS env var is typically unset) and the field-level
+    # validator below remains the canonical parsing logic.
+    class NoDecode:
+        """Compatibility shim for pydantic_settings.NoDecode."""
 
 from cmc.core.paths import repo_root, resolve_under_repo_root
 

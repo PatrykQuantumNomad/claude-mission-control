@@ -8,9 +8,15 @@ from time import monotonic
 from typing import Any
 
 import httpx
-import jwt
 from fastapi import FastAPI
-from jwt import InvalidTokenError, PyJWK
+
+try:
+    import jwt  # type: ignore
+    from jwt import InvalidTokenError, PyJWK  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover
+    jwt = None  # type: ignore
+    InvalidTokenError = Exception  # type: ignore
+    PyJWK = None  # type: ignore
 
 from cmc.auth.models import Principal
 from cmc.readiness import ReadinessCheckResult
@@ -36,6 +42,8 @@ class JWTAuthService:
     async def authenticate_token(self, token: str) -> Principal:
         if not self.settings.auth_enabled:
             raise AuthenticationError("Authentication is disabled")
+        if jwt is None:
+            raise AuthenticationError("JWT support not installed (missing PyJWT)")
 
         required_claims = ["sub"]
         if self.settings.auth_require_exp:
@@ -97,6 +105,8 @@ class JWTAuthService:
             await self._fetch_jwks(force_refresh=True)
 
     async def _resolve_key(self, token: str) -> Any:
+        if jwt is None:
+            raise AuthenticationError("JWT support not installed (missing PyJWT)")
         if self.settings.auth_jwks_url:
             header = jwt.get_unverified_header(token)
             kid = header.get("kid")
@@ -161,6 +171,8 @@ def build_test_jwt(
     roles: list[str] | None = None,
     expires_in_seconds: int = 300,
 ) -> str:
+    if jwt is None:
+        raise RuntimeError("Cannot build test JWT without PyJWT installed")
     payload: dict[str, Any] = {
         "sub": subject,
         "exp": datetime.now(tz=UTC) + timedelta(seconds=expires_in_seconds),
@@ -223,6 +235,8 @@ def _validate_jwks_payload(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _get_jwk_key_for_kid(jwks: dict[str, Any], kid: str) -> Any | None:
+    if PyJWK is None:
+        raise AuthenticationError("JWT support not installed (missing PyJWT)")
     for jwk_data in jwks.get("keys", []):
         if jwk_data.get("kid") == kid:
             return PyJWK.from_dict(jwk_data).key

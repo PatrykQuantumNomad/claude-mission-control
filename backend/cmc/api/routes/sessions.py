@@ -64,13 +64,63 @@ SESSION_COMPARE_CAP = 500
 # 'skill_activated' (post-prefix-strip — Pitfall 2 in 16-RESEARCH); the
 # attrs_skill_name IS NOT NULL guard drops legacy rows from before LOCK-2
 # (Pitfall 6).
-_COMPARE_SKILLS_SQL = text("""
-    SELECT DISTINCT attrs_skill_name AS skill_name
-    FROM otel_events
-    WHERE session_id = :sid
-      AND event_name = 'skill_activated'
-      AND attrs_skill_name IS NOT NULL
-    ORDER BY skill_name ASC
+#
+# Phase 23 (CMPR-06): combined rollup that returns:
+#  - distinct skill_name values used in the session
+#  - per-skill p95 latency derived from OTEL JSON `duration_ms`
+#  - a session-wide duration sample_count (for low-sample gating)
+#
+# Query budget (CMPR-04): this REPLACES the Phase-16 skill-set SQL above; it
+# does not add an extra per-side statement.
+_COMPARE_SKILLS_LATENCIES_SQL = text("""
+    WITH skill_events AS (
+      SELECT
+        o.attrs_skill_name AS skill_name,
+        CAST(
+          (SELECT json_extract(value, '$.value.stringValue')
+             FROM json_each(json_extract(o.body, '$.record.attributes'))
+            WHERE json_extract(value, '$.key') = 'duration_ms'
+            LIMIT 1)
+          AS INTEGER
+        ) AS duration_ms
+      FROM otel_events o
+      WHERE o.session_id = :sid
+        AND o.event_name = 'skill_activated'
+        AND o.attrs_skill_name IS NOT NULL
+    ),
+    skills_seen AS (
+      SELECT DISTINCT skill_name
+      FROM skill_events
+    ),
+    ranked AS (
+      SELECT
+        skill_name,
+        duration_ms,
+        ROW_NUMBER() OVER (PARTITION BY skill_name ORDER BY duration_ms) AS rnk,
+        COUNT(*) OVER (PARTITION BY skill_name) AS n
+      FROM skill_events
+      WHERE duration_ms IS NOT NULL
+    ),
+    per_skill_p95 AS (
+      SELECT
+        skill_name,
+        duration_ms AS p95_ms
+      FROM ranked
+      WHERE rnk = MAX(CAST(n * 0.95 AS INTEGER), 1)
+    ),
+    total_samples AS (
+      SELECT COUNT(*) AS duration_sample_count
+      FROM skill_events
+      WHERE duration_ms IS NOT NULL
+    )
+    SELECT
+      s.skill_name,
+      p.p95_ms AS p95_ms,
+      t.duration_sample_count AS duration_sample_count
+    FROM skills_seen s
+    LEFT JOIN per_skill_p95 p ON p.skill_name = s.skill_name
+    CROSS JOIN total_samples t
+    ORDER BY s.skill_name ASC
 """)
 
 # Outcome read-time classification — adapted from observability._OUTCOMES_SQL.
@@ -122,7 +172,7 @@ async def _build_compare_side(
     sess: SessionModel,
     rates: dict,
     db: AsyncSession,
-) -> SessionCompareSide:
+) -> tuple[SessionCompareSide, int]:
     """Compose one SessionCompareSide from a Session ORM row + read-time SQL.
 
     over_cap uses the denormalized sessions.tool_call_count column (Pitfall 11
@@ -150,11 +200,22 @@ async def _build_compare_side(
         rates,
     )
 
-    # Skills: DISTINCT attrs_skill_name where event_name='skill_activated'.
-    skill_rows = (
-        await db.execute(_COMPARE_SKILLS_SQL, {"sid": sess.session_id})
-    ).mappings().all()
+    # Skills + per-skill p95 latency (CMPR-06): single rollup statement
+    # that REPLACES the Phase-16 skill-set SQL to preserve CMPR-04 budget.
+    skill_rows = (await db.execute(
+        _COMPARE_SKILLS_LATENCIES_SQL, {"sid": sess.session_id}
+    )).mappings().all()
     skills_used = [r["skill_name"] for r in skill_rows]
+    skill_latencies: dict[str, int] = {
+        r["skill_name"]: int(r["p95_ms"])
+        for r in skill_rows
+        if r.get("p95_ms") is not None
+    }
+    # duration_sample_count repeats across all rows via CROSS JOIN. If the
+    # session has no duration_ms-bearing skill_activated events, the count is 0.
+    duration_sample_count = (
+        int(skill_rows[0]["duration_sample_count"]) if skill_rows else 0
+    )
 
     # Outcome: CASE on otel_events EXISTS — single column scalar.
     outcome = (
@@ -170,7 +231,7 @@ async def _build_compare_side(
         ).mappings().all()
         tool_counts = {r["tool_name"]: int(r["n"]) for r in tc_rows}
 
-    return SessionCompareSide(
+    side = SessionCompareSide(
         session_id=sess.session_id,
         started_at=sess.started_at,
         ended_at=sess.ended_at,
@@ -188,9 +249,11 @@ async def _build_compare_side(
         message_count=sess.message_count,
         cost_usd=cost,
         skills_used=skills_used,
+        skill_latencies=skill_latencies,
         over_cap=over_cap,
         tool_counts=tool_counts,
     )
+    return side, duration_sample_count
 
 
 @router.get("/sessions", response_model=SessionListResponse)
@@ -289,8 +352,8 @@ async def compare_sessions(
     rates = await load_rates(db)
 
     # 5. Build each side via the shared helper
-    side_a = await _build_compare_side(sess_a, rates, db)
-    side_b = await _build_compare_side(sess_b, rates, db)
+    side_a, duration_samples_a = await _build_compare_side(sess_a, rates, db)
+    side_b, duration_samples_b = await _build_compare_side(sess_b, rates, db)
 
     # 6. Skill-set diff (sorted lists of strings)
     set_a = set(side_a.skills_used)
@@ -320,6 +383,8 @@ async def compare_sessions(
         rates_as_of=rates_as_of,
         over_cap=side_a.over_cap or side_b.over_cap,
         cap=SESSION_COMPARE_CAP,
+        low_sample_a=duration_samples_a < 30,
+        low_sample_b=duration_samples_b < 30,
     )
 
 
