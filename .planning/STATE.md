@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Depth & Polish
-status: executing
-stopped_at: Completed 23-02-PLAN.md (CMPR-06 + CMPR-07 frontend)
-last_updated: "2026-05-09T12:16:13.320Z"
+status: verifying
+stopped_at: Completed 23-04-PLAN.md (v1.2 milestone close — all 12 active requirements shipped)
+last_updated: "2026-05-09T12:39:24.695Z"
 last_activity: 2026-05-09
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 22
-  completed_plans: 21
-  percent: 95
+  completed_plans: 22
+  percent: 100
 ---
 
 # Project State
@@ -28,10 +28,10 @@ See: .planning/PROJECT.md (updated 2026-05-05 after v1.1 ship)
 
 Phase: 23 (compare-depth-milestone-close) — EXECUTING
 Plan: 4 of 4
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-05-09
 
-Progress: [██████████] 95%
+Progress: [██████████] 100%
 
 ## Accumulated Context
 
@@ -233,6 +233,9 @@ v1.1 carried decisions (still active):
 - [Phase 23]: 23-02: Picker scoping uses cwd as project_key proxy because wire APIs do not expose project_key on sessions list / sessionCompare side endpoints. — D-12 spirit honoured (same realpath cwd ⇒ same project_key). Future improvement: when project_key lands on the wire, swap filter from cwd === scopeCwd to project_key === scopePk.
 - [Phase 23]: 23-02: Active-session signal in React Context (not route-derived) so both LiveSessionsCard + SkillRunsTable Sheets opt-in cleanly. — Session detail Sheets are portals not routes; pathname inference would miss them and false-positive on /activity.
 - [Phase ?]: Phase 23-03: Use API preflight + state-aware annotations in Playwright e2e for data-dependent compare assertions; testid anchors over user-facing copy when copy collides across siblings.
+- [Phase ?]: Phase 23 Plan 04 (v1.2 milestone close): all 4 validation gates green — backend pytest 661/0/0 vs Phase 18 baseline 566 (+95; 0 datetime.utcnow), frontend vitest 326/0/0 (+33), Playwright 13/0/2-skipped (both dev-DB-state + documented), cmc doctor clean. v1.2 ships 12/12 active requirements + 1 honestly deferred (SKLP-11 → v1.3) across 22 plans / 6 phases.
+- [Phase ?]: v1.2-ROADMAP.md archive follows v1.1 retrospective structure (Overview + per-phase + Milestone Summary aggregating Decisions + Issues Resolved + Deferred + Tech Debt) NOT a verbatim copy of .planning/ROADMAP.md. v1.0 + v1.1 precedent locks the snapshot style.
+- [Phase ?]: Honest deferral as first-class milestone outcome: SKLP-11 descoped to v1.3 via Phase 22 spike negative finding. Recorded in v1.2-ROADMAP.md Milestone Summary as a feature not a debt item. Anchor: 22-01-SPIKE-FINDINGS.md. Unblock: upstream OTEL data availability change.
 
 ### Pending Todos
 
@@ -298,8 +301,8 @@ Plan 20-04 ~7 min (commit 0ad412a test — `frontend/tests/e2e/cost-dashboard.sp
 
 ## Session Continuity
 
-Last session: 2026-05-09T12:15:53.184Z
-Stopped at: Completed 23-02-PLAN.md (CMPR-06 + CMPR-07 frontend)
+Last session: 2026-05-09T12:39:24.687Z
+Stopped at: Completed 23-04-PLAN.md (v1.2 milestone close — all 12 active requirements shipped)
 Resume file: None
 
 ---

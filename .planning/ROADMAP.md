@@ -176,7 +176,7 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 | 20. Cost Forecast & Per-Project Card | v1.2 | 4/4 | Complete   | 2026-05-06 |
 | 21. Alert Anomaly Depth & NL Authoring | v1.2 | 3/3 | Complete    | 2026-05-07 |
 | 22. Skill Latency Overhead (spike-gated) | v1.2 | 2/2 | Complete    | 2026-05-08 |
-| 23. Compare Depth & Milestone Close | v1.2 | 4/4 | Complete    | 2026-05-09 |
+| 23. Compare Depth & Milestone Close | v1.2 | 4/4 | Complete   | 2026-05-09 |
 
 **v1.0 milestone shipped: 47/47 plans, 11/11 phases verified (9 base + 2 audit gap-closure).**
 **v1.1 milestone shipped: 28/28 plans, 6/6 phases verified, 41/41 requirements satisfied.**
