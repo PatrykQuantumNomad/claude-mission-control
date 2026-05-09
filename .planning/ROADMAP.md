@@ -4,7 +4,7 @@
 
 - ✅ **v1.0 MVP** — Phases 1–11, 47 plans (shipped 2026-04-28) — see [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 - ✅ **v1.1 Skills & Cost Intelligence** — Phases 12–17, 28 plans (shipped 2026-05-05) — see [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
-- 🚧 **v1.2 Depth & Polish** — Phases 18–23 (active, started 2026-05-05) — 13 requirements across 4 v1.1 lanes (skills polish, cost differentiators, alert differentiators, compare differentiators) plus a dedicated polish/cleanup phase
+- ✅ **v1.2 Depth & Polish** — Phases 18–23, 22 plans (shipped 2026-05-09) — see [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md) — 12/12 active requirements complete + 1 honestly deferred (SKLP-11 → v1.3 per Phase 22 spike negative finding)
 
 ## Phases
 
@@ -41,14 +41,14 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 
 </details>
 
-### 🚧 v1.2 Depth & Polish (Phases 18–23) — ACTIVE
+### ✅ v1.2 Depth & Polish (Phases 18–23) — SHIPPED 2026-05-09
 
 - [x] **Phase 18: Polish & Carry-Forward Cleanup** — Discharge v1.1 carried debt; green CI baseline before feature work (POLI-06, POLI-07, POLI-08) (completed 2026-05-05)
 - [x] **Phase 19: Skills Per-Project, Deltas & Badges** — Per-project breakdown, period-over-period deltas, new/dormant badges; ships migration `0003_project_key` (SKLP-08, SKLP-09, SKLP-10) (completed 2026-05-06)
 - [x] **Phase 20: Cost Forecast & Per-Project Card** — Monthly forecast (linear OLS) and per-project cost breakdown card; consumes `project_key` from Phase 19 (ANLY-06, ANLY-07) (completed 2026-05-06)
 - [x] **Phase 21: Alert Anomaly Depth & NL Authoring** — Sliding-window anomaly detection extension and Haiku-backed NL alert authoring (ALRT-13, ALRT-14) — *completed 2026-05-07; all 3 plans shipped (21-01 detector + 21-02 nl-parser + 21-03 frontend NL input + metrics sync)*
 - [x] **Phase 22: Skill Latency Overhead (spike-gated)** — Feasibility-gated body/subagent/tool latency decomposition; phase opens with mandatory spike, descopes cleanly to v1.3 if data is unreliable (SKLP-11) (completed 2026-05-08)
-- [ ] **Phase 23: Compare Depth & Milestone Close** — Per-skill latency delta and Cmd+K compare-with-previous shortcut; closes the milestone (CMPR-06, CMPR-07)
+- [x] **Phase 23: Compare Depth & Milestone Close** — Per-skill latency delta and Cmd+K compare-with-previous shortcut; closes the milestone (CMPR-06, CMPR-07) (completed 2026-05-09)
 
 ## Phase Details
 
@@ -141,7 +141,11 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
   2. User can open Cmd+K from any session view and trigger "Compare with previous session"; backend `GET /api/sessions/{sid}/previous` returns the most-recent same-`project_key` session with `ended_at IS NOT NULL`, the cmdk action is conditionally visible only when a previous session exists, and the existing self-compare guard prevents `a=b` URLs.
   3. Milestone-close audit hooks pass: backend pytest, frontend vitest, and Playwright e2e suites are all green; `cmc doctor` returns clean; REQUIREMENTS.md traceability shows 13/13 v1.2 requirements as `Complete` (or honestly marked `Deferred to v1.3` for SKLP-11 if Phase 22 descoped); ROADMAP.md is archive-ready for `.planning/milestones/v1.2-ROADMAP.md`.
   4. CMPR-05 tabular-only invariant still holds (no diff library, no raw message rendering); DevTools Sources scan shows zero matches against `diff|jsdiff|react-diff`.
-**Plans**: TBD
+**Plans**: 4 plans
+  - [x] 23-01-PLAN.md — Backend: extend `_build_compare_side` with per-side `skill_latencies` dict + `low_sample_a/b` flags on `/api/sessions/compare`; new `GET /api/sessions/{sid}/previous` resolver (project_key + ended_at ordering, 404-as-empty-state); pin SQL budget invariant (commits 46e85be CMPR-06 + bdc0e74 CMPR-07; completed 2026-05-08)
+  - [x] 23-02-PLAN.md — Frontend: render per-skill p95 latency section in `SessionCompareView` with delta suppression on low-sample; Cmd+K "Compare with previous session" action gated by previous-session existence + project-scoped picker; new `ActiveSessionContext` for cross-Sheet active-session signal (commits ffc0e07 CMPR-06 + 3495fa6 CMPR-07; completed 2026-05-08)
+  - [x] 23-03-PLAN.md — Playwright: extend `frontend/tests/e2e/sessions-compare.spec.ts` with TEST-23-CMPR-06 (per-skill latency section mounts; delta suppressed on low-sample) + TEST-23-CMPR-07 (Cmd+K previous-session gating + navigation); preflight-driven branch annotations on per-session 200/404 split (commit 8f5b009; completed 2026-05-09)
+  - [x] 23-04-PLAN.md — Milestone close: run full validation gates (backend pytest 661/0/0, frontend vitest 326/0/0, Playwright 13/0/2-skipped, cmc doctor clean) against Phase 18 BASELINE.md; flip 23-VALIDATION.md to nyquist_compliant: true / wave_0_complete: true; backfill REQUIREMENTS.md traceability for CMPR-06/07 + ALRT-13; archive `.planning/milestones/v1.2-ROADMAP.md` (commit b6eb968; completed 2026-05-09)
 **UI hint**: yes
 
 ## Progress
@@ -172,8 +176,8 @@ Full details: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 | 20. Cost Forecast & Per-Project Card | v1.2 | 4/4 | Complete   | 2026-05-06 |
 | 21. Alert Anomaly Depth & NL Authoring | v1.2 | 3/3 | Complete    | 2026-05-07 |
 | 22. Skill Latency Overhead (spike-gated) | v1.2 | 2/2 | Complete    | 2026-05-08 |
-| 23. Compare Depth & Milestone Close | v1.2 | 3/4 | In Progress|  |
+| 23. Compare Depth & Milestone Close | v1.2 | 4/4 | Complete    | 2026-05-09 |
 
 **v1.0 milestone shipped: 47/47 plans, 11/11 phases verified (9 base + 2 audit gap-closure).**
 **v1.1 milestone shipped: 28/28 plans, 6/6 phases verified, 41/41 requirements satisfied.**
-**v1.2 milestone active: Phases 18–23 (6 phases, 13 requirements). Plan counts pending `/gsd-plan-phase` per phase.**
+**v1.2 milestone shipped: 22/22 plans, 6/6 phases verified, 12/12 active requirements satisfied + 1 honestly deferred (SKLP-11 → v1.3).**

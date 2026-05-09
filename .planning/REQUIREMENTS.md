@@ -21,13 +21,13 @@
 
 ### Alert Differentiators
 
-- [ ] **ALRT-13**: User can configure rolling-mean-±-stddev anomaly detection rules (extends `evaluate_anomaly` via `params_json.window_kind: "ewma" | "sliding"` discriminator inside the single function; Welford variance recurrence reused verbatim; warmup-boundary PENDING_FIRE guard; no new `kind` value, no parallel detector function)
+- [x] **ALRT-13**: User can configure rolling-mean-±-stddev anomaly detection rules (extends `evaluate_anomaly` via `params_json.window_kind: "ewma" | "sliding"` discriminator inside the single function; Welford variance recurrence reused verbatim; warmup-boundary PENDING_FIRE guard; no new `kind` value, no parallel detector function) — complete user-shippable end-to-end 2026-05-07 (Phase 21 Plan 01 commit c2a7793: `_resolve_alpha` helper inside `evaluate_anomaly`, `params_json.window_kind` validator + `min_samples >= window_n` coupling on `AlertRuleCreate`/`AlertRulePatch`, AST static-import test pinning the single-detector invariant; 5 new sliding-window test cases under `# ---- ALRT-13: sliding-window anomaly ----` in `backend/tests/test_alerts_detector.py`)
 - [x] **ALRT-14**: User can author alert rules in natural language via `POST /api/alerts/parse-nl` ("alert me when haiku skill p95 exceeds 5s for 10 minutes" → preview modal showing the parsed AlertRule → save). Mirrors `nlcron.py` / `skill_router.py` pattern: lazy AsyncAnthropic, `_SCOPE_EXTRACTORS` vocabulary in system prompt, hard-validation via `is_known_metric()`, returns `None` on hallucination (no fallback rule). Complete user-shippable end-to-end (2026-05-07, backend Plan 21-02: dfeb6fa feat + ef2a3d7 test; frontend Plan 21-03: b902661 feat + 379a673 test — `useParseAlertNl` + `useAlertMetrics` hooks, NL input + AlertDialog preview modal in `AlertRuleForm`, FALLBACK_KNOWN_METRICS sourced via React Query, backend `test_alerts_metrics_sync.py` cross-language drift guard)
 
 ### Compare Differentiators
 
-- [x] **CMPR-06**: User sees per-skill latency delta in `/sessions/compare` view (extends `_build_compare_side` with `skill_latencies` dict; `low_sample_a` / `low_sample_b` flags suppress delta when sample count <30; respects existing CMPR-04 9-SQL-per-request budget and 200-with-flag over-cap fallback)
-- [x] **CMPR-07**: User can jump from any session view to compare-with-previous via Cmd+K (`/api/sessions/{sid}/previous` endpoint returns most-recent same-cwd session with `ended_at IS NOT NULL`; cmdk context-aware action visible only when there is a previous session; reuses self-compare guard)
+- [x] **CMPR-06**: User sees per-skill latency delta in `/sessions/compare` view (extends `_build_compare_side` with `skill_latencies` dict; `low_sample_a` / `low_sample_b` flags suppress delta when sample count <30; respects existing CMPR-04 9-SQL-per-request budget and 200-with-flag over-cap fallback) — complete user-shippable end-to-end 2026-05-09 (backend Phase 23 Plan 01 commit 46e85be; frontend Phase 23 Plan 02 commit ffc0e07; e2e Phase 23 Plan 03 commit 8f5b009; phase-close gate Phase 23 Plan 04 commit b6eb968)
+- [x] **CMPR-07**: User can jump from any session view to compare-with-previous via Cmd+K (`/api/sessions/{sid}/previous` endpoint returns most-recent same-cwd session with `ended_at IS NOT NULL`; cmdk context-aware action visible only when there is a previous session; reuses self-compare guard) — complete user-shippable end-to-end 2026-05-09 (backend Phase 23 Plan 01 commit bdc0e74; frontend Phase 23 Plan 02 commit 3495fa6 + ActiveSessionContext for Sheet entry-points; e2e Phase 23 Plan 03 commit 8f5b009; phase-close gate Phase 23 Plan 04 commit b6eb968)
 
 ### Polish & Cleanup
 
@@ -92,15 +92,16 @@ Mapped to v1.2 ROADMAP.md (Phases 18–23) on 2026-05-05.
 | SKLP-10 | Phase 19 | Complete end-to-end (2026-05-06, backend ee662cb + ea0d1cb + 68aeb5c; frontend b729ecc) |
 | ANLY-06 | Phase 20 | Complete user-shippable end-to-end (2026-05-06, backend Plan 02: 01b25a1 + 10e0757 + 54f922b + 2765f07; frontend Plan 03: f90ec21 + 1fc13e1 + 96ea120; e2e Plan 04: 0ad412a) |
 | ANLY-07 | Phase 20 | Complete user-shippable end-to-end (2026-05-06, backend Plan 01: 96dbc9e + 17e162f + 3b33b2d; frontend Plan 03: 1fc13e1 + 96ea120; e2e Plan 04: 0ad412a path-leakage guard at fourth defense layer) |
-| ALRT-13 | Phase 21 | Pending |
+| ALRT-13 | Phase 21 | Complete user-shippable end-to-end (2026-05-07, Phase 21 Plan 01 commit c2a7793: window_kind discriminator inside evaluate_anomaly + 5 sliding-window tests + AST single-detector invariant pin) |
 | ALRT-14 | Phase 21 | Complete user-shippable end-to-end (2026-05-07, backend Plan 21-02: dfeb6fa + ef2a3d7; frontend Plan 21-03: b902661 + 379a673 — useParseAlertNl + useAlertMetrics + NL input + preview modal + drift-guard pytest) |
 | SKLP-11 | Phase 22 | Deferred to v1.3 (Phase 22 spike negative finding — see 22-01-SPIKE-FINDINGS.md) |
-| CMPR-06 | Phase 23 | Complete |
-| CMPR-07 | Phase 23 | Complete |
+| CMPR-06 | Phase 23 | Complete user-shippable end-to-end (2026-05-09, backend Plan 23-01: 46e85be; frontend Plan 23-02: ffc0e07; e2e Plan 23-03: 8f5b009; phase-close Plan 23-04: b6eb968) |
+| CMPR-07 | Phase 23 | Complete user-shippable end-to-end (2026-05-09, backend Plan 23-01: bdc0e74; frontend Plan 23-02: 3495fa6 + ActiveSessionContext; e2e Plan 23-03: 8f5b009; phase-close Plan 23-04: b6eb968) |
 
 **Coverage:**
-- v1.2 requirements: 13 total
-- v1.2 requirements: 12 total
+- v1.2 requirements: 13 total (12 active + 1 honestly deferred to v1.3)
+- Active complete: 12/12 ✓ (POLI-06/07/08, SKLP-08/09/10, ANLY-06/07, ALRT-13/14, CMPR-06/07)
+- Deferred to v1.3: 1 (SKLP-11 — Phase 22 spike negative finding)
 - Mapped to phases: 12 ✓
 - Unmapped: 0 ✓
 
@@ -115,4 +116,4 @@ Mapped to v1.2 ROADMAP.md (Phases 18–23) on 2026-05-05.
 ---
 *Requirements defined: 2026-05-05*
 *Roadmap mapped: 2026-05-05 (Phases 18–23)*
-*Last updated: 2026-05-05 after roadmap creation*
+*Last updated: 2026-05-09 at v1.2 milestone close (Phase 23 Plan 04) — CMPR-06/07 + ALRT-13 traceability backfilled with shipped commit references; SKLP-11 preserved as `Deferred to v1.3` per Phase 22 spike negative finding*
