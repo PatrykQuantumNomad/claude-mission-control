@@ -21,7 +21,7 @@
 // straightforward follow-up. Deferred to keep Plan 05's scope tight — the
 // duplication is intentional and documented (D-09 acceptance).
 
-import { useState, FormEvent } from 'react'
+import { useEffect, useState, FormEvent } from 'react'
 import {
   Button,
   PanelCard,
@@ -41,6 +41,7 @@ import type {
   SkillRunsResponse,
   ToolTimelineEntry,
 } from '../../lib/api'
+import { useActiveSession } from '../shell/ActiveSessionContext'
 
 const EM_DASH = '—'
 
@@ -212,6 +213,15 @@ function SessionDrawerBody({ sid }: { sid: string }) {
 export function SkillRunsTable({ name }: { name: string }) {
   const query = useSkillRuns(name, 25)
   const [openSid, setOpenSid] = useState<string | null>(null)
+  // Phase 23 Plan 02 (CMPR-07 D-07): mirror the local Sheet's open state
+  // into ActiveSessionContext so CommandPalette can gate the "Compare with
+  // previous session" action. Runs on every flip of openSid; clears global
+  // state on unmount so route changes don't leak active session ids.
+  const { setActiveSessionId } = useActiveSession()
+  useEffect(() => {
+    setActiveSessionId(openSid)
+    return () => setActiveSessionId(null)
+  }, [openSid, setActiveSessionId])
 
   return (
     <>

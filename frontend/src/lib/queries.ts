@@ -16,7 +16,7 @@
 // double-fire when a window regains focus inside the cadence window.
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api } from './api'
+import { api, ApiError } from './api'
 import type {
   AlertAckRequest,
   AlertEventsResponse,
@@ -44,6 +44,7 @@ import type {
   ScheduleCreate,
   SchedulePatch,
   SessionCompareResponse,
+  SessionPreviousResponse,
   SessionsListParams,
   SkillAutonomyRequest,
   SkillCostResponse,
@@ -127,6 +128,11 @@ export const qk = {
   // from 14-RESEARCH.md: never reuse the bare 'sessions' prefix; that would
   // invalidate compare on every session-list mutation.
   sessionCompare: (a: string, b: string) => ['session-compare', a, b] as const,
+  // Phase 23 (CMPR-07) — previous-session resolver. The session id IS the
+  // entire response payload's input; no other params affect response shape.
+  // Cache-key discipline (Phase 20 lesson): include the session id and ONLY
+  // the session id.
+  sessionPrevious: (sid: string) => ['session-previous', sid] as const,
   contextHealth: () => ['context', 'health'] as const,
   systemState: (key: string) => ['system', 'state', key] as const,
   // Phase 20 (ANLY-06) — monthly cost forecast. No params (server-clock
@@ -387,6 +393,48 @@ export const useSessionCompare = (
     enabled: Boolean(a && b),
     refetchInterval: 60_000,
     staleTime: 45_000,
+  })
+
+// Phase 23 (CMPR-07) — previous-session resolver hook.
+//
+// Locked-decision contract (D-04 + D-09): the backend returns 404 with body
+// {error:"no previous session"} when no prior session exists in the same
+// project_key. That 404 is a NORMAL empty-state visibility gate — NOT an
+// error. Consumers (Cmd+K "Compare with previous session") read both
+// `data` and `isError`:
+//
+//   - data === SessionPreviousResponse → previous exists; show the action.
+//   - data === null AND !isError       → confirmed no previous; HIDE action.
+//   - isError                           → real error (5xx, network); HIDE action.
+//
+// Implementation: queryFn catches ApiError(404) and resolves to `null` instead
+// of throwing. Other errors propagate normally so React Query surfaces them
+// via `isError` and the consumer can suppress the action gracefully.
+//
+// Threat-model T-23-05 (DoS): hook is `enabled: Boolean(sid)` so the palette
+// does not fetch on every keystroke when no session is active. staleTime/
+// refetchInterval mirror the compare cadence (60s/45s) — previous-session
+// is monotonic w.r.t. ended_at, so refetches mostly serve cache freshness
+// rather than discovering new data.
+export const useSessionPrevious = (sid: string | null | undefined) =>
+  useQuery<SessionPreviousResponse | null>({
+    queryKey: qk.sessionPrevious(sid ?? ''),
+    queryFn: async () => {
+      try {
+        return await api.sessionsPrevious(sid as string)
+      } catch (err) {
+        // 404 is the locked empty-state signal (D-04); never bubble it.
+        if (err instanceof ApiError && err.status === 404) return null
+        throw err
+      }
+    },
+    enabled: Boolean(sid),
+    refetchInterval: 60_000,
+    staleTime: 45_000,
+    // Don't retry the 404 path — it'd be wasted RTTs (the catch above resolves
+    // it to null, but a transient 5xx during the brief window where the
+    // session was deleted should also not stall the palette).
+    retry: false,
   })
 
 // ============================================================================

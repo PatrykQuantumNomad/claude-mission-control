@@ -7,12 +7,17 @@ import {
   createMemoryHistory,
 } from '@tanstack/react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { ReactNode } from 'react'
+import { ReactNode, useEffect } from 'react'
 import { render, screen, userEvent, waitFor } from '../../../test/utils'
 import { CommandPalette } from '../CommandPalette'
 import { TaskComposerProvider } from '../../panels/TaskComposer'
+import { ActiveSessionProvider, useActiveSession } from '../../shell/ActiveSessionContext'
 import { qk } from '../../../lib/queries'
-import type { SessionListItemFull, SessionListResponse } from '../../../lib/api'
+import type {
+  SessionListItemFull,
+  SessionListResponse,
+  SessionPreviousResponse,
+} from '../../../lib/api'
 
 // Render the CommandPalette inside an in-memory TanStack Router so its
 // useNavigate() hook resolves. Mirrors the pattern used by AppShell.test.tsx
@@ -45,9 +50,13 @@ function makeQueryClient(): QueryClient {
   })
 }
 
-function makeWrapped(client: QueryClient): () => ReactNode {
+function makeWrapped(
+  client: QueryClient,
+  activeSid: string | null = null,
+): () => ReactNode {
   return () => (
     <TestWrap client={client}>
+      {activeSid !== null ? <ActiveSessionPrimer sid={activeSid} /> : null}
       <CommandPalette />
     </TestWrap>
   )
@@ -60,21 +69,47 @@ function TestWrap({
   client: QueryClient
   children: ReactNode
 }) {
+  // Phase 23 Plan 02: ActiveSessionProvider wraps the palette so the new
+  // "Compare with previous session" visibility gate can read activeSessionId
+  // (production wiring in shell/AppShell.tsx). Most existing tests don't
+  // exercise this gate; the provider's default activeSessionId=null keeps
+  // the new action hidden so legacy assertions still pass.
   return (
     <QueryClientProvider client={client}>
-      <TaskComposerProvider>{children}</TaskComposerProvider>
+      <ActiveSessionProvider>
+        <TaskComposerProvider>{children}</TaskComposerProvider>
+      </ActiveSessionProvider>
     </QueryClientProvider>
   )
+}
+
+// Test helper: a tiny component that flips the ActiveSessionContext value
+// when mounted. Lets tests simulate "the user opened a session detail Sheet"
+// without mounting the full LiveSessionsCard. The setter runs in useEffect
+// so context state updates land in React's normal commit phase (not during
+// render — that would warn).
+function ActiveSessionPrimer({ sid }: { sid: string | null }) {
+  const { setActiveSessionId } = useActiveSession()
+  useEffect(() => {
+    setActiveSessionId(sid)
+    return () => setActiveSessionId(null)
+  }, [sid, setActiveSessionId])
+  return null
 }
 
 interface RouterOpts {
   initialEntries?: string[]
   client?: QueryClient
+  /** Phase 23 Plan 02: when set, mounts an ActiveSessionPrimer that flips
+   * useActiveSession().activeSessionId to this value on mount and back to
+   * null on unmount. Used by the new "Compare with previous session"
+   * visibility tests. */
+  activeSid?: string | null
 }
 
 function makeRouter(opts: RouterOpts = {}) {
   const client = opts.client ?? makeQueryClient()
-  const component = makeWrapped(client)
+  const component = makeWrapped(client, opts.activeSid ?? null)
   const rootRoute = createRootRoute({ component })
   const indexRoute = createRoute({
     getParentRoute: () => rootRoute,
@@ -377,5 +412,113 @@ describe('CommandPalette', () => {
     expect(
       await screen.findByText('Pick a different session B'),
     ).toBeInTheDocument()
+  })
+
+  // ─── Phase 23 Plan 02 (CMPR-07) — Compare with previous session ──────────
+
+  it('"Compare with previous session" is HIDDEN when no active session id (D-07)', async () => {
+    // No ActiveSessionPrimer mounted ⇒ activeSessionId stays null. We are
+    // also NOT on /sessions/compare with `a` set, so currentA is undefined.
+    // Both visibility sources are absent ⇒ the action MUST NOT render and
+    // MUST NOT trigger a /api/sessions/{sid}/previous fetch.
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    const { router } = makeRouter()
+    await router.load()
+    const user = userEvent.setup()
+    render(<RouterProvider router={router} />)
+    await user.keyboard('{Meta>}k{/Meta}')
+    // Palette open — confirm baseline items are present.
+    expect(await screen.findByText('Quick task')).toBeInTheDocument()
+    // The compare-with-previous item MUST NOT render.
+    expect(
+      screen.queryByTestId('cmdk-compare-with-previous'),
+    ).toBeNull()
+    // No /previous fetch should have fired (the hook is enabled-gated).
+    const calledPreviousUrl = fetchSpy.mock.calls.some((call) => {
+      const url = call[0]
+      return typeof url === 'string' && url.includes('/previous')
+    })
+    expect(calledPreviousUrl).toBe(false)
+  })
+
+  it('"Compare with previous session" is HIDDEN when /previous returns 404 (D-09)', async () => {
+    // Active session set → useSessionPrevious fires. Backend returns 404
+    // {error:"no previous session"} per D-04 — the hook resolves to null
+    // (NOT an error), and the action stays hidden. No error UI surfaces.
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = typeof input === 'string' ? input : (input as Request).url
+      if (url.includes('/previous')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ error: 'no previous session' }), {
+            status: 404,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+      // Default empty session list for the picker hook.
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({ items: [], total: 0, offset: 0, limit: 50 }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+      )
+    })
+    const { router } = makeRouter({ activeSid: UUID_A })
+    await router.load()
+    const user = userEvent.setup()
+    render(<RouterProvider router={router} />)
+    // Open palette + wait for the /previous fetch to settle.
+    await user.keyboard('{Meta>}k{/Meta}')
+    await screen.findByText('Quick task')
+    // Wait long enough for the query to resolve to null.
+    await waitFor(() => {
+      // Compare-with-previous action MUST NOT render after 404 lands.
+      expect(
+        screen.queryByTestId('cmdk-compare-with-previous'),
+      ).toBeNull()
+    })
+    // No error toast / role=alert should appear from the 404 path.
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('"Compare with previous session" navigates to /sessions/compare with a + b when previous exists (D-08)', async () => {
+    // Active session set → useSessionPrevious resolves to {session_id: PREV}.
+    // Selecting the action navigates to /sessions/compare with both UUIDs.
+    const PREV_SID = UUID_OTHER // pretend previous-of-A is UUID_OTHER
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = typeof input === 'string' ? input : (input as Request).url
+      if (url.includes('/previous')) {
+        const body: SessionPreviousResponse = { session_id: PREV_SID }
+        return Promise.resolve(
+          new Response(JSON.stringify(body), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({ items: [], total: 0, offset: 0, limit: 50 }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+      )
+    })
+    const { router } = makeRouter({ activeSid: UUID_A })
+    await router.load()
+    const user = userEvent.setup()
+    render(<RouterProvider router={router} />)
+    await user.keyboard('{Meta>}k{/Meta}')
+    // Wait for the action to appear (visibility gate flips after the 200 lands).
+    const action = await screen.findByTestId('cmdk-compare-with-previous')
+    expect(action).toHaveTextContent('Compare with previous session')
+    await user.click(action)
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/sessions/compare')
+      const search = router.state.location.search as Record<string, unknown>
+      expect(search.a).toBe(UUID_A)
+      expect(search.b).toBe(PREV_SID)
+    })
+    // Palette should close after navigation.
+    expect(screen.queryByPlaceholderText(/search pages/i)).toBeNull()
   })
 })

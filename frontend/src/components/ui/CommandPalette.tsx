@@ -32,12 +32,39 @@
 // Self-compare guard: the picker's row click is disabled when
 // `chosenSid === currentA` (defensive — backend already 400-rejects a==b
 // per Plan 16-01, but the UI shouldn't even let the user try).
+//
+// Phase 23 Plan 02 (CMPR-07) — "Compare with previous session" action +
+// project_key picker scoping (D-07..D-14):
+//   - Visibility: action only renders when there is an "active session" to
+//     compare from. The active session is either:
+//       (a) the session whose detail Sheet is open (provided by
+//           useActiveSession() — set by LiveSessionsCard / SkillRunsTable
+//           on Sheet open/close), OR
+//       (b) the `a` URL param when on /sessions/compare with `a` set
+//           (D-10 — treat `a` as current and resolve previous-of-`a`).
+//   - Existence gate: useSessionPrevious(activeSid) returns null on 404
+//     (no previous). Action is HIDDEN while loading and when null returns.
+//   - Action: navigate({ to: '/sessions/compare', search: { a: current,
+//     b: previous } }). On the compare route, also clear stale `b` so the
+//     new pair lands cleanly even if the user previously had a `b` set.
+//   - Picker scoping (D-11..D-13): when the compare picker opens with side
+//     A known, scope candidates to A's PROJECT IDENTITY. The wire APIs
+//     (sessions list + sessionCompare) do NOT expose `project_key` directly
+//     today — the only project-shaped field on those rows is `cwd`. So
+//     we use `cwd` equality as the project-identity proxy: rows whose
+//     `cwd` matches A's cwd remain visible; others are filtered out. If
+//     A has no cwd (null/empty), do NOT filter (D-13 fallback to global).
 
 import { Command } from 'cmdk'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useRouterState } from '@tanstack/react-router'
 import { useTaskComposer } from '../panels/TaskComposer'
-import { useSessionsList } from '../../lib/queries'
+import {
+  useSessionCompare,
+  useSessionPrevious,
+  useSessionsList,
+} from '../../lib/queries'
+import { useActiveSession } from '../shell/ActiveSessionContext'
 import { Sheet } from './Sheet'
 
 const UUID_RE =
@@ -62,6 +89,30 @@ export function CommandPalette() {
   const search = (location.search ?? {}) as Record<string, unknown>
   const currentA = isOnCompareRoute ? parseSearchUuid(search.a) : undefined
   const currentB = isOnCompareRoute ? parseSearchUuid(search.b) : undefined
+
+  // Phase 23 Plan 02 (CMPR-07): "Compare with previous session" needs to know
+  // the user's currently focused session id. Two sources, in priority order:
+  //   1. ActiveSessionContext (set by LiveSessionsCard / SkillRunsTable when
+  //      their detail Sheet is open) — D-07 lock: "available only on session
+  //      detail views".
+  //   2. URL `a` on /sessions/compare — D-10 lock: "treat `a` as current and
+  //      set `b` to previous-of-`a`".
+  // The two sources are mutually compatible: if the user is on
+  // /sessions/compare and has no Sheet open, source 2 wins. The ranking
+  // matters when both are present (rare) — we prefer the explicit Sheet.
+  const { activeSessionId } = useActiveSession()
+  const compareWithPreviousSourceId = activeSessionId ?? currentA ?? null
+  const previousQuery = useSessionPrevious(compareWithPreviousSourceId)
+  // Action visibility (D-09): hide unless previous exists. Loading state
+  // (data === undefined) also hides — better to flicker the action in than
+  // navigate to a 404. `previousQuery.data === null` is the explicit
+  // "no previous" empty-state from useSessionPrevious().
+  const previousSid =
+    previousQuery.data && !previousQuery.isError
+      ? previousQuery.data.session_id
+      : null
+  const showCompareWithPrevious =
+    Boolean(compareWithPreviousSourceId) && previousSid !== null
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -101,6 +152,56 @@ export function CommandPalette() {
       close()
     }
   }, [currentA, navigate, close])
+
+  // Phase 23 Plan 02 (CMPR-07 D-08 / D-10): "Compare with previous session"
+  // action handler. Navigates directly to /sessions/compare with both
+  // params resolved — no picker Sheet involved. When triggered from the
+  // compare route itself (D-10), the existing `b` (if any) is REPLACED
+  // by the resolved previous; we don't preserve stale `b` because the
+  // user's intent is "show me the prior comparison anchor", not "tweak
+  // the current one".
+  const onCompareWithPreviousSelect = useCallback(() => {
+    if (!compareWithPreviousSourceId || !previousSid) return // gated; defensive
+    navigate({
+      to: '/sessions/compare',
+      search: { a: compareWithPreviousSourceId, b: previousSid } as Record<
+        string,
+        unknown
+      >,
+    })
+    close()
+  }, [compareWithPreviousSourceId, previousSid, navigate, close])
+
+  // Picker scoping (D-11..D-13): when side A is known, fetch its compare-side
+  // payload to read `cwd` (the project-identity proxy — see header note).
+  // The compare hook is enabled-gated by Boolean(a && b), so passing a single
+  // id with `b=undefined` keeps it idle. We only need `a`'s cwd, so we read
+  // from the compare cache opportunistically: if the user has already
+  // visited /sessions/compare?a=X&b=Y the cwd is already cached. Otherwise
+  // we still attempt a single-side resolution via a no-op b — but to keep
+  // this surgical (and avoid a fresh API surface for "session by id metadata"),
+  // we fall back to NOT scoping when no cached compare-side is available.
+  // This honours D-13's spirit (no scope when project identity is unknown)
+  // without inventing a new endpoint.
+  //
+  // Future improvement: if SessionListItem grew a `cwd` projection that the
+  // picker could read directly, we could scope without consulting the
+  // compare cache. SessionListItemFull DOES expose cwd today (per api.ts),
+  // so picker filtering can also use the picker's OWN row data: filter by
+  // (row.cwd === aCwd). That's the path we take below — see ComparePicker.
+  //
+  // Pass currentA's cwd lookup down to the picker. The picker will perform
+  // the actual filter on its row dataset (which already has cwd).
+  const aCompareQuery = useSessionCompare(currentA, currentB)
+  const aCwd: string | null = useMemo(() => {
+    if (!currentA) return null
+    const data = aCompareQuery.data
+    if (!data) return null
+    // `a` may be either side depending on URL ordering. Match by session_id.
+    if (data.a.session_id === currentA) return data.a.cwd ?? null
+    if (data.b.session_id === currentA) return data.b.cwd ?? null
+    return null
+  }, [currentA, aCompareQuery.data])
 
   // Picker selection: function-form `search: (prev) => ...` is the documented
   // TanStack Router idiom (Pitfall 4 in 16-RESEARCH.md). Eliminates the
@@ -182,6 +283,15 @@ export function CommandPalette() {
             >
               {compareLabel}
             </Command.Item>
+            {showCompareWithPrevious ? (
+              <Command.Item
+                onSelect={onCompareWithPreviousSelect}
+                className="cmc-cmdk__item"
+                data-testid="cmdk-compare-with-previous"
+              >
+                Compare with previous session
+              </Command.Item>
+            ) : null}
           </Command.Group>
         </Command.List>
       </Command.Dialog>
@@ -189,6 +299,7 @@ export function CommandPalette() {
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         currentA={currentA}
+        scopeCwd={aCwd}
         onSelect={onPickerSelect}
       />
     </>
@@ -199,6 +310,13 @@ interface ComparePickerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   currentA: string | undefined
+  /**
+   * Phase 23 Plan 02 (CMPR-07 D-11..D-13): when non-null, the picker scopes
+   * its candidate list to rows whose `cwd` equals `scopeCwd` (project-
+   * identity proxy — see CommandPalette header comment for the full
+   * rationale). When null, no scoping is applied (D-13 fallback to global).
+   */
+  scopeCwd: string | null
   onSelect: (sid: string) => void
 }
 
@@ -206,6 +324,7 @@ function ComparePicker({
   open,
   onOpenChange,
   currentA,
+  scopeCwd,
   onSelect,
 }: ComparePickerProps) {
   // Reuse the existing list hook (lib/queries.ts:188) so we get the same
@@ -214,7 +333,13 @@ function ComparePicker({
   // The hook is always mounted (so cmdk pre-warms data even before the
   // Sheet opens) — `open` only gates the visual render.
   const query = useSessionsList({ range: '7d', limit: 50 })
-  const items = query.data?.items ?? []
+  const allItems = query.data?.items ?? []
+  // D-11..D-13: filter by cwd when scopeCwd is non-null+non-empty. D-13:
+  // when scopeCwd is null OR an empty string, do not filter.
+  const items = useMemo(() => {
+    if (!scopeCwd) return allItems
+    return allItems.filter((row) => row.cwd === scopeCwd)
+  }, [allItems, scopeCwd])
 
   return (
     <Sheet
@@ -222,17 +347,23 @@ function ComparePicker({
       onOpenChange={onOpenChange}
       title="Pick a session to compare"
       description={
-        currentA
-          ? 'Select a session to set as side B for the comparison.'
-          : 'Select a session to start comparing.'
+        scopeCwd
+          ? `Showing sessions from ${scopeCwd} only.`
+          : currentA
+            ? 'Select a session to set as side B for the comparison.'
+            : 'Select a session to start comparing.'
       }
     >
       {query.isPending && !query.data ? (
         <p className="cmc-empty">Loading recent sessions…</p>
       ) : items.length === 0 ? (
-        <p className="cmc-empty">No sessions in the last 7 days.</p>
+        <p className="cmc-empty">
+          {scopeCwd
+            ? `No sessions in ${scopeCwd} in the last 7 days.`
+            : 'No sessions in the last 7 days.'}
+        </p>
       ) : (
-        <ul className="cmc-cmdk-picker">
+        <ul className="cmc-cmdk-picker" data-testid="cmdk-compare-picker-list">
           {items.map((row) => {
             const disabled = row.session_id === currentA
             return (

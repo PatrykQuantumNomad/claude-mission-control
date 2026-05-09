@@ -11,7 +11,7 @@
 // follow-up form surfaces that body verbatim when mutation.isError fires
 // (409 ended session / 400 invalid sid / 404 missing).
 
-import { useState, FormEvent } from 'react'
+import { useEffect, useState, FormEvent } from 'react'
 import { Button, PanelCard, RelativeTime, Sheet, Skeleton, StatePill } from '../ui'
 import {
   useFollowUpMessage,
@@ -23,6 +23,7 @@ import type {
   SessionDetailsResponse,
   ToolTimelineEntry,
 } from '../../lib/api'
+import { useActiveSession } from '../shell/ActiveSessionContext'
 
 function shortSid(sid: string): string {
   return sid.length > 8 ? sid.slice(-8) : sid
@@ -183,6 +184,17 @@ function SessionDrawerBody({
 export function LiveSessionsCard() {
   const [activeSid, setActiveSid] = useState<string | null>(null)
   const query = useLiveSessions()
+  // Phase 23 Plan 02 (CMPR-07 D-07): mirror the local Sheet's open state
+  // into ActiveSessionContext so CommandPalette can gate the "Compare with
+  // previous session" action by presence of an active session detail. The
+  // effect runs on every flip of activeSid (open Sheet → setActiveSessionId,
+  // close Sheet → setActiveSessionId(null)) AND clears the global state on
+  // unmount so navigating away from /command leaves no stale active id.
+  const { setActiveSessionId } = useActiveSession()
+  useEffect(() => {
+    setActiveSessionId(activeSid)
+    return () => setActiveSessionId(null)
+  }, [activeSid, setActiveSessionId])
   return (
     <>
       <PanelCard<LiveSessionItem[]>
