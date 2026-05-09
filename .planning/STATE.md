@@ -4,14 +4,14 @@ milestone: v1.2
 milestone_name: Depth & Polish
 status: executing
 stopped_at: Completed 23-02-PLAN.md (CMPR-06 + CMPR-07 frontend)
-last_updated: "2026-05-09T12:05:50.212Z"
+last_updated: "2026-05-09T12:16:13.320Z"
 last_activity: 2026-05-09
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 22
-  completed_plans: 20
-  percent: 91
+  completed_plans: 21
+  percent: 95
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-05-05 after v1.1 ship)
 ## Current Position
 
 Phase: 23 (compare-depth-milestone-close) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Ready to execute
 Last activity: 2026-05-09
 
-Progress: [█████████░] 91%
+Progress: [██████████] 95%
 
 ## Accumulated Context
 
@@ -232,6 +232,7 @@ v1.1 carried decisions (still active):
 - Wave-1/wave-2 single-writer convention for REQUIREMENTS.md
 - [Phase 23]: 23-02: Picker scoping uses cwd as project_key proxy because wire APIs do not expose project_key on sessions list / sessionCompare side endpoints. — D-12 spirit honoured (same realpath cwd ⇒ same project_key). Future improvement: when project_key lands on the wire, swap filter from cwd === scopeCwd to project_key === scopePk.
 - [Phase 23]: 23-02: Active-session signal in React Context (not route-derived) so both LiveSessionsCard + SkillRunsTable Sheets opt-in cleanly. — Session detail Sheets are portals not routes; pathname inference would miss them and false-positive on /activity.
+- [Phase ?]: Phase 23-03: Use API preflight + state-aware annotations in Playwright e2e for data-dependent compare assertions; testid anchors over user-facing copy when copy collides across siblings.
 
 ### Pending Todos
 
@@ -297,7 +298,7 @@ Plan 20-04 ~7 min (commit 0ad412a test — `frontend/tests/e2e/cost-dashboard.sp
 
 ## Session Continuity
 
-Last session: 2026-05-09T12:05:50.204Z
+Last session: 2026-05-09T12:15:53.184Z
 Stopped at: Completed 23-02-PLAN.md (CMPR-06 + CMPR-07 frontend)
 Resume file: None
 
