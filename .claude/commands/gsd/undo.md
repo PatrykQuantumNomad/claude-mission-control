@@ -30,5 +30,5 @@ $ARGUMENTS
 </context>
 
 <process>
-Execute the undo workflow from @/Users/patrykattc/work/git/claude-mission-control/.claude/get-shit-done/workflows/undo.md end-to-end.
+Execute end-to-end.
 </process>

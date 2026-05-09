@@ -955,7 +955,7 @@ export function SkillOverheadCard({ name, range = '14d' }: Props) {
 
 **If this table is empty:** N/A — has 10 entries; all medium-or-lower risk; A2/A3/A5/A9 are the most consequential and are explicitly tested by the spike (or should be, per recommendations).
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should Plan 01 surface a "spike inconclusive" outcome distinct from "spike NO"?**
    - What we know: The success criteria specify a binary YES/NO. If `total_events == 0` (no fresh skill data), the negative finding is weaker than if `with_duration_ms == 0` while `total_events > 0` (structural absence).
