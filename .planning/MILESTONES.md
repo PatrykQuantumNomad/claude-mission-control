@@ -4,6 +4,49 @@ Reverse-chronological log of shipped milestones. Each entry is a sentence-length
 
 ---
 
+## v1.2 Depth & Polish (Shipped: 2026-05-09)
+
+**Delivered:** Closed v1.1's carried debt with a green CI baseline (centralized `cmc/core/time.py` naive-UTC helper across 22 sites, deterministic `vi.spyOn(Date, 'now')` for time-boundary tests, Playwright strict-mode `data-testid` convention), then deepened every v1.1 lane: per-project skill breakdown / 7d-vs-prev-7d delta pills / new+dormant badges via a normalized `project_key` (sha1[:12] of `realpath(cwd)`) shipping as Alembic migration `0003_project_key`; Decimal-only OLS monthly cost forecast and per-project cost card on a new `/cost` route; alert engine `evaluate_anomaly` extended with a `params_json.window_kind` discriminator (sliding window joins EWMA inside the same function, no parallel detector) and a Haiku-backed `POST /api/alerts/parse-nl` natural-language rule authoring path that hard-validates against `_SCOPE_EXTRACTORS.keys()` and returns `None` on hallucination (no fallback rule); a feasibility-gated SKLP-11 spike that resolved NO and was honestly descoped to v1.3; per-skill p95 latency deltas in `/sessions/compare`; Cmd+K "compare with previous session" backed by `GET /api/sessions/{sid}/previous` + `ActiveSessionContext`.
+
+**Phases completed:** 18–23 (6 phases) — 22 plans total
+
+**Key accomplishments:**
+
+- **Polish & green-baseline cleanup (Phase 18):** Centralized `cmc/core/time.py::now_utc` + `UTCDatetime` PlainSerializer; mechanical 22-site sweep of `datetime.utcnow` in single bisect-friendly commit `c3d792f` (~1429 deprecation warnings → 0); `SchedulesCard.test.tsx > stale row` migrated to `vi.spyOn(Date, 'now')` with sentinel-default test factories; `data-testid="schedule-composer-name"` on source component + `feature-component-element` kebab-case convention documented in `frontend/tests/e2e/README.md`; `BASELINE.md` with verifier rules embedded as prose-with-bounds (pytest 566 / vitest 293 / Playwright 7+1-skipped + warning deltas) — single source of truth for downstream phase verifiers
+- **Skills per-project + deltas + badges (Phase 19):** Migration `0003_project_key` (sessions.project_key VARCHAR(12) NOT NULL DEFAULT '', indexed, Python-loop `realpath` backfill); `cmc.core.project_key.compute_project_key` helper (sha1[:12]); `GET /api/skills/{name}/projects` endpoint with structural no-path-leakage test; prev-period CTE on `/skills/usage` and `/skills/{name}/cost` for 7d-vs-prev-7d delta pills; new/dormant badges via MIN/MAX(ts) with cold-start suppression for skills <14 days old; DST spring-forward unit test crossing the boundary; DeltaPill primitive; SkillProjectsTable panel mount on `/skills/$name`; runtime-DOM path-leakage regex guard
+- **Cost forecast + per-project card (Phase 20):** `cmc/cost/forecast.py` Decimal-only OLS module + `GET /api/cost/forecast` endpoint with `insufficient_data` when `days_elapsed < 7` and `partial_month_bias` flag during week 1 (server-driven banner); `_BREAKDOWN_BY_PROJECT_SQL` refactored to GROUP BY `s.project_key` + `WHERE s.project_key != ''` (consumes Phase 19 column; no new migration); new `/cost` route + `CostForecastCard` + `CostByProjectCard` (7d/30d toggle); 4-layer path-leakage defense culminating in adversarial-mutation-verified Playwright `cost-dashboard.spec.ts` real-DOM regex; preserves v1.1 "tokens stored, $ computed at read time" invariant
+- **Alert anomaly depth + NL authoring (Phase 21):** `_resolve_alpha` helper inside single `evaluate_anomaly` function (sliding=`1/N`, ewma=`2/(N+1)`); `params_json.window_kind` validator + `min_samples >= window_n` coupling on `AlertRuleCreate`/`AlertRulePatch`; AST static-import test pinning the single-detector invariant; `cmc/alerts/nl_parser.py` (lazy `AsyncAnthropic`, `_SCOPE_EXTRACTORS.keys()` injected verbatim into system prompt, `None` on hallucination — no fallback rule); `POST /api/alerts/parse-nl` (503 collapse on credentials missing) + `GET /api/alerts/metrics`; `useParseAlertNl` + `useAlertMetrics` React Query hooks; NL input + `AlertDialog` preview modal in `AlertRuleForm`; cross-language drift guard `test_alerts_metrics_sync.py`
+- **SKLP-11 spike-gated descope (Phase 22):** Mandatory data-availability spike against `tools` temporal JOIN vs `skill_activated.duration_ms` resolved **NO** with verbatim sqlite3 evidence (CT-1 coverage probe failed: `duration_ms` structurally absent for the body/subagent/tool decomposition); `22-01-SPIKE-FINDINGS.md` (commit `07abcfa`) anchors the descope decision; Plan 22-02 honestly flipped SKLP-11 to `Deferred to v1.3` in REQUIREMENTS.md; Phase 23 unblocked on schedule. ROADMAP SC#3 explicitly contemplated this branch — descope is the success path when data is unreliable, not a quiet drop
+- **Compare depth + milestone close (Phase 23):** `_build_compare_side` extended with per-side `skill_latencies` dict + `low_sample_a/b` flags (preserves CMPR-04 9-SQL-per-request budget; per-request SQL counter assertion); `GET /api/sessions/{sid}/previous` resolver (project_key + ended_at ordering, 404-as-empty-state); per-skill p95 latency section in `SessionCompareView` with delta suppression on low-sample; Cmd+K "Compare with previous session" gated by previous-session existence + project-scoped picker; new `ActiveSessionContext` for cross-Sheet active-session signal; Playwright TEST-23-CMPR-06/07 with preflight-driven branch annotations; milestone-close validation gates green (backend pytest 661/0/0 vs Phase 18 baseline 566; frontend vitest 326/0/0 vs 293; Playwright 13/0/2-skipped; cmc doctor clean)
+
+**Stats:**
+
+- 178 files changed, +31,281 / -2,375 lines vs v1.1
+- ~62,883 LOC at close (~40,071 Python + ~22,812 TypeScript/TSX) — up ~6,651 from v1.1
+- 6 phases, 22 plans, 12/12 active requirements (+1 honestly deferred to v1.3)
+- 88 commits over 4 days (23 feat, 3 fix, 12 test, 47 docs)
+- Backend tests 552 → 661 (+109); frontend tests 292 → 326 (+34); Playwright e2e 8 → 13 specs
+- 4 days from v1.1 close to v1.2 ship (2026-05-05 → 2026-05-09)
+- 1 Alembic migration (`0003_project_key`); 1 new top-level route (`/cost`); 0 new external dependencies
+
+**Git range:** `af6d308` (v1.1 ship) → `f00d349` (Phase 23 verifier passed)
+
+**Tag:** `v1.2`
+
+**Archives:**
+
+- `.planning/milestones/v1.2-ROADMAP.md` — full phase + plan history
+- `.planning/milestones/v1.2-REQUIREMENTS.md` — 13 requirements with outcomes (12 active complete + 1 honestly deferred)
+- `.planning/milestones/v1.2-MILESTONE-AUDIT.md` — authoritative completion state (audited 2026-05-09, status: passed; 12/12 active requirements + 1/1 honestly deferred, 6/6 phases, 12/12 integration, 5/5 flows)
+
+**Outstanding human-verify items (non-blocking, carried to operations):**
+
+- Two pre-existing Playwright skips at v1.2 close (`alerts.spec.ts:40 TEST-05a`, `skills-detail.spec.ts:25 SKLP-08/09/10`) — both dev-DB-state-dependent (no recent failed_task; no seeded skill row); not regressions, but the v1.3 baseline should re-record after seed refresh
+
+**What's next:** TBD — define via `/gsd:new-milestone`. Likely candidates from v1.3 backlog: SKLP-11 retry (depends on upstream OTEL data availability change), SKLP-12/13 (percentile-split overhead, heatmap toggle), ANLY-08/09 (forecast confidence band, per-project budgets bridging cost/alerts), ALRT-15/16 (predictive alerts, NL2SQL), CMPR-08/09 (sessions-table compare-with-previous, per-skill cost delta), PLAT-01 Linux/systemd, AUTO-01..03 (NL schedules beyond cron, auto-retry, task dependencies).
+
+---
+
 ## v1.1 Skills & Cost Intelligence (Shipped: 2026-05-05)
 
 **Delivered:** A read-time cost engine (5-SKU pricing table, never-store-$ window logic), the full skills observability suite (TopSkills, SkillCostCard, SkillLatencyTable, SkillTimeline, per-skill detail route), a hysteresis-aware skill-level alert engine with Telegram ack flow + auto-resolve, and a single-round-trip session comparison view with deep-linkable URL state and dual picker entry points (Cmd+K + sessions-table row action).
