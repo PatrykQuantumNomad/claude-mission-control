@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Depth & Polish
 status: executing
-stopped_at: Phase 23 context gathered
-last_updated: "2026-05-08T14:59:59.772Z"
-last_activity: 2026-05-08
+stopped_at: Completed 23-02-PLAN.md (CMPR-06 + CMPR-07 frontend)
+last_updated: "2026-05-09T12:05:50.212Z"
+last_activity: 2026-05-09
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 22
-  completed_plans: 19
-  percent: 86
+  completed_plans: 20
+  percent: 91
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-05-05 after v1.1 ship)
 ## Current Position
 
 Phase: 23 (compare-depth-milestone-close) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
-Last activity: 2026-05-08
+Last activity: 2026-05-09
 
-Progress: [█████████░] 86%
+Progress: [█████████░] 91%
 
 ## Accumulated Context
 
@@ -230,6 +230,8 @@ v1.1 carried decisions (still active):
 - CMPR-04 over-cap = render branch (HTTP 200 + `over_cap=true`), not error branch
 - CMPR-05 tabular-only compare (no diff library, no raw message rendering)
 - Wave-1/wave-2 single-writer convention for REQUIREMENTS.md
+- [Phase 23]: 23-02: Picker scoping uses cwd as project_key proxy because wire APIs do not expose project_key on sessions list / sessionCompare side endpoints. — D-12 spirit honoured (same realpath cwd ⇒ same project_key). Future improvement: when project_key lands on the wire, swap filter from cwd === scopeCwd to project_key === scopePk.
+- [Phase 23]: 23-02: Active-session signal in React Context (not route-derived) so both LiveSessionsCard + SkillRunsTable Sheets opt-in cleanly. — Session detail Sheets are portals not routes; pathname inference would miss them and false-positive on /activity.
 
 ### Pending Todos
 
@@ -295,8 +297,8 @@ Plan 20-04 ~7 min (commit 0ad412a test — `frontend/tests/e2e/cost-dashboard.sp
 
 ## Session Continuity
 
-Last session: 2026-05-08T14:59:26.725Z
-Stopped at: Phase 23 context gathered
+Last session: 2026-05-09T12:05:50.204Z
+Stopped at: Completed 23-02-PLAN.md (CMPR-06 + CMPR-07 frontend)
 Resume file: None
 
 ---
