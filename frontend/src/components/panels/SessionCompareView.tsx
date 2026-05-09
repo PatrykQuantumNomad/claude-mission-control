@@ -304,6 +304,198 @@ function SkillDiffRow({ diff }: { diff: SkillSetDiff }) {
   )
 }
 
+// ---------------------------------------------------------------------------
+// Phase 23 (CMPR-06 / D-15..D-18): per-skill p95 latency rows.
+//
+// Reads `skill_latencies` per side (server-computed; integer ms). Renders a
+// stable tabular row per skill with A / B / Δ (B−A) columns. The delta column
+// is suppressed when EITHER side is low-sample (top-level low_sample_a OR
+// low_sample_b on the response — D-17 lock); raw per-side values still render
+// so the user can inspect the underlying numbers.
+//
+// Suppression renders the EM_DASH ('—') glyph in the delta cell and the
+// section header surfaces a "Low sample" badge so the suppression is visible
+// (matches Phase 19 SKLP-05 low-sample convention without reaching for
+// DeltaPill — the plan's explicit semantics differ from a delta-pill drop-in).
+//
+// Over-cap (D-18): this section is INDEPENDENT of `over_cap` — the backend
+// still returns skill_latencies on over-cap responses; only tool_counts is
+// skipped. Do NOT branch this section on over_cap.
+// ---------------------------------------------------------------------------
+
+interface SkillLatencyRow {
+  skill_name: string
+  p95_a_ms: number | null
+  p95_b_ms: number | null
+}
+
+function buildSkillLatencyRows(
+  a: SessionCompareSide,
+  b: SessionCompareSide,
+): SkillLatencyRow[] {
+  const names = new Set<string>([
+    ...Object.keys(a.skill_latencies ?? {}),
+    ...Object.keys(b.skill_latencies ?? {}),
+  ])
+  const rows: SkillLatencyRow[] = []
+  for (const skill_name of names) {
+    const ra = a.skill_latencies?.[skill_name]
+    const rb = b.skill_latencies?.[skill_name]
+    rows.push({
+      skill_name,
+      p95_a_ms: typeof ra === 'number' ? ra : null,
+      p95_b_ms: typeof rb === 'number' ? rb : null,
+    })
+  }
+  // Sort: largest absolute Δ first when both sides present; tie-break alpha
+  // for stability (mirrors Tool counts diff sort).
+  rows.sort((x, y) => {
+    const dx =
+      x.p95_a_ms !== null && x.p95_b_ms !== null
+        ? Math.abs(x.p95_b_ms - x.p95_a_ms)
+        : -1
+    const dy =
+      y.p95_a_ms !== null && y.p95_b_ms !== null
+        ? Math.abs(y.p95_b_ms - y.p95_a_ms)
+        : -1
+    if (dy !== dx) return dy - dx
+    return x.skill_name.localeCompare(y.skill_name)
+  })
+  return rows
+}
+
+function fmtMs(value: number | null): string {
+  if (value === null) return EM_DASH
+  return `${value}ms`
+}
+
+function SkillLatencySection({ data }: { data: SessionCompareResponse }) {
+  const rows = buildSkillLatencyRows(data.a, data.b)
+  // D-17: suppress delta when EITHER side is low-sample. Renders raw values
+  // either way so the operator can still see what's there.
+  const suppressDelta = Boolean(data.low_sample_a || data.low_sample_b)
+
+  if (rows.length === 0) {
+    return (
+      <section
+        aria-label="Per-skill p95 latency"
+        data-testid="session-compare-skill-latency-section"
+      >
+        <h4
+          className="cmc-label"
+          style={{
+            color: 'var(--cmc-text-subtle)',
+            margin: 0,
+            marginBottom: 'var(--space-xs)',
+          }}
+        >
+          Per-skill p95 latency
+        </h4>
+        <EmptyState
+          heading="No skill latencies"
+          body="Neither session has completed skill invocations to roll up."
+        />
+      </section>
+    )
+  }
+
+  return (
+    <section
+      aria-label="Per-skill p95 latency"
+      data-testid="session-compare-skill-latency-section"
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--space-sm)',
+          marginBottom: 'var(--space-xs)',
+        }}
+      >
+        <h4
+          className="cmc-label"
+          style={{
+            color: 'var(--cmc-text-subtle)',
+            margin: 0,
+          }}
+        >
+          Per-skill p95 latency
+        </h4>
+        {suppressDelta ? (
+          <span
+            className="cmc-label"
+            data-testid="session-compare-skill-latency-low-sample"
+            style={{
+              color: 'var(--cmc-text-subtle)',
+              border: '1px solid var(--cmc-border)',
+              borderRadius: 6,
+              padding: '0 6px',
+              fontSize: 11,
+            }}
+            title="Delta suppressed: at least one side has fewer than 30 samples (low-sample threshold)."
+          >
+            Low sample — delta suppressed
+          </span>
+        ) : null}
+      </div>
+      <table
+        className="cmc-table"
+        aria-label="Per-skill p95 latency"
+        data-testid="session-compare-skill-latency-table"
+      >
+        <thead>
+          <tr>
+            <th className="cmc-table__th">Skill</th>
+            <th className="cmc-table__th" style={{ width: 100 }}>
+              A (p95)
+            </th>
+            <th className="cmc-table__th" style={{ width: 100 }}>
+              B (p95)
+            </th>
+            <th className="cmc-table__th" style={{ width: 120 }}>
+              Δ (B−A)
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => {
+            const haveBoth = r.p95_a_ms !== null && r.p95_b_ms !== null
+            let deltaCell: string
+            if (suppressDelta || !haveBoth) {
+              deltaCell = EM_DASH
+            } else {
+              const d = (r.p95_b_ms as number) - (r.p95_a_ms as number)
+              const sign = d > 0 ? '+' : ''
+              deltaCell = `${sign}${d}ms`
+            }
+            return (
+              <tr key={r.skill_name}>
+                <td>
+                  <span className="cmc-mono">{r.skill_name}</span>
+                </td>
+                <td>
+                  <span className="cmc-numeric">{fmtMs(r.p95_a_ms)}</span>
+                </td>
+                <td>
+                  <span className="cmc-numeric">{fmtMs(r.p95_b_ms)}</span>
+                </td>
+                <td>
+                  <span
+                    className="cmc-numeric"
+                    data-testid={`session-compare-skill-latency-delta-${r.skill_name}`}
+                  >
+                    {deltaCell}
+                  </span>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </section>
+  )
+}
+
 interface ToolDiffRow {
   tool_name: string
   count_a: number
@@ -420,6 +612,7 @@ function CompareBody({ data }: { data: SessionCompareResponse }) {
         <SideBarChart label="B" side={data.b} />
       </section>
       <SkillDiffRow diff={data.skill_diff} />
+      <SkillLatencySection data={data} />
       <section aria-label="Tool counts diff">
         <h4
           className="cmc-label"

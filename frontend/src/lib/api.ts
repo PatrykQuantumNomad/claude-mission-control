@@ -175,6 +175,11 @@ export interface SessionCompareSide {
   message_count: number
   cost_usd: string             // Decimal-string — NEVER Number()
   skills_used: string[]
+  // Phase 23 (CMPR-06): per-skill p95 latency in MILLISECONDS keyed by skill
+  // name. Server-computed (single rollup SQL per side — see Plan 23-01). Empty
+  // dict when the side has no completed skill invocations. Values are integers
+  // (ms); render-time formatting is the consumer's responsibility.
+  skill_latencies: Record<string, number>
   over_cap: boolean
   tool_counts: Record<string, number>
 }
@@ -192,6 +197,21 @@ export interface SessionCompareResponse {
   rates_as_of: string | null
   over_cap: boolean
   cap: number
+  // Phase 23 (CMPR-06 / D-15..D-17): TOP-LEVEL low-sample gating flags. When
+  // either flag is true, consumers MUST suppress per-skill latency delta
+  // computation (raw per-side values still render). Threshold = 30 (server-
+  // pinned MIN_LATENCY_SAMPLES). Default false for backwards compat with
+  // pre-Phase-23 fixtures.
+  low_sample_a: boolean
+  low_sample_b: boolean
+}
+
+// Phase 23 (CMPR-07) — previous-session resolver response. ID-only payload
+// per locked decision D-06. 404 with body {error:"no previous session"} is the
+// "no previous" signal — useSessionPrevious() treats it as empty-state, not an
+// error (see queries.ts).
+export interface SessionPreviousResponse {
+  session_id: string
 }
 
 export interface LiveSessionItem {
@@ -1075,6 +1095,14 @@ export const api = {
   sessionCompare: (a: string, b: string) =>
     fetchJson<SessionCompareResponse>(
       `/api/sessions/compare?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`,
+    ),
+  // Phase 23 (CMPR-07) — previous-session resolver. 404 ⇒ no previous (empty
+  // state per locked D-04). Callers MUST consume via useSessionPrevious()
+  // which special-cases 404 as a non-error visibility gate; calling this
+  // raw fetcher on a sid with no prior session will throw an ApiError(404).
+  sessionsPrevious: (sid: string) =>
+    fetchJson<SessionPreviousResponse>(
+      `/api/sessions/${encodeURIComponent(sid)}/previous`,
     ),
   sessionsLive: () => fetchJson<LiveSessionItem[]>('/api/sessions/live'),
   sessionLiveState: (sid: string) =>

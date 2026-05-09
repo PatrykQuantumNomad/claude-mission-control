@@ -107,6 +107,10 @@ function makeSide(overrides: Partial<SessionCompareSide> = {}): SessionCompareSi
     message_count: 24,
     cost_usd: '0.0247',
     skills_used: ['analyze', 'lint'],
+    // Phase 23 (CMPR-06): per-skill p95 latency in ms. Defaults populated so
+    // existing tests don't need to opt in; the new latency-section tests
+    // override per-side.
+    skill_latencies: { analyze: 1200, lint: 800 },
     over_cap: false,
     tool_counts: { Read: 4, Bash: 6, Edit: 2 },
     ...overrides,
@@ -127,6 +131,7 @@ function makeFixture(
       tokens_output: 1600,
       tool_counts: { Read: 8, Bash: 4, Glob: 1 },
       skills_used: ['analyze', 'plan'],
+      skill_latencies: { analyze: 1500, plan: 2200 },
       ...b,
     }),
     skill_diff: {
@@ -137,6 +142,10 @@ function makeFixture(
     rates_as_of: '2026-05-03T00:00:00Z',
     over_cap: false,
     cap: 500,
+    // Phase 23 (CMPR-06 / D-15..D-17): top-level low-sample flags. Default
+    // false so existing tests keep their delta semantics.
+    low_sample_a: false,
+    low_sample_b: false,
     ...topLevel,
   }
 }
@@ -276,6 +285,110 @@ describe('SessionCompareView', () => {
     expect(screen.getByText('Only B (1)')).toBeInTheDocument()
   })
 
+  // ─── Phase 23 Plan 02 (CMPR-06) — per-skill p95 latency section ──────────
+
+  it('renders per-skill p95 latency section with delta column when both sides not low-sample (D-15/D-17)', async () => {
+    // Both sides under the 30-sample threshold ⇒ low_sample_a/b=false. The
+    // latency section must surface raw values per side AND the Δ (B−A) column
+    // with a signed integer-millisecond delta. Suppression badge must be
+    // absent (it only appears under low-sample suppression).
+    const client = makeClient()
+    const fixture = makeFixture(
+      { skill_latencies: { analyze: 1000, lint: 500 } },
+      { skill_latencies: { analyze: 1500, lint: 700 } },
+    )
+    client.setQueryData(qk.sessionCompare(UUID_A, UUID_B), fixture)
+    render(
+      <Wrap client={client}>
+        <SessionCompareView a={UUID_A} b={UUID_B} />
+      </Wrap>,
+    )
+    await waitFor(() => {
+      expect(screen.getByText('Per-skill p95 latency')).toBeInTheDocument()
+    })
+    // Section is present (testid lock).
+    const section = screen.getByTestId('session-compare-skill-latency-section')
+    expect(section).toBeInTheDocument()
+    // Suppression badge MUST NOT appear when both flags are false.
+    expect(
+      screen.queryByTestId('session-compare-skill-latency-low-sample'),
+    ).toBeNull()
+    // Per-skill delta cells render with sign (B - A): analyze 1500-1000=+500,
+    // lint 700-500=+200. Both are POSITIVE deltas under our fixture.
+    expect(
+      screen.getByTestId('session-compare-skill-latency-delta-analyze'),
+    ).toHaveTextContent('+500ms')
+    expect(
+      screen.getByTestId('session-compare-skill-latency-delta-lint'),
+    ).toHaveTextContent('+200ms')
+  })
+
+  it('suppresses delta column (renders "—") when low_sample_a=true (D-17)', async () => {
+    // Side A is low-sample ⇒ suppression flag flips. Raw per-side ms values
+    // must STILL render so the operator sees the underlying numbers; only
+    // the Δ cell is masked. Low-sample badge must be visible.
+    const client = makeClient()
+    const fixture = makeFixture(
+      { skill_latencies: { analyze: 1000 } },
+      { skill_latencies: { analyze: 1500 } },
+      { low_sample_a: true },
+    )
+    client.setQueryData(qk.sessionCompare(UUID_A, UUID_B), fixture)
+    render(
+      <Wrap client={client}>
+        <SessionCompareView a={UUID_A} b={UUID_B} />
+      </Wrap>,
+    )
+    await waitFor(() => {
+      expect(screen.getByText('Per-skill p95 latency')).toBeInTheDocument()
+    })
+    // Low-sample badge surfaces (visible to the operator).
+    expect(
+      screen.getByTestId('session-compare-skill-latency-low-sample'),
+    ).toBeInTheDocument()
+    // Δ cell is the EM_DASH glyph — NOT a signed delta.
+    const deltaCell = screen.getByTestId(
+      'session-compare-skill-latency-delta-analyze',
+    )
+    expect(deltaCell).toHaveTextContent('—')
+    expect(deltaCell).not.toHaveTextContent('+500')
+    // Raw per-side values still render in the row.
+    expect(screen.getByText('1000ms')).toBeInTheDocument()
+    expect(screen.getByText('1500ms')).toBeInTheDocument()
+  })
+
+  it('still renders per-skill p95 latency section when over_cap=true (D-18)', async () => {
+    // Backend continues to compute skill_latencies even on over-cap responses
+    // (only the heavy tool_counts query is skipped — Plan 23-01 lock). The
+    // section MUST NOT be hidden on over-cap; only the tool-counts table
+    // gets the EmptyState fallback.
+    const client = makeClient()
+    const fixture = makeFixture(
+      { over_cap: true, tool_counts: {}, skill_latencies: { analyze: 800 } },
+      { over_cap: true, tool_counts: {}, skill_latencies: { analyze: 1100 } },
+      { over_cap: true },
+    )
+    client.setQueryData(qk.sessionCompare(UUID_A, UUID_B), fixture)
+    render(
+      <Wrap client={client}>
+        <SessionCompareView a={UUID_A} b={UUID_B} />
+      </Wrap>,
+    )
+    // Tool-counts EmptyState present (existing CMPR-04 behaviour).
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Session too long for full diff/i),
+      ).toBeInTheDocument()
+    })
+    // Per-skill latency section STILL renders alongside the over-cap fallback.
+    expect(
+      screen.getByTestId('session-compare-skill-latency-section'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByTestId('session-compare-skill-latency-delta-analyze'),
+    ).toHaveTextContent('+300ms')
+  })
+
   it('renders structured tabular data only — no raw LLM message content (CMPR-05)', async () => {
     // CMPR-05 is a HARD constraint: only KPI tiles, charts, and DataTable
     // rows are allowed. No text-diff library, no message body rendering.
@@ -299,8 +412,10 @@ describe('SessionCompareView', () => {
     const table = screen.getByRole('table', { name: /tool counts diff/i })
     expect(table).toBeInTheDocument()
     expect(screen.getByText('Tool')).toBeInTheDocument()
-    // 'A' / 'B' / 'Δ (B−A)' headers rendered.
-    expect(screen.getByText('Δ (B−A)')).toBeInTheDocument()
+    // 'Δ (B−A)' header rendered. NOTE: the per-skill latency section
+    // (Phase 23 CMPR-06) ALSO renders this exact header, so use getAllByText
+    // and assert at least one match — both surfaces use the same idiom.
+    expect(screen.getAllByText('Δ (B−A)').length).toBeGreaterThanOrEqual(1)
     // Read appears in both sides (A=4, B=8 → Δ +4). Substring asserts.
     expect(screen.getByText('Read')).toBeInTheDocument()
   })
