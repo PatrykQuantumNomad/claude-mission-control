@@ -14,11 +14,22 @@ A solo Claude Code developer can see what every agent session is doing, how toke
 
 **v1.2 Depth & Polish shipped 2026-05-09** at git `f00d349` — 4-day milestone (2026-05-05 → 2026-05-09), 6 phases (18–23), 22 plans, 178 files changed vs v1.1, +31,281 / -2,375 lines. ~62,883 LOC at close (~40,071 Python + ~22,812 TypeScript/TSX). Test suites green at close: 661 backend + 326 frontend + 13 Playwright e2e specs (vs Phase 18 baseline 566/293/7+1-skipped). Audit verified 12/12 active v1.2 requirements + 1/1 honestly deferred (SKLP-11 → v1.3 per Phase 22 spike negative finding) + 6/6 phases + 12/12 cross-phase integration + 5/5 E2E flows. One Alembic migration (`0003_project_key`); one new top-level route (`/cost`); zero new external dependencies.
 
-## Next Milestone: TBD
+## Current Milestone: v1.3 Surface Redesign
 
-**Goal:** TBD — define via `/gsd:new-milestone`.
+**Goal:** Rebuild the dashboard's UX from the ground up — address daily-use friction (panels exceeding viewport, Sheets/Popovers escaping bounds, data overflowing card edges), shift the aesthetic from IDE-references (Linear/Raycast/Vercel) to dashboard-product references (Honeycomb/Datadog/PostHog/Grafana family), and unlock targeted new capabilities (density toggle, saved views, customizable dashboards, multi-pane compare) without breaking existing URLs, API contracts, or test suites.
 
-**Likely v1.3 candidates (carried backlog from v1.2 deferrals + earlier wishlist):**
+**Target features:**
+
+- Full UX rebuild of every visible surface — shell + nav, activity/firehose/sessions, skills detail (`/skills/$name`), cost dashboard (`/cost`), alerts page (`/alerts`)
+- Three concrete overflow fixes — bounded panel heights with internal scroll; Sheet/Popover containment (no z-index/portal/overflow leaks); card-edge data containment (tables, charts, badges no longer break out of card padding)
+- Aesthetic shift to dashboard-product reference family — Honeycomb/Datadog density + PostHog typography & saved-views + Grafana grid/density-toggle patterns
+- Targeted new capabilities the new shell makes natural — density toggle, saved views, customizable dashboards, multi-pane compare (final selection scoped during requirements)
+- Full-stack rework where needed — new endpoints + schema migrations where the new UX requires different data shapes (e.g., saved views persistence)
+- Quality gates preserved — existing URLs / deep links keep working; existing API contracts extend-not-break; backend pytest + frontend vitest + Playwright e2e stay green at every phase close
+
+**Bite size:** Open-ended — ship when ready. This is genuinely larger than v1.0 (11 phases, fresh build), v1.1 (6 phases, depth), and v1.2 (6 phases, depth). User explicitly chose "ship when ready" over "match v1.1/v1.2 cadence" or "fixed ~8–10 phase budget".
+
+**Carried v1.3+ backlog (NOT necessarily this milestone — scoped in requirements step):**
 
 - **SKLP-11 retry** — per-skill body/subagent/tool latency overhead breakdown, gated on upstream OTEL data availability change (the Phase 22 spike's CT-1 coverage probe is the unblock condition)
 - **SKLP-12** — SKLP-11 percentile-split (p50 / p95 / p99 per overhead category)
@@ -115,7 +126,7 @@ A solo Claude Code developer can see what every agent session is doing, how toke
 
 ### Active
 
-TBD — define via `/gsd:new-milestone`. Detailed REQ-IDs land in `.planning/REQUIREMENTS.md` once requirements step completes for the next milestone.
+v1.3 Surface Redesign — detailed REQ-IDs land in `.planning/REQUIREMENTS.md` after the requirements step of `/gsd:new-milestone` completes. Milestone goal: full UX rebuild + dashboard-product aesthetic + targeted new capabilities (density toggle / saved views / customizable dashboards / multi-pane compare — final selection scoped during requirements). Constraints: URLs preserved, APIs extend-not-break, tests green throughout.
 
 ### Out of Scope
 
@@ -267,4 +278,4 @@ Hysteresis-aware threshold + EWMA z-score + sliding-window rolling-mean-±-stdde
 
 ---
 
-*Last updated: 2026-05-09 after v1.2 Depth & Polish milestone ship*
+*Last updated: 2026-05-10 after v1.3 Surface Redesign milestone start*

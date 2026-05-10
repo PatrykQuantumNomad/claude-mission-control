@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
-milestone: TBD
-milestone_name: TBD
-status: between_milestones
-stopped_at: v1.2 Depth & Polish shipped — ready to plan next milestone
-last_updated: "2026-05-09T13:00:00.000Z"
-last_activity: 2026-05-09
+milestone: v1.3
+milestone_name: Surface Redesign
+status: defining_requirements
+stopped_at: v1.3 Surface Redesign started — defining requirements
+last_updated: "2026-05-10T00:00:00.000Z"
+last_activity: 2026-05-10
 progress:
   total_phases: 0
   completed_phases: 0
@@ -18,20 +18,20 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-09 after v1.2 ship)
+See: .planning/PROJECT.md (updated 2026-05-10 after v1.3 milestone start)
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, what each skill costs and how often it fails, queue and approve tasks, compare two sessions side-by-side, get paged when metrics breach thresholds, and kill runaway sessions — all from one browser tab without maintaining external infrastructure.
 
-**Current focus:** Planning next milestone (`/gsd:new-milestone` to define v1.3 scope)
+**Current focus:** v1.3 Surface Redesign — defining requirements (full UX rebuild + dashboard-product aesthetic + targeted new capabilities)
 
 ## Current Position
 
-Phase: — (between milestones)
-Plan: Not started
-Status: v1.2 shipped — ready to plan
-Last activity: 2026-05-09 — v1.2 milestone complete (tag `v1.2`, commit `f00d349`)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-05-10 — Milestone v1.3 Surface Redesign started
 
-Progress: [          ] 0% (next milestone not yet defined)
+Progress: [          ] 0% (requirements + roadmap pending)
 
 ## Accumulated Context
 
@@ -76,6 +76,4 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 
 ## Next Step
 
-Run `/gsd:new-milestone` to define v1.3 scope. Likely candidates: SKLP-11 retry, SKLP-12/13, ANLY-08/09 (forecast confidence band, per-project budgets bridging cost/alerts), ALRT-15/16, CMPR-08/09, PLAT-01 Linux/systemd, AUTO-01..03.
-
-**Recommended:** `/clear` first → fresh context window before `/gsd:new-milestone`.
+Continuing `/gsd:new-milestone` workflow — research decision → requirements definition → roadmap creation. After roadmap approval, the next user-facing step will be `/gsd:discuss-phase 24` (or `/gsd:plan-phase 24` to skip discussion).
