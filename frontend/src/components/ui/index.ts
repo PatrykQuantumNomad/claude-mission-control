@@ -19,6 +19,10 @@ export { CommandPalette } from './CommandPalette'
 // current panel primitives
 export { PanelCard } from './PanelCard'
 export type { PanelCardEmpty } from './PanelCard'
+// Phase 24 Plan 03 — containment primitives (CONT-03 / CONT-04).
+export { BoundedPanelCard } from './BoundedPanelCard'
+export { TruncatedCell } from './TruncatedCell'
+export { CopyIconButton } from './CopyIconButton'
 export { RangeToggle } from './RangeToggle'
 export type { RangeOption } from './RangeToggle'
 export { DataTable } from './DataTable'

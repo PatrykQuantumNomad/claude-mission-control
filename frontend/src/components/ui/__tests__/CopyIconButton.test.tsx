@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, userEvent, act } from '../../../test/utils'
+import { render, screen, userEvent, act, fireEvent } from '../../../test/utils'
 import { CopyIconButton } from '../CopyIconButton'
 
 // Mock writeText helper — vitest spies are reset per test via afterEach.
@@ -33,12 +33,16 @@ describe('CopyIconButton', () => {
   it('writes the value to clipboard on click and invokes onCopy', async () => {
     const writeText = mockClipboard()
     const onCopy = vi.fn()
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     render(<CopyIconButton value="session-abcdef-12345" onCopy={onCopy} />)
-    await user.click(screen.getByTestId('cell-copy-btn'))
+    // fireEvent.click is synchronous and bypasses userEvent's pointer-event
+    // pipeline (which interacts oddly with fake timers in this specific spec).
+    // The handler invokes writeText synchronously inside the void IIFE, so
+    // the spy is recorded before the click() returns.
+    fireEvent.click(screen.getByTestId('cell-copy-btn'))
     expect(writeText).toHaveBeenCalledWith('session-abcdef-12345')
     // onCopy fires after the awaited writeText resolves; flush microtasks.
     await act(async () => {
+      await Promise.resolve()
       await Promise.resolve()
     })
     expect(onCopy).toHaveBeenCalledTimes(1)

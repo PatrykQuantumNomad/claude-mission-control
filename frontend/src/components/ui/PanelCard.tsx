@@ -37,6 +37,16 @@ interface PanelCardProps<TData> {
   empty: PanelCardEmpty<TData>
   skeleton?: ReactNode
   hiddenWhenEmpty?: boolean
+  /**
+   * Phase 24 Plan 03 (CONT-04). Opt-in bounded mode: when true, the rendered
+   * <Card> root receives the `cmc-card--bounded` modifier class which pins the
+   * card to its parent's height and gives the inner `cmc-card__content` an
+   * internal scroll container. Default `false` preserves the legacy
+   * scroll-the-whole-page behavior — additive, backward compatible.
+   *
+   * Per-route adoption is Phase 26/27 (this plan only ships the primitive).
+   */
+  bounded?: boolean
   children: (data: TData) => ReactNode
 }
 
@@ -63,6 +73,7 @@ export function PanelCard<T>({
   empty,
   skeleton,
   hiddenWhenEmpty,
+  bounded,
   children,
 }: PanelCardProps<T>) {
   // hiddenWhenEmpty: short-circuit to null (used by AttentionBar).
@@ -76,8 +87,10 @@ export function PanelCard<T>({
     return null
   }
 
+  // bounded omitted/false → className="" → Card emits "cmc-card" (byte-identical
+  // to the legacy output). bounded=true → "cmc-card cmc-card--bounded".
   return (
-    <Card>
+    <Card className={bounded ? 'cmc-card--bounded' : ''}>
       <CardHeader>
         <div className="cmc-panel-card__header">
           <div>
