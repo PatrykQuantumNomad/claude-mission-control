@@ -10,8 +10,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render } from '../../../test/utils'
 import { AppShell } from '../AppShell'
 
-// Note: AppShell renders NavBar which now mounts EmergencyStopBanner —
-// requires QueryClientProvider. We stub fetch to a benign idle response.
+// Phase 24 Plan 04 (SHEL-01..04): AppShell now renders Sidebar + AppShellHeader
+// (replacing the deleted NavBar). AppShellHeader still mounts EmergencyStopBanner
+// — requires QueryClientProvider. We stub fetch to a benign idle response.
 function makeRouter() {
   const rootRoute = createRootRoute({
     component: () => (
@@ -53,7 +54,7 @@ describe('AppShell', () => {
     vi.restoreAllMocks()
   })
 
-  it('renders NavBar and children inside <main>', async () => {
+  it('renders Sidebar (with brand) + children inside <main>', async () => {
     const router = makeRouter()
     const client = makeClient()
     await router.load()

@@ -2094,3 +2094,160 @@ body {
   outline-offset: 2px;
   opacity: 1;
 }
+
+/* ─────────────────────────────────────────────────────────── */
+/* Shell rework — Phase 24 (SHEL-01..04)                       */
+/* ─────────────────────────────────────────────────────────── */
+/*
+ * Overrides the legacy `.cmc-shell { flex-direction: column }` rule above by
+ * coming later in the cascade. The legacy `.cmc-navbar` / `.cmc-navlink`
+ * blocks become dead code once NavBar.tsx is deleted in this plan; they are
+ * left in place so a `git revert` of the deletion commit fully restores the
+ * old shell. (POLI-12: dead-code cleanup is a separate concern from feature
+ * shipping.)
+ */
+
+.cmc-shell {
+  display: flex;
+  flex-direction: row;          /* WAS: column. Sidebar | (Header + Main). */
+  min-height: 100%;
+}
+.cmc-shell__column {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;                  /* horizontal twin of min-height: 0 ladder; */
+  min-height: 0;                 /* prevents h-scrollbar when sidebar collapses. */
+}
+.cmc-main {
+  flex: 1;
+  padding: var(--cmc-space-lg);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* AppShellHeader (SHEL-02) */
+.cmc-app-shell-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cmc-space-sm);
+  padding: var(--cmc-space-sm) var(--cmc-space-lg);
+  border-bottom: 1px solid var(--cmc-border);
+  background: var(--cmc-surface);
+  z-index: var(--cmc-z-header);
+  flex-shrink: 0;
+}
+.cmc-app-shell-header__left,
+.cmc-app-shell-header__right {
+  display: flex;
+  align-items: center;
+  gap: var(--cmc-space-sm);
+}
+
+/* Sidebar (SHEL-01, SHEL-04) */
+.cmc-sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--cmc-surface);
+  border-right: 1px solid var(--cmc-border);
+  transition: width 180ms ease-out;
+  z-index: var(--cmc-z-sidebar);
+}
+[data-sidebar-collapsed="true"] .cmc-sidebar { width: 52px; }
+
+.cmc-sidebar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cmc-space-sm);
+  padding: var(--cmc-space-md);
+  border-bottom: 1px solid var(--cmc-border);
+}
+[data-sidebar-collapsed="true"] .cmc-sidebar__brand { display: none; }
+[data-sidebar-collapsed="true"] .cmc-sidebar__header {
+  padding: var(--cmc-space-sm);
+  justify-content: center;
+}
+
+.cmc-sidebar__collapse-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--cmc-control-height-sm);
+  height: var(--cmc-control-height-sm);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--cmc-text-dim);
+  cursor: pointer;
+}
+.cmc-sidebar__collapse-toggle:hover {
+  color: var(--cmc-text);
+  border-color: var(--cmc-border);
+}
+.cmc-sidebar__collapse-toggle:focus-visible {
+  outline: 2px solid var(--cmc-accent-blue);
+  outline-offset: 2px;
+}
+
+.cmc-sidebar__section {
+  display: flex;
+  flex-direction: column;
+  padding: var(--cmc-space-sm) 0;
+}
+.cmc-sidebar__section-header {
+  font-family: var(--font-mono, monospace);
+  font-size: var(--cmc-size-label);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cmc-text-subtle, var(--cmc-text-dim));
+  padding: 0 var(--cmc-space-md);
+  margin: var(--cmc-space-sm) 0 var(--cmc-space-2xs);
+}
+[data-sidebar-collapsed="true"] .cmc-sidebar__section-header { display: none; }
+[data-sidebar-collapsed="true"] .cmc-sidebar__section { padding: var(--cmc-space-2xs) 0; }
+[data-sidebar-collapsed="true"] .cmc-sidebar__section + .cmc-sidebar__section {
+  border-top: 1px solid var(--cmc-border);
+}
+
+.cmc-sidebar__navlink {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--cmc-space-sm);
+  height: var(--cmc-row-height-list);
+  padding: 0 var(--cmc-space-md);
+  color: var(--cmc-text-dim);
+  text-decoration: none;
+  border-left: 3px solid transparent;
+}
+.cmc-sidebar__navlink:hover {
+  color: var(--cmc-text);
+  background: var(--cmc-surface-2, rgba(255, 255, 255, 0.04));
+}
+.cmc-sidebar__navlink--active {
+  color: var(--cmc-text);
+  background: rgba(77, 124, 255, 0.10);
+  border-left-color: var(--cmc-accent-blue, #4d7cff);
+}
+.cmc-sidebar__navlink-icon {
+  width: var(--cmc-icon-size-lg);
+  height: var(--cmc-icon-size-lg);
+  flex-shrink: 0;
+}
+[data-sidebar-collapsed="true"] .cmc-sidebar__navlink-label { display: none; }
+[data-sidebar-collapsed="true"] .cmc-sidebar__navlink {
+  justify-content: center;
+  padding: 0;
+}
+
+/* Brand inside sidebar — overrides the legacy .cmc-brand gradient size so the
+ * brand fits the sidebar header at every density tier. */
+.cmc-sidebar__brand {
+  font-weight: 600;
+  font-size: var(--cmc-size-body);
+  color: var(--cmc-text);
+}
