@@ -2,12 +2,14 @@ import { StrictMode } from 'react'
 import ReactDOM from 'react-dom/client'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { routeTree } from './routeTree.gen'
+import { applyDensity } from './lib/density'
 import { applyTheme } from './lib/theme'
 import './styles.css'
 
-// current — apply persisted theme BEFORE first paint. Sets
-// document.documentElement.dataset.theme so [data-theme="light"] CSS overrides
-// kick in synchronously and we never see a flash of wrong theme on cold load.
+// Phase 24 Plan 01 — apply persisted density BEFORE theme so density tokens
+// resolve on :root before any [data-theme="light"] override depends on them.
+// Both run BEFORE first paint to avoid a flash of wrong density/theme.
+applyDensity()
 applyTheme()
 
 const router = createRouter({ routeTree })
