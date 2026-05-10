@@ -1,3 +1,11 @@
+// CONT-02 audit note (Phase 24): The framer-motion <motion.div> on the Sheet panel
+// applies transform: translateX(...). v1.2 baseline has NO Radix Portal children inside
+// Sheet body; if a future phase needs to mount a DropdownMenu/Popover inside a Sheet,
+// either (a) swap framer-motion for a CSS-keyframe animation that animates non-transform
+// properties (e.g., `right`), OR (b) verify the inner Portal mounts correctly via Radix
+// `container` prop and visually validate it isn't clipped.
+// See .planning/phases/24-shell-density-containment-primitives/24-TRANSFORM-AUDIT.md.
+//
 // Sheet — UI-SPEC FESH-04. Wraps Radix Dialog with framer-motion slide-from-right
 // (220ms ease-out per Motion Contract). Locks Dialog.Title for aria-labelledby
 // (Radix logs a console error otherwise — design notes note). `description` is optional

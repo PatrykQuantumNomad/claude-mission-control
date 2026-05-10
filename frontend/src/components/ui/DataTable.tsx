@@ -7,8 +7,16 @@
 // Filtering is opt-in: when `search` is a non-empty string AND `searchKeys`
 // is provided, rows are reduced to those whose value at any of the keys
 // contains the search string (case-insensitive substring).
+//
+// Phase 24 Plan 03 (CONT-03): cells whose `cell()` render returns a primitive
+// string are auto-wrapped in <TruncatedCell>. Render-fn columns returning JSX
+// (Badges, Links, custom layouts) retain full control over their cell output —
+// TruncatedCell is applied automatically only to columns rendering raw string
+// values. Per-column opt-out via `wrap: true`; per-column copy affordance via
+// `copyable: true`.
 
 import { ReactNode } from 'react'
+import { TruncatedCell } from './TruncatedCell'
 
 export interface DataTableColumn<T> {
   id: string
@@ -19,6 +27,27 @@ export interface DataTableColumn<T> {
    * String comparison on the cell render output (best-effort). */
   sort?: (a: T, b: T) => number
   width?: string | number
+  /**
+   * Phase 24 Plan 03 (CONT-03). When true, cell content wraps to multiple
+   * lines instead of truncating. Default: false (truncate via TruncatedCell).
+   * Use for notes/description columns where multi-line rendering is desired.
+   */
+  wrap?: boolean
+  /**
+   * Phase 24 Plan 03 (CONT-03). When true, render the copy-icon affordance
+   * via TruncatedCell. Use for known-long fields (session-id, cwd, skill-name).
+   * Only applies to string-valued cells; render-fn columns are unaffected.
+   */
+  copyable?: boolean
+}
+
+/**
+ * Heuristic: cells that render as a primitive string (or number coerced to
+ * string) are eligible for TruncatedCell auto-wrapping. JSX nodes (objects),
+ * booleans, null, undefined fall through to the legacy raw-render path.
+ */
+function isPlainTextCell(value: ReactNode): value is string | number {
+  return typeof value === 'string' || typeof value === 'number'
 }
 
 export interface DataTableSort {
@@ -98,6 +127,7 @@ export function DataTable<T>({
 
   return (
     <div>
+      <div className="cmc-table-wrap">
       <table className="cmc-table" aria-label={ariaLabel}>
         <thead>
           <tr>
@@ -132,14 +162,26 @@ export function DataTable<T>({
           ) : (
             paginated.map((row) => (
               <tr key={rowKey(row)}>
-                {columns.map((col) => (
-                  <td key={col.id}>{col.cell(row)}</td>
-                ))}
+                {columns.map((col) => {
+                  const rendered = col.cell(row)
+                  // wrap=true opts out of truncation; render exactly as before.
+                  // Otherwise, plain-text cells get TruncatedCell wrapping
+                  // (CONT-03). JSX cells pass through untouched.
+                  if (col.wrap === true || !isPlainTextCell(rendered)) {
+                    return <td key={col.id}>{rendered}</td>
+                  }
+                  return (
+                    <td key={col.id}>
+                      <TruncatedCell value={String(rendered)} copyable={col.copyable} />
+                    </td>
+                  )
+                })}
               </tr>
             ))
           )}
         </tbody>
       </table>
+      </div>
       {typeof pageSize === 'number' && totalRows > pageSize ? (
         <div className="cmc-table__pagination">
           <span>
