@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Surface Redesign
-status: roadmap_complete
-stopped_at: v1.3 Surface Redesign roadmap created — 5 phases (24-28), 45 active requirements mapped
-last_updated: "2026-05-10T00:00:00.000Z"
-last_activity: 2026-05-10
+status: in_progress
+stopped_at: Phase 24 Plan 01 complete — density tokens + z-index ladder + 3 CSS overflow fixes + lib/density.ts + 4 v1.3 deps installed (commits 396c092, 2e064cc)
+last_updated: "2026-05-10T13:47:11.889Z"
+last_activity: 2026-05-10 — Phase 24 Plan 01 shipped (density foundation), 24-01-SUMMARY.md authored
 progress:
   total_phases: 5
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 7
+  completed_plans: 1
+  percent: 14
 ---
 
 # Project State
@@ -22,20 +22,21 @@ See: .planning/PROJECT.md (updated 2026-05-10 after v1.3 milestone start)
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, what each skill costs and how often it fails, queue and approve tasks, compare two sessions side-by-side, get paged when metrics breach thresholds, and kill runaway sessions — all from one browser tab without maintaining external infrastructure.
 
-**Current focus:** v1.3 Surface Redesign — full UX rebuild + dashboard-product aesthetic + targeted new capabilities. Roadmap created (Phases 24-28, 45 active requirements). Awaiting Phase 24 plan authoring.
+**Current focus:** v1.3 Surface Redesign — Phase 24 Plan 01 complete. Density tokens + z-index ladder + 3 CSS overflow fixes (CONT-02/03/05) + lib/density.ts boot wiring + 4 v1.3 deps installed. Substrate now stable for plans 02-07.
 
 ## Current Position
 
-Phase: 24 — Shell + Density + Containment Primitives (not started)
-Plan: —
-Status: Roadmap complete; ready for `/gsd:discuss-phase 24` (or `/gsd:plan-phase 24` to skip discussion)
-Last activity: 2026-05-10 — v1.3 roadmap authored, REQUIREMENTS.md traceability filled (45/45 mapped)
+Phase: 24 — Shell + Density + Containment Primitives (1/7 plans complete)
+Plan: 01 ✅ → next: 02 (DensityToggle component)
+Status: Plan 01 shipped. Ready for plan 02 execution.
+Last activity: 2026-05-10 — 24-01-SUMMARY.md authored, commits 396c092 (lib + deps) + 2e064cc (styles.css edits A-F) landed.
 
-Progress: [          ] 0% of v1.3 (0/5 phases complete)
+Progress (Phase 24 plans): [█░░░░░░░░░] 14% (1/7 plans complete)
 
 ## Performance Metrics
 
 **v1.2 close baselines (verifier targets for v1.3 phases):**
+
 - Backend pytest: 661 / 0 / 0 (passed/failed/skipped)
 - Frontend vitest: 326 / 0 / 0
 - Playwright e2e: 13 specs (11 passing + 2 dev-DB-state-dependent skips: `alerts.spec.ts:40 TEST-05a`, `skills-detail.spec.ts:25 SKLP-08/09/10`)
@@ -43,6 +44,7 @@ Progress: [          ] 0% of v1.3 (0/5 phases complete)
 - Deprecation warnings: 0 (POLI-06 baseline)
 
 **v1.3 net new dependency budget (locked at requirements):**
+
 - Frontend (3): `@radix-ui/react-popover@1.1.15`, `@radix-ui/react-dropdown-menu@2.1.16`, `react-resizable-panels@4.11.0`
 - Backend: 1 Alembic migration (`0004_saved_views`); 0 Python deps
 
@@ -78,6 +80,15 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 - Formal per-phase visual checkpoint pattern (POLI-09) — each phase ends with operator-driven visual review at `.planning/phases/{N}/VISUAL-CHECK.md`. Verifier gates on visual checkpoint pass.
 - Phase 28 (Layout Customization) ships LAST — depends on stable `validateSearch` shapes (Phase 25) and saved-view `state_json` (Phase 25). Layout state piggybacks on `state_json` (no new DB table).
 - Tech debt closure (TDBT-01..03) lives in Phase 27 — bundled with `/skills`/`/cost`/`/alerts` per-route adoption because the shell rework makes the fixes natural.
+
+**v1.3 Phase 24 plan-01 execution decisions:**
+
+- `lib/density.ts` is a near-exact clone of `lib/theme.ts` (same SSR guards, 5-symbol export surface, KEY=`cmc.density`, default=`comfortable`). Established pattern: any future :root-scoped UX preference (motion=normal|reduced, etc.) follows this shape.
+- `applyDensity()` runs BEFORE `applyTheme()` in main.tsx so density tokens resolve on :root before any [data-theme="light"] rule depends on them — guaranteed by execution order at boot.
+- Z-index ladder spaced by 10 with `calc(var(--cmc-z-X) + 1)` for sibling-above-same-family overlays — keeps the named ladder clean (no `--cmc-z-sheet-panel` proliferation).
+- `--cmc-*` token namespace coexists with legacy `--space-*`/`--size-*`. Per-route migration is explicitly Phase 26/27; mid-phase token rewrites would break the v1.2 vitest baseline before plan 04's visual checkpoint.
+- AlertDialog selector names verified against tree before edit — actual classes are singular `.cmc-alertdialog-overlay` / `.cmc-alertdialog`, not BEM `__overlay`/`__panel`. Plan-text speculation overridden by source-of-truth scan.
+- `.cmc-btn:hover` lifts via `top: -2px` + `box-shadow` (NOT `transform`) — locked invariant for any future hover-lift effect on a Radix Portal trigger.
 
 ### Resolved Blockers
 
@@ -116,10 +127,23 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 2. ✅ Research (SUMMARY/STACK/FEATURES/ARCHITECTURE/PITFALLS authored 2026-05-10)
 3. ✅ Requirements definition (REQUIREMENTS.md authored 2026-05-10 — 45 active across 9 categories)
 4. ✅ Roadmap creation (ROADMAP.md authored 2026-05-10 — Phases 24-28, 45/45 mapped)
-5. ⏳ Phase 24 discussion / plan authoring (next user step)
-6. Phase 24 → 25 → 26 → 27 → 28 execution
-7. v1.3 milestone audit + close
+5. ✅ Phase 24 plans authored (01-07-PLAN.md present)
+6. ⏳ Phase 24 execution (1/7 plans complete: Plan 01 shipped 2026-05-10)
+7. Phase 24 → 25 → 26 → 27 → 28 execution
+8. v1.3 milestone audit + close
+
+**Phase 24 plan execution log:**
+
+| Plan | Status | Commits | Notes |
+|---|---|---|---|
+| 01 — Foundation primitives | ✅ Complete (2026-05-10) | 396c092, 2e064cc | density tokens + z-index ladder + 3 CSS overflow fixes (CONT-02/03/05) + lib/density.ts + 4 v1.3 deps |
+| 02 — DensityToggle | ⏳ next | — | ~80 lines TSX consuming `.cmc-density-toggle` skeleton from plan 01 |
+| 03 — BoundedPanelCard | pending | — | additive to styles.css; consumes plan 01 padding/row tokens |
+| 04 — Shell redesign | pending | — | consumes plan 01 z-index/density tokens; first visual checkpoint |
+| 05 — Saved views | pending | — | new Alembic migration `0004_saved_views`; depends on plan 04 shell |
+| 06 — Docs | pending | — | docs/testid-registry.md + z-index-ladder.md |
+| 07 — Quality gates | pending | — | wires lhci + axe-playwright (installed in plan 01) into CI |
 
 ## Next Step
 
-Run `/gsd:discuss-phase 24` (or `/gsd:plan-phase 24` to skip discussion and go straight to planning).
+Run `/gsd:execute-phase 24 02` to continue Phase 24 execution.

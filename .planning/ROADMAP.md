@@ -76,7 +76,14 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
   3. User scrolls a long table inside any panel and the panel itself stays bounded — internal scroll appears, the page does not grow taller than the viewport, and long cell content (session IDs, cwd paths, skill names) truncates with tooltip-on-hover instead of breaking out of card padding
   4. User collapses the new left sidebar to icon-only via toggle or keyboard shortcut, the choice persists in localStorage across reloads, and the active route stays visually highlighted in either expanded or icon-only mode
   5. Phase ships with: `docs/z-index-ladder.md` documenting overlay layers; `docs/url-contract.md` + `tests/test_url_contract.py` enforcing every preserved URL pattern; `docs/affordance-checklist.md` enumerating 15 keyboard/interaction affordances; `docs/testid-registry.md` + ESLint rule; axe-core wired into Playwright; React DevTools profiler perf evidence; visual checkpoint at `.planning/phases/24/VISUAL-CHECK.md`; backend pytest + frontend vitest + Playwright e2e all green vs Phase 18 baseline
-**Plans**: TBD
+**Plans**: 7 plans
+- [x] 01-PLAN.md — Foundation: install deps, density tokens on :root, z-index ladder, min-width:0 on .cmc-card, .cmc-btn:hover transform mitigation, lib/density.ts + applyDensity() pre-mount _(complete 2026-05-10 — 396c092, 2e064cc)_
+- [ ] 02-PLAN.md — Density UX: DensityToggle (Radix DropdownMenu) + DensityProvider (no React context) + cascade + persistence vitest tests
+- [ ] 03-PLAN.md — Containment primitives: BoundedPanelCard / TruncatedCell / CopyIconButton + .cmc-page--bounded + DataTable wrap/copyable opt-in/out + transform-audit deliverable
+- [ ] 04-PLAN.md — Shell rework: Sidebar (Cmd+B + collapse + active-route bar) + AppShellHeader extraction + DensityProvider stack + delete NavBar.tsx (human checkpoint)
+- [ ] 05-PLAN.md — Quality-gate Playwright specs (visual capture / axe / portal-containment / sidebar / density / truncation / copy-cell) + lighthouserc.json + URL-contract pytest
+- [ ] 06-PLAN.md — POLI docs (z-index-ladder / affordance-checklist / url-contract / testid-registry) + ESLint flat config + custom rules (testid-registry-only, no-raw-z-index)
+- [ ] 07-PLAN.md — Phase close gate: run matrix (visual + axe + Lighthouse + perf) and write 24-VISUAL-CHECK.md verdict (human checkpoint)
 **UI hint**: yes
 
 ### Phase 25: Saved Views (Backend + Frontend)
@@ -160,7 +167,7 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 | 21. Alert Anomaly Depth & NL Authoring | v1.2 | 3/3 | Complete | 2026-05-07 |
 | 22. Skill Latency Overhead (spike-gated) | v1.2 | 2/2 | Complete | 2026-05-08 |
 | 23. Compare Depth & Milestone Close | v1.2 | 4/4 | Complete | 2026-05-09 |
-| 24. Shell + Density + Containment Primitives | v1.3 | 0/0 | Not started | — |
+| 24. Shell + Density + Containment Primitives | v1.3 | 1/7 | In Progress|  |
 | 25. Saved Views (Backend + Frontend) | v1.3 | 0/0 | Not started | — |
 | 26. Per-Route Adoption I + Time + Cmd+K | v1.3 | 0/0 | Not started | — |
 | 27. Per-Route Adoption II + Tech Debt | v1.3 | 0/0 | Not started | — |
