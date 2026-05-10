@@ -22,10 +22,10 @@ Categorized by surface area. Each maps to exactly one phase in `ROADMAP.md` once
 
 ### Containment (CONT) — fix the three named overflow failure modes
 
-- [ ] **CONT-01**: Panels do not exceed viewport height. Page-height constraint via `.cmc-page--bounded` modifier; `min-height: 0` flex ladder; internal panel scroll on bounded content.
-- [ ] **CONT-02**: Sheets, Popovers, and DropdownMenus render via Radix Portal at viewport-fixed coordinates without clipping or escaping their stacking context. Root-cause audit (recharts `ResponsiveContainer` transform creates new containing block for `position: fixed` descendants) lands as a Phase 24 deliverable.
-- [ ] **CONT-03**: Data inside cards (tables, charts, badges, KPI numbers) does not break out of card padding. Single global one-line fix: `min-width: 0` on `.cmc-card` (CSS Grid implicit min-content rule) — benefits every route. Plus `cmc-table-wrap` utility on DataTable + `cmc-cell--truncate` on overflowable cells.
-- [ ] **CONT-04**: `BoundedPanelCard` primitive + `bounded` prop on `PanelCard` + `.cmc-page--bounded` page modifier — opt-in, backward-compatible. Existing legacy "scroll the whole page" behavior preserved when not opted in.
+- [x] **CONT-01**: Panels do not exceed viewport height. Page-height constraint via `.cmc-page--bounded` modifier; `min-height: 0` flex ladder; internal panel scroll on bounded content.
+- [x] **CONT-02**: Sheets, Popovers, and DropdownMenus render via Radix Portal at viewport-fixed coordinates without clipping or escaping their stacking context. Root-cause audit (recharts `ResponsiveContainer` transform creates new containing block for `position: fixed` descendants) lands as a Phase 24 deliverable.
+- [x] **CONT-03**: Data inside cards (tables, charts, badges, KPI numbers) does not break out of card padding. Single global one-line fix: `min-width: 0` on `.cmc-card` (CSS Grid implicit min-content rule) — benefits every route. Plus `cmc-table-wrap` utility on DataTable + `cmc-cell--truncate` on overflowable cells.
+- [x] **CONT-04**: `BoundedPanelCard` primitive + `bounded` prop on `PanelCard` + `.cmc-page--bounded` page modifier — opt-in, backward-compatible. Existing legacy "scroll the whole page" behavior preserved when not opted in.
 - [ ] **CONT-05**: z-index ladder documented in `docs/z-index-ladder.md` and respected by all overlay primitives (Sheet, Popover, DropdownMenu, AlertDialog, Cmd+K).
 
 ### Shell (SHEL) — new dashboard-product chrome
@@ -180,10 +180,10 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CONT-01 | Phase 24 | Pending |
-| CONT-02 | Phase 24 | Pending |
-| CONT-03 | Phase 24 | Pending |
-| CONT-04 | Phase 24 | Pending |
+| CONT-01 | Phase 24 | Complete |
+| CONT-02 | Phase 24 | Complete |
+| CONT-03 | Phase 24 | Complete |
+| CONT-04 | Phase 24 | Complete |
 | CONT-05 | Phase 24 | Pending |
 | SHEL-01 | Phase 24 | Pending |
 | SHEL-02 | Phase 24 | Pending |
