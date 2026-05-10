@@ -39,9 +39,9 @@ Categorized by surface area. Each maps to exactly one phase in `ROADMAP.md` once
 
 ### Density (DENS) — 3-tier dashboard density
 
-- [ ] **DENS-01**: 3-tier density toggle (Compact / Comfortable / Cozy) implemented as `[data-density]` attribute on `<html>` via `lib/density.ts` (mirrors `lib/theme.ts` pattern). Default Comfortable. CSS-only swap; no React re-renders on toggle.
-- [ ] **DENS-02**: CSS-variable token migration across ~30 panels. Spacing, font-size, icon-size, line-height, control-height all density-aware. Density tokens scoped to `:root` (not subtree) so they cascade into Radix Portal content (Sheets, Popovers, Cmd+K).
-- [ ] **DENS-03**: localStorage persistence with pre-mount apply (no flash). DensityProvider stacks alongside existing ActiveSessionProvider + TaskComposerProvider in `__root.tsx`.
+- [x] **DENS-01**: 3-tier density toggle (Compact / Comfortable / Cozy) implemented as `[data-density]` attribute on `<html>` via `lib/density.ts` (mirrors `lib/theme.ts` pattern). Default Comfortable. CSS-only swap; no React re-renders on toggle. _(Phase 24 Plan 02 — DensityToggle.tsx)_
+- [x] **DENS-02**: CSS-variable token migration across ~30 panels. Spacing, font-size, icon-size, line-height, control-height all density-aware. Density tokens scoped to `:root` (not subtree) so they cascade into Radix Portal content (Sheets, Popovers, Cmd+K). _(Phase 24 Plan 01 + Plan 02 — :root cascade pinned by vitest at html-element scope; full Portal-descendant runtime cascade verified by Plan 05 Playwright fixture per documented happy-dom limitation)_
+- [x] **DENS-03**: localStorage persistence with pre-mount apply (no flash). DensityProvider stacks alongside existing ActiveSessionProvider + TaskComposerProvider in `__root.tsx`. _(Phase 24 Plan 02 — DensityProvider.tsx is intentionally NOT a React Context; mount-time useEffect re-applies density for HMR safety; root.tsx wiring deferred to Plan 04 shell rework)_
 
 ### Saved Views (VIEW) — server-persisted, per-route, URL-shareable
 

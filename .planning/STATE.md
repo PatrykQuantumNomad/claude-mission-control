@@ -2,16 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Surface Redesign
-status: in_progress
-stopped_at: Phase 24 Plan 01 complete — density tokens + z-index ladder + 3 CSS overflow fixes + lib/density.ts + 4 v1.3 deps installed (commits 396c092, 2e064cc)
-last_updated: "2026-05-10T13:47:11.889Z"
-last_activity: 2026-05-10 — Phase 24 Plan 01 shipped (density foundation), 24-01-SUMMARY.md authored
+status: Plans 01-03 shipped (Wave 1 + Wave 2). Ready for Plan 04 execution.
+last_updated: "2026-05-10T14:05:00.000Z"
+last_activity: 2026-05-10 — 24-03-SUMMARY.md authored. Plan 03 wave-2 complete: commits 939cd3e (CSS containment + truncation rules), dddae8d (RED tests), eb43306 (GREEN: BoundedPanelCard + TruncatedCell + CopyIconButton), eafa47a (DataTable wrap+copyable + Sheet annotation + 24-TRANSFORM-AUDIT.md). Plan 02 ran in parallel and landed commits 49c135a + b9d5e2e independently.
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 7
-  completed_plans: 1
-  percent: 14
+  completed_plans: 3
+  percent: 43
 ---
 
 # Project State
@@ -22,16 +21,16 @@ See: .planning/PROJECT.md (updated 2026-05-10 after v1.3 milestone start)
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, what each skill costs and how often it fails, queue and approve tasks, compare two sessions side-by-side, get paged when metrics breach thresholds, and kill runaway sessions — all from one browser tab without maintaining external infrastructure.
 
-**Current focus:** v1.3 Surface Redesign — Phase 24 Plan 01 complete. Density tokens + z-index ladder + 3 CSS overflow fixes (CONT-02/03/05) + lib/density.ts boot wiring + 4 v1.3 deps installed. Substrate now stable for plans 02-07.
+**Current focus:** v1.3 Surface Redesign — Phase 24 Plans 01-03 complete (Wave 1 substrate + Wave 2 density UX + containment primitives). Substrate + DENS-01..03 + CONT-01/04 ready; Plan 04 (shell redesign + first visual checkpoint) is next.
 
 ## Current Position
 
-Phase: 24 — Shell + Density + Containment Primitives (1/7 plans complete)
-Plan: 01 ✅ → next: 02 (DensityToggle component)
-Status: Plan 01 shipped. Ready for plan 02 execution.
-Last activity: 2026-05-10 — 24-01-SUMMARY.md authored, commits 396c092 (lib + deps) + 2e064cc (styles.css edits A-F) landed.
+Phase: 24 — Shell + Density + Containment Primitives (3/7 plans complete)
+Plan: 02 ✅ + Plan 03 ✅ (parallel wave) → next: 04 (shell redesign)
+Status: Plans 01-03 shipped (Wave 1 + Wave 2). Ready for Plan 04 execution.
+Last activity: 2026-05-10 — 24-03-SUMMARY.md authored. Plan 03 wave-2 complete: 4 task commits (939cd3e CSS, dddae8d RED, eb43306 GREEN, eafa47a DataTable+Sheet+audit). Plan 02 ran in parallel (commits 49c135a + b9d5e2e).
 
-Progress (Phase 24 plans): [█░░░░░░░░░] 14% (1/7 plans complete)
+Progress (Phase 24 plans): [████░░░░░░] 43% (3/7 plans complete)
 
 ## Performance Metrics
 
@@ -90,6 +89,19 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 - AlertDialog selector names verified against tree before edit — actual classes are singular `.cmc-alertdialog-overlay` / `.cmc-alertdialog`, not BEM `__overlay`/`__panel`. Plan-text speculation overridden by source-of-truth scan.
 - `.cmc-btn:hover` lifts via `top: -2px` + `box-shadow` (NOT `transform`) — locked invariant for any future hover-lift effect on a Radix Portal trigger.
 
+**v1.3 Phase 24 plan-02 execution decisions:**
+
+- DensityProvider is INTENTIONALLY not a React Context. POLI-11 zero-rerender becomes an architectural guarantee, not a discipline-enforced one — every density consumer reads the CSS cascade, no React subscription path exists. Adding a context here at any future point would silently break the invariant.
+- DensityToggle's local `useState` exists ONLY to drive the check-mark indicator inside the toggle's own DropdownMenu. Persistence + DOM mutation happens via `setDensity()` from `lib/density.ts`. This split (local state for own UI, no shared state for the value) is the same shape as ThemeToggle.
+- happy-dom (and jsdom) does NOT propagate `:root` CSS variables through `getComputedStyle` on descendants — verified empirically with a probe test against a bare `<div>` appended to `document.body`. Result: vitest cascade tests pin the html-element-level cascade and the data-density attribute flip; full Portal-descendant cascade verification (DENS-02) is delegated to Plan 05's Playwright fixture. Documented in plan-02 SUMMARY for plan 05's author.
+- Plan 02 vitest tests inject a minimal `[data-density="…"]` stylesheet rather than importing styles.css (vitest config sets `css: false`). Keeps the test focused on the cascade contract, avoids coupling unit tests to styles.css drift.
+- Sliders icon (NOT SlidersHorizontal/Vertical) is the locked density-toggle glyph per Phase 24 research — no substitution.
+
+**v1.3 Phase 24 plan-02 execution coordination notes:**
+
+- Pre-commit hook stashes unstaged files before tsc, so a sibling parallel agent's mid-TDD-cycle RED commit can transiently break the project tsc gate even when MY changes are isolated. Resolution: poll `pnpm tsc --noEmit` until the sibling agent reaches GREEN, then commit. Logged for orchestrator awareness — plans whose pre-commit hooks run project-wide tsc must tolerate transient red states from parallel TDD-RED commits.
+- Parallel-agent shared-worktree filesystem can lose tracked files via cross-agent pre-commit stash interactions or `git clean`-class operations. Plan-02 saw `frontend/src/__tests__/integration.test.tsx` deleted from working tree by sibling-agent activity; restored via `git checkout HEAD -- <file>` (single-file defensive recovery, not a destructive op). Counted as Rule 3 deviation in plan-02 SUMMARY. Worktree-isolation hardening (#3097) would prevent this.
+
 ### Resolved Blockers
 
 (Cleared at milestone close — see `.planning/milestones/v1.2-MILESTONE-AUDIT.md` for the full v1.2 issues-resolved log.)
@@ -128,7 +140,7 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 3. ✅ Requirements definition (REQUIREMENTS.md authored 2026-05-10 — 45 active across 9 categories)
 4. ✅ Roadmap creation (ROADMAP.md authored 2026-05-10 — Phases 24-28, 45/45 mapped)
 5. ✅ Phase 24 plans authored (01-07-PLAN.md present)
-6. ⏳ Phase 24 execution (1/7 plans complete: Plan 01 shipped 2026-05-10)
+6. ⏳ Phase 24 execution (3/7 plans complete: Plans 01-03 shipped 2026-05-10)
 7. Phase 24 → 25 → 26 → 27 → 28 execution
 8. v1.3 milestone audit + close
 
@@ -137,13 +149,13 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 | Plan | Status | Commits | Notes |
 |---|---|---|---|
 | 01 — Foundation primitives | ✅ Complete (2026-05-10) | 396c092, 2e064cc | density tokens + z-index ladder + 3 CSS overflow fixes (CONT-02/03/05) + lib/density.ts + 4 v1.3 deps |
-| 02 — DensityToggle | ⏳ next | — | ~80 lines TSX consuming `.cmc-density-toggle` skeleton from plan 01 |
-| 03 — BoundedPanelCard | pending | — | additive to styles.css; consumes plan 01 padding/row tokens |
-| 04 — Shell redesign | pending | — | consumes plan 01 z-index/density tokens; first visual checkpoint |
-| 05 — Saved views | pending | — | new Alembic migration `0004_saved_views`; depends on plan 04 shell |
+| 02 — DensityToggle | ✅ Complete (2026-05-10) | 49c135a, b9d5e2e | DensityToggle (Radix DropdownMenu, 3 tiers) + DensityProvider (no Context) + 7 vitest tests; POLI-11 zero-rerender locked by architecture; happy-dom Portal cascade limit deferred to Plan 05 Playwright |
+| 03 — BoundedPanelCard | ✅ Complete (2026-05-10) | 939cd3e, dddae8d, eb43306, eafa47a | parallel wave with plan 02; BoundedPanelCard + TruncatedCell + CopyIconButton primitives + DataTable wrap/copyable + 24-TRANSFORM-AUDIT.md (CONT-02 deliverable). CONT-01/02/03/04 all shipped. |
+| 04 — Shell redesign | ⏳ next | — | consumes plan 01 z-index/density tokens; mounts DensityToggle in header; first visual checkpoint |
+| 05 — Saved views | pending | — | new Alembic migration `0004_saved_views`; depends on plan 04 shell; ALSO add density-cascade Playwright spec (DENS-02 e2e gate) |
 | 06 — Docs | pending | — | docs/testid-registry.md + z-index-ladder.md |
 | 07 — Quality gates | pending | — | wires lhci + axe-playwright (installed in plan 01) into CI |
 
 ## Next Step
 
-Run `/gsd:execute-phase 24 02` to continue Phase 24 execution.
+Run `/gsd:execute-phase 24 04` to continue Phase 24 execution (shell redesign + first visual checkpoint).
