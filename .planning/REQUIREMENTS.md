@@ -176,18 +176,76 @@ Explicit exclusions for v1.3. Documented to prevent scope creep.
 
 ## Traceability
 
-Mapped during roadmap creation. Each requirement maps to exactly one phase.
+Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-roadmapper` against ROADMAP.md Phases 24–28.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (filled by gsd-roadmapper) | | |
+| CONT-01 | Phase 24 | Pending |
+| CONT-02 | Phase 24 | Pending |
+| CONT-03 | Phase 24 | Pending |
+| CONT-04 | Phase 24 | Pending |
+| CONT-05 | Phase 24 | Pending |
+| SHEL-01 | Phase 24 | Pending |
+| SHEL-02 | Phase 24 | Pending |
+| SHEL-03 | Phase 24 | Pending |
+| SHEL-04 | Phase 24 | Pending |
+| SHEL-05 | Phase 26 | Pending |
+| SHEL-06 | Phase 25 | Pending |
+| DENS-01 | Phase 24 | Pending |
+| DENS-02 | Phase 24 | Pending |
+| DENS-03 | Phase 24 | Pending |
+| VIEW-01 | Phase 25 | Pending |
+| VIEW-02 | Phase 25 | Pending |
+| VIEW-03 | Phase 25 | Pending |
+| VIEW-04 | Phase 25 | Pending |
+| VIEW-05 | Phase 25 | Pending |
+| VIEW-06 | Phase 25 | Pending |
+| VIEW-07 | Phase 25 | Pending |
+| VIEW-08 | Phase 25 | Pending |
+| VIEW-09 | Phase 25 | Pending |
+| TIME-01 | Phase 26 | Pending |
+| TIME-02 | Phase 26 | Pending |
+| TIME-03 | Phase 26 | Pending |
+| TIME-04 | Phase 26 | Pending |
+| TIME-05 | Phase 26 | Pending |
+| LAYO-01 | Phase 28 | Pending |
+| LAYO-02 | Phase 28 | Pending |
+| LAYO-03 | Phase 28 | Pending |
+| LAYO-04 | Phase 28 | Pending |
+| CMDK-01 | Phase 25 | Pending |
+| CMDK-02 | Phase 26 | Pending |
+| CMDK-03 | Phase 26 | Pending |
+| CMDK-04 | Phase 26 | Pending |
+| POLI-09 | Phase 24 | Pending |
+| POLI-10 | Phase 24 | Pending |
+| POLI-11 | Phase 24 | Pending |
+| POLI-12 | Phase 24 | Pending |
+| POLI-13 | Phase 24 | Pending |
+| POLI-14 | Phase 24 | Pending |
+| TDBT-01 | Phase 27 | Pending |
+| TDBT-02 | Phase 27 | Pending |
+| TDBT-03 | Phase 27 | Pending |
 
-**Coverage (pending roadmap):**
+**Coverage:**
 - v1.3 active requirements: 45 total
-- Mapped to phases: 0
-- Unmapped: 45 ⚠️ (resolved when roadmap completes)
+- Mapped to phases: 45 ✓
+- Unmapped: 0
+- Duplicates (mapped to >1 phase): 0
+
+**Per-phase rollup:**
+
+| Phase | Requirement Count | Requirement IDs |
+|-------|-------------------|-----------------|
+| Phase 24 | 18 | CONT-01..05, SHEL-01..04, DENS-01..03, POLI-09..14 |
+| Phase 25 | 11 | VIEW-01..09, CMDK-01, SHEL-06 |
+| Phase 26 | 9 | SHEL-05, TIME-01..05, CMDK-02..04 |
+| Phase 27 | 3 | TDBT-01..03 (plus per-route adoption work that consumes Phase 24 primitives + Phase 25 saved views + Phase 26 time picker for `/skills`, `/skills/$name`, `/cost`, `/alerts` — adoption work has no dedicated REQ-ID; success criteria gated via SC#1–SC#2 in ROADMAP.md Phase 27) |
+| Phase 28 | 4 | LAYO-01..04 |
+
+**Phase 27 note:** Phase 27 carries only 3 explicit REQ-IDs (TDBT-01..03) but performs the bulk of the per-route adoption sweep on the tail-end routes (`/skills`, `/skills/$name`, `/cost`, `/alerts`). The adoption work consumes Phase 24 primitives + Phase 25 saved views + Phase 26 time picker without introducing new requirements — this is structurally analogous to Phase 26 (which carries SHEL-05, TIME-01..05, CMDK-02..04 alongside its own per-route adoption on `/`, `/activity`, `/sessions/compare`). The split is honest: every requirement that introduces NEW capability lands in Phases 24-26 + 28; Phase 27 is the necessary tail-end adoption + tech-debt closure phase.
 
 ---
 
 *Requirements defined: 2026-05-10*
-*Last updated: 2026-05-10 after initial definition*
+*Traceability authored: 2026-05-10 (45/45 mapped, 0 orphans, 0 duplicates)*
+*Last updated: 2026-05-10 after roadmap creation*
