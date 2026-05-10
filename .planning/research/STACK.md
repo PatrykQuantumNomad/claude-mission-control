@@ -1,337 +1,247 @@
-# Stack Research — v1.2 Depth & Polish
+# Stack Research — v1.3 Surface Redesign
 
-**Domain:** Local-only single-user dashboard for Claude Code sessions — extending v1.1 with deeper analytics + NL-authored alerts + compare-view shortcuts.
-**Researched:** 2026-05-05
-**Confidence:** HIGH (every recommended addition verified against Context7 or official source; every "do not add" backed by an existing in-repo equivalent)
+**Domain:** Local-only single-user observability dashboard — Surface Redesign (UX rebuild, density toggle, saved views, customizable layouts, Sheet/Popover containment).
+**Researched:** 2026-05-10
+**Confidence:** HIGH for additions (every version verified via `npm view` against current registry on 2026-05-10; React 19 peerDeps individually confirmed). MEDIUM for the "stay" recommendations on charts and layouts (call-out notes flag the conditions that would flip them).
 
-## TL;DR
+## TL;DR (for the roadmapper)
 
-**Net new dependencies for v1.2: ZERO.**
+| Concern | Recommendation | Net new deps |
+|---|---|---|
+| 1. Bounded panel heights / overflow containment | **No new dep** — CSS Grid + `min-height: 0` + `overflow:auto` on PanelCard body. Codify in styles.css + a `<PanelCard scrollable>` prop. | 0 |
+| 2. Sheet/Popover/Menu containment | **Add `@radix-ui/react-popover` + `@radix-ui/react-dropdown-menu`.** Existing Dialog/AlertDialog/Tooltip are already Radix; this fills the gaps. Portal-based, z-index already coordinated for current Radix primitives. | 2 |
+| 3. Density toggle (compact / comfortable / cozy) | **No new dep** — extend the CSS-variable system already in `src/styles.css` (`:root` + `[data-theme="light"]`). Add `[data-density="compact|comfortable|cozy"]` on `<html>` and remap the existing `--space-*`, `--size-*`, row-height, and `--radius-*` tokens. Persist via `localStorage` mirrored into a TanStack Router root-route search param. | 0 |
+| 4. Saved views persistence | **URL-first via TanStack `validateSearch` + new `useDebouncedSearchSync` hook for write-back.** Server-persisted "named views" come **only** if a phase plan elevates cross-session naming/sharing. Default: URL-state for ephemeral filters; `localStorage` for "last view I had open"; **defer** server-persisted named views until a phase explicitly needs them — that phase adds `saved_views` table + `/v1/saved-views` route. | 0 in URL-only mode; +1 Alembic migration + 1 route file if/when server-persisted lane lands |
+| 5. Customizable dashboards (drag-resize panels) | **Hybrid: ship `react-resizable-panels@4.11.0` for split-pane / multi-pane compare layouts FIRST. Defer `react-grid-layout` until requirements lock that we actually need free-form Grafana-style grid rearrange.** Reasoning under §"Customizable Layouts". | +1 (immediate) / +2 (only if grid is locked) |
+| 6. Chart library scaling | **Stay on `recharts@3.8.1`. DO NOT switch to visx unless a specific dense panel hits a measurable perf wall (>1k SVG nodes / >16ms paint in Chrome perf tab on 2-week sliding-window panels).** If any single panel needs that level, add `visx` *only for that panel* — don't bulk-replace. | 0 (or scoped +1 only if a specific panel needs it) |
+| 7. Multi-pane compare beyond 2-up | **`react-resizable-panels` (same dep as #5) gives N-up split-pane for free** — `<PanelGroup direction="horizontal">` with N `<Panel>`s and `<PanelResizeHandle>`. No separate primitive needed. | 0 (covered by #5) |
 
-Every v1.2 feature is implementable with existing v1.1 stack. The detector math, NL grammar parsing, linear extrapolation, project breakdowns, time-window deltas, and Cmd+K context-aware actions all extend code that already ships in v1.1. The polish lane (utcnow → `datetime.now(UTC)`, aria-label disambiguation, fake-timer flake fixes) is a refactor, not a stack change.
-
-This is a deliberate "no new lanes" milestone — and that extends to dependencies.
-
----
-
-## Recommended Stack
-
-### Core Technologies (UNCHANGED from v1.1 — confirmed current)
-
-| Technology | Pinned (v1.1) | Latest Available | Action | Why |
-|------------|---------------|------------------|--------|-----|
-| Python | 3.13 | 3.13 | Hold | `requires-python = ">=3.13"` already in `pyproject.toml`; v1.2 features need nothing newer |
-| FastAPI | 0.136.1 | 0.136.1 | Hold | Already at latest as of 2026-05-05 |
-| Pydantic | 2.13.3 | 2.13.3 | Hold | Latest stable; PlainSerializer + UTCDatetime patterns already proven in v1.1 |
-| SQLAlchemy | 2.0.49 | 2.0.49 | Hold | Latest 2.x; window functions + CTE support sufficient for SKLP-08/09/10 + ANLY-07 |
-| SQLModel | 0.0.38 | 0.0.38 | Hold | Compatible with Pydantic 2.13.x |
-| aiosqlite | 0.22.1 | 0.22.1 | Hold | WAL mode + per-task scoped sessions still the v1.0 contract |
-| Alembic | 1.18.4 | 1.18.4 | Hold | No schema changes for v1.2 — every feature reads existing tables |
-| anthropic (Python SDK) | 0.97.0 | 0.99.0 | Hold (or bump in polish) | 0.97 → 0.99 is non-breaking; not required for v1.2 functionality. `claude-haiku-4-5` model alias is supported in both. |
-| React | 19.2.5 | 19.2.x | Hold | StrictMode double-invoke pattern already accommodated |
-| Vite | 8.0.10 | 8.x | Hold | No build-tool changes needed |
-| TanStack Router | 1.168.24 | 1.169.1 | Hold (or bump in polish) | Patch-level drift; `validateSearch` + function-form `search` already proven |
-| TanStack Query | 5.100.5 | 5.100.9 | Hold | 30s poll cadence locked; placeholderData + select() patterns extend cleanly |
-| cmdk | 1.1.1 | 1.1.1 | Hold | Already latest. `useCommandState` + conditional rendering covers CMPR-07 |
-| recharts | 3.8.1 | 3.8.1 | Hold | Already used by ChartsStrip / TokenUsageCard; ANLY-06 forecast = one extra `<Line strokeDasharray>` |
-| framer-motion | 12.38.0 | 12.x | Hold | No new motion patterns in v1.2 |
-| vitest | 4.1.5 | 4.1.5 | Hold | `vi.useFakeTimers` + `setSystemTime` + `advanceTimersByTimeAsync` are the flake-fix toolkit |
-| Playwright | 1.59.1 | 1.59.1 | Hold | `getByTestId` + strict-mode resolves aria-label collisions |
-
-### Supporting Libraries (UNCHANGED — what's already there suffices)
-
-| Library | Version | Purpose | v1.2 Use |
-|---------|---------|---------|----------|
-| stdlib `math` | 3.13 | EWMA z-score + sqrt | ALRT-13 rolling-mean ± stddev extends `cmc/alerts/detector.py` (already 277 LOC stdlib-only) |
-| stdlib `collections.deque` | 3.13 | Bounded ring buffer | NOT needed — EWMA is constant-memory; rolling stddev for ALRT-13 piggy-backs on existing EWMA state |
-| stdlib `decimal.Decimal` | 3.13 | Money math | Reused for ANLY-06 forecast extrapolation; never `float` for cost arithmetic |
-| stdlib `datetime` (UTC-aware) | 3.13 | `datetime.now(UTC)` | Replaces 20 `Field(default_factory=datetime.utcnow)` sites — pure refactor, no new dep |
-| stdlib `statistics` | 3.13 | NOT used | Explicitly NOT imported — keeps detector dependency surface = `math` only (matches v1.1 ADR) |
-| anthropic SDK | 0.97.0 | Haiku NL parsing | ALRT-14 NL→alert-rule extends `cmc/dispatcher/skill_router.py` pattern — same `messages.create(model="claude-haiku-4-5", …)` + JSON-mode prompt + Pydantic validator |
-| structlog | 25.5.0 | JSON logs | Reused for ALRT-13/14 detector + dispatcher logs |
-| croniter | 6.2.2 | NOT used | Cron is irrelevant for v1.2; no schedule-related work |
-
-### Frontend Libraries (UNCHANGED — proven patterns extend cleanly)
-
-| Library | Version | v1.2 Use |
-|---------|---------|----------|
-| `cmdk` `useCommandState` | 1.1.1 | CMPR-07 "compare with previous session" — context-aware item label already implemented for current/A pattern in `CommandPalette.tsx`; "previous session" variant just adds one branch |
-| `useRouterState` (TanStack Router) | 1.168.24 | Reads current `/sessions/compare?a=…` to detect "previous session" candidate |
-| recharts `<Line strokeDasharray>` | 3.8.1 | ANLY-06 forecast: dashed extrapolation line on existing TokenUsageCard chart — no new chart type |
-| recharts `<ReferenceLine>` | 3.8.1 | Optional: monthly-budget overlay |
-| `Intl.NumberFormat` (browser) | — | SKLP-08/09 % deltas, "new this week" formatting — no date library needed |
-| Native `Date` arithmetic | — | "new this week" / "dormant" badges = pure SQL `datetime('now', '-7 days')`, no `date-fns` / `dayjs` |
-
-### Development Tools (UNCHANGED)
-
-| Tool | Purpose | v1.2 Notes |
-|------|---------|------------|
-| ruff 0.9+ | Lint + format | `UP` (pyupgrade) rule will catch any remaining `datetime.utcnow()` after the deprecation cleanup — let it auto-fix |
-| pyright 1.1.409+ | Typecheck | No config change needed |
-| pytest-freezer 0.4+ | Deterministic time | Already in dev-deps; reuse for ALRT-13 warm-up tests + ANLY-06 forecast cutoff tests |
-| pytest-asyncio | Async tests | ALRT-14 Haiku-mock tests follow existing skill_router test pattern |
+**Total net new runtime deps for v1.3:** **3 in the baseline plan** (`@radix-ui/react-popover`, `@radix-ui/react-dropdown-menu`, `react-resizable-panels`). +0–2 conditional (server saved-views Alembic migration; `react-grid-layout` only if free-form grid rearrange is locked).
 
 ---
 
-## Per-Question Decisions (downstream consumer answers)
+## Existing stack — what's actually in package.json (verified 2026-05-10)
 
-### 1. Anomaly detection (rolling mean ± stddev) — ALRT-13
+`/Users/patrykattc/work/git/claude-mission-control/frontend/package.json` (verified by reading the file directly, not relying on the prompt):
 
-**Decision:** Stdlib `math` only. **Extend** `cmc/alerts/detector.py` — do not create a new module.
+- **React 19.2.5** (NOT React 18 as the prompt's `<milestone_context>` claims — this is critical because it eliminates `react-grid-layout` from the comfortable-default zone — see §Customizable Layouts).
+- **Vite 8.0.10** + **TypeScript ~6.0.0**.
+- **TanStack Router 1.168.24**, TanStack React Query 5.100.5.
+- **Radix primitives present:** `@radix-ui/react-alert-dialog@^1.1.15`, `@radix-ui/react-collapsible@^1.1.12`, `@radix-ui/react-dialog@^1.1.15`, `@radix-ui/react-tooltip@^1.2.8`. **No Popover, no DropdownMenu, no Select, no ToggleGroup, no Menubar.**
+- **Recharts 3.8.1**, **framer-motion 12.38.0**, **cmdk 1.1.1**, **lucide-react 1.11.0**.
+- **NO Tailwind CSS, NO shadcn/ui library installed.** The prompt's `<milestone_context>` is wrong about this. The repo uses **hand-rolled CSS variables in `src/styles.css` (1863 LOC)** with custom primitives in `src/components/ui/*.tsx` (PanelCard, Sheet, AlertDialog, Tooltip, CollapsibleSection, DataTable, etc.). Every primitive that *looks* shadcn-shaped is a local file styled via `cmc-*` classes against CSS variables. This shapes every recommendation below.
+- **No drag/resize/grid library installed** (verified by grep).
+- **`validateSearch` is used in exactly one place:** `routes/sessions_.compare.tsx`. Hand-written validator, no zod/valibot — there's a deliberate in-code comment explaining why no schema lib was added.
 
-**Rationale:**
-- The existing EWMA z-score detector (lines 176-277) already computes `new_mean` and `new_var` in constant memory via Welford-style recurrence. ALRT-13's "rolling mean ± stddev" is mathematically the same shape — `stddev = sqrt(var)` — so the addition is a single helper that returns `(mean, sqrt(var + EPSILON))` from existing state, plus a new `AlertRule.detector_kind = "rolling_stddev"` discriminator.
-- **No `numpy`/`scipy`/`pandas`/`sklearn`** — the v1.1 ADR (detector.py L17-19) explicitly forbids non-stdlib numerics; ALRT-13 must honour that bar. Adding numpy alone would balloon the wheel from ~5 MB to ~70 MB and break the "local-only, single-binary" promise.
-- **`deque(maxlen=N)` vs SQL window functions:** **Neither.** The EWMA state dict (`{ewma_mean, ewma_var, sample_count}` persisted on `AlertState.params_json`) is already constant-memory and survives dispatcher restarts. A `deque` would force re-computation on every dispatcher boot from raw history; a SQL `OVER (ROWS BETWEEN N PRECEDING)` window would re-scan rows every 120s tick. Both are strictly worse than the existing approach.
-- **What ALRT-13 actually needs:** add `evaluate_rolling_stddev(rule, value, state, *, now)` that reuses `_read_anomaly_state` + `_resolve_window_n`, and emits FIRING/CLEAR based on `|value - mean| > k * stddev` (k from `params_json.k_sigma`, default 3). One new pure function, ~40 LOC.
-
-**File path:** `backend/cmc/alerts/detector.py` (extend) + `backend/cmc/dispatcher/alerts.py` (dispatch new detector_kind).
-
-**Confidence:** HIGH — verified by reading existing detector.py (Welford recurrence is already present) and confirming the math equivalence.
-
----
-
-### 2. NL-authored alert rules via Haiku — ALRT-14
-
-**Decision:** Reuse the `cmc/dispatcher/skill_router.py` pattern verbatim. **Do not** add `instructor` or `pydantic-ai`.
-
-**Rationale:**
-- The skill_router pattern (lines 30-104) is the v1.0/v1.1 standard for NL→structured: lazy `from anthropic import AsyncAnthropic`, system prompt enforcing strict JSON, `json.loads` + `isinstance` validation, registry-based hallucination guard. ALRT-14's grammar (output shape: `{name, scope, metric, op, threshold_fire, threshold_clear?, min_dwell_seconds?, cooldown_seconds?}`) is structurally identical to skill_router's `{skill: <name>}` — just with more keys.
-- **Validation strategy:** Pipe the parsed dict through the existing `AlertRuleCreate` Pydantic model (`backend/cmc/api/schemas/alerts.py`). If validation fails → log + return None (graceful degradation, same as skill_router on hallucination). The Pydantic model already enforces `scope ∈ {global, project, session, …}`, `metric ∈ {…}`, threshold bounds — no new validator needed.
-- **Why not `instructor`:** Instructor wraps the SDK with auto-retry + Pydantic schema → tool_use round-trip. Useful for multi-call agentic flows, overkill for a one-shot grammar parse. Adds a dep + ties us to a specific Pydantic version contract. The existing JSON-mode prompt costs ~200 tokens for a perfectly bounded grammar.
-- **Why not `pydantic-ai`:** Heavier still — agent-loop framework with tool-use, dependency injection, multi-provider abstraction. Solves problems we don't have.
-- **Why not Anthropic native tool use (`tools=[…]`):** Would work and is documented in `/anthropics/anthropic-sdk-python` Context7 docs. But it adds a round-trip (tool_use → tool_result → final) for no gain over JSON-mode here. JSON-mode is what skill_router uses; consistency wins.
-
-**File paths:**
-- `backend/cmc/dispatcher/alert_nl.py` (new — mirrors skill_router.py shape; ~80 LOC)
-- `backend/cmc/api/routes/alerts.py` (add `POST /api/alerts/rules/_parse` endpoint that calls the new module then validates against `AlertRuleCreate` and returns the dict for the user to confirm before commit)
-- `frontend/src/components/panels/AlertRuleForm.tsx` (extend — add a "Describe in plain English" textarea that POSTs to `/_parse` and pre-fills the existing form)
-
-**Confidence:** HIGH — the existing skill_router.py is the proven, idiomatic pattern; Anthropic SDK 0.97 messages.create() supports both JSON-mode prompting and `claude-haiku-4-5` (verified via Context7 `/anthropics/anthropic-sdk-python`).
+**Implication for the roadmap:** Density tokens, saved views, and overflow fixes all extend the **existing CSS-variable + custom-primitive system**, not Tailwind utility classes. Every "use Tailwind" recommendation you see in generic dashboard tutorials is wrong for this repo.
 
 ---
 
-### 3. Linear extrapolation for monthly cost forecast — ANLY-06
+## Recommended stack additions
 
-**Decision:** Stdlib only — pure-Python ordinary least squares. **Do not** add `scipy.stats.linregress` or `numpy`.
+### Layout primitives — for customizable layouts AND multi-pane compare
 
-**Rationale:**
-- Linear regression on N daily cost points (N ≤ 31) is ~10 lines of stdlib: compute `mean_x`, `mean_y`, `slope = sum((x-mx)*(y-my)) / sum((x-mx)**2)`, `intercept = my - slope*mx`, then extrapolate to month-end. Decimal-clean (stay in `Decimal` to match `cmc.pricing`).
-- **Confidence intervals:** Optional, but cheap if requested — residual stddev → 95% CI is `1.96 * stddev * sqrt(1 + 1/N + (x-mx)**2 / sum((x-mx)**2))`. Still pure stdlib (`math.sqrt`).
-- **Why not scipy:** scipy is ~50 MB compressed, drags in numpy + BLAS — same wheel-bloat objection as Q1. Single linear regression on ≤31 points doesn't justify it.
-- **Why not numpy alone:** No vectorisation gain at N=31; the loop is faster than numpy's per-call overhead.
-- **Why not statsmodels / Prophet / ARIMA:** These are time-series forecasting frameworks for non-stationary data with seasonality. Monthly cost burn for a single dev's local Claude Code usage is well-modeled by simple linear extrapolation — and the failure mode (forecast wrong by ±20%) is benign (it's a budget heads-up, not a billing system).
+| Library | Version | Purpose | Why for v1.3 specifically |
+|---|---|---|---|
+| **react-resizable-panels** | **4.11.0** (latest 2026-05-02; peerDeps `react: ^18 \|\| ^19`) | Resizable split panes — horizontal, vertical, nested; keyboard + touch + mouse; PanelGroup state can be persisted via `autoSaveId` (localStorage) or controlled via `onLayout`. | (1) v1.3 explicitly wants multi-pane compare beyond 2-up — this gives N-up via `<PanelGroup direction="horizontal">` with no separate primitive. (2) The Sheet/firehose/sessions surfaces benefit from drag-to-resize without committing to a full grid system. (3) Peerdeps are React 18 OR 19 — confirmed compatible with the repo's React 19.2. (4) Maintained by Brian Vaughn (React DevTools author) — high-quality TS types ship in the package. (5) Bundle ~12 kB gzip, no runtime deps beyond React. |
+| **CSS Grid + `min-height: 0` + scroll containment** | n/a (built-in) | Bounded panel heights with internal scroll. | Three concrete v1.3 overflow bugs (panels exceed viewport, data overflows card edges, tables/charts overflow) are **CSS bugs, not library bugs**. The fix is: add `min-height: 0` to grid children that need to shrink (the canonical flexbox/grid scroll-containment fix), give PanelCard a new `scrollable` prop that wraps `<CardContent>` in `overflow:auto`, and standardise this in styles.css. **Adding a layout library to fix a CSS bug is the wrong shape.** |
 
-**File paths:**
-- `backend/cmc/analytics/forecast.py` (new — small module; ~50 LOC pure functions: `linear_forecast(daily_costs: list[Decimal]) -> ForecastResult`)
-- `backend/cmc/api/routes/observability.py` (extend — add forecast field to existing cost endpoint OR new `/api/observability/cost/forecast` route)
-- `frontend/src/components/panels/TokenUsageCard.tsx` or new `MonthlyForecastCard.tsx` (extend recharts chart with dashed `<Line>` for projected days)
+#### Anti-deps for layout (DO NOT add)
 
-**Confidence:** HIGH — stdlib OLS is textbook; the math is deterministic and trivially testable with `pytest-freezer`.
-
----
-
-### 4. Per-project cost / skill breakdown — ANLY-07, SKLP-08
-
-**Decision:** Pure SQL via existing CTE patterns in `backend/cmc/api/routes/`. **Do not** add `pandas`, `polars`, `duckdb`, or any analytics tooling.
-
-**Rationale:**
-- `ProjectBreakdownCard.tsx` already exists (frontend/src/components/panels/) and consumes `/api/sessions/by-project` which uses SQL CTEs. ANLY-07 just adds a `cost_total_decimal` aggregate column to the same query — `SUM(cost_total_decimal)` joined on the existing pricing-resolved rows.
-- SKLP-08 per-project skill breakdown: same shape, joining `skill_runs` by `cwd`/`project_id`. Aggregation cardinality is small (≤100 projects × ≤20 skills = ≤2,000 rows) — trivially in-process.
-- SQLite WAL + `aiosqlite` already supports window functions, CTEs, and `GROUP BY` rollups. No new SQL features needed.
-- **Why not pandas/polars:** The result-set fits in a single page render; adding a DataFrame layer just inverts who does the GROUP BY (Python instead of SQLite) and bloats deps.
-- **Why not duckdb:** Would require maintaining two engines (SQLite for OLTP, DuckDB for OLAP) on the same `data/cmc.db`. Pure-SQLite is simpler and the data volumes don't motivate a switch.
-
-**File paths:**
-- `backend/cmc/api/routes/sessions.py` (extend `by-project` route — already at line ~XXX per grep — add cost column)
-- `backend/cmc/api/routes/skills.py` (extend — add `/api/skills/by-project` route mirroring the sessions one)
-- `frontend/src/components/panels/ProjectBreakdownCard.tsx` (extend `COLUMNS` array — add Cost column)
-- `frontend/src/components/panels/SkillCostCard.tsx` (extend — add per-project rollup)
-
-**Confidence:** HIGH — confirmed `ProjectBreakdownCard.tsx` already exists at `frontend/src/components/panels/`; pattern is established.
+| Avoid | Why for v1.3 specifically |
+|---|---|
+| **react-grid-layout** | Latest is 2.2.3 (2026-03-24). React 19 has known unfixed issues — GitHub #2045 reports persistent `Each child in a list should have a unique "key" prop` warnings under React 19, and the maintained community fork `react-grid-layout-19` exists precisely because the upstream hasn't shipped a clean React 19 release. The repo is on **React 19.2.5**. Adopting RGL means either (a) eating console-noise warnings on every drag, (b) forking, or (c) downgrading React — all three are unacceptable for a "polish & redesign" milestone. **Defer until requirements explicitly lock free-form grid rearrange (Grafana-style)** — and at that point, re-evaluate against the React 19 issue tracker. For "drag-resize a couple of panels" use cases, react-resizable-panels covers the need without the React 19 risk. |
+| **dnd-kit** | Latest `@dnd-kit/core@6.3.1` was last published 2024-12-05 (>17 months ago). Stale relative to React 19's release cycle. v1.3 needs **resize**, not arbitrary drag-and-drop reorder of arbitrary elements; if a phase later wants reorderable cards inside a column, re-evaluate then. |
+| **react-split-pane** | Unmaintained (last release 2020). React 19 incompatible. |
+| **MUI Grid / Mantine Grid / Chakra Grid** | Brings a competing styling system that conflicts with the existing CSS-variable + `cmc-*` class system. Replacing the design system is out of v1.3 scope. |
+| **flexlayout-react** | Heavyweight tab-dock semantics (closer to VS Code's editor area). v1.3 is a **dashboard surface**, not a docked-tabbed editor. Mismatch of metaphor. |
 
 ---
 
-### 5. Time-window deltas + "new this week" / "dormant" badges — SKLP-09, SKLP-10
+### Sheet / Popover / Menu containment — Radix primitive coverage
 
-**Decision:** Pure SQL date arithmetic via SQLite's `datetime()` and `julianday()`. **Do not** add `dayjs`, `date-fns`, `arrow`, or `pendulum`.
+| Library | Version | Purpose | Why for v1.3 specifically |
+|---|---|---|---|
+| **@radix-ui/react-popover** | **1.1.15** (peerDeps `react: ^16.8 \|\| ^17 \|\| ^18 \|\| ^19`) | Anchored, portal-rendered popover with collision detection, focus trap, dismissable, controlled/uncontrolled. | The "Popover escapes parent bounds" bug in v1.3 happens because today **there is no Popover primitive in the codebase** — anchored UI is being faked with absolutely-positioned divs that inherit the parent's `overflow:hidden`. Radix Popover renders into a portal (escaping the overflow trap) AND provides collision detection (so it doesn't escape the *viewport* either). This is the canonical fix. The other Radix primitives the repo already uses (Dialog/AlertDialog/Tooltip) all share the same Portal infrastructure — adding Popover is consistent with the existing pattern, not a new architectural commitment. |
+| **@radix-ui/react-dropdown-menu** | **2.1.16** (peerDeps `react: ^16.8 \|\| ^17 \|\| ^18 \|\| ^19`) | Keyboard-navigable menu (arrow keys, type-ahead, sub-menus), portal-rendered. | v1.3 surface redesign needs row-level "more actions" menus (e.g., per-skill, per-session, per-alert dropdowns), header overflow menus, and density picker. Building these on top of `<button>` + custom outside-click would re-create the same overflow/portal issues. DropdownMenu uses the same Portal + collision pattern as Popover — adding both together (single phase) costs one PR's worth of style work in `styles.css`. |
+| **@radix-ui/react-toggle-group** | **1.1.11** | Segmented control (mutually exclusive selection). | The density toggle (compact / comfortable / cozy) is a 3-way segmented control. Building it on `<button>` + manual aria is fine but `ToggleGroup` is ~1 kB gzip and gets keyboard arrow-key navigation + aria-pressed for free. **Optional** — a hand-rolled segmented control is acceptable if the team wants to avoid a third Radix add. Listed here so the roadmapper can choose. |
 
-**Rationale:**
-- "New this week": `WHERE first_seen_at >= datetime('now', '-7 days')` — single predicate.
-- "Dormant": `WHERE last_seen_at < datetime('now', '-30 days')` — same shape.
-- "Period-over-period delta": two `SUM(CASE WHEN ts >= datetime('now', '-7 days') THEN cost ELSE 0 END)` columns, then `(current - previous) / previous` in the response shape (or in the panel).
-- All time math stays UTC-side (`datetime('now')` in SQLite is UTC by default; matches the v1.1 `UTCDatetime` PlainSerializer contract).
-- **Frontend:** `Intl.RelativeTimeFormat` (already used by `RelativeTime.tsx`) handles "3 days ago" rendering. `Intl.NumberFormat` with `signDisplay: 'always'` handles "+12% / -8%" delta formatting.
-- **Why not date-fns:** Already replaced in v1.0 design with `Intl.*` + native `Date`. Adding it back for two badges contradicts the "no client-side date library" decision.
-- **Why not dayjs:** Same reason — bundle bloat for a problem the platform already solves.
+#### Anti-deps for menus/popovers (DO NOT add)
 
-**File paths:**
-- `backend/cmc/api/routes/skills.py` (extend `/api/skills` — add `first_seen_at`, `last_seen_at`, `is_new_this_week`, `is_dormant`, `cost_7d_delta_pct` columns)
-- `frontend/src/components/panels/SkillsRegistry.tsx` (extend — render badges based on backend-computed flags; never compute date diffs client-side)
-- `frontend/src/components/panels/SkillCostCard.tsx` (extend — render % delta with `Intl.NumberFormat`)
-
-**Confidence:** HIGH — the v1.0/v1.1 codebase has zero `date-fns`/`dayjs` usage; SQLite `datetime('now', '-N days')` is well-tested.
+| Avoid | Why for v1.3 specifically |
+|---|---|
+| **shadcn/ui (`npx shadcn add popover` etc.)** | shadcn/ui is a code-generator over Tailwind. **The repo has no Tailwind.** Pulling in shadcn-generated components would either (a) require adding Tailwind (out of scope, breaks every existing `cmc-*` class), or (b) require rewriting the generated files to use CSS variables — at which point you've just done what you'd do anyway with raw `@radix-ui/*`. Skip the middleman; install `@radix-ui/*` directly and style with the existing `cmc-*` system. The prompt's `<milestone_context>` mentions shadcn primitives — **these are not actually present in the repo**, and adding them would force a Tailwind migration. |
+| **Headless UI** | Different a11y semantics than Radix; mixing two headless systems doubles the surface area for the design system to keep aligned. The repo already uses `@radix-ui/react-dialog` etc. Stay in one family. |
+| **Floating UI directly** | Radix Popover/Dropdown internally use Floating UI. Using Floating UI directly means re-implementing focus management, aria, Portal, and dismissable from scratch — strictly more work for the same dependency. |
 
 ---
 
-### 6. Compare-view Cmd+K "previous session" shortcut — CMPR-07
+### Density toggle — CSS variables, no library
 
-**Decision:** Extend existing `CommandPalette.tsx` with a new context-aware item. cmdk already supports the pattern. **Do not** add a new library.
+| Approach | Why for v1.3 specifically |
+|---|---|
+| **Extend the existing `:root` CSS-variable system in `src/styles.css`.** Add `[data-density="compact"]`, `[data-density="cozy"]` selectors on `<html>` (mirrors the existing `[data-theme="light"]` pattern). Density-sensitive tokens to remap: `--space-2xs`/`--space-xs`/`--space-sm`/`--space-md`, `--size-label`/`--size-body`/`--size-heading`, plus new tokens `--row-height-table`, `--row-height-list`, `--padding-card`, `--padding-cell`. Components consume these tokens — they don't read `data-density` directly. | (1) Repo already has the `:root` + `[data-theme="light"]` pattern (`src/styles.css` lines 1-72). Adding `[data-density]` is the same pattern, zero novelty. (2) **No library does this better than CSS custom properties.** Tailwind's preset/theme extension would require adding Tailwind itself. CSS-in-JS (styled-components, vanilla-extract) requires runtime overhead per component. Native CSS variables are 0-runtime, 0-bundle, server-irrelevant (this is local-only anyway). (3) The token list above is small enough that the change set is tractable per-phase: density-mode phase touches `styles.css` + adds the picker UI; subsequent surface-rebuild phases convert hard-coded `padding: 12px` to `padding: var(--padding-card)` as they touch each panel. |
 
-**Rationale:**
-- The existing palette (`frontend/src/components/ui/CommandPalette.tsx` lines 60-90) already branches its label/behaviour on `useRouterState({ select: (s) => s.location })`. CMPR-07 adds one more branch: when on `/sessions/compare?a=…&b=…` (both set), show "Compare with previous session" — selection navigates to the chronologically prior session for the same `cwd` (or globally, depending on UX call).
-- Implementation: a new `useSessionsList` query variant with `before=<currentB.started_at>&cwd=<currentA.cwd>&limit=1` returns the prior session; selection calls `navigate({ search: prev => ({ ...prev, b: priorSid }) })` (function-form, same Pitfall-4 guard already documented in CommandPalette.tsx L107).
-- cmdk's `Command.Item` accepts dynamic `onSelect` and conditional rendering; verified via Context7 `/dip/cmdk` (`useCommandState` + conditional sub-items pattern is documented).
-- **Why not a new keyboard-shortcut library (`react-hotkeys-hook`, `tinykeys`):** The palette already owns the Cmd+K binding (CommandPalette.tsx L66-75). Adding a competing shortcut library risks double-handlers + the React 19 StrictMode double-invoke pitfall (already mitigated in current code).
+#### Anti-deps for density (DO NOT add)
 
-**File paths:**
-- `frontend/src/components/ui/CommandPalette.tsx` (extend — add new label branch + new `Command.Item`)
-- `frontend/src/lib/queries.ts` (extend `useSessionsList` to accept `before` + `cwd` filters, OR add `usePreviousSession(currentSid)` helper hook)
-- `backend/cmc/api/routes/sessions.py` (extend list route — add `before` and `cwd` query params; SQL is `WHERE started_at < :before AND cwd = :cwd ORDER BY started_at DESC LIMIT 1`)
-
-**Confidence:** HIGH — read CommandPalette.tsx end-to-end; the extension point is obvious and idiomatic to the existing code.
+| Avoid | Why |
+|---|---|
+| **Tailwind CSS + `@apply` density variants** | Adding Tailwind to retrofit one feature is a multi-thousand-line migration. Out of scope. |
+| **CSS-in-JS (styled-components, emotion)** | Runtime cost on every render in a dashboard that polls every 5/10/30s. CSS variables have zero runtime cost — every styling decision is a CSS recalc, not a JS call. |
+| **Theme provider libraries (next-themes, theme-ui)** | The repo already has a working `data-theme` toggle in `ThemeToggle.tsx`. Same pattern handles `data-density`. No abstraction needed for two attributes. |
 
 ---
 
-### 7. Test flake fixes — `vi.useFakeTimers` + Playwright `data-testid`
+### Saved views — URL-first, `localStorage`-mirrored, server-persisted only on demand
 
-**Decision:** No new libraries. Use vitest 4.1.5's existing `vi.useFakeTimers` + `vi.setSystemTime` + `vi.advanceTimersByTimeAsync`, and Playwright's `getByTestId` + strict-mode.
+| Approach | Why for v1.3 specifically |
+|---|---|
+| **Tier 1 (default): TanStack Router `validateSearch` per route.** Each surface (`/activity`, `/skills`, `/cost`, `/alerts`) gets its own search-param schema validated by a hand-written validator (matching the existing `sessions_.compare.tsx` pattern). Filters, density, time-range, panel-layout-id all live in the URL. Deep links work; back/forward works; sharing works (within local-only context, "share" = "I copy-pasted the URL into a note"). | Already the established pattern — `routes/sessions_.compare.tsx` includes a comment-block explaining why no schema library was added. Repeat the pattern for the other routes. **No new dep.** |
+| **Tier 2 (mirror): `localStorage` for "last view I had open per route".** A small `useDebouncedSearchSync(routeId)` hook reads URL on mount and writes URL → localStorage on change (debounced ~250ms). On next visit to the route, if the URL has no params, hydrate from localStorage; if URL has params, URL wins. | TanStack Router does NOT yet have built-in URL↔localStorage sync (verified — confirmed feature-gap in TanStack Router GitHub Issue #4973 and Discussion #1207). Hand-rolling this hook is ~30 LOC and avoids pulling in a state library. **No new dep.** |
+| **Tier 3 (named, server-persisted): defer until requirements lock it.** When a phase explicitly says "users name a view and pick from a list" (vs "users bookmark URLs"), introduce: a new Alembic migration `0004_saved_views.py` (table: `id, route_key, name, search_params JSON, created_at, updated_at`), a new route file `backend/cmc/api/routes/saved_views.py` (CRUD: `GET /v1/saved-views?route_key=...`, `POST /v1/saved-views`, `DELETE /v1/saved-views/{id}`), and a frontend `useSavedViews(routeKey)` hook on top of TanStack Query. | The roadmapper should treat Tier 3 as a **conditional addition** — surface it in `FEATURES.md` so the requirements decision phase decides. The cost is small (~1 migration + 1 route + ~150 LOC frontend) but only worth paying if naming + sharing are actually needed. For a single-user local-only dashboard, "I bookmark the URL" is often enough. |
 
-**Rationale (vitest fake-timer pattern):**
-- TanStack Query's 30s polling uses `setInterval` under the hood. Tests that don't mock timers either (a) wait real-time (slow + flaky) or (b) miss the second poll (incorrect). Pattern:
-  ```ts
-  vi.useFakeTimers({ toFake: ['setInterval', 'setTimeout', 'Date'] })
-  vi.setSystemTime(new Date('2026-05-05T12:00:00Z'))
-  // mount component, fetch resolves
-  await vi.advanceTimersByTimeAsync(30_000)  // triggers next poll
-  // assert refetched data
-  vi.useRealTimers()  // ALWAYS in afterEach
-  ```
-- The `advanceTimersByTimeAsync` flavour is critical (verified via Context7 `/vitest-dev/vitest`) — sync `advanceTimersByTime` skips microtasks, so `await fetch().then()` chains inside the polled callback never resolve and assertions race.
-- Existing precedent: `frontend/src/components/ui/__tests__/RelativeTime.test.tsx` and `frontend/src/components/shell/__tests__/EmergencyStopBanner.test.tsx` already use `vi.useFakeTimers` — codify the pattern in a shared helper if more than 3 tests need it.
+#### Anti-deps for saved views (DO NOT add)
 
-**Rationale (Playwright aria-label disambiguation):**
-- v1.1 has multiple panels with similar aria-labels (e.g., "Open" buttons in TaskBoard + InboxCard). Playwright strict-mode (verified via `/microsoft/playwright`) throws on multi-match — the canonical fix is `data-testid` for elements that need test-stable selection without UX-impactful copy changes.
-- Pattern: add `data-testid="task-row-open-{taskId}"` to ambiguous interactive controls; tests use `page.getByTestId('task-row-open-abc123')`. This is the recommendation in Playwright's own docs ("Use a testing-only attribute that is hidden from end users but visible to your tests").
-- Playwright version 1.59.1 is already current — no upgrade needed.
-
-**File paths:**
-- `frontend/src/test/timer-helpers.ts` (new — optional shared helper if the pattern is repeated)
-- `frontend/src/components/panels/__tests__/*.test.tsx` (extend — apply pattern to flaky tests, identified during phase research)
-- Playwright fixes: add `data-testid` props in `frontend/src/components/panels/*.tsx` (TaskBoard, InboxCard, AlertEventsList) where strict-mode collisions occur; update specs in `frontend/tests/e2e/*.spec.ts`
-
-**Confidence:** HIGH — both patterns are documented in their respective official docs (verified Context7 for both vitest and Playwright).
+| Avoid | Why |
+|---|---|
+| **Zustand** | The repo's state is already split between TanStack Query (server state) and TanStack Router search params (URL state). Adding Zustand for saved views creates a third state lane; the URL is sufficient. |
+| **Redux / Redux Toolkit** | Same reason; an order of magnitude more code than needed. |
+| **Recoil / Jotai** | Atomic state libraries are useful for cross-component derived state. Saved views are flat (filters object), URL-shaped, debounced — overkill. |
+| **Zod / Valibot for `validateSearch`** | The repo deliberately rejected this in `sessions_.compare.tsx`. Hand-written validators with TypeScript types stay simple, zero-bundle, easy to read. **Only revisit if the validator count exceeds ~5–6 routes** AND the validators repeat enough patterns to warrant abstraction. |
+| **A "saved views" SaaS / cloud sync** | Out of scope — dashboard is single-user local-only by hard constraint. |
 
 ---
 
-## Polish Lane: `datetime.utcnow()` → `datetime.now(UTC)`
+### Charts — stay on Recharts, scope-add visx only on demonstrated need
 
-**Scope:** 20 occurrences across 17 files (verified via grep on 2026-05-05).
+| Approach | Why for v1.3 specifically |
+|---|---|
+| **Keep recharts@3.8.1 as the default chart library.** Currently used in `ChartsStrip.tsx`, `CacheEfficiencyCard.tsx`, `EditAcceptanceCard.tsx`, `CostForecastCard.tsx`, etc. Recharts 3.8.1 supports React 19. | Switching everything to visx is a multi-week refactor of every chart in the repo for hypothetical perf gains. The actual v1.3 problems are **layout/overflow bugs** (charts overflowing card edges) — those are fixed by responsive containers and `overflow:hidden` on chart parents, not by switching chart engines. |
+| **Only add visx if a specific panel hits a measurable perf wall.** The bar to add visx for a single panel: open Chrome DevTools → Performance, record interaction with that panel under realistic data (2-week window, all sessions), and demonstrate >16ms paint or jank. If yes, add `@visx/visx` (or the specific subpackages — `@visx/scale`, `@visx/shape`, `@visx/axis`) **for that panel only**. Recharts elsewhere stays. | visx beats recharts measurably only past ~1k SVG nodes per chart — most CMC charts are nowhere near that. The dense observability surfaces (heatmap grids, sparklines) already use custom-built primitives in `HeatmapGrid.tsx`, not Recharts. |
 
-**Migration pattern:**
+#### Anti-deps for charts (DO NOT add)
 
-```python
-# Before (deprecated since Python 3.12, removed in some 3.14 alpha builds)
-from datetime import datetime
-created_at: datetime = Field(default_factory=datetime.utcnow)
-
-# After (Python 3.13-clean, timezone-aware, matches UTCDatetime PlainSerializer)
-from datetime import UTC, datetime
-created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-```
-
-**Files affected (verified):**
-- `backend/cmc/pricing.py` (1 site — `loaded_at=datetime.utcnow()`)
-- `backend/cmc/db/models/{activities, tasks, sessions, live_state, skills, notification_log, mcp_stats, alert_state, decisions, otel_metrics, token_usage, alert_rules, pricing, inbox, otel_events, schedules, system_state}.py` (one or two sites each, 19 total)
-
-**Test impact:** All affected models have existing pytest coverage; the migration is mechanical. Run `ruff check --select UP` to auto-detect any sites missed by grep.
-
-**Confidence:** HIGH — both Python's deprecation notice and Pydantic v2 docs (verified via Context7 `/pydantic/pydantic`) recommend `datetime.now(UTC)` as the replacement.
+| Avoid | Why |
+|---|---|
+| **Chart.js** | Canvas-based; harder to make pixel-perfect against the existing CSS-variable design system; loses SVG accessibility. |
+| **Nivo** | Bigger bundle than Recharts for similar features; no compelling differentiator. |
+| **Apache ECharts** | Excellent library, but ~900 kB minified — out of proportion for a local dashboard. |
+| **D3 directly** | Recharts and visx already wrap D3-scale/D3-shape internally. Re-implementing chart primitives in raw D3 is what the visx escape-hatch is for; don't reinvent it. |
+| **Plotly** | Bundle is huge; mostly useful for scientific plots not dashboards. |
 
 ---
 
-## What NOT to Add
+## Backend additions (only if Tier 3 saved-views lands)
 
-| Avoid | Reason | Use Instead |
-|-------|--------|-------------|
-| numpy | ~70 MB wheel; not needed for stdlib OLS / EWMA / Welford | stdlib `math` + `Decimal` |
-| scipy | Drags numpy + BLAS; `linregress` is 5 lines of stdlib | Pure-Python OLS in `cmc.analytics.forecast` |
-| pandas | Result-set cardinality is tiny (<2K rows); SQL handles aggregation | SQL CTEs in `cmc.api.routes` |
-| polars | Same as pandas; v1.0 is single-engine SQLite | SQL CTEs |
-| duckdb | Splits the engine; no analytics workload justifies it | SQLite WAL (existing) |
-| sklearn | Anomaly detection covered by EWMA + rolling-stddev; no ML needed | `cmc.alerts.detector` extension |
-| statsmodels / Prophet / ARIMA / pmdarima | Forecast horizon is 30 days on stationary data; linear extrapolation is fit-for-purpose | `cmc.analytics.forecast` (stdlib OLS) |
-| instructor | One-shot JSON-mode parse is already idiomatic in `skill_router.py` | New `cmc.dispatcher.alert_nl` mirroring skill_router |
-| pydantic-ai | Agent-loop framework; v1.2 has no agent loops | Same — direct anthropic SDK + Pydantic validate |
-| LangChain / LlamaIndex | Both — v1.2 has no chains, retrieval, or agentic flows | Direct anthropic SDK |
-| date-fns / dayjs / luxon / arrow | Already absent from v1.0/v1.1 — re-introducing for badges contradicts the original ADR | SQL `datetime('now', '-7 days')` + `Intl.RelativeTimeFormat` |
-| react-diff-viewer / diff (npm) | Compare-view is metric-side-by-side, not text-diff | Plain `<table>` rendering both sessions' KPIs |
-| react-hotkeys-hook / tinykeys | cmdk already owns Cmd+K; competing handlers risk double-fire under React 19 StrictMode | Extend existing `CommandPalette.tsx` |
-| zod / yup / valibot | Pydantic on the backend handles validation; frontend `validateSearch` is hand-written UUID regex (proven in v1.0) | Existing patterns |
-| collections.deque (for ALRT-13) | EWMA state survives restart; deque would force re-seed every 120s | EWMA dict on `AlertState.params_json` (existing) |
+The backend stack does NOT change for v1.3 unless the requirements phase explicitly elects Tier 3 server-persisted named views. If it does:
+
+| Addition | Version | Purpose |
+|---|---|---|
+| Alembic migration `0004_saved_views.py` | n/a | Adds `saved_views` table — single migration, one file. |
+| New API route file `backend/cmc/api/routes/saved_views.py` | n/a | CRUD endpoints under `/v1/saved-views`. Follows existing route patterns (`sessions.py`, `alerts.py`). |
+
+No new Python dependencies. SQLAlchemy 2.0 + SQLModel + FastAPI cover all of it.
 
 ---
 
-## Stack Patterns by Variant
-
-**If anomaly detection needs to track multi-modal distributions (e.g., bimodal latency):**
-- Stay stdlib — but switch from EWMA to a sliding window of ≥30 samples with `statistics.median` + IQR. Still no new dep.
-- v1.2 explicitly does NOT need this — the success criterion is "rolling mean ± stddev catches sustained anomalies" not "detect distribution shifts."
-
-**If the NL alert grammar grows beyond 8 fields:**
-- Switch from JSON-mode to Anthropic native tool use (`tools=[{name, input_schema}]`). The SDK supports this in 0.97; the schema becomes self-documenting and the model's hallucination rate drops.
-- v1.2 grammar is 5-8 fields → JSON-mode is fine.
-
-**If forecast accuracy complaints surface post-launch:**
-- Add weekly seasonality via dummy variables (still stdlib OLS, just with `is_weekday` regressor). Skip ARIMA/Prophet — the value gap doesn't justify the complexity.
-
----
-
-## Version Compatibility
-
-| Package A | Compatible With | Notes |
-|-----------|-----------------|-------|
-| pydantic 2.13.3 | sqlmodel 0.0.38 | Verified — already running in v1.1 |
-| sqlmodel 0.0.38 | sqlalchemy 2.0.49 | Verified |
-| anthropic 0.97.0 | python 3.13 | Verified — `claude-haiku-4-5` model alias supported |
-| anthropic 0.99.0 (latest) | python 3.13 | Forward-compatible; bump deferred to polish |
-| cmdk 1.1.1 | react 19.2.5 | Verified — already running |
-| @tanstack/react-router 1.168.24 | react 19.2.5 | Verified |
-| vitest 4.1.5 | happy-dom 20.9.0 | Verified — `useFakeTimers` works under happy-dom |
-| Playwright 1.59.1 | node 25.x | Verified |
-
----
-
-## Installation
-
-**No new packages.** v1.2 ships against v1.1's frozen lockfile.
-
-If a `datetime.utcnow()` cleanup PR also bumps anthropic 0.97 → 0.99 (optional, polish):
+## Installation (when each addition is greenlit by a phase)
 
 ```bash
-# Backend (uv)
-cd backend && uv lock --upgrade-package anthropic
+# Phase: Sheet/Popover containment (likely Phase 1 or 2 of v1.3)
+pnpm add @radix-ui/react-popover@^1.1.15 @radix-ui/react-dropdown-menu@^2.1.16
 
-# Frontend (pnpm) — also optional
-cd frontend && pnpm update @tanstack/react-router @tanstack/react-query
+# Phase: Density toggle (likely Phase 1 or 2)
+# OPTIONAL — only if you want segmented-control a11y for free; otherwise hand-rolled is fine:
+pnpm add @radix-ui/react-toggle-group@^1.1.11
+
+# Phase: Customizable layouts / multi-pane compare
+pnpm add react-resizable-panels@^4.11.0
+
+# Phase: Saved views (Tier 1+2 — no install)
+# (URL-state hooks + localStorage sync are hand-rolled; no install.)
+
+# Phase: Free-form grid rearrange (CONDITIONAL — only if requirements lock Grafana-style grid; verify React 19 issue tracker for #2045 status FIRST)
+# pnpm add react-grid-layout@^2.2.3
+
+# Phase: Single dense panel needs visx (CONDITIONAL — only after measured perf wall)
+# pnpm add @visx/scale@^3.12.0 @visx/shape@^3.12.0 @visx/axis@^3.12.0
 ```
 
-Neither bump is required for v1.2 functionality.
+No `@types/*` packages needed — `react-resizable-panels`, all `@radix-ui/*` packages, and `recharts` ship their own TypeScript types in 2026.
+
+---
+
+## Version compatibility matrix (verified 2026-05-10 via `npm view`)
+
+| Package | Version | React peerDep | Last published | Notes |
+|---|---|---|---|---|
+| `react-resizable-panels` | 4.11.0 | `^18 \|\| ^19` | 2026-05-02 | Confirmed compatible with React 19.2 |
+| `@radix-ui/react-popover` | 1.1.15 | `^16.8 \|\| ^17 \|\| ^18 \|\| ^19 \|\| ^19.0.0-rc` | 2025-12-24 | Same family/version cadence as the existing `@radix-ui/react-dialog@^1.1.15` already in repo |
+| `@radix-ui/react-dropdown-menu` | 2.1.16 | `^16.8 \|\| ^17 \|\| ^18 \|\| ^19 \|\| ^19.0.0-rc` | 2025-12-24 | — |
+| `@radix-ui/react-toggle-group` | 1.1.11 | `^16.8 \|\| ^17 \|\| ^18 \|\| ^19 \|\| ^19.0.0-rc` | 2025-12-24 | — |
+| `react-grid-layout` (avoided) | 2.2.3 | `>= 16.3.0` (loose) | 2026-03-24 | Loose peerDep masks **known unfixed React 19 key-prop warnings** (GitHub #2045). Reason for avoidance. |
+| `@visx/visx` (conditional) | 3.12.0 | `>= 16.8` | 2026-04-14 | If added, prefer importing subpackages (`@visx/scale`, `@visx/shape`, `@visx/axis`) — main `visx` umbrella is heavier than needed |
+| `recharts` (held) | 3.8.1 | `^16.8 \|\| ^17 \|\| ^18 \|\| ^19` | 2026-03-25 | Already at latest; supports React 19 |
+
+---
+
+## Bundle-size impact estimate (gzip, approximate)
+
+| Addition | Approx. gzip cost | Lazy-loadable? |
+|---|---|---|
+| `@radix-ui/react-popover` | ~6 kB | Yes (dynamic import per route) |
+| `@radix-ui/react-dropdown-menu` | ~5 kB | Yes |
+| `@radix-ui/react-toggle-group` (optional) | ~1.5 kB | n/a (used in shell) |
+| `react-resizable-panels` | ~12 kB | Yes (only loaded for routes that use split-pane) |
+| **Baseline v1.3 add total** | **~23 kB gzip** for the three baseline deps | — |
+| `react-grid-layout` (conditional) | ~30 kB + react-draggable + react-resizable transitives | Yes |
+| `visx` per-panel (conditional) | ~30–50 kB per chart subpackage set | Yes |
+
+For a local-only dashboard at `localhost:8765`, network bundle size matters less than parse/compile time. All numbers above are well within "doesn't move the needle" range — but the principle of **add only what a phase commits to using** still applies.
+
+---
+
+## What stays UNCHANGED from v1.2
+
+Everything in the v1.2 STACK.md core technologies table is held — Python 3.13, FastAPI, SQLAlchemy 2.0 async, SQLModel, Alembic, aiosqlite WAL, anthropic SDK, ruff, pyright, pytest, Playwright, Vitest. The frontend core (React 19.2.5, Vite 8, TypeScript 6, TanStack Router/Query, framer-motion, cmdk, lucide-react, recharts) is also held. **v1.3 is a surface-layer milestone — backend and core frontend do not move.**
+
+---
+
+## Stack patterns by variant
+
+**If the requirements phase locks "free-form Grafana-style grid rearrange":**
+- Re-evaluate `react-grid-layout` against the React 19 issue tracker at that moment.
+- If GitHub #2045 is fixed, add `react-grid-layout@latest` + `@types/react-grid-layout`.
+- If still open, evaluate the `react-grid-layout-19` community fork OR ship a constrained-grid built on react-resizable-panels nested in a fixed CSS Grid (drag-resize within fixed slots; no free-form re-arrange).
+- This decision belongs in the customizable-layouts phase, not the v1.3 stack lock.
+
+**If the requirements phase locks "named, server-persisted saved views":**
+- Add Alembic migration + saved_views API route file (no new Python deps).
+- Frontend: hand-rolled `useSavedViews(routeKey)` hook on top of TanStack Query (no new frontend deps).
+- This belongs in the saved-views phase.
+
+**If a specific dense panel hits a perf wall during implementation:**
+- Profile in Chrome DevTools first. Confirm >16ms paint with realistic data.
+- Add visx subpackages **scoped to that one panel only** (`@visx/scale`, `@visx/shape`, `@visx/axis`).
+- Leave every other Recharts panel alone.
 
 ---
 
 ## Sources
 
-- Context7 `/dip/cmdk` — verified `useCommandState` + conditional rendering pattern; HIGH confidence
-- Context7 `/anthropics/anthropic-sdk-python` — verified JSON-mode + tool_use APIs; `claude-haiku-4-5` model alias support; HIGH confidence
-- Context7 `/vitest-dev/vitest` — verified `vi.useFakeTimers` / `setSystemTime` / `advanceTimersByTimeAsync` semantics, including the unhandled-rejection pitfall; HIGH confidence
-- Context7 `/microsoft/playwright` — verified strict-mode + `getByTestId` recommendation; HIGH confidence
-- Context7 `/pydantic/pydantic` — verified `datetime.now(UTC)` migration guidance; HIGH confidence
-- npm registry (`npm view`) — verified latest versions for cmdk (1.1.1), @tanstack/react-router (1.169.1), @tanstack/react-query (5.100.9), vitest (4.1.5), @playwright/test (1.59.1), recharts (3.8.1) on 2026-05-05; HIGH confidence
-- PyPI (`pip index versions`) — verified anthropic (0.99.0 latest, 0.97.0 pinned), sqlalchemy (2.0.49 — matches), fastapi (0.136.1 — matches) on 2026-05-05; HIGH confidence
-- PyPI JSON `pydantic` — verified pydantic 2.13.3 is latest (released 2026-04-20); HIGH confidence
-- In-repo grep — verified 20 `datetime.utcnow()` deprecations across 17 files; verified `cmc/alerts/detector.py` is stdlib-only (277 LOC); verified `CommandPalette.tsx` + `ProjectBreakdownCard.tsx` already exist as extension points; HIGH confidence
+- `/Users/patrykattc/work/git/claude-mission-control/frontend/package.json` — verified actual installed deps (NOT the prompt's claims).
+- `/Users/patrykattc/work/git/claude-mission-control/frontend/src/styles.css` — verified CSS-variable token system (1863 LOC).
+- `/Users/patrykattc/work/git/claude-mission-control/frontend/src/components/ui/Sheet.tsx` and `AlertDialog.tsx` — verified existing Radix primitives in use.
+- `/Users/patrykattc/work/git/claude-mission-control/frontend/src/routes/sessions_.compare.tsx` — verified existing `validateSearch` hand-written-validator pattern.
+- `npm view <pkg> version peerDependencies time.modified` against the public npm registry on 2026-05-10 — verified every version + peerDep claim above. **HIGH confidence.**
+- Context7 `/bvaughn/react-resizable-panels` — verified library is current and well-documented.
+- TanStack Router GitHub Issue #4973 + Discussion #1207 — verified URL↔localStorage sync is a recognised feature gap (not yet built in). [https://github.com/TanStack/router/issues/4973](https://github.com/TanStack/router/issues/4973), [https://github.com/TanStack/router/discussions/1207](https://github.com/TanStack/router/discussions/1207).
+- react-grid-layout GitHub Issue #2045 — verified React 19 key-prop warning is open. [https://github.com/react-grid-layout/react-grid-layout/issues/2045](https://github.com/react-grid-layout/react-grid-layout/issues/2045).
+- Grafana confirmed using react-grid-layout — [https://github.com/grafana/react-grid-layout](https://github.com/grafana/react-grid-layout). MEDIUM confidence on this being the *right* lib for our case (Grafana uses it, but Grafana is on React 18 and pinned).
+- visx vs recharts comparison — [https://www.pkgpulse.com/guides/recharts-vs-chartjs-vs-nivo-vs-visx-react-charting-2026](https://www.pkgpulse.com/guides/recharts-vs-chartjs-vs-nivo-vs-visx-react-charting-2026). MEDIUM confidence on the perf claim threshold (~1k nodes); use as guidance, profile to confirm.
 
 ---
-*Stack research for: v1.2 Depth & Polish (subsequent milestone — extends v1.1)*
-*Researched: 2026-05-05*
+
+*Stack research for: Claude Mission Control v1.3 Surface Redesign*
+*Researched: 2026-05-10*
+*Confidence: HIGH on additions and version numbers; MEDIUM on the conditional adds (depend on phase requirements); HIGH on the anti-deps (each backed by either an existing in-repo equivalent or a verified compatibility issue).*

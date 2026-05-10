@@ -1,529 +1,604 @@
-# Architecture Research — v1.2 Depth & Polish
+# Architecture Research — v1.3 Surface Redesign
 
-**Domain:** Local single-user observability dashboard (FastAPI + SQLAlchemy 2.0 async + SQLite WAL backend; React + TanStack Router + recharts frontend; launchd-managed dispatcher; Telegram bridge).
-**Researched:** 2026-05-05
-**Confidence:** HIGH (all integration points verified by reading the v1.1 source files; no v1.2 code exists yet).
+**Domain:** Local single-user observability dashboard, full UX rebuild on top of an unchanged data layer.
+**Researched:** 2026-05-10
+**Confidence:** HIGH for everything in `frontend/src/` (read directly); HIGH for backend integration points (read `cmc/db/models/sessions.py`, `cmc/api/routes/__init__.py`, `cmc/api/routes/tasks.py`, `cmc/app/lifespan.py`); HIGH for stack constraints (verified in `frontend/package.json`).
 
 ## Scope of This Document
 
-This is a **subsequent-milestone** architecture study — the v1.0/v1.1 architecture is already shipped and stable; v1.2 is a depth-pass adding 10 differentiator REQs across 4 lanes plus a polish phase. This document maps each v1.2 feature to existing modules, identifies the smallest correct extension, and proposes a buildable phase decomposition. Anti-patterns are called out where v1.0/v1.1 conventions could be violated.
+v1.3 is a **surface-only rebuild** — the v1.0/v1.1/v1.2 backend, ingest pipelines, polling cadences, query-key factory, and route URLs are all stable and out of scope. This document covers exactly the eight architectural decisions that gate the redesign:
 
-## v1.1 Layered Overview (carry-over context)
+1. Shell architecture (where the new shell lives in the route tree)
+2. Density preferences (where state lives, how CSS swaps)
+3. Saved views (URL vs localStorage vs server)
+4. Sheet/Popover containment (root-cause diagnosis of three reported overflow modes)
+5. Bounded panel heights (the panel primitive)
+6. Customizable layouts (if scoped in)
+7. Cmd+K extensions (palette wiring for new affordances)
+8. Build order (phase decomposition for the roadmapper)
+
+## Stack Reality Check (verified, not assumed)
+
+Before recommending anything, the assumed stack must match the actual stack. Read from `frontend/package.json`:
+
+| Claim                          | Reality                                                                                           |
+|--------------------------------|---------------------------------------------------------------------------------------------------|
+| "Tailwind theme variants"      | **No Tailwind.** Pure CSS with hand-authored variables in `frontend/src/styles.css` (~1400 LOC). |
+| "shadcn supports density modes via CSS vars" | **No shadcn.** Components are hand-built in `frontend/src/components/ui/` (Card, Button, Sheet, Tooltip, DataTable, etc.) on top of Radix primitives. |
+| "Tailwind `min-w-0` / `min-h-0`" | The CSS contract uses BEM-style classes (`cmc-card`, `cmc-sheet__panel`, etc.) with explicit `min-width: 0` / `min-height: 0` declarations where needed. |
+| "ResizablePanelGroup"           | Not installed. Only `framer-motion`, `recharts`, `cmdk`, `cronstrue`, `lucide-react`, `react-error-boundary`. |
+| Radix coverage                  | `@radix-ui/react-dialog` (Sheet), `@radix-ui/react-tooltip`, `@radix-ui/react-collapsible`, `@radix-ui/react-alert-dialog`. **No `@radix-ui/react-popover`** — the user's "Popover" reference is the Tooltip primitive, not a separate Popover. |
+
+Implication: every CSS-level recommendation below is in raw CSS variables + class names, never Tailwind utilities. Every shadcn recommendation is excluded; we extend the existing `components/ui/` family.
+
+## Existing Surface (what the redesign integrates with)
+
+### React tree at the root (verified — `frontend/src/routes/__root.tsx`)
 
 ```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                          Frontend (React + Vite)                          │
-│  Routes (file-based, parent-layout opt-out via trailing-underscore):      │
-│  /  /activity  /skills  /skills/$name  /alerts  /sessions/compare         │
-│  Panels: 21 v1.0 + 6 v1.1 = 27 total                                      │
-│  State: React Query (cadence buckets in lib/queries.ts) + useFirehose SSE │
-│  Cmd+K: cmdk Command.Dialog mounted in <AppShell> (context-aware)         │
-├──────────────────────────────────────────────────────────────────────────┤
-│                            FastAPI Application                            │
-│  Routers (cmc/api/routes/): activities sessions skills cost alerts        │
-│   schedules tasks decisions inbox observability mcp system + 5 more       │
-│  Schemas (cmc/api/schemas/): UTCDatetime PlainSerializer; Decimal as str  │
-│  SSE: /api/firehose (otel) + /api/sessions/live/{sid}/stream              │
-├──────────────────────────────────────────────────────────────────────────┤
-│            Domain modules                  │   Dispatcher (launchd 120s)  │
-│  cmc/pricing.py         (compute_cost)     │  cmc/dispatcher/heartbeat.py │
-│  cmc/alerts/detector.py (threshold/EWMA)   │   1. stamp_tick              │
-│  cmc/alerts/scopes.py   (_SCOPE_EXTRACTORS)│   2. e-stop check            │
-│  cmc/skills/scanner.py  (registry sync)    │   3. evaluate_alerts (ALRT)  │
-│  cmc/schedules/nlcron.py (NL→cron Haiku)   │   4. sweep / materialize     │
-│  cmc/dispatcher/skill_router.py (NL→skill) │   5. claim + run             │
-├──────────────────────────────────────────────────────────────────────────┤
-│                    SQLAlchemy 2.0 async + SQLModel                        │
-│  18+ tables. Key for v1.2:                                                │
-│    sessions (cwd, model, started_at, tokens_*, tool_call_count)           │
-│    otel_events (event_name, attrs_skill_name idx, body JSON, session_id)  │
-│    tools (session_id, tool_name, started_at, ended_at, duration_ms)       │
-│    alert_rules / alert_state (rule_id+scope_key, EWMA in params_json)     │
-│    skills (name PK, autonomy, frontmatter, path)                          │
-│    pricing (model, effective_from/until)  token_usage (daily rollup)      │
-│    notification_log decisions  (UNIQUE dedup_key WHERE status='pending')  │
-├──────────────────────────────────────────────────────────────────────────┤
-│                  SQLite (data/cmc.db) — WAL mode, single writer          │
-│              Alembic migrations: 0001_initial, 0002_v1_1_*               │
-└──────────────────────────────────────────────────────────────────────────┘
+QueryClientProvider (singleton — staleTime 30s, refetchOnWindowFocus off)
+└── ErrorBoundary (ShellErrorFallback — Couldn't reach the dashboard server)
+    └── AppShell                              (components/shell/AppShell.tsx)
+        ├── ActiveSessionProvider             (components/shell/ActiveSessionContext.tsx — v1.2)
+        │   └── TaskComposerProvider          (panels/TaskComposer.tsx)
+        │       ├── NavBar                    (components/shell/NavBar.tsx)
+        │       ├── CommandPalette            (components/ui/CommandPalette.tsx — cmdk root mount)
+        │       └── <main className="cmc-main">
+        │           └── <Outlet/>              (page renders here)
 ```
 
-### Established Conventions (must be honored by v1.2)
+### Routes (URLs locked — preserved verbatim)
 
-| Convention | Where | Implication for v1.2 |
-|---|---|---|
-| Cost is **read-time computed**, never stored as $ | `cmc/pricing.py::compute_cost` | ANLY-06 forecast is also read-time; never persist a forecasted dollar amount |
-| Decimal-as-JSON-string (frontend template-literal display) | `cmc/api/schemas/*.py` (`cost_usd: Decimal`) | All v1.2 cost fields use `Decimal`, never `float` |
-| `_RANGE_TO_DAYS` is **copied verbatim** between routers | `cost.py`, `skills.py`, `alerts.py` | New routers/extensions follow same precedent (don't centralize) |
-| SQL via `sqlalchemy.text` + named binding (no ORM joins for analytics CTEs) | `_BREAKDOWN_BY_*_SQL`, `_USAGE_TOP_SQL`, etc. | v1.2 SQL extensions use the same `text()` pattern with named params |
-| Tool-counts use **denormalized** `sessions.tool_call_count` (Pitfall 11 — never `COUNT(tools.*)`) | `sessions.py::_build_compare_side` | CMPR-06 must NOT introduce `COUNT(tools.*)` in compare path |
-| Stable dedup key for alerts: `f"alert:{rule_id}:{scope_key}"` | `dispatcher/alerts.py::_emit_firing` | ALRT-13 anomaly extension reuses the same key; no new format |
-| ALRT-12 invariant: alert engine NEVER imports `cmc.dispatcher.tasks` | AST audit in `test_alerts_dispatcher.py` | ALRT-13/14 must keep audit green |
-| Routers copy `_RANGE_TO_DAYS` (not central import) | All Phase 14/15 routers | New routers continue this pattern |
-| TanStack parent-layout opt-out via trailing-underscore filenames | `skills_.$name.tsx`, `sessions_.compare.tsx` | New full-page routes use the same naming |
-| Hand-written `validateSearch` UUID validator (no zod added) | `routes/sessions_.compare.tsx` | Reuse the helper if more search-param routes added |
-| KNOWN_METRICS constant on frontend mirrors backend `_SCOPE_EXTRACTORS` keys | `AlertRuleForm.tsx:35` | When ALRT-13 adds metrics, both lists must change in lockstep |
+| File                              | URL                                  | Purpose                                                    |
+|-----------------------------------|--------------------------------------|------------------------------------------------------------|
+| `routes/index.tsx`                | `/`                                  | Command page (top strip + analytical grid)                 |
+| `routes/activity.tsx`             | `/activity`                          | Activity (heatmap + charts strip + sessions table)         |
+| `routes/skills.tsx`               | `/skills`                            | Skills registry                                            |
+| `routes/skills_.$name.tsx`        | `/skills/$name`                      | Skill detail (trailing-underscore = parent layout opt-out) |
+| `routes/sessions_.compare.tsx`    | `/sessions/compare?a=...&b=...`      | Session compare (validateSearch — first use of typed search params) |
+| `routes/cost.tsx`                 | `/cost`                              | Cost analytics                                             |
+| `routes/alerts.tsx`               | `/alerts`                            | Alerts                                                     |
 
-## Per-Feature Integration Map
+### Sheet/Popover/Dialog primitives (verified)
 
-For each REQ, "Confidence" reflects how confident the integration approach is given the source files inspected.
+- `components/ui/Sheet.tsx` wraps `@radix-ui/react-dialog` with `Dialog.Portal forceMount` + framer-motion slide-from-right. Width is `min(480px, 90vw)`, fixed-position, z-index 41 (overlay 40). The body is `flex: 1; overflow-y: auto;` — already correctly bounded internally.
+- `components/ui/Tooltip.tsx` wraps `@radix-ui/react-tooltip` with per-instance Provider, `Tooltip.Portal`, `sideOffset={6}`. Each tooltip mounts its own provider — Radix de-dupes pointer-state internally.
+- `components/ui/AlertDialog.tsx` wraps `@radix-ui/react-alert-dialog` (mirrors Sheet structure but for destructive confirms — uses `forceMount` similarly).
+- z-index ladder: Sheet overlay 40, Sheet panel 41, AlertDialog overlay/panel 45/46, CommandPalette 50, Toast/Banner 50.
 
-### Skills polish lane
+### Existing layout primitives (CSS — verified `frontend/src/styles.css:535`)
 
-#### SKLP-08 — Per-project skill breakdown
-
-**What:** Show a per-skill table broken out by `cwd` (project) so operators see which project drives each skill's invocations / cost.
-
-**Existing module to extend:** `backend/cmc/api/routes/skills.py` (the file that hosts `/api/skills/usage`, `/api/skills/{name}/cost|latency|runs`).
-
-**Approach:**
-- Extend `_USAGE_TOP_SQL` (skills.py:230) with an optional `cwd` LEFT JOIN to `sessions` and a new `dim` query parameter, OR add a sibling endpoint `/api/skills/{name}/projects?range=` mirroring the `_BREAKDOWN_BY_PROJECT_SQL` shape from `cost.py:160`.
-- **Recommendation:** sibling endpoint (`/api/skills/{name}/projects`). Reasons:
-  1. Per-skill detail page already has cost/latency/runs siblings — projects fits cleanly alongside.
-  2. Adding a `cwd` dimension to `/api/skills/usage` complicates the sparkline shape (sparkline is per-skill per-day; per-skill per-cwd per-day would balloon the response).
-  3. New endpoint avoids breaking the SkillUsageRow contract used by `TopSkills.tsx`.
-- **SQL pattern:** Mirror `_BREAKDOWN_BY_SKILL_SQL` (cost.py:147) — JOIN `otel_events o` to `sessions s` on `session_id`, GROUP BY `COALESCE(s.cwd, '<unknown>')`, filter `event_name='skill_activated' AND attrs_skill_name=:name`. Read-time cost via `compute_cost`.
-- Optional: also expose `dim=project` on the existing breakdown endpoint (already exists at `cost.py::cost_breakdown` with `BreakdownDim = model|skill|project`, but currently project is not skill-filtered) — **defer**, that's a different aggregation.
-
-**DB impact:** None. `sessions.cwd` column already exists with `idx_sessions_cwd` index.
-
-**Frontend:** New panel `SkillProjectsTable.tsx` rendered on `/skills/$name`. New query hook `useSkillProjects(name, range)` in `lib/queries.ts` (30s cadence, matches other skill panels).
-
-**Confidence:** HIGH.
-
-#### SKLP-09 — Period-over-period delta
-
-**What:** Show "this period vs previous period" arrows/percentages on skill totals (e.g., 7d vs prior 7d).
-
-**Existing module to extend:** Same file (`skills.py`), same endpoints.
-
-**Approach:**
-- Add a previous-period CTE alongside the current-period CTE in `_USAGE_TOP_SQL` and the per-skill cost/latency SQL. Pattern:
-
-```sql
-WITH curr AS (
-  SELECT ... WHERE ts >= datetime(:since)
-),
-prev AS (
-  SELECT ... WHERE ts >= datetime(:prev_since) AND ts < datetime(:since)
-)
-SELECT curr.skill_name, curr.total AS curr_total, prev.total AS prev_total
-FROM curr LEFT JOIN prev USING (skill_name);
+```css
+.cmc-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-auto-rows: 1fr;       /* equal-height rows */
+  gap: var(--space-lg);
+}
+.cmc-page {
+  display: flex; flex-direction: column;
+  gap: var(--space-xl);
+  max-width: 1440px; margin: 0 auto;
+}
+.cmc-main { padding: var(--space-lg); min-height: calc(100% - 56px); }
+.cmc-shell { display: flex; flex-direction: column; min-height: 100%; }
 ```
 
-- Add `prev_total: int | None`, `delta_pct: float | None` (or `Decimal | None`) to `SkillUsageRow` / `SkillCostResponse`. None-when-no-prior-window matches existing nullable patterns.
-- Range stays unchanged (`SkillRange = "14d" | "30d"`); the prior-window length matches the current window.
+The grid is breakpoint-free (auto-fit + minmax), which is good. The page is flex-column with a fixed max-width, which is the right starting point. Panels (`.cmc-card`) are flex-column with explicit gap and `flex: 1` on `.cmc-card__content` — but **no `min-height: 0` on `.cmc-card__content`**, which is the proximate cause of overflow mode (a) below.
 
-**DB impact:** None. Same indexes.
+## Eight Architectural Decisions
 
-**Frontend:** Extend `TopSkills.tsx` and `SkillCostCard.tsx` to show a delta badge (↑12% / ↓4%). Existing `Decimal`-as-string convention applies if delta is `Decimal`; `float` is acceptable here because percent precision is display-only.
+### 1. Shell architecture — keep `__root.tsx`, expand its providers, do not introduce a new file-based parent
 
-**Confidence:** HIGH.
+**Recommendation: HOLD `routes/__root.tsx` as the singular root. Extend the provider stack inside it (or split a new `<AppShellProviders>` component); do not introduce a `routes/_layout.tsx` or pathless layout route.**
 
-#### SKLP-10 — "New" / "Dormant" badges
+**Why:**
 
-**What:** "New" = first seen within current period. "Dormant" = last seen ≥30d ago.
+- `__root.tsx` already plays the role of the "every-child wrapper" — TanStack Router renders `<Outlet/>` exactly once at this level, and every page route in `routes/` is a *direct child* of root (`/`, `/activity`, `/skills`, `/cost`, `/alerts`, plus `skills_.$name.tsx` and `sessions_.compare.tsx`). The flat-routing convention with trailing-underscore opt-out is **already** "everything wraps in root unless explicitly opted out", and no current route opts out of root — only out of intermediate parents.
+- Introducing a pathless layout route (e.g. `routes/_layout.tsx`) would split the provider story across two files for zero benefit: every page would still render under it, and the trailing-underscore opt-out semantics would have to be re-thought for the two existing opt-out files.
+- The v1.2 work already established the pattern: shell-level cross-cutting state lives in a Provider mounted inside `AppShell` (see `ActiveSessionProvider`, `TaskComposerProvider`). v1.3 simply adds more providers (Density, SavedViews if local-only) at the same level.
 
-**Decision: backend-computed.** Reasons:
-1. Frontend doesn't have full per-skill first/last-seen data (`SkillsRegistry` only has `updated_at` from registry sync, NOT first activation event).
-2. Backend already has the data via `MIN(ts)` / `MAX(ts)` on `otel_events WHERE event_name='skill_activated' AND attrs_skill_name=...` — single CTE.
+**The new React tree at root (after v1.3 shell rework):**
 
-**Approach:**
-- Add a `first_activated_at`, `last_activated_at: datetime | None` field to `SkillRow` / `SkillUsageRow` (response only — NOT stored on the `skills` table).
-- Computed via a small CTE on `otel_events`:
-
-```sql
-SELECT
-  attrs_skill_name AS skill_name,
-  MIN(ts) AS first_activated_at,
-  MAX(ts) AS last_activated_at
-FROM otel_events
-WHERE event_name = 'skill_activated' AND attrs_skill_name IS NOT NULL
-GROUP BY skill_name;
+```
+QueryClientProvider
+└── ErrorBoundary
+    └── DensityProvider             (NEW — reads localStorage on mount, sets data-density on <html>)
+        └── SavedViewsProvider      (NEW — only if Decision 3 picks the local-storage path; harmless if server-persisted)
+            └── AppShell
+                ├── ActiveSessionProvider
+                │   └── TaskComposerProvider
+                │       ├── NavBar (extended: density toggle, saved-view dropdown)
+                │       ├── CommandPalette (extended: jump-to-saved-view + jump-to-time-range groups)
+                │       └── <main className="cmc-main">
+                │           └── <Outlet/>
 ```
 
-- "New"/"dormant" classification happens **on the frontend** (display logic) — backend just returns the timestamps, frontend compares to `now - range` for "new" and `now - 30d` for "dormant". This keeps the badge thresholds tweakable without API changes.
+The provider order matters: `DensityProvider` must be ABOVE `AppShell` because the shell's chrome (NavBar height, sidebar widths) reacts to density via CSS variables that the provider sets on `<html>`. Providers that read URL state (e.g. SavedViews server-persisted) need router context, so they sit INSIDE `__root.tsx` after `QueryClientProvider` (router context is provided by `createRootRoute` itself — no separate provider).
 
-**Alternative considered:** Store `first_seen_at` on the `skills` table (would require migration 0003 and a backfill). **Rejected** — registry rows can predate first activation (skill installed but never run), so derived-from-events is more honest.
+**Splitting AppShell into chrome vs body:**
 
-**Frontend:** Update `SkillsRegistry.tsx` and `TopSkills.tsx` with two new badge components. Add to existing index file `panels/index.ts`.
+Today `AppShell` mounts `<NavBar/>` + `<CommandPalette/>` + `<main/>`. v1.3 wants more chrome (density toggle, saved-view dropdown, optional sidebar, optional secondary toolbar). The clean refactor is:
 
-**Confidence:** HIGH.
+```tsx
+// AppShell.tsx — minimal change, additive only
+export function AppShell({ children }) {
+  return (
+    <ActiveSessionProvider>
+      <TaskComposerProvider>
+        <div className="cmc-shell">
+          <AppShellHeader />        {/* NEW — extracted from NavBar, hosts density/views/cmdk */}
+          <CommandPalette />         {/* unchanged — still mounts at shell level */}
+          <main className="cmc-main">{children}</main>
+        </div>
+      </TaskComposerProvider>
+    </ActiveSessionProvider>
+  )
+}
+```
 
-#### SKLP-11 — Latency overhead breakdown
+`AppShellHeader` becomes the home for v1.3 chrome additions; the existing `NavBar` content moves inside it. This is a strict refactor — no behavior change — and keeps v1.0/v1.1/v1.2 tests green (the test selectors target `cmc-navbar` / NavLink / CommandPalette individually, not the AppShell composition).
 
-**What:** "Where is the time going inside a skill invocation?" — split skill duration into tool-call time vs LLM time vs other.
+### 2. Density preferences — localStorage + `[data-density]` attribute on `<html>` driving CSS variable swap
 
-**This one is the hardest of the lane.** Worth flagging.
+**Recommendation: Mirror the existing theme pattern (`frontend/src/lib/theme.ts`). New `lib/density.ts` module with `applyDensity()` called from `main.tsx` BEFORE `ReactDOM.createRoot`. Persist via `localStorage` key `cmc.density`. Toggle attribute `[data-density="compact" | "comfortable"]` on `<html>`. Branch a small set of CSS variables under that selector.**
 
-**Existing data audit:**
-- `otel_events` has `skill_activated` rows with `duration_ms` in attributes (extracted via `json_each`). This is the **outer** skill duration.
-- `otel_events` also has `api_request` rows with token counts and (per Phase 14 dual-path attribution work) request_id linkage.
-- `tools` table has individual tool calls with `started_at`, `ended_at`, `duration_ms`. Linkable to a session but **not** linkable to a single skill activation event without a request_id JOIN.
-- There is **no** existing OTEL span hierarchy that decomposes a skill invocation. Phase 12's SPIKE explicitly noted skill events are **not** spans — they are point events with a duration attribute.
+**Why localStorage and not server-persisted:**
 
-**Decision: derive, don't add new spans.**
+- This is a single-user macOS-only tool. There's no "sync across devices" use case, no auth boundary, no second user. Server persistence is overkill.
+- The existing convention is established: `lib/theme.ts` does exactly this for `cmc.theme`, and the avoidance-of-flash-on-cold-load pattern is already solved by calling `applyTheme()` before React mounts. Following that convention costs zero design budget.
+- localStorage is silent on quota errors (`lib/storage.ts:21`), so the worst case is "density falls back to default" — not user-visible breakage.
 
-**Approach:**
-- For each `skill_activated` event in window:
-  - Total = `duration_ms` from event attributes.
-  - Tool time = SUM(`duration_ms`) on `tools` rows in same `session_id` whose `started_at` falls within `[skill_event.ts, skill_event.ts + total_ms]`.
-  - LLM time = SUM(`duration_ms`) on `otel_events` `event_name='api_request'` matching the dual-path request_id pattern from `skills.py:380` (Path R) when available; fallback Path S = best-effort approximation.
-  - Other = total − tool − llm (clamp to ≥0).
-- Aggregate across the window (median or mean of per-event splits).
-- New endpoint: `GET /api/skills/{name}/overhead?range=` returning `{tool_ms, llm_ms, other_ms, total_ms, sample_count, low_sample: bool}`.
+**Why `[data-density]` attribute and not Tailwind variants or React Context for the CSS:**
 
-**Caveats / risks:**
-- Tool-call temporal containment is approximate — concurrent tool calls in nested skill invocations could double-count. Document this limitation in the response model docstring.
-- This is the one feature that may benefit from a research spike before plan-out (similar to Phase 12 OTEL skill spike).
+- Tailwind isn't installed. This is moot.
+- React Context for the CSS layer would require every consumer to read context and emit conditional classNames — every panel would need to know about density. The data-attribute approach centralizes the swap in one CSS layer; **panels never need to know density exists**. This is the same separation-of-concerns the theme system already uses.
+- The data-attribute lives on `<html>` (not `<body>`) so the attribute is set during the first paint via `applyDensity()` — same flash-prevention guarantee as theme.
 
-**DB impact:** None.
+**The CSS contract — branch only the density-sensitive tokens:**
 
-**Frontend:** New panel `SkillOverheadCard.tsx` on `/skills/$name`. Render as a stacked horizontal bar (recharts BarChart, like `ChartsStrip.tsx` precedent) with three segments + a low-sample badge.
+```css
+/* frontend/src/styles.css — additive only */
 
-**Confidence:** MEDIUM — derivation approach is sound but temporal-containment heuristics need a small validation spike.
+:root {
+  /* Default = comfortable. Existing values stay; density tokens become the
+     INDIRECT layer that consuming rules read. Backwards-compat: rules that
+     don't read these tokens are unaffected. */
+  --density-row-padding: var(--space-sm);          /* table row vertical padding */
+  --density-card-padding: var(--space-lg);         /* card body padding */
+  --density-gap: var(--space-md);                  /* default flex/grid gap */
+  --density-input-height: 32px;
+  --density-font-body: var(--size-body);           /* 14px today */
+}
 
-### Cost differentiators lane
+[data-density="compact"] {
+  --density-row-padding: var(--space-2xs);
+  --density-card-padding: var(--space-md);
+  --density-gap: var(--space-sm);
+  --density-input-height: 28px;
+  --density-font-body: 13px;                       /* one step smaller */
+}
+```
 
-#### ANLY-06 — Monthly cost forecast
+Then a focused refactor pass updates the small set of class rules that should respond to density:
 
-**What:** Project end-of-month cost based on month-to-date burn rate.
+```css
+.cmc-card { padding: var(--density-card-padding); /* was var(--space-lg) */ }
+.cmc-card-grid { gap: var(--density-gap); /* was var(--space-lg) */ }
+.cmc-table th, .cmc-table td { padding: var(--density-row-padding) var(--space-sm); /* was var(--space-xs) */ }
+.cmc-btn { min-height: var(--density-input-height); /* was 32px */ }
+```
 
-**Existing module to extend vs new module:** The existing module `cmc/pricing.py` is pure compute (`compute_cost(model, tokens, rates)`) — strictly stateless math. The forecast adds a **time-series projection layer**, which is a different responsibility.
+**State lives at three layers:**
 
-**Recommendation:** Add a new module `cmc/cost/forecast.py` (creating the directory `cmc/cost/`). This is the right boundary — `cmc/pricing.py` stays pure unit-cost math; `cmc/cost/forecast.py` consumes pricing + reads `token_usage` history for projections. Mirrors the `cmc/alerts/{detector,scopes}.py` split where pure functions sit beside data-coupled extractors.
+1. **`localStorage` (`cmc.density`)** — the durable store. Read once at boot.
+2. **`<html data-density>`** — the runtime CSS-driving attribute. Set by `applyDensity()` and by the toggle handler.
+3. **React Context (`DensityProvider`)** — exposes the current density and a setter to React components (the toggle button itself, plus any component that wants to render density-aware copy/icons). The provider DOES NOT drive CSS; it drives React state for the chrome controls only.
 
-**Approach:**
-- `forecast.py::project_monthly_cost(db, *, today: date) -> dict`. Reads `token_usage` for current month (1st → today), aggregates to a daily Decimal, multiplies by days-in-month / day-of-month for naive linear projection.
-- Optional refinement: simple weighted average over last 7 days × remaining days. Keep stdlib-only (no statsmodels / numpy) — same discipline as `cmc/alerts/detector.py`.
-- Endpoint: `GET /api/cost/forecast?month=YYYY-MM` (default current month).
+The provider's setter writes to localStorage, sets the data-attribute, and updates internal state in one transaction — same shape as `lib/theme.ts:setTheme`.
 
-**DB impact:** None. `token_usage.day` is already DATE-indexed.
+**API surface (no backend changes needed — all client-side):**
 
-**Frontend:** Extend `TokenUsageCard.tsx` with a forecast row, OR new `CostForecastCard.tsx` panel. **Recommend:** new panel — TokenUsageCard is dense already.
+```ts
+// frontend/src/lib/density.ts (NEW — mirrors lib/theme.ts)
+export type Density = 'comfortable' | 'compact'
+export const DEFAULT_DENSITY: Density = 'comfortable'
+export function getDensity(): Density { /* read cmc.density, default comfortable */ }
+export function setDensity(d: Density): void { /* write storage + dataset.density */ }
+export function applyDensity(): void { /* call from main.tsx pre-mount */ }
+```
 
-**Anti-pattern to avoid:** Don't store the forecast result in a table. Like cost itself, forecast must be read-time so a corrected pricing row backdates the forecast (consistent with the `effective_from`/`effective_until` self-correcting story).
+```tsx
+// frontend/src/components/shell/DensityProvider.tsx (NEW)
+const DensityContext = createContext<{ density: Density; setDensity: (d: Density) => void } | null>(null)
+// Provider reads getDensity() once on mount, stores in useState, setter calls setDensity()
+// + setState in one transaction. Stable value via useMemo (mirrors ActiveSessionProvider).
+```
 
-**Confidence:** HIGH.
+### 3. Saved views — URL search params first, server-persisted "named view" only as a follow-on
 
-#### ANLY-07 — Per-project cost card
+**Recommendation: Use TanStack Router `validateSearch` for the per-route filter/range/sort state (the "view" itself). Persist named views to the SERVER via a new `views` table — a single-user dashboard still benefits from server persistence so views survive `localStorage.clear()` and DB-backed export/import. Default view per route lives in localStorage as a tiny pointer (just the saved-view id), not the view payload.**
 
-**What:** Surface cost grouped by `cwd` as a top-level activity-page card.
+**Why a hybrid (URL + server) and not pure localStorage:**
 
-**Existing module to extend:** `cmc/api/routes/cost.py::cost_breakdown` already supports `dim=project` — the SQL is `_BREAKDOWN_BY_PROJECT_SQL` at `cost.py:160`.
+- Pure URL is the right primitive for the **transient** view: it's bookmarkable, shareable as a deep link, and survives a refresh — and TanStack Router's `validateSearch` already exists in the codebase (see `routes/sessions_.compare.tsx:32`). Every page that gains filters in v1.3 should adopt validateSearch as its first move.
+- Pure localStorage for the **named view library** would mean views disappear on a fresh checkout / new browser profile / cleared storage. For a dashboard the user invests in (curating filters), that's bad UX. Server-persisted is durable and matches the existing pattern (tasks, schedules, alert rules — all persist server-side).
+- Pure server-persisted for the transient view (i.e., reading the live filter from the server every render) is the wrong direction — it adds round trips for state the client already owns.
 
-**Recommendation:** No new endpoint. Frontend-only addition.
+**Why the default-view pointer lives in localStorage and not the server:**
 
-**Frontend:**
-- New panel `ProjectCostCard.tsx` querying the existing `/api/cost/breakdown?dim=project&range=7d` endpoint.
-- Pattern after existing `ProjectBreakdownCard.tsx` (which already does cwd grouping for tokens).
-- Add to `/activity` page composition.
+- "Which view do I land on when I open this page?" is a per-browser preference, not user data. A future second device should not inherit it.
+- The pointer is a single integer (the view id) — trivially small, trivially safe to lose.
 
-**DB impact:** None.
+**SQLModel + Alembic + endpoints sketch (extends-not-breaks contract):**
 
-**Confidence:** HIGH (the heavy lifting was already done in Phase 13 as foresight).
-
-### Alert differentiators lane
-
-#### ALRT-13 — Full anomaly detection
-
-**What:** v1.1 shipped EWMA z-score anomaly detection. ALRT-13 is the "full" version — additional detector(s) and richer params.
-
-**Existing module to extend:** `cmc/alerts/detector.py` already has `evaluate_anomaly` returning `(AlertSignal, dict)` and persisting EWMA state in `alert_state.params_json`.
-
-**Recommendation:** Extend `cmc/alerts/detector.py` with one or more additional detector functions (e.g., `evaluate_seasonal_anomaly`, `evaluate_change_point`) AND extend the rule's `params_json` schema to discriminate by `params_json.detector` ("ewma_zscore" | "seasonal" | "change_point"). Dispatch in `dispatcher/alerts.py::evaluate_alerts` based on `params_json.detector` (default = "ewma_zscore" for back-compat).
-
-**Anti-pattern to avoid:** **Don't** introduce a third top-level `kind` value (current values are `threshold | anomaly`). Adding "seasonal" at the kind level would force a state machine fork in `evaluate_alerts`. Keeping it under `params_json.detector` is consistent with the v1.1 lock that EWMA-specific config (`window_n`) lives in `params_json`.
-
-**Stdlib-only constraint:** `cmc/alerts/detector.py` v1.1 imports only `math`. Maintain this — no scipy / numpy. Seasonal detection can be done with a rolling window of same-day-last-week values.
-
-**DB impact:** None — `alert_rules.params_json` is JSON.
-
-**Frontend:** Extend `AlertRuleForm.tsx` discriminated-union UI to render new detector-specific param fields when `kind=anomaly` and `params_json.detector` is selected.
-
-**Confidence:** HIGH for the integration approach. MEDIUM for which specific second detector to add — depends on requirements.
-
-#### ALRT-14 — NL-authored alert rules
-
-**What:** Operator types "alert me when daily cost exceeds $10" — system parses to `AlertRuleCreate`.
-
-**Existing pattern:** Two existing NL-Haiku integrations.
-1. `cmc/schedules/nlcron.py` — NL → cron string. Used by `POST /api/schedules/parse-nl` returning `{cron, description}`. Strict JSON mode, croniter validation, returns None on graceful-degradation paths.
-2. `cmc/dispatcher/skill_router.py` — NL task → skill name. Same lazy-import pattern, validates against registry.
-
-**Recommendation:** New module `cmc/alerts/nl_parser.py` mirroring `nlcron.py` exactly (same code shape — see decision below).
-
-**Endpoint placement decision (the question raised in the prompt):**
-
-| Option | Description | Verdict |
-|---|---|---|
-| A | **Pre-validate endpoint**: `POST /api/alerts/parse-nl` returns a draft `AlertRuleCreate` shape; frontend submits that to `POST /api/alerts/rules` after user confirms. | ✓ **Recommended** |
-| B | **Inline in submit**: extend `POST /api/alerts/rules` to accept either an `AlertRuleCreate` body OR a `{prompt: str}` body. | ✗ Conflates two concerns; mirrors the rejected pattern from schedules where `/api/schedules/parse-nl` is its own endpoint |
-| C | **Frontend Haiku call** | ✗ Leaks ANTHROPIC_API_KEY to browser; also breaks the dispatcher-only Haiku discipline |
-
-Option A wins on three grounds:
-1. **Mirrors `parse-nl` precedent** for schedules — consistent UX (user sees the parsed rule before committing, can edit) and consistent backend module shape.
-2. **Server validates twice**: NL parser asserts parse success + returns valid `AlertRuleCreate`-shaped JSON; user confirms; `POST /api/alerts/rules` re-runs `is_known_metric`, `model_validator` thresholds, etc.
-3. **Single 503 graceful-degradation point** when `ANTHROPIC_API_KEY` is unset (matches `nlcron.py` exactly).
-
-**Module shape:**
 ```python
-# cmc/alerts/nl_parser.py
-async def parse_nl_alert(prompt: str) -> dict | None:
-    """NL → AlertRuleCreate-shaped dict via Claude Haiku 4.5.
-    Returns None on missing API key, malformed JSON, unknown metric.
-    Caller wraps as AlertRuleCreate(**result) for full Pydantic validation.
-    """
+# backend/cmc/db/models/views.py (NEW — mirrors tasks.py shape)
+from datetime import datetime
+from sqlmodel import Field, Index, SQLModel
+from cmc.core.time import now_utc
+
+class SavedView(SQLModel, table=True):
+    __tablename__ = "saved_views"
+    id: int | None = Field(default=None, primary_key=True)
+    route: str = Field(max_length=64)         # e.g. "/activity", "/cost", "/skills"
+    name: str = Field(max_length=120)
+    # state is stored as a JSON string. URL search-param shape — whatever the route's
+    # validateSearch accepts. Decoded client-side; backend treats opaquely.
+    state_json: str = Field(default="{}")
+    sort_order: int = Field(default=0)        # for explicit user ordering in the dropdown
+    created_at: datetime = Field(default_factory=now_utc)
+    updated_at: datetime = Field(default_factory=now_utc)
+    __table_args__ = (
+        Index("idx_saved_views_route_sort", "route", "sort_order"),
+    )
 ```
 
-System prompt is much richer than `nlcron.py` because output is a JSON object with 7+ fields (kind, metric, threshold_fire, etc.) — but the discipline is identical: strict JSON output, validate against `is_known_metric`, return None on hallucination.
-
-**Endpoint:** `POST /api/alerts/parse-nl` taking `{prompt: str}`, returning `{rule: AlertRuleRowDraft, description: str}` or 503. Mounted in `cmc/api/routes/alerts.py` alongside CRUD.
-
-**DB impact:** None.
-
-**Frontend:** Extend `AlertRuleForm.tsx` with an NL-input field above the form. On submit, call `POST /api/alerts/parse-nl`, populate the form fields with the result, let user confirm/edit, then submit via the existing `useCreateAlertRule` mutation.
-
-**Confidence:** HIGH — direct code-shape parallel to a working v1.0 pattern.
-
-### Compare differentiators lane
-
-#### CMPR-06 — Per-skill latency delta
-
-**What:** In the compare view, for skills that fired in BOTH sessions, show the latency delta side-by-side.
-
-**Existing endpoint:** `GET /api/sessions/compare?a=&b=` returns `SessionCompareSide` per side with `skills_used: list[str]` (just names) and `tool_counts: dict[str, int]` (per-tool counts) — but **NO per-skill latency or per-skill metrics**.
-
-**Recommendation:** Extend the existing endpoint, not a new endpoint. Reasons:
-1. Phase 16 invariant: compare is a **single round-trip**. Adding a second endpoint forces the frontend to make N requests.
-2. The existing handler `_build_compare_side` already runs per-side SQL helpers (`_COMPARE_SKILLS_SQL`, `_COMPARE_OUTCOME_SQL`, `_COMPARE_TOOL_COUNTS_SQL`) — adding one more (`_COMPARE_SKILL_LATENCIES_SQL`) keeps the same shape.
-
-**Approach:**
-- Add a new SQL CTE on `otel_events WHERE event_name='skill_activated' AND session_id=:sid AND attrs_skill_name IN (skills_used)`, GROUP BY `attrs_skill_name`, computing `MEDIAN(duration_ms)` (or just `AVG` for v1) via the percentile pattern from `skills.py::_LATENCY_SQL`.
-- Add field `skill_latencies: dict[str, int]` (skill_name → median_ms) to `SessionCompareSide`.
-- Frontend computes the delta client-side (`a.skill_latencies[name] - b.skill_latencies[name]`) — keeps the wire payload minimal.
-- Defensive: skip skills with sample_count < (something low like 3) — emit None instead.
-
-**Over-cap interaction:** When `over_cap=true` on a side, skip the latency CTE on that side (set `skill_latencies={}`). Mirrors how `tool_counts` is treated (existing precedent at `sessions.py:165`).
-
-**DB impact:** None.
-
-**Frontend:** Extend `SessionCompareView.tsx` skill-set diff block to render a small two-column latency delta table for the `shared` skills (top of the diff). Display as `aMedian` vs `bMedian` with delta badge.
-
-**Confidence:** HIGH.
-
-#### CMPR-07 — Cmd+K "Compare with previous" shortcut
-
-**What:** When viewing a session, Cmd+K offers "Compare with previous session" — auto-picks the prior session in same `cwd`.
-
-**Existing pattern:** `CommandPalette.tsx:50-115` already has context-aware "Compare with…" (when `currentA` set, opens picker Sheet). CMPR-07 adds a "previous in cwd" shortcut.
-
-**Decision: frontend-only, but needs ONE small new endpoint.**
-
-Reasons:
-1. The frontend doesn't have the data to find "previous session in same cwd" — `/api/sessions` lists sessions but the frontend would have to fetch, sort by `started_at`, find the one before `currentA`. That's a 50-row payload to find one ID.
-2. The cleanest thing is a tiny endpoint: `GET /api/sessions/{session_id}/previous` returning `{session_id: str | null}` — looks up the row immediately preceding `:session_id` ordered by `started_at DESC` matching the same `cwd`.
-3. Alternative — `GET /api/sessions?cwd=<encoded>&limit=2&before=<sid>` extending the existing list endpoint — works but **the existing list endpoint doesn't support `before` and adding it for this single use is over-broad**.
-
-**Recommendation:** Add the dedicated `/api/sessions/{session_id}/previous` endpoint. Tiny SQL: `SELECT session_id FROM sessions WHERE cwd = (SELECT cwd FROM sessions WHERE session_id = :sid) AND started_at < (SELECT started_at FROM sessions WHERE session_id = :sid) ORDER BY started_at DESC LIMIT 1`. Returns 200 with `{session_id: null}` when none exists (NOT 404 — empty case is normal, like the empty-string result from `nlcron`).
-
-**DB impact:** None — `sessions.cwd` and `sessions.started_at` already indexed.
-
-**Frontend:**
-- New Cmd+K item "Compare with previous (same project)" — visible only when on a session-detail surface.
-- On select: fetch `/api/sessions/{currentSessionId}/previous`, navigate to `/sessions/compare?a=<currentSid>&b=<prevSid>`. Empty result → toast "No previous session in this project" (use existing toast infrastructure if present, else inline message).
-
-**Confidence:** HIGH.
-
-### Polish lane
-
-These are not architectural extensions — they fix carried tech debt. Architecture impact is mostly "where to make the edit, all in one phase."
-
-| Item | File | Change |
-|---|---|---|
-| `Field(default_factory=datetime.utcnow)` deprecation | 8 schemas (search: `default_factory=datetime.utcnow`) | Replace with `default_factory=lambda: datetime.now(UTC).replace(tzinfo=None)` (preserves naive-UTC convention used by SQLite columns) |
-| `SchedulesCard.test.tsx > stale row` flake | `frontend/src/components/panels/__tests__/SchedulesCard.test.tsx` | Stub `Date.now()` or `vi.useFakeTimers()` for time-of-day assertion |
-| `schedule-composer.spec.ts` aria-label collision with Phase 14 firehose `Filter skill name` filter | Playwright spec | Tighten selector to scope by parent `[data-testid="schedule-composer"]` (or similar) |
-| KNOWN_METRICS sync | `frontend/src/components/panels/AlertRuleForm.tsx:35` | When ALRT-13 adds metrics, this list must update in lockstep — call out in PHASE-N goals |
-
-## Suggested Build Order (dependency-driven)
-
-```
-                 ┌────────────────────────────┐
-                 │ Phase 18: Polish & Cleanup │  ← starts clean, no blockers, fast win
-                 │  (carried debt + flakes)   │
-                 └─────────────┬──────────────┘
-                               │
-         ┌─────────────────────┼─────────────────────┐
-         │                     │                     │
-         ▼                     ▼                     ▼
-  ┌──────────────┐      ┌──────────────┐      ┌──────────────┐
-  │ Phase 19:    │      │ Phase 20:    │      │ Phase 21:    │
-  │ Skills polish│      │ Cost depth  │      │ Alerts depth │
-  │ SKLP-08..10 │      │ ANLY-06,07   │      │ ALRT-13      │
-  │              │      │              │      │ ALRT-14      │
-  └──────┬───────┘      └──────────────┘      └──────────────┘
-         │
-         ▼ (uses CTE + display patterns from 19)
-  ┌──────────────┐
-  │ Phase 22:    │
-  │ Skills depth │
-  │ SKLP-11      │ (the latency-overhead one — needs spike)
-  └──────────────┘
-                               │
-                               ▼
-                       ┌──────────────┐
-                       │ Phase 23:    │
-                       │ Compare depth│
-                       │ CMPR-06,07   │
-                       └──────────────┘
+```python
+# backend/migrations/versions/0004_saved_views.py
+def upgrade() -> None:
+    op.create_table(
+        "saved_views",
+        sa.Column("id", sa.Integer, primary_key=True),
+        sa.Column("route", sqlmodel.sql.sqltypes.AutoString(length=64), nullable=False),
+        sa.Column("name", sqlmodel.sql.sqltypes.AutoString(length=120), nullable=False),
+        sa.Column("state_json", sa.Text, nullable=False, server_default="{}"),
+        sa.Column("sort_order", sa.Integer, nullable=False, server_default="0"),
+        sa.Column("created_at", sa.DateTime, nullable=False),
+        sa.Column("updated_at", sa.DateTime, nullable=False),
+    )
+    op.create_index("idx_saved_views_route_sort", "saved_views", ["route", "sort_order"])
 ```
 
-### Why this order?
+```python
+# backend/cmc/api/routes/views.py (NEW — wired into all_routers() in routes/__init__.py)
+@router.get("/views", response_model=SavedViewListResponse)
+async def list_views(route: str | None = Query(None), db: AsyncSession = Depends(get_session)): ...
 
-1. **Phase 18 polish first.** Every other phase will write tests and ship features; doing the flakes + deprecation cleanup first means the rest of the milestone runs against green CI without false-positive failures on `SchedulesCard.test.tsx`. Cheap, high-leverage, no dependencies.
+@router.post("/views", response_model=SavedView, status_code=201)
+async def create_view(payload: SavedViewCreate, db: AsyncSession = Depends(get_session)): ...
 
-2. **Phase 19 (SKLP-08/09/10) before Phase 22 (SKLP-11).** SKLP-08/09/10 are pure SQL CTE extensions — mechanical and pattern-matched against existing `_USAGE_TOP_SQL`. SKLP-11 needs derivation logic and arguably a small validation spike (Phase 12-style). Building 19 first establishes the panel-rendering and badge-component patterns that 22 reuses.
+@router.patch("/views/{view_id}", response_model=SavedView)
+async def update_view(view_id: int, payload: SavedViewPatch, ...): ...
 
-3. **Phase 20 (cost depth) is independent** of skills work — its CTEs touch `token_usage` and `sessions`, not `otel_events`. Can run in parallel with 19/21/22 if desired (they touch different routers + different frontend panels).
+@router.delete("/views/{view_id}", status_code=204)
+async def delete_view(view_id: int, ...): ...
+```
 
-4. **Phase 21 (ALRT-13 → ALRT-14).** ALRT-13 ships first because:
-   - ALRT-14's NL parser needs to **emit** valid AlertRuleCreate JSON. Validating against the latest detector vocabulary (from ALRT-13) before NL goes live ensures the parser doesn't suggest legacy-only fields.
-   - ALRT-14 expands `params_json` shape; doing 13 first locks the shape.
-   - Both can fit in one phase if scoped tightly. **Recommendation:** combined phase, ALRT-13 plan first, ALRT-14 plan second.
+Five endpoints, one table, one migration. All additive — no existing endpoint or table changes. The lifespan auto-applies the migration on next boot (`backend/cmc/app/lifespan.py`).
 
-5. **Phase 22 (SKLP-11) after 19** for shared SQL CTE patterns.
+**Frontend integration:**
 
-6. **Phase 23 (CMPR-06/07) last.** CMPR-06 extends a SQL helper inside `_build_compare_side`. CMPR-07 adds one tiny endpoint + a Cmd+K item. Together they fit cleanly in one phase. They don't depend on 19/20/21/22 architecturally, but going last means:
-   - CMPR-06's per-skill latency delta benefits from SKLP-11's overhead logic if reusable.
-   - CMPR-07 benefits from any URL-state polish in earlier phases.
+- Each routed page declares `validateSearch` (mirroring `routes/sessions_.compare.tsx:70`) and a typed `Search` shape covering its filters (range, sort, filter strings, pagination cursor).
+- A new hook `useSavedViews(route)` is added to `lib/queries.ts` — same factory, same 30s cadence, same query-key family — and a `useSaveView` / `useDeleteView` mutation pair.
+- The `SavedViewMenu` chrome component (in NavBar) calls `navigate({ to: route, search: JSON.parse(view.state_json) })` to apply a view; "Save current view" reads `useSearch()` and POSTs.
+- A "Set as default" action writes the view id to `localStorage` key `cmc.defaultView.<route>`. The page's component reads this on mount and `navigate(... search: ...)` exactly once when the URL has no params — never overrides a deep-linked URL.
 
-## Suggested Phase Decomposition
+**Confidence:** HIGH — this matches the existing tasks/schedules CRUD shape exactly, including server_default handling and migration patterns.
 
-**Six phases continuing from 18.** Each phase is sized to one architectural seam + a coherent UX deliverable.
+### 4. Sheet/Popover containment — three distinct root causes, three distinct fixes
 
-### Phase 18 — Polish & Carry-Forward Cleanup
-**Goal sentence:** Eliminate carried tech debt (deprecated `datetime.utcnow` in 8 schemas, two test flakes, two doc-citation drifts) so the v1.2 work runs against a clean baseline.
-**Plans:** 1 plan covering the trifecta (datetime deprecation, test stabilization, doc fixes). Single-day phase.
+The user reports three overflow modes. They have **independent root causes**, and conflating them as "panels overflow" would lead to the wrong fixes. Each is grounded in code I read directly.
 
-### Phase 19 — Skills Per-Project & Period Deltas (SKLP-08, SKLP-09, SKLP-10)
-**Goal sentence:** Add per-project skill breakdown, period-over-period deltas, and "new"/"dormant" classification to existing skill panels — all read-time, all in `cmc/api/routes/skills.py` + new sibling endpoint.
-**Plans:** 3 plans (one per REQ) plus a small frontend integration plan. Architectural seams: extend existing CTEs + new SQL endpoint + 1 new panel + delta badges across existing panels.
+#### Mode (a) — "Panels exceed viewport"
 
-### Phase 20 — Cost Forecast & Per-Project Card (ANLY-06, ANLY-07)
-**Goal sentence:** Project end-of-month cost via `cmc/cost/forecast.py` and surface per-project cost via the existing `cost_breakdown` endpoint with a new `ProjectCostCard.tsx` panel.
-**Plans:** 2 plans. ANLY-06 ships forecast module + endpoint + panel; ANLY-07 is frontend-only (existing endpoint).
+**Root cause: `.cmc-card__content { flex: 1; }` lacks `min-height: 0`, AND the page has no max-height to flex against.**
 
-### Phase 21 — Alert Anomaly Depth & NL Authoring (ALRT-13, ALRT-14)
-**Goal sentence:** Extend the alert detector with a second anomaly detector (params_json-discriminated, stdlib-math only) and add Haiku-backed natural-language rule authoring via a new `cmc/alerts/nl_parser.py` mirroring the `nlcron.py` shape.
-**Plans:** 2 plans. ALRT-13 first (detector + scope additions + KNOWN_METRICS sync), then ALRT-14 (NL parser + `/api/alerts/parse-nl` endpoint + form integration).
+The CSS contract today (`styles.css:218-231`):
 
-### Phase 22 — Skill Latency Overhead (SKLP-11)
-**Goal sentence:** Decompose skill duration into tool / LLM / other time via temporal-containment derivation on existing `otel_events` and `tools` data (no new spans).
-**Plans:** 2 plans recommended — first a small SPIKE-style validation plan (verify the temporal-containment math against real ingest data, similar to Phase 12 OTEL spike), then the implementation plan + new `SkillOverheadCard.tsx` panel.
+```css
+.cmc-card { display: flex; flex-direction: column; gap: var(--space-md); }
+.cmc-card__content { flex: 1; }
+```
 
-### Phase 23 — Compare Depth (CMPR-06, CMPR-07)
-**Goal sentence:** Add per-skill latency delta to the session-compare payload (single round-trip extension of `_build_compare_side`) and a Cmd+K "Compare with previous (same project)" shortcut backed by a new `/api/sessions/{sid}/previous` endpoint.
-**Plans:** 2 plans, one per REQ. Together close the v1.2 milestone.
+Inside `.cmc-card-grid` with `grid-auto-rows: 1fr`, every card claims an equal share of the row's intrinsic height — but the row's height is determined by the **tallest card's content**, because nothing constrains the page to viewport height. A card whose content is a 5000-row table or a long Otel firehose will simply grow the row, and the whole grid grows with it. The card "exceeds the viewport" because the **viewport never told the card it had to fit**.
 
-## Anti-Patterns Called Out
+There are two layered fixes — the page fix and the card fix:
 
-### Anti-Pattern 1 — Storing forecasted dollars
+1. **Page-level constraint (the architectural decision):** introduce a layout mode where the `.cmc-page` container has `height: calc(100vh - 56px)` (the navbar height) and is `display: flex; flex-direction: column; min-height: 0;` on its descendant chain. This means the page IS the viewport, the grid is bounded, and cards inside the grid get a real upper bound from `grid-auto-rows: 1fr`. This is opt-in per route — the `/activity` page with its long sessions table and `/cost` page with deep tables WILL benefit; the `/` Command page with its analytical grid is the canonical case.
+2. **Card-level fix:** add `min-height: 0` to `.cmc-card` AND `.cmc-card__content`, plus `overflow-y: auto` on `.cmc-card__content`. Without `min-height: 0` on a flex child, the child refuses to shrink below its content's intrinsic height — this is the canonical flexbox gotcha and is the mechanism by which a card's content "punches through" its parent grid cell.
 
-**What people do:** Create a `cost_forecast` table that gets written each night.
-**Why it's wrong:** Breaks the v1.1 lock — cost is **always** computed from `tokens × rates(effective_window)`. Storing $ means a corrected pricing row would NOT backdate the forecast.
-**Do this instead:** `cmc/cost/forecast.py` is a pure read-time function. Re-projects on every request.
+**Architectural fix:** introduce a new primitive `BoundedPanelCard` (or a `bounded` prop on `PanelCard`) that opts a panel into the bounded layout. Pages that want a bounded layout wrap their content in a new `cmc-page--bounded` modifier class. Pages that want today's "scroll the whole page" behavior keep `.cmc-page` as-is. **Both modes coexist** — backward-compatible.
 
-### Anti-Pattern 2 — Adding a third `kind` for new anomaly detectors
+#### Mode (b) — "Sheets/Popovers escape parent bounds"
 
-**What people do:** ALRT-13 adds `kind = "seasonal"` to `alert_rules`.
-**Why it's wrong:** Forces a state-machine fork in `dispatcher/alerts.py::evaluate_alerts`. The v1.1 lock is `kind: threshold | anomaly` — anomaly is a **family** of detectors discriminated by `params_json.detector`.
-**Do this instead:** Stay inside `kind="anomaly"`; add `params_json.detector = "ewma_zscore" | "seasonal" | ...` discriminator.
+**Root cause:** The Sheet works correctly today (`Dialog.Portal` + `position: fixed`, z-index 41 — verified `styles.css:398`). The reported "escape" is almost certainly the **Tooltip arrow positioning** in containers with `overflow: hidden`, OR a Sheet that contains a chart whose own content has `position: absolute` without a positioning ancestor.
 
-### Anti-Pattern 3 — Inline NL parsing on the create endpoint
+Three sub-modes to diagnose:
 
-**What people do:** ALRT-14 extends `POST /api/alerts/rules` to accept `{prompt: str}` as an alternative body.
-**Why it's wrong:** Conflates "parse NL" (LLM call, can fail with 503) with "persist a rule" (DB write, no Haiku dependency). Makes the create endpoint's failure modes less predictable.
-**Do this instead:** `POST /api/alerts/parse-nl` is a separate read-only endpoint that returns a draft. User confirms; frontend calls existing `POST /api/alerts/rules`. Mirrors `POST /api/schedules/parse-nl`.
+1. **Radix portals to `document.body` by default** — that's the explicit design and is correct (the Sheet, Tooltip, AlertDialog all use `Portal`). They cannot be clipped by ancestor `overflow: hidden`.
+2. **z-index ladder is correct** — Sheet 40/41, AlertDialog 45/46, CommandPalette 50 — verified in `styles.css:330,396,404,466,1368,1385`. There is no z-index inversion.
+3. **The actual likely culprit:** Tooltips inside containers with `overflow: hidden` AND `position: relative`. Even though Radix portals to body, if a parent chart figure has `transform: ...` set, the portal containing-block CHANGES (CSS containing-block escape: a transformed ancestor becomes the containing block for `position: fixed` descendants — **this is the trap**). recharts wraps its `<svg>` with a styled `<div>` that, in some chart configurations, sets a `transform`.
 
-### Anti-Pattern 4 — Using `COUNT(tools.*)` for over-cap check on the new compare extension
+**Architectural fix:** a centralized z-index system token map is documented and maintained in `styles.css` (the comment at line 1357 already does this for AlertDialog) — add a `/* z-index ladder */` block at the top so additions follow the rule. AND audit `recharts` chart wrappers: the panels using `ResponsiveContainer` (`ChartsStrip.tsx`, `TopSkills.tsx`, `SessionCompareView.tsx`, `CacheEfficiencyCard.tsx`) — none should have a `transform` set on the wrapping element. The audit becomes a phase deliverable, not a per-panel sweep.
 
-**What people do:** CMPR-06's per-skill latency CTE adds a new `COUNT(tools.*)` somewhere "for safety."
-**Why it's wrong:** Pitfall 11 (Phase 16) — never `COUNT(tools.*)`; always use the denormalized `sessions.tool_call_count`. Adding any new `COUNT(tools.*)` regresses that lock.
-**Do this instead:** Reuse the `over_cap = sess.tool_call_count > 500` check already in `_build_compare_side`. Skip the per-skill latency CTE on over-cap sides.
+For the new dashboard chrome (saved-view dropdown, density toggle, etc.), use Radix's Popover primitive **after** installing `@radix-ui/react-popover` (it is NOT currently in `package.json` — adding it is a deliberate dependency add). Configure with `Popover.Portal` + `align="end"` + `collisionPadding` so it never escapes. Match the existing Tooltip integration shape.
 
-### Anti-Pattern 5 — Storing `first_seen_at` on the `skills` table
+#### Mode (c) — "Data overflows card edges"
 
-**What people do:** Add a `first_seen_at: datetime` column to `skills` for SKLP-10 and backfill it.
-**Why it's wrong:** A skill row in `skills` is "the registry knows about this skill" — that row can predate first activation (skill installed but never run). Confounding "registered at" with "first activated" misleads operators.
-**Do this instead:** Compute first/last activation from `otel_events` at read time. Same pattern as cost — derived, not stored.
+**Root cause: `min-width: 0` is missing on flex/grid children that contain wide content (long session ids, full cwd paths, 6+ column tables).**
 
-### Anti-Pattern 6 — Centralizing `_RANGE_TO_DAYS`
+Verified causes from reading the code:
 
-**What people do:** "Refactor" `_RANGE_TO_DAYS` to a shared constant module while touching cost/skills/alerts.
-**Why it's wrong:** Phase 14 P02 + Phase 15 explicitly chose **copy** over centralize ("each Phase 14/15 router copies the constant verbatim per Phase 14 P02 precedent"). Routers stay independent — refactoring during a depth-pass adds churn for zero behaviour change.
-**Do this instead:** New routers (if any) copy the same constant. Polish phase only renames if there's a defect.
+- `.cmc-table { width: 100%; }` (`styles.css:646`) but tables sit inside `.cmc-card__content` whose intrinsic width comes from its children — which by default is the table's own min-content. With wide table content (long session ids, long cwd paths), the card can be pushed beyond the grid cell. CSS Grid implicitly applies `min-width: auto` (i.e., min-content) to grid items; **without `min-width: 0` on the card, it grows past the cell**.
+- The flex chain `.cmc-card > .cmc-card__content > .cmc-table` lets the table demand its content's intrinsic width. Without `min-width: 0` AND `overflow-x: auto` on a wrapping div, the table forces the card to widen.
+- Truncation utilities exist (`overflow: hidden; text-overflow: ellipsis;` — `styles.css:1094-1096, 1150-1151, 1308-1309, 1343-1344`) but are inconsistently applied. cwd cells in SessionsTable, request_id columns in SkillRunsTable, and project paths in `ProjectBreakdownCard` are the chief offenders.
 
-## Integration Points Summary Table
+**Architectural fix (three-pronged):**
 
-| Feature | New module(s) | Modified module(s) | New endpoint? | DB migration? | Frontend impact |
-|---|---|---|---|---|---|
-| SKLP-08 | — | `cmc/api/routes/skills.py` (new SQL CTE) | + `/api/skills/{name}/projects` | No | New `SkillProjectsTable.tsx` on `/skills/$name` |
-| SKLP-09 | — | `cmc/api/routes/skills.py` (CTE adds prev-period) | Extension | No | Delta badges in `TopSkills`, `SkillCostCard` |
-| SKLP-10 | — | `cmc/api/routes/skills.py` (CTE adds MIN/MAX(ts)) | Extension (response field) | No | Badges in `SkillsRegistry`, `TopSkills` |
-| SKLP-11 | — (deferred new module) | `cmc/api/routes/skills.py` | + `/api/skills/{name}/overhead` | No | New `SkillOverheadCard.tsx` |
-| ANLY-06 | `cmc/cost/forecast.py` (new directory) | `cmc/api/routes/cost.py` (mounts endpoint) | + `/api/cost/forecast` | No | New `CostForecastCard.tsx` |
-| ANLY-07 | — | — | No (reuse `dim=project`) | No | New `ProjectCostCard.tsx` |
-| ALRT-13 | — | `cmc/alerts/detector.py`, `cmc/alerts/scopes.py` (new metric(s)?) | No (CRUD same) | No | KNOWN_METRICS sync; AlertRuleForm params UI |
-| ALRT-14 | `cmc/alerts/nl_parser.py` | `cmc/api/routes/alerts.py` (mount endpoint) | + `/api/alerts/parse-nl` | No | NL input on `AlertRuleForm.tsx` |
-| CMPR-06 | — | `cmc/api/routes/sessions.py` (`_build_compare_side` + new CTE) | Extension (response field) | No | Latency-delta block in `SessionCompareView.tsx` |
-| CMPR-07 | — | `cmc/api/routes/sessions.py` | + `/api/sessions/{sid}/previous` | No | Cmd+K item in `CommandPalette.tsx` |
-| Polish | — | 8 schemas + 2 tests | No | No | Tests + Playwright spec |
+1. **Add to `.cmc-card` and `.cmc-card-grid > *`: `min-width: 0;`** — this is the single highest-leverage one-line CSS change in the entire redesign. It fixes mode (c) for **every** card on **every** route in one commit, with zero per-panel work.
+2. **Wrap every `<DataTable/>` in `.cmc-card__content` with a `<div className="cmc-table-wrap">` whose CSS is `overflow-x: auto; min-width: 0;`**. This makes every table independently scrollable horizontally — the table's intrinsic width can exceed the card width without breaking the card. This becomes part of the `DataTable` primitive itself (one-line internal change, every consumer benefits).
+3. **Adopt a `cmc-cell--truncate` utility class:** `min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;` — opt-in per cell, with a Tooltip wrapping the cell so the full value is still inspectable. Cell renderers in `SessionsTable.tsx`, `SkillRunsTable.tsx`, `ProjectBreakdownCard.tsx` adopt this.
 
-**Net new modules:** 2 (`cmc/cost/forecast.py`, `cmc/alerts/nl_parser.py`).
-**Net new endpoints:** 4 (`/api/skills/{name}/projects`, `/api/skills/{name}/overhead`, `/api/cost/forecast`, `/api/alerts/parse-nl`, `/api/sessions/{sid}/previous`).
-Wait — that is 5 endpoints. Recount: skills/projects, skills/overhead, cost/forecast, alerts/parse-nl, sessions/{sid}/previous = **5 new endpoints**.
-**Extensions of existing endpoints:** 3 (`/api/skills/usage` and the per-skill cost/latency add prev-period + first/last; `/api/sessions/compare` adds `skill_latencies`).
-**Migrations needed:** **0** — every v1.2 feature is read-time on existing schema. (This is by design — the v1.1 schema was built with v1.2 lookahead.)
-**New frontend panels:** 4 (`SkillProjectsTable`, `SkillOverheadCard`, `CostForecastCard`, `ProjectCostCard`).
-**New frontend routes:** 0 — all extensions of existing pages (`/skills/$name`, `/activity`, `/alerts`, `/sessions/compare`).
+The combination — `min-width: 0` propagated through the layout chain + `overflow-x: auto` wrappers around tables + opt-in truncation utility — eliminates mode (c) without any structural rework.
 
-## Data Flow Changes
+### 5. Bounded panel heights — parent flex column + `flex: 1; min-height: 0;` + internal `overflow-y: auto`
 
-**Read paths (all 10 differentiator REQs):** No change to ingest or dispatcher write paths. Every feature is a read-time SQL extension or a new analytic module. The dispatcher tick gains nothing new; alert evaluation continues to call `_SCOPE_EXTRACTORS` (ALRT-13 just adds entries; ALRT-14 doesn't touch the dispatcher at all).
+**Recommendation: the panel primitive uses a flex-column shell with an explicit `min-height: 0` on the body and `overflow-y: auto` on the body. Do NOT use explicit `max-h` breakpoints. Do NOT use CSS Grid auto-rows for the bounding (keep the existing grid-auto-rows: 1fr for equal-height visuals, but the height is delegated to the page container via flex-bounded ancestors).**
 
-**One subtlety:** ALRT-14's NL parser runs in the API request path (not the dispatcher) — same as `nlcron`. It calls Anthropic Haiku 4.5 directly via `AsyncAnthropic` lazy import. Latency budget for the parse endpoint should match `parse-nl` schedules (≤2s typical, 5s p99 — Haiku is fast).
+**Why flex over grid auto-rows for bounding:**
 
-**Forecast caching:** ANLY-06 forecast is recomputed on every request (no cache). With v1.0 single-user load, this is fine — `token_usage` daily rollups are already small (≤30 rows/month).
+- `grid-auto-rows: 1fr` already gives equal-height visuals and is in place. Don't fight it.
+- The actual upper bound — "panels do not exceed the viewport" — needs to come from a fixed-height ancestor. CSS Grid auto-rows can only equalize, not bound. Flex with a height-fixed ancestor + `min-height: 0` on every flex descendant in the chain bounds correctly.
+- Explicit `max-h` breakpoints (Tailwind-style) tie height to media queries — this is exactly the kind of breakpoint coupling the existing `cmc-card-grid` deliberately avoids ("breakpoint-free responsive — `auto-fit + minmax(320px, 1fr)`").
 
-## Scaling Considerations
+**The primitive (extends existing `PanelCard`, opt-in via `bounded` prop):**
 
-This is a **single-user localhost dashboard**. Scale axis is "more sessions / more skill events over time," not "more users."
+```tsx
+// components/ui/PanelCard.tsx — add a bounded prop (no breaking change)
+interface PanelCardProps<T> {
+  // ...existing fields...
+  /**
+   * When true, the panel renders in bounded mode: card body becomes
+   * flex-column with min-height: 0 and the data slot scrolls internally.
+   * Pages that want a bounded layout must opt in via .cmc-page--bounded
+   * AND the parent grid must have a finite height in the flex chain.
+   */
+  bounded?: boolean
+}
+```
 
-| Scale point | What happens | Architectural response |
-|---|---|---|
-| 30 days, ~50 skill events/day | All v1.2 SQL CTEs are sub-50ms on indexed columns | None |
-| 90 days, ~500 skill events/day | Per-skill latency CTE on compare may hit 200ms | If observed, add a `(session_id, attrs_skill_name)` composite index — currently only `attrs_skill_name` is indexed solo |
-| 1 year, archival | `otel_events` row count ~200k+ | Out of scope for v1.2 — same architecture, possibly a v2 archival concern |
+```css
+/* CSS additions — additive only */
+.cmc-card--bounded {
+  min-height: 0;             /* mode (a) fix at card level */
+}
+.cmc-card--bounded .cmc-card__content {
+  min-height: 0;             /* essential for flex-shrink */
+  overflow-y: auto;          /* internal scroll */
+  flex: 1 1 auto;
+}
+.cmc-page--bounded {
+  height: calc(100vh - 56px);   /* navbar height */
+  min-height: 0;
+  overflow: hidden;            /* the page itself never scrolls — children do */
+}
+.cmc-page--bounded > .cmc-card-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;            /* the grid scrolls if cards overflow rows */
+}
+```
 
-**No premature optimization for v1.2.** The carried v1.1 indexes cover everything in this milestone.
+**Why this primitive is the right fit:**
+
+- It is **additive** — every existing route works unchanged because `bounded` defaults to false and `.cmc-page--bounded` is opt-in.
+- It composes with `grid-auto-rows: 1fr` instead of fighting it.
+- It maps cleanly onto the user's reported intent ("panels should fit the viewport") with one prop on the card and one class on the page.
+- It uses the same CSS variables and BEM patterns as the rest of the codebase — zero new conventions.
+
+### 6. Customizable layouts — DEFER. If scoped in, recommend `react-resizable-panels` + URL state, NOT `react-grid-layout`
+
+**Recommendation: explicitly defer customizable dashboards from v1.3 unless requirements scoping locks them in. If they are locked in, the architecture is: layout shape lives in URL (TanStack Router validateSearch), drag/resize uses `react-resizable-panels` (a small focused library — NOT `react-grid-layout`).**
+
+**Why defer:**
+
+- The three reported overflow bugs and the redesign's aesthetic coherence are independently valuable and address every user complaint quoted in the milestone context. Customizable layouts are an additional, large-surface feature.
+- `react-grid-layout` is 50KB+ minified and brings React-DnD / synthetic event coupling and Layout/ReactGridLayout class semantics that don't compose with the BEM/CSS-variable conventions in `styles.css`. It also has a fundamentally different data model (per-card `{x,y,w,h}` items) that has to be persisted somewhere — and would push us back to the saved-views server table for layout, complicating Decision 3.
+- This is a single-user dashboard. The user already controls every panel's existence at the source code level. The marginal value of drag-to-rearrange for a single user is meaningfully lower than for a multi-tenant SaaS dashboard.
+
+**If locked in, the architecture:**
+
+- **Resize only, no rearrange.** `react-resizable-panels` (~6KB, no deps, accessible — written by the React team and used by shadcn). Two/three-pane vertical or horizontal split is enough. No grid drag-and-drop.
+- **Layout state in URL via validateSearch.** A small typed shape: `{ split?: number; orientation?: 'h' | 'v' }`. URL-based means deep-linkable, refresh-stable, and it composes with saved views from Decision 3 — a saved view captures both filters AND layout proportions in the same `state_json` blob. **No new database table.**
+- **Storage of "default layout" per route** is the same `localStorage` pointer-to-saved-view pattern from Decision 3. Same primitive, same code path.
+- **No `react-grid-layout`.** If the requirements step asks for true bento-style drag-rearrange, that is a v1.4 milestone, not v1.3.
+
+### 7. Cmd+K extensions — extend the existing single mount, lean on existing context for state
+
+**Recommendation: keep `<CommandPalette/>` mounted exactly once at AppShell level. Add new command groups (Saved Views, Time Ranges, Filtered Views) inside the existing `<Command.Dialog>`. New commands read state via existing hooks (`useRouterState`, `useSearch`, `useActiveSession`) and via the new `SavedViewsContext` from Decision 3 — no new global Context needed.**
+
+**Why no new top-level palette context:**
+
+- The existing palette already proves the pattern: it consumes `useTaskComposer()` (TaskComposerProvider), `useActiveSession()` (ActiveSessionProvider), `useRouterState`, `useNavigate`, `useSessionsList`, `useSessionCompare`, `useSessionPrevious`. Each new affordance is "add a `Command.Group` + an `onSelect` handler that calls into existing hooks". The palette already has direct access to everything new commands need — except the SavedViews list, which Decision 3 provides as a hook.
+- A "CommandPaletteContext" abstraction would be busywork: there's nothing for it to own that isn't already owned by route state, query hooks, or the saved-views provider.
+
+**The new Command.Groups (concrete):**
+
+```tsx
+// CommandPalette.tsx — additive groups inside the existing Command.List
+<Command.Group heading="Jump to saved view" className="cmc-cmdk__group">
+  {savedViewsForCurrentRoute.map((v) => (
+    <Command.Item key={v.id} onSelect={() => {
+      navigate({ to: v.route, search: JSON.parse(v.state_json) })
+      close()
+    }} className="cmc-cmdk__item">
+      {v.name}
+    </Command.Item>
+  ))}
+</Command.Group>
+
+<Command.Group heading="Time range" className="cmc-cmdk__group">
+  {(['today', '7d', '30d'] as const).map((r) => (
+    <Command.Item key={r} onSelect={() => {
+      navigate({ search: (prev) => ({ ...prev, range: r }) })  // function form — Pitfall 4
+      close()
+    }} className="cmc-cmdk__item">
+      Set range to {r}
+    </Command.Item>
+  ))}
+</Command.Group>
+```
+
+The "set range" group uses TanStack Router's function-form `search` setter (already documented as the safe pattern in `CommandPalette.tsx:209`) so the change is route-agnostic — it merges the new `range` into whatever validateSearch shape the current route declares. Routes that don't accept `range` simply strip it via their validator (defense in depth).
+
+**Visibility rules (mirror existing pattern):**
+
+The existing palette already conditionally renders the "Compare with previous session" item based on `showCompareWithPrevious` (`CommandPalette.tsx:114`). v1.3 commands follow the same pattern: each new group is conditionally rendered based on simple booleans (e.g., "Saved views" only when `savedViews.length > 0`; "Time range" only on routes that declare `range` in their validateSearch).
+
+### 8. Build order — five phases, shell rework first, per-route adoption second, optional features last
+
+**Phase decomposition (recommended labels — roadmapper finalizes):**
+
+| # | Phase                                            | Scope                                                                                                  | Why this order                                                                                                                                                                  |
+|---|--------------------------------------------------|--------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **24** | **Shell rework + density + global containment fixes** | DensityProvider + `lib/density.ts` + `[data-density]` CSS branch, AppShellHeader extraction, **`.cmc-card { min-width: 0; }` global fix (mode c)**, `BoundedPanelCard` primitive + `.cmc-page--bounded` (mode a infrastructure), recharts wrapper transform audit (mode b), z-index ladder docs. **No per-route work.** | Lays the primitives every later phase depends on. The mode-c fix (`min-width: 0`) is a one-line CSS change that fixes overflow on EVERY existing route in the same commit. Density is a tiny additive feature that proves the new CSS-variable density tokens work. URLs unchanged; APIs unchanged; tests stay green. |
+| **25** | **Saved views (server-persisted)**               | `saved_views` table + migration `0004_saved_views`, `views.py` router + 5 endpoints, `useSavedViews` hooks in `lib/queries.ts`, `validateSearch` adoption on `/activity` `/skills` `/cost` `/alerts` (URL state for filters), `SavedViewsProvider`, `SavedViewMenu` chrome, Cmd+K Saved Views group, "Set as default" via `cmc.defaultView.<route>` localStorage pointer. | Server-side decoupled (table + endpoints can land first and be tested in isolation), then frontend wires up. validateSearch adoption is per-route but uniform — each route gains a typed Search shape. URLs unchanged (parameters ADDED, never removed); APIs extend (5 new endpoints, 0 changes to existing); tests green throughout. |
+| **26** | **Per-route adoption pass (Command + Activity + Sessions)** | `/` Command, `/activity` Activity, `/sessions/compare` adopt `BoundedPanelCard` and `.cmc-page--bounded` where appropriate. `cmc-table-wrap` applied inside `DataTable`. `cmc-cell--truncate` adopted in `SessionsTable`, `LiveSessionsCard` row layout. Density-token usage propagated. | The three highest-traffic routes get the new primitives first. They share the same panels (LiveSessionsCard appears on /; SessionsTable appears on /activity). One panel sweep, two-page rollout. URLs unchanged; tests update for new data-testid hooks. |
+| **27** | **Per-route adoption pass (Skills + Cost + Alerts)** | `/skills`, `/skills/$name`, `/cost`, `/alerts` adopt `BoundedPanelCard` + density + truncate utilities. Cmd+K Time-Range group lands here (it depends on validateSearch having `range` declared on these routes — Phase 25 prerequisite). | Tail-end routes pick up the primitives. `/skills/$name` is a separate file (trailing-underscore opt-out) but uses the same panels (`SkillRunsTable`, etc.); rolls in cleanly. URLs unchanged. |
+| **28** | **(Optional) Customizable layouts**              | Only if requirements step locks them in. Add `react-resizable-panels`, extend per-route `validateSearch` with optional `split`/`orientation`, persist split via the existing `SavedView.state_json` blob. | Last, because it is the only phase that introduces a new dependency, the only phase whose value is debatable for a single-user tool, and its design depends on the saved-views state shape settled in Phase 25. |
+
+**Dependency chain (verbatim):**
+
+- Phase 24 → Phase 25: SavedViewsProvider mounts inside the new AppShell provider stack from Phase 24.
+- Phase 24 → Phase 26: BoundedPanelCard and `.cmc-page--bounded` must exist before any route adopts them.
+- Phase 25 → Phase 26+: validateSearch declarations on each route are required before the Cmd+K Time-Range group can navigate to them.
+- Phase 26 → Phase 27: not strictly required, but the per-route adoption is so similar that splitting Command/Activity/Sessions from Skills/Cost/Alerts gives a natural mid-milestone checkpoint without coupling.
+- Phase 28: depends on every prior phase; only relevant if scoping picks it up.
+
+**Constraint honoring:**
+
+- **URLs preserved:** every phase only ADDS search parameters, never removes routes or changes paths. validateSearch with optional fields lets old links continue to resolve. The trailing-underscore convention (`skills_.$name.tsx`, `sessions_.compare.tsx`) is preserved.
+- **APIs extend, never break:** Phase 25 adds 5 new endpoints; no existing endpoint changes. Phases 24/26/27/28 are frontend-only.
+- **Tests green at phase boundaries:** Phase 24 is purely additive CSS + new modules — existing tests cannot regress. Phase 25's backend tests are new (mirror `test_tasks_routes.py`); frontend tests gain coverage for SavedViewsProvider/Menu but existing panel tests are unaffected. Phases 26/27 update Playwright e2e selectors only where new chrome appears; component unit tests for individual panels stay green because PanelCard's `bounded` prop is opt-in with a default-false.
+- **Shell rework BEFORE per-page rework:** Phase 24 is shell + primitives only — no route adopts them. Pages adopt in 26/27 against the now-stable primitives.
+
+## Architectural Diagram (after v1.3)
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ <html data-theme="..." data-density="...">                                   │
+│ ┌────────────────────────────────────────────────────────────────────────┐   │
+│ │ QueryClientProvider                                                    │   │
+│ │ └─ ErrorBoundary                                                       │   │
+│ │    └─ DensityProvider                          (NEW v1.3)              │   │
+│ │       └─ SavedViewsProvider                    (NEW v1.3)              │   │
+│ │          └─ ActiveSessionProvider              (v1.2)                  │   │
+│ │             └─ TaskComposerProvider                                    │   │
+│ │                ├─ AppShellHeader               (REFACTORED v1.3)       │   │
+│ │                │  ├─ NavBar (links)                                    │   │
+│ │                │  ├─ SavedViewMenu             (NEW)                   │   │
+│ │                │  ├─ DensityToggle             (NEW)                   │   │
+│ │                │  ├─ Cmd+K trigger                                     │   │
+│ │                │  └─ ThemeToggle                                       │   │
+│ │                ├─ CommandPalette (cmdk root mount — NEW groups)        │   │
+│ │                └─ <main className="cmc-main">                          │   │
+│ │                     <Outlet/>  → page routes (URL-stable, validateSearch)│ │
+│ └────────────────────────────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+Backend (additive only):
+  cmc/api/routes/       + views.py       (NEW: 5 endpoints)
+  cmc/db/models/         + views.py       (NEW: SavedView model)
+  cmc/api/schemas/       + views.py       (NEW: response/request shapes)
+  backend/migrations/versions/  + 0004_saved_views.py    (NEW)
+  All other backend modules: UNCHANGED.
+```
+
+## Anti-Patterns (specific to this redesign)
+
+### Anti-Pattern 1: Density via React Context driving className
+
+**What people do:** make `DensityProvider` expose `density` to every panel; panels conditionally apply `'cmc-card--compact'` className.
+**Why it's wrong:** every panel needs to know density exists. The redesign touches every panel for a property that is a presentation concern, not a data concern.
+**Do this instead:** density is a CSS-layer concern. The provider sets `[data-density]` on `<html>`; panels read CSS variables (`--density-card-padding` etc.). Panels are density-unaware.
+
+### Anti-Pattern 2: Saving full view state in URL only
+
+**What people do:** put every filter, sort key, page, and column visibility into URL search params, with no validateSearch.
+**Why it's wrong:** URL bloat, no type safety, deep-link fragility (renaming a param breaks every saved bookmark).
+**Do this instead:** declare `validateSearch` per route with a typed Search shape; ONLY the canonical filters live in URL. Implementation details (e.g., column visibility checkbox state) live in `localStorage` keyed by route.
+
+### Anti-Pattern 3: Per-page CSS overrides for overflow
+
+**What people do:** when a panel overflows, add a one-off `.activity-page .cmc-card { min-width: 0; }` rule in styles.css.
+**Why it's wrong:** scattered fixes drift; the same bug recurs on the next route added.
+**Do this instead:** fix the primitive (Phase 24's `.cmc-card { min-width: 0; }` global). Per-page overrides indicate a primitive missing from `components/ui/`.
+
+### Anti-Pattern 4: Adding a new Provider for every new feature
+
+**What people do:** "Saved views needs a provider, density needs a provider, layout needs a provider" — each gets its own context, three new providers stack.
+**Why it's wrong:** the provider stack already exists (ActiveSessionProvider, TaskComposerProvider). Each new layer increases re-render fanout.
+**Do this instead:** one new provider per genuinely-cross-cutting state (Density: yes, because chrome AND CSS attribute coordination; SavedViews: yes, because cmdk + chrome + URL writer all read it). Layout state lives in URL — no provider needed.
+
+### Anti-Pattern 5: Replacing the Cmd+K mount
+
+**What people do:** "the new design needs a different palette UX" → swap cmdk for a different lib.
+**Why it's wrong:** cmdk is already mounted, integrated with TaskComposer + ActiveSession + router state, and battle-tested across v1.0/v1.1/v1.2.
+**Do this instead:** add command groups inside the existing `<Command.Dialog>`. The visual styling is in `styles.css:460-528` and is fully theme/density-tokenizable.
+
+## Integration Points
+
+### External Services (unchanged in v1.3)
+
+No external services change in v1.3. The dashboard remains local-only on `localhost:8765`. OTLP `/v1/logs` and `/v1/metrics` ingress is unchanged. Telegram bridge is unchanged.
+
+### Internal Boundaries
+
+| Boundary                                         | Communication                                          | v1.3 Notes                                            |
+|--------------------------------------------------|--------------------------------------------------------|-------------------------------------------------------|
+| `__root.tsx` ↔ providers                         | Direct child composition                                | New providers (Density, SavedViews) added at root.    |
+| `AppShell` ↔ chrome (NavBar/CommandPalette)      | Direct render                                           | NavBar refactors into AppShellHeader.                 |
+| `CommandPalette` ↔ ActiveSessionContext / Saved Views | `useContext` hook consumption                       | Adds `useSavedViews()` consumption; pattern unchanged.|
+| Page route ↔ URL state                           | `useSearch()` + `validateSearch`                        | Per-route validateSearch becomes universal in Phase 25.|
+| Frontend ↔ Backend                               | JSON over HTTP, polling cadence in `lib/queries.ts`    | Adds `useSavedViews` hook; cadence 30s (matches alerts).|
+| `lib/density.ts` ↔ DOM                           | `documentElement.dataset.density`                       | Mirrors `lib/theme.ts` exactly.                       |
 
 ## Sources
 
-- `/Users/patrykattc/work/git/claude-mission-control/backend/cmc/api/routes/skills.py` — verified Phase 14 read-time SQL CTE patterns, dual-path attribution
-- `/Users/patrykattc/work/git/claude-mission-control/backend/cmc/api/routes/cost.py` — verified `_BREAKDOWN_BY_PROJECT_SQL` already exists, `dim=project` already supported
-- `/Users/patrykattc/work/git/claude-mission-control/backend/cmc/api/routes/alerts.py` — verified CRUD shape, dedup_key contract, ALRT-12 invariant
-- `/Users/patrykattc/work/git/claude-mission-control/backend/cmc/api/routes/sessions.py` — verified `_build_compare_side` composition (skills/outcome/tool_counts SQL helpers)
-- `/Users/patrykattc/work/git/claude-mission-control/backend/cmc/alerts/detector.py` — verified stdlib-math-only, pure-function pattern, EWMA state in `params_json`
-- `/Users/patrykattc/work/git/claude-mission-control/backend/cmc/alerts/scopes.py` — verified `_SCOPE_EXTRACTORS` registry, `is_known_metric`
-- `/Users/patrykattc/work/git/claude-mission-control/backend/cmc/dispatcher/alerts.py` — verified dispatcher hook in heartbeat, dedup_key, auto-resolve
-- `/Users/patrykattc/work/git/claude-mission-control/backend/cmc/dispatcher/skill_router.py` and `cmc/schedules/nlcron.py` — verified Haiku NL pattern (lazy import, strict JSON, registry validation)
-- `/Users/patrykattc/work/git/claude-mission-control/backend/cmc/pricing.py` — verified `compute_cost` Decimal-only purity
-- `/Users/patrykattc/work/git/claude-mission-control/backend/cmc/db/models/sessions.py`, `otel_events.py`, `tools.py`, `skills.py`, `alert_rules.py` — verified column shapes, indexes, no `first_seen_at` exists
-- `/Users/patrykattc/work/git/claude-mission-control/frontend/src/components/ui/CommandPalette.tsx` — verified context-aware "Compare with…" already implemented
-- `/Users/patrykattc/work/git/claude-mission-control/frontend/src/components/panels/AlertRuleForm.tsx` — verified KNOWN_METRICS frontend constant + sync warning convention
-- `/Users/patrykattc/work/git/claude-mission-control/.planning/STATE.md`, `MILESTONES.md` — milestone scope + carried-debt list
+- `frontend/src/routes/__root.tsx` — root provider stack (read 2026-05-10)
+- `frontend/src/components/shell/AppShell.tsx` — shell composition + provider order
+- `frontend/src/components/shell/ActiveSessionContext.tsx` — v1.2 context pattern (the model for new providers)
+- `frontend/src/components/shell/NavBar.tsx` — current chrome
+- `frontend/src/components/ui/Sheet.tsx` — Radix Dialog wrap, z-index 41
+- `frontend/src/components/ui/Tooltip.tsx` — Radix Tooltip with per-instance Provider
+- `frontend/src/components/ui/CommandPalette.tsx` — cmdk integration, context-aware actions
+- `frontend/src/components/ui/PanelCard.tsx` — current panel primitive (skeleton/error/empty/data branches)
+- `frontend/src/components/ui/Card.tsx` — Card family (forwardRef, BEM classes)
+- `frontend/src/components/ui/DataTable.tsx` — sortable/paginated table primitive
+- `frontend/src/styles.css` — full CSS contract (~1400 LOC, hand-authored CSS variables, BEM)
+- `frontend/src/lib/storage.ts` — namespaced localStorage wrapper (silent on quota errors)
+- `frontend/src/lib/theme.ts` — theme persistence pattern (the model for density)
+- `frontend/src/lib/queries.ts` — query-key factory + cadence policy (the model for view hooks)
+- `frontend/src/routes/sessions_.compare.tsx` — first validateSearch use (the model for per-route URL state)
+- `frontend/package.json` — confirmed: no Tailwind, no shadcn, Radix only Dialog/Tooltip/Collapsible/AlertDialog
+- `backend/cmc/api/routes/__init__.py` — router aggregation (where `views_router` registers)
+- `backend/cmc/api/routes/tasks.py` — CRUD endpoint shape (the model for `views.py`)
+- `backend/cmc/db/models/tasks.py` — SQLModel pattern (the model for `SavedView`)
+- `backend/cmc/db/models/sessions.py` — Index pattern + sa_column_kwargs server_default
+- `backend/migrations/versions/0003_project_key.py` — migration pattern + lifespan auto-apply
+- `backend/cmc/app/lifespan.py` — alembic auto-migrate on boot
 
 ---
-*Architecture research for: v1.2 Depth & Polish (subsequent milestone — extension of v1.1 architecture)*
-*Researched: 2026-05-05*
+*Architecture research for: v1.3 Surface Redesign of Claude Mission Control*
+*Researched: 2026-05-10*
