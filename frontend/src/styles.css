@@ -2016,3 +2016,81 @@ body {
   outline: none;
 }
 .cmc-dropdown__item[data-highlighted] { background: var(--cmc-surface-2, rgba(255,255,255,0.04)); }
+
+/* Containment primitives — Phase 24 (CONT-01, CONT-03, CONT-04) */
+
+/* CONT-01 page modifier — opt-in. Pages NOT setting this class keep legacy
+ * scroll-the-whole-page behavior. Phase 26/27 adopts per-route. */
+.cmc-page--bounded {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.cmc-page--bounded > .cmc-card-grid {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.cmc-page--bounded .cmc-card { min-height: 0; }
+.cmc-page--bounded .cmc-card__content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* CONT-04 BoundedPanelCard primitive — opt-in via .cmc-card--bounded modifier
+ * set by PanelCard's bounded?: boolean prop. */
+.cmc-card--bounded {
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  contain: layout paint;
+}
+.cmc-card--bounded .cmc-card__content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* CONT-03 DataTable truncation utilities. */
+.cmc-table-wrap { width: 100%; overflow-x: auto; }
+.cmc-table { width: 100%; table-layout: fixed; }
+.cmc-cell--truncate {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.cmc-cell--copyable {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cmc-space-2xs);
+  max-width: 100%;
+}
+.cmc-cell--copyable > .cmc-cell--truncate { flex: 1; }
+.cmc-cell__copy-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--cmc-icon-size-md);
+  height: var(--cmc-icon-size-md);
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--cmc-text-dim);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease-out, color 120ms ease-out;
+}
+.cmc-cell--copyable:hover .cmc-cell__copy-btn,
+.cmc-cell--copyable:focus-within .cmc-cell__copy-btn { opacity: 1; }
+.cmc-cell__copy-btn:hover { color: var(--cmc-text); }
+.cmc-cell__copy-btn:focus-visible {
+  outline: 2px solid var(--cmc-accent-blue, #4d7cff);
+  outline-offset: 2px;
+  opacity: 1;
+}
