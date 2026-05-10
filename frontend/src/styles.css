@@ -48,6 +48,55 @@
   --size-display: 28px;
   --weight-regular: 400;
   --weight-semibold: 600;
+
+  /* ─────────────────────────────────────────────────────────── */
+  /* Density tokens — Phase 24 Plan 01 (DENS-01..03).             */
+  /* Comfortable defaults. Compact + Cozy overrides live in        */
+  /* [data-density="…"] selector blocks below. Coexist with the    */
+  /* legacy --space-*/--size-* tokens above; per-route migration   */
+  /* is Phase 26/27 work.                                          */
+  /* ─────────────────────────────────────────────────────────── */
+  --cmc-space-2xs: 4px;
+  --cmc-space-xs: 8px;
+  --cmc-space-sm: 12px;
+  --cmc-space-md: 16px;
+  --cmc-space-lg: 24px;
+  --cmc-space-xl: 32px;
+  --cmc-space-2xl: 48px;
+  --cmc-control-height-sm: 28px;
+  --cmc-control-height-md: 32px;
+  --cmc-control-height-lg: 40px;
+  --cmc-row-height-table: 40px;
+  --cmc-row-height-list: 36px;
+  --cmc-padding-card: 24px;
+  --cmc-padding-cell: 8px 12px;
+  --cmc-size-label: 12px;
+  --cmc-size-body: 14px;
+  --cmc-size-heading: 18px;
+  --cmc-size-display: 28px;
+  --cmc-line-height-body: 1.5;
+  --cmc-line-height-tight: 1.25;
+  --cmc-icon-size-sm: 14px;
+  --cmc-icon-size-md: 16px;
+  --cmc-icon-size-lg: 20px;
+
+  /* Z-index ladder — Phase 24 Plan 01 (CONT-05). Spaced by 10 so */
+  /* future additions slot in cleanly. Tooltip dropped from 50→30  */
+  /* and CommandPalette raised to 80 to resolve the previous       */
+  /* collision; AlertDialog (70) now stacks above DropdownMenu     */
+  /* (50) and Sheet (60).                                          */
+  --cmc-z-base: 0;
+  --cmc-z-sticky: 10;
+  --cmc-z-sidebar: 20;
+  --cmc-z-header: 20;
+  --cmc-z-tooltip: 30;
+  --cmc-z-popover: 40;
+  --cmc-z-dropdown: 50;
+  --cmc-z-sheet: 60;
+  --cmc-z-dialog: 70;
+  --cmc-z-cmdk: 80;
+  --cmc-z-toast: 90;
+  --cmc-z-banner: 100;
 }
 
 /* ─────────────────────────────────────────────────────────── */
@@ -69,6 +118,64 @@
   --cmc-text: #111118;
   --cmc-text-dim: #4a4a58;
   --cmc-text-subtle: #6b6b78;
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/* Density tier overrides — Phase 24 Plan 01 (DENS-02).         */
+/* Comfortable is the :root default above. Compact + Cozy here. */
+/* WCAG AA floor: --cmc-size-body MUST stay ≥ 13px in Compact   */
+/* without re-checking contrast.                                 */
+/* ─────────────────────────────────────────────────────────── */
+[data-density="compact"] {
+  --cmc-space-2xs: 2px;
+  --cmc-space-xs: 6px;
+  --cmc-space-sm: 10px;
+  --cmc-space-md: 12px;
+  --cmc-space-lg: 18px;
+  --cmc-space-xl: 24px;
+  --cmc-space-2xl: 36px;
+  --cmc-control-height-sm: 24px;
+  --cmc-control-height-md: 28px;
+  --cmc-control-height-lg: 32px;
+  --cmc-row-height-table: 32px;
+  --cmc-row-height-list: 28px;
+  --cmc-padding-card: 16px;
+  --cmc-padding-cell: 6px 8px;
+  --cmc-size-label: 11px;
+  --cmc-size-body: 13px; /* WCAG AA floor — do not go below 12px without contrast re-check */
+  --cmc-size-heading: 16px;
+  --cmc-size-display: 24px;
+  --cmc-line-height-body: 1.4;
+  --cmc-line-height-tight: 1.2;
+  --cmc-icon-size-sm: 12px;
+  --cmc-icon-size-md: 14px;
+  --cmc-icon-size-lg: 16px;
+}
+
+[data-density="cozy"] {
+  --cmc-space-2xs: 6px;
+  --cmc-space-xs: 12px;
+  --cmc-space-sm: 16px;
+  --cmc-space-md: 20px;
+  --cmc-space-lg: 32px;
+  --cmc-space-xl: 40px;
+  --cmc-space-2xl: 60px;
+  --cmc-control-height-sm: 32px;
+  --cmc-control-height-md: 40px;
+  --cmc-control-height-lg: 48px;
+  --cmc-row-height-table: 48px;
+  --cmc-row-height-list: 44px;
+  --cmc-padding-card: 32px;
+  --cmc-padding-cell: 10px 16px;
+  --cmc-size-label: 13px;
+  --cmc-size-body: 16px;
+  --cmc-size-heading: 22px;
+  --cmc-size-display: 36px;
+  --cmc-line-height-body: 1.6;
+  --cmc-line-height-tight: 1.3;
+  --cmc-icon-size-sm: 16px;
+  --cmc-icon-size-md: 20px;
+  --cmc-icon-size-lg: 24px;
 }
 
 html, body, #root { height: 100%; margin: 0; }
@@ -223,6 +330,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
+  min-width: 0; /* Phase 24 Plan 01 (CONT-03) — allow grid track to shrink below intrinsic min-content for long unbreakable strings (session-id, cwd, skill-name) */
 }
 .cmc-card__header { display: flex; flex-direction: column; gap: var(--space-2xs); }
 .cmc-card__title { margin: 0; font-size: var(--size-heading); font-weight: var(--weight-semibold); color: var(--cmc-text); }
@@ -248,7 +356,12 @@ body {
 .cmc-btn--primary { background: var(--cmc-gradient-hero); border-color: transparent; color: #fff; }
 .cmc-btn--secondary { background: var(--cmc-surface-2); color: var(--cmc-text); }
 .cmc-btn--ghost { background: transparent; border-color: transparent; color: var(--cmc-text-dim); }
-.cmc-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); }
+/* Phase 24 Plan 01 (CONT-02) — replaced `transform: translateY(-2px)` with
+ * position/top/box-shadow so hovered buttons no longer create a containing
+ * block for `position: fixed` Radix Portal descendants (Tooltip/Dropdown
+ * mounted under a hovered trigger were anchoring to the button instead of
+ * the viewport). Visual lift preserved. */
+.cmc-btn:hover:not(:disabled) { position: relative; top: -2px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); }
 .cmc-btn:focus-visible { outline: 2px solid var(--cmc-accent-blue); outline-offset: 2px; }
 .cmc-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
@@ -327,7 +440,7 @@ body {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
   animation: cmc-tooltip-in 150ms ease-out;
   max-width: 280px;
-  z-index: 50;
+  z-index: var(--cmc-z-tooltip); /* Phase 24 Plan 01 (CONT-05) — was raw 50, collided with cmdk */
 }
 @keyframes cmc-tooltip-in {
   from { opacity: 0; transform: translateY(4px); }
@@ -393,7 +506,7 @@ body {
   position: fixed; inset: 0;
   background: rgba(0, 0, 0, 1);
   backdrop-filter: blur(2px);
-  z-index: 40;
+  z-index: var(--cmc-z-sheet); /* Phase 24 Plan 01 (CONT-05) — was raw 40 */
 }
 .cmc-sheet__panel {
   position: fixed; top: 0; right: 0; bottom: 0;
@@ -401,7 +514,7 @@ body {
   background: var(--cmc-surface);
   border-left: 1px solid var(--cmc-border);
   box-shadow: -8px 0 32px rgba(0, 0, 0, 0.5);
-  z-index: 41;
+  z-index: calc(var(--cmc-z-sheet) + 1); /* Phase 24 Plan 01 (CONT-05) — was raw 41 */
   display: flex; flex-direction: column;
   outline: none;
 }
@@ -463,7 +576,7 @@ body {
   padding-top: 12vh;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(8px);
-  z-index: 50;
+  z-index: var(--cmc-z-cmdk); /* Phase 24 Plan 01 (CONT-05) — was raw 50, raised above tooltip */
   animation: cmc-cmdk-overlay-in 180ms ease-out;
 }
 .cmc-cmdk__content {
@@ -1365,7 +1478,7 @@ body {
   inset: 0;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
-  z-index: 45;
+  z-index: var(--cmc-z-dialog); /* Phase 24 Plan 01 (CONT-05) — was raw 45 */
 }
 .cmc-alertdialog {
   position: fixed;
@@ -1382,7 +1495,7 @@ body {
   flex-direction: column;
   gap: var(--space-md);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
-  z-index: 46;
+  z-index: calc(var(--cmc-z-dialog) + 1); /* Phase 24 Plan 01 (CONT-05) — was raw 46 */
   outline: none;
 }
 .cmc-alertdialog__title {
@@ -1861,3 +1974,45 @@ body {
   background: var(--cmc-surface-subtle);
   border-radius: var(--radius-sm);
 }
+
+/* ─────────────────────────────────────────────────────────── */
+/* Density picker — Phase 24 Plan 01 (DENS-01).                 */
+/* Skeleton consumed by DensityToggle.tsx in plan 02. Kept here  */
+/* (not in a feature CSS file) so plan 02 ships pure TSX.        */
+/* ─────────────────────────────────────────────────────────── */
+.cmc-density-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--cmc-control-height-md);
+  height: var(--cmc-control-height-md);
+  background: transparent;
+  border: 1px solid var(--cmc-border);
+  border-radius: 6px;
+  color: var(--cmc-text-dim);
+  cursor: pointer;
+  transition: color 120ms ease-out, border-color 120ms ease-out;
+}
+.cmc-density-toggle:hover { color: var(--cmc-text); border-color: var(--cmc-border-strong, var(--cmc-text-dim)); }
+
+.cmc-dropdown {
+  background: var(--cmc-surface);
+  border: 1px solid var(--cmc-border);
+  border-radius: 8px;
+  padding: var(--cmc-space-2xs);
+  min-width: 160px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  z-index: var(--cmc-z-dropdown);
+}
+.cmc-dropdown__item {
+  display: flex;
+  align-items: center;
+  gap: var(--cmc-space-sm);
+  padding: var(--cmc-space-xs) var(--cmc-space-sm);
+  color: var(--cmc-text);
+  font-size: var(--cmc-size-body);
+  border-radius: 4px;
+  cursor: pointer;
+  outline: none;
+}
+.cmc-dropdown__item[data-highlighted] { background: var(--cmc-surface-2, rgba(255,255,255,0.04)); }
