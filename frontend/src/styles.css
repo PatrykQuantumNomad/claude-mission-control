@@ -53,8 +53,8 @@
   /* Density tokens — Phase 24 Plan 01 (DENS-01..03).             */
   /* Comfortable defaults. Compact + Cozy overrides live in        */
   /* [data-density="…"] selector blocks below. Coexist with the    */
-  /* legacy --space-*/--size-* tokens above; per-route migration   */
-  /* is Phase 26/27 work.                                          */
+  /* legacy --space-x and --size-x tokens above; per-route         */
+  /* migration is Phase 26/27 work.                                */
   /* ─────────────────────────────────────────────────────────── */
   --cmc-space-2xs: 4px;
   --cmc-space-xs: 8px;
