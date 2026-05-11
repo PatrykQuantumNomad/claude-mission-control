@@ -16,3 +16,14 @@ frontend/node_modules/
 # SESS-06 follow-up message queue (Phase 3 Plan 03-03)
 .tmp/
 /node_modules
+
+# Phase 24 quality-gate outputs (Plan 05)
+# .lighthouseci/ is created by `npx lhci autorun` at phase close (plan 07)
+# and contains JSON reports + LHR HTML — large + machine-generated.
+# visual-check PNGs are produced by tests/e2e/v13-visual-capture.spec.ts
+# (36 fullPage PNGs per run); .gitkeep preserves the directory while the
+# PNGs themselves stay out of history. Operators who want to commit
+# visual evidence can `git add -f <path>` selectively.
+.lighthouseci/
+.planning/phases/*/visual-check/*.png
+
