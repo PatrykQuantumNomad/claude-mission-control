@@ -63,7 +63,16 @@ test.describe('POLI-09 visual capture matrix — Phase 24', () => {
             [density, theme],
           )
           await page.goto(route.path)
-          await page.waitForLoadState('networkidle')
+          await page.waitForLoadState('domcontentloaded')
+          // /activity and /skills carry persistent OTEL firehose / chart
+          // streams that never reach `networkidle` within the 30s test
+          // timeout. Use a fixed settle delay instead — the DOM is fully
+          // hydrated after DCL + 1.5s; charts are mounted and the layout
+          // is stable. Locked invariant: visual-capture screenshots do not
+          // assert on streaming-data content (we cannot guarantee fixture
+          // determinism across runs); they assert on layout + theme +
+          // density rendering only.
+          await page.waitForTimeout(1500)
           await page.screenshot({
             path: path.join(
               PHASE_DIR,
