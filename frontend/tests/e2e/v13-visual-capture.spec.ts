@@ -21,6 +21,12 @@
 import { test } from '@playwright/test'
 import path from 'node:path'
 import fs from 'node:fs'
+import { fileURLToPath } from 'node:url'
+
+// Playwright runs specs as ESM in this project (package.json "type": "module"),
+// so __dirname is undefined. Derive it from import.meta.url instead.
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 const ROUTES = [
   { path: '/', slug: 'home' },
