@@ -2203,7 +2203,14 @@ body {
   font-size: var(--cmc-size-label);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--cmc-text-subtle, var(--cmc-text-dim));
+  /* WCAG 2.1 AA: --cmc-text-subtle (#5a5a70) hits 2.77:1 contrast vs
+   * --cmc-bg-2 (#12121a) — under the 4.5:1 normal-text threshold.
+   * Section labels ARE labels, not body, but axe still flags them as
+   * serious. Bumped to --cmc-text-dim (#8888a0 → 5.46:1) for the
+   * uppercase mono treatment — preserves the visual hierarchy while
+   * clearing the a11y gate. Phase 24 Plan 07 gate fix.
+   */
+  color: var(--cmc-text-dim);
   padding: 0 var(--cmc-space-md);
   margin: var(--cmc-space-sm) 0 var(--cmc-space-2xs);
 }

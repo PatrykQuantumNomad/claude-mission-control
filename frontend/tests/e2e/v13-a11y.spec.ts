@@ -36,7 +36,13 @@ test.describe('POLI-10 a11y — serious + critical violations block', () => {
             [density, theme],
           )
           await page.goto(route)
-          await page.waitForLoadState('networkidle')
+          // Chart-heavy routes (/activity, /skills) carry persistent
+          // OTEL/firehose streams that never reach networkidle within
+          // the 30s test timeout. Use DCL + a settle delay instead —
+          // axe-core can analyze a fully hydrated DOM regardless of
+          // ongoing background fetches.
+          await page.waitForLoadState('domcontentloaded')
+          await page.waitForTimeout(1500)
 
           const results = await new AxeBuilder({ page })
             .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])

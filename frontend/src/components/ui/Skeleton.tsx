@@ -6,6 +6,10 @@
 // state without injecting "Loading…" text into the visual shell. For the
 // multi-line text variant we apply the busy/label to the outer wrapper so the
 // announcement happens once for the entire stack.
+//
+// role="status" is required alongside aria-label on the <div> wrapper —
+// without a role, axe-core's `aria-prohibited-attr` rule (serious impact)
+// flags `aria-label` on a bare <div> as invalid (Phase 24 Plan 07 gate).
 
 import { CSSProperties } from 'react'
 
@@ -30,6 +34,7 @@ export function Skeleton({
     return (
       <div
         className={`cmc-skeleton-stack ${className}`.trim()}
+        role="status"
         aria-busy
         aria-label="Loading"
       >
