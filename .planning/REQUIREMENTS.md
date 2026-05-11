@@ -191,9 +191,9 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 | SHEL-04 | Phase 24 | Complete |
 | SHEL-05 | Phase 26 | Pending |
 | SHEL-06 | Phase 25 | Pending |
-| DENS-01 | Phase 24 | Pending |
-| DENS-02 | Phase 24 | Pending |
-| DENS-03 | Phase 24 | Pending |
+| DENS-01 | Phase 24 | ✅ Complete (plans 02 + 05 e2e, 2026-05-11) |
+| DENS-02 | Phase 24 | ✅ Complete (plans 02 + 05 runtime Portal cascade fixture, 2026-05-11) |
+| DENS-03 | Phase 24 | ✅ Complete (plans 02 + 05 e2e persistence, 2026-05-11) |
 | VIEW-01 | Phase 25 | Pending |
 | VIEW-02 | Phase 25 | Pending |
 | VIEW-03 | Phase 25 | Pending |

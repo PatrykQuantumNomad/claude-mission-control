@@ -81,7 +81,7 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 - [x] 02-PLAN.md — Density UX: DensityToggle (Radix DropdownMenu) + DensityProvider (no React context) + cascade + persistence vitest tests _(complete 2026-05-10 — 49c135a, b9d5e2e)_
 - [x] 03-PLAN.md — Containment primitives: BoundedPanelCard / TruncatedCell / CopyIconButton + .cmc-page--bounded + DataTable wrap/copyable opt-in/out + transform-audit deliverable _(complete 2026-05-10 — 939cd3e, dddae8d, eb43306)_
 - [x] 04-PLAN.md — Shell rework: Sidebar (Cmd+B + collapse + active-route bar) + AppShellHeader extraction + DensityProvider stack + delete NavBar.tsx (human checkpoint) _(complete 2026-05-11 — 93d6c2f, aa570cf, 8178cdf; visual checkpoint approved 10/10; SHEL-01..04 satisfied)_
-- [ ] 05-PLAN.md — Quality-gate Playwright specs (visual capture / axe / portal-containment / sidebar / density / truncation / copy-cell) + lighthouserc.json + URL-contract pytest
+- [x] 05-PLAN.md — Quality-gate Playwright specs (visual capture / axe / portal-containment / sidebar / density / truncation / copy-cell) + lighthouserc.json + URL-contract pytest _(complete 2026-05-11 — d1304ea, 5872663, cdeda8d, 51f36b6; 7 v13-*.spec.ts files = 75 Playwright tests; lighthouserc.json 3-URL CWV gate research-corrected per Pitfall 5; backend/tests/test_url_contract.py 2/2 PASS against plan-06 docs; POLI-09/10/11/13 + CONT-02/03 + SHEL-04 + DENS-01..03 e2e scaffolding shipped)_
 - [x] 06-PLAN.md — POLI docs (z-index-ladder / affordance-checklist / url-contract / testid-registry) + ESLint flat config + custom rules (testid-registry-only, no-raw-z-index) _(complete 2026-05-11 — 3698bf3, e700a9e, 5e6bb73; pnpm lint clean; backend/tests/test_url_contract.py 2/2 passing; POLI-09 + POLI-12 + POLI-13 + POLI-14 + CONT-05 ESLint side satisfied)_
 - [ ] 07-PLAN.md — Phase close gate: run matrix (visual + axe + Lighthouse + perf) and write 24-VISUAL-CHECK.md verdict (human checkpoint)
 **UI hint**: yes
@@ -167,7 +167,7 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 | 21. Alert Anomaly Depth & NL Authoring | v1.2 | 3/3 | Complete | 2026-05-07 |
 | 22. Skill Latency Overhead (spike-gated) | v1.2 | 2/2 | Complete | 2026-05-08 |
 | 23. Compare Depth & Milestone Close | v1.2 | 4/4 | Complete | 2026-05-09 |
-| 24. Shell + Density + Containment Primitives | v1.3 | 4/7 | In Progress|  |
+| 24. Shell + Density + Containment Primitives | v1.3 | 6/7 | In Progress|  |
 | 25. Saved Views (Backend + Frontend) | v1.3 | 0/0 | Not started | — |
 | 26. Per-Route Adoption I + Time + Cmd+K | v1.3 | 0/0 | Not started | — |
 | 27. Per-Route Adoption II + Tech Debt | v1.3 | 0/0 | Not started | — |
