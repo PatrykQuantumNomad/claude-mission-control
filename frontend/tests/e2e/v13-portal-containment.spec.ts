@@ -15,6 +15,20 @@
 // the containing block for `position: fixed` descendants (the Portal
 // child IS position: fixed).
 //
+// Two exceptions are skipped during the walk — these are the Portal's
+// OWN positioning + entrance-animation surfaces, not external ancestors:
+//   1. `[data-radix-popper-content-wrapper]` — Radix Popper's positioning
+//      wrapper translates the popper to its anchor position via
+//      `transform: translate(x, y)`. This transform is intrinsic to how
+//      Radix positions floating UI; it does NOT trap descendants because
+//      it IS the Portal's mount point.
+//   2. The locator element itself when it carries an entrance scale
+//      (e.g., cmdk's `transform: scale(0.96619)` during the open
+//      animation). The animation is on the element, not on an ancestor;
+//      there is no Portal-content descendant of the locator to trap.
+// Both are "self" transforms, not ancestor transforms — they don't
+// satisfy the "transform on an ancestor traps fixed descendants" pitfall.
+//
 // Coverage: three highest-risk Portal mount paths in v1.2 + plan 04's
 // new sidebar tooltip:
 //   1. DensityToggle DropdownMenu (Radix Portal, plan 02)
@@ -46,6 +60,8 @@ test.describe('CONT-02 portal containment — no transform ancestor traps Radix 
 
     const ancestorTransforms: TransformAncestor[] = await popperContent.evaluate(
       (el) => {
+        const isRadixPopperWrapper = (e: Element) =>
+          e.hasAttribute('data-radix-popper-content-wrapper')
         const offenders: Array<{
           tag: string
           cls: string
@@ -53,6 +69,13 @@ test.describe('CONT-02 portal containment — no transform ancestor traps Radix 
         }> = []
         let cur: Element | null = el.parentElement
         while (cur && cur !== document.body) {
+          // Radix's popper-content-wrapper translates the floating UI to
+          // its anchor position. The transform is intrinsic to Portal
+          // positioning, not an ancestor-trap. Skip it during the walk.
+          if (isRadixPopperWrapper(cur)) {
+            cur = cur.parentElement
+            continue
+          }
           const cs = window.getComputedStyle(cur)
           if (cs.transform && cs.transform !== 'none') {
             offenders.push({
@@ -85,7 +108,15 @@ test.describe('CONT-02 portal containment — no transform ancestor traps Radix 
     const cmdk = page.locator('.cmc-cmdk').first()
     await expect(cmdk).toBeVisible()
 
+    // Wait out the cmdk entrance scale animation (~200ms) — the
+    // `transform: scale(0.96619)` on `.cmc-cmdk__content` is a self
+    // transform, but a still-animating one will resolve to a matrix
+    // mid-animation; settle first for a stable assertion.
+    await page.waitForTimeout(250)
+
     const ancestorTransforms: TransformAncestor[] = await cmdk.evaluate((el) => {
+      const isRadixPopperWrapper = (e: Element) =>
+        e.hasAttribute('data-radix-popper-content-wrapper')
       const offenders: Array<{
         tag: string
         cls: string
@@ -93,6 +124,10 @@ test.describe('CONT-02 portal containment — no transform ancestor traps Radix 
       }> = []
       let cur: Element | null = el.parentElement
       while (cur && cur !== document.body) {
+        if (isRadixPopperWrapper(cur)) {
+          cur = cur.parentElement
+          continue
+        }
         const cs = window.getComputedStyle(cur)
         if (cs.transform && cs.transform !== 'none') {
           offenders.push({
