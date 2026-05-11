@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Surface Redesign
-status: Plans 01-03 shipped (Wave 1 + Wave 2). Ready for Plan 04 execution.
-last_updated: "2026-05-10T14:05:00.000Z"
-last_activity: 2026-05-10 — 24-03-SUMMARY.md authored. Plan 03 wave-2 complete: commits 939cd3e (CSS containment + truncation rules), dddae8d (RED tests), eb43306 (GREEN: BoundedPanelCard + TruncatedCell + CopyIconButton), eafa47a (DataTable wrap+copyable + Sheet annotation + 24-TRANSFORM-AUDIT.md). Plan 02 ran in parallel and landed commits 49c135a + b9d5e2e independently.
+status: Plans 01-04 shipped (Waves 1-3 complete). Ready for Wave 4 (Plans 05 + 06 in parallel).
+last_updated: "2026-05-11T00:00:00.000Z"
+last_activity: 2026-05-11 — 24-04-SUMMARY.md authored. Plan 04 (Shell rework) complete: 3 atomic commits 93d6c2f (feat: Sidebar primitives + AppShellHeader), aa570cf (feat: wire shell + delete NavBar), 8178cdf (test: vitest pin Sidebar + AppShellHeader). Visual checkpoint approved by user (10/10 items confirmed). NavBar.tsx + NavBar.test.tsx deleted (research-recommended; rollback via git revert aa570cf). 353/353 vitest green; tsc clean. SHEL-01..04 shipped.
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 7
-  completed_plans: 3
-  percent: 43
+  completed_plans: 4
+  percent: 57
 ---
 
 # Project State
@@ -21,16 +21,16 @@ See: .planning/PROJECT.md (updated 2026-05-10 after v1.3 milestone start)
 
 **Core value:** A solo Claude Code developer can see what every agent session is doing, how tokens and tools are performing, what each skill costs and how often it fails, queue and approve tasks, compare two sessions side-by-side, get paged when metrics breach thresholds, and kill runaway sessions — all from one browser tab without maintaining external infrastructure.
 
-**Current focus:** v1.3 Surface Redesign — Phase 24 Plans 01-03 complete (Wave 1 substrate + Wave 2 density UX + containment primitives). Substrate + DENS-01..03 + CONT-01/04 ready; Plan 04 (shell redesign + first visual checkpoint) is next.
+**Current focus:** v1.3 Surface Redesign — Phase 24 Plans 01-04 complete (Wave 1 substrate + Wave 2 density UX + containment primitives + Wave 3 shell rework with visual checkpoint approved). Substrate + DENS-01..03 + CONT-01..04 + SHEL-01..04 ready; Wave 4 (Plans 05 quality-gate Playwright + 06 POLI docs) spawns next in parallel.
 
 ## Current Position
 
-Phase: 24 — Shell + Density + Containment Primitives (3/7 plans complete)
-Plan: 02 ✅ + Plan 03 ✅ (parallel wave) → next: 04 (shell redesign)
-Status: Plans 01-03 shipped (Wave 1 + Wave 2). Ready for Plan 04 execution.
-Last activity: 2026-05-10 — 24-03-SUMMARY.md authored. Plan 03 wave-2 complete: 4 task commits (939cd3e CSS, dddae8d RED, eb43306 GREEN, eafa47a DataTable+Sheet+audit). Plan 02 ran in parallel (commits 49c135a + b9d5e2e).
+Phase: 24 — Shell + Density + Containment Primitives (4/7 plans complete)
+Plan: 04 ✅ → next: Wave 4 (Plans 05 + 06 in parallel)
+Status: Plans 01-04 shipped (Waves 1-3 complete). Ready for Wave 4 (Playwright quality gates + POLI docs).
+Last activity: 2026-05-11 — 24-04-SUMMARY.md authored. Plan 04 (Shell rework) complete: 3 atomic commits (93d6c2f sidebar primitives + AppShellHeader, aa570cf wire shell + delete NavBar, 8178cdf vitest pin behavior). Visual checkpoint approved (10/10). NavBar.tsx + NavBar.test.tsx deleted. 353/353 vitest green; tsc clean. SHEL-01..04 satisfied.
 
-Progress (Phase 24 plans): [████░░░░░░] 43% (3/7 plans complete)
+Progress (Phase 24 plans): [█████░░░░░] 57% (4/7 plans complete)
 
 ## Performance Metrics
 
@@ -116,6 +116,18 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 - TDD RED-gate commits in this project require `--no-verify` because the pre-commit `frontend typecheck (tsc)` hook rejects test files importing not-yet-existent modules. Used once for `dddae8d` (plan-03 RED). The GREEN commit immediately after passed the hook with implementation in place. Net broken-state lifetime: one commit. Documented; future TDD plans should expect the same pattern unless the hook learns to tolerate `*.test.*` files in the RED window.
 - userEvent.click + vi.useFakeTimers can swallow the synthetic click event in some specs (CopyIconButton "writes to clipboard" spec). Fix: use fireEvent.click for the affected spec. Sibling specs in the same file may still use userEvent. Pattern logged for future test-author awareness.
 
+**v1.3 Phase 24 plan-04 execution decisions:**
+
+- Sidebar chrome collapse-toggle uses Lucide `PanelLeftClose` / `PanelLeftOpen` icon pair (NOT `Menu`/`X` or `ChevronLeft`/`ChevronRight`). Pair telegraphs panel-direction intent and matches VS Code's chrome handle convention. Icon swaps based on `collapsed` state. Locked invariant: any future panel-collapse chrome (right sidebar, bottom panel) should follow the same `Panel*Close` / `Panel*Open` pattern.
+- Sidebar IA LOCKED AS SHIPPED — Home (top-level above sections) + Observe (Activity, Sessions Compare, Skills, Cost) + Operate (Alerts) + Configure (empty header reserved for future Settings/Doctor). Plan-04 IA matches CONTEXT.md exactly; future route additions slot into existing sections (no new sections without re-locking the IA).
+- Active-route accent bar uses `border-left: 3px solid` (NOT `box-shadow inset`). Box-shadow would visually clip when the navlink row drops to 52px collapsed width; `border-left` paints reliably in both 240px and 52px modes because the navlink keeps its layout box across the flip (CSS only hides the label span). Locked invariant: any future sidebar/list active-state indicator must use border-left (or `::before` pseudo-element) not box-shadow inset.
+- Window-level Cmd+B keydown listener uses `(e.metaKey || e.ctrlKey)` cross-platform check + `e.preventDefault()`. Listener at window scope (NOT element-scoped) so Cmd+B works inside Sheets, textareas, Cmd+K palette. Element-scoped was explicitly rejected (research pitfall). Locked invariant: ALL future global keyboard shortcuts (Cmd+K, Cmd+Shift+C copy-time-range, Cmd+Shift+V paste-time-range) follow the same window-level + preventDefault + cross-platform-modifier triad.
+- Phase 25/26 testid placeholders (`time-picker-trigger`, `save-view-button`) ship as disabled + display:none buttons inside AppShellHeader. Plan 06 registers them in `docs/testid-registry.md` with status `Placeholder`; adopting phases only remove `display: none` + wire `onClick`. Locked pattern for ALL future deferred-adoption testids.
+- NavBar.tsx + NavBar.test.tsx DELETED per Phase 24 research recommendation. Legacy `.cmc-navbar` / `.cmc-navlink` CSS rules in styles.css intentionally LEFT in place so `git revert aa570cf` is a clean rollback path. Plan 06 docs may flag the dead CSS for explicit cleanup. Locked policy: research-recommended deletions delete the TSX/test files but NOT the corresponding CSS rules — CSS cleanup is a separate, explicit task.
+- Brand `Mission Control` moved from header → top of sidebar (`.cmc-sidebar__header` + `.cmc-sidebar__brand`). When sidebar collapses, brand hides via `[data-sidebar-collapsed='true'] .cmc-sidebar__brand { display: none }` and only the collapse-toggle chevron remains in the sidebar header. Frees AppShellHeader for the action-area-only layout (locked invariant: AppShellHeader hosts no branding).
+- `min-width: 0` on `.cmc-shell__column` is the horizontal twin of the `min-height: 0` ladder — prevents a horizontal scrollbar when sidebar collapses and the column reclaims width. Locked invariant: any future flex-column-inside-flex-row pattern needs BOTH `min-width: 0` AND `min-height: 0` on the inner column to behave correctly.
+- DensityProvider wraps the `.cmc-shell` content tree (between TaskComposerProvider and the `.cmc-shell` div). Density cascade flows into Sidebar + AppShellHeader + main + Radix Portal descendants. Runtime Portal cascade verification (DENS-02) is deferred to Plan 05's Playwright fixture per Plan 02's documented happy-dom limitation — Plan 04's wiring made that fixture buildable.
+
 ### Resolved Blockers
 
 (Cleared at milestone close — see `.planning/milestones/v1.2-MILESTONE-AUDIT.md` for the full v1.2 issues-resolved log.)
@@ -154,7 +166,7 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 3. ✅ Requirements definition (REQUIREMENTS.md authored 2026-05-10 — 45 active across 9 categories)
 4. ✅ Roadmap creation (ROADMAP.md authored 2026-05-10 — Phases 24-28, 45/45 mapped)
 5. ✅ Phase 24 plans authored (01-07-PLAN.md present)
-6. ⏳ Phase 24 execution (3/7 plans complete: Plans 01-03 shipped 2026-05-10)
+6. ⏳ Phase 24 execution (4/7 plans complete: Plans 01-04 shipped 2026-05-10..11; visual checkpoint approved)
 7. Phase 24 → 25 → 26 → 27 → 28 execution
 8. v1.3 milestone audit + close
 
@@ -165,11 +177,11 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 | 01 — Foundation primitives | ✅ Complete (2026-05-10) | 396c092, 2e064cc | density tokens + z-index ladder + 3 CSS overflow fixes (CONT-02/03/05) + lib/density.ts + 4 v1.3 deps |
 | 02 — DensityToggle | ✅ Complete (2026-05-10) | 49c135a, b9d5e2e | DensityToggle (Radix DropdownMenu, 3 tiers) + DensityProvider (no Context) + 7 vitest tests; POLI-11 zero-rerender locked by architecture; happy-dom Portal cascade limit deferred to Plan 05 Playwright |
 | 03 — BoundedPanelCard | ✅ Complete (2026-05-10) | 939cd3e, dddae8d, eb43306, eafa47a | parallel wave with plan 02; BoundedPanelCard + TruncatedCell + CopyIconButton primitives + DataTable wrap/copyable + 24-TRANSFORM-AUDIT.md (CONT-02 deliverable). CONT-01/02/03/04 all shipped. |
-| 04 — Shell redesign | ⏳ next | — | consumes plan 01 z-index/density tokens; mounts DensityToggle in header; first visual checkpoint |
-| 05 — Saved views | pending | — | new Alembic migration `0004_saved_views`; depends on plan 04 shell; ALSO add density-cascade Playwright spec (DENS-02 e2e gate) |
-| 06 — Docs | pending | — | docs/testid-registry.md + z-index-ladder.md |
-| 07 — Quality gates | pending | — | wires lhci + axe-playwright (installed in plan 01) into CI |
+| 04 — Shell rework | ✅ Complete (2026-05-11) | 93d6c2f, aa570cf, 8178cdf | Sidebar (240/52px collapse, Cmd+B window-level, persisted) + AppShellHeader extraction + 9 new vitest specs; NavBar.tsx + NavBar.test.tsx DELETED (research-recommended; rollback via `git revert aa570cf`); DensityProvider wraps shell content tree; visual checkpoint approved 10/10; 353/353 vitest. SHEL-01..04 shipped. |
+| 05 — Quality-gate Playwright | ⏳ next (Wave 4 parallel with 06) | — | Playwright specs (visual capture / axe / portal-containment / sidebar / density / truncation / copy-cell) + lighthouserc.json + URL-contract pytest. CONSUMES Plan 04's sidebar-link-*, sidebar-collapse-toggle, time-picker-trigger, save-view-button testids. DENS-02 runtime Portal cascade verification belongs here (deferred from Plan 02). |
+| 06 — POLI docs | ⏳ next (Wave 4 parallel with 05) | — | docs/z-index-ladder.md + docs/affordance-checklist.md + docs/url-contract.md + docs/testid-registry.md + ESLint flat config (testid-registry-only, no-raw-z-index). Registry must register Plan 04's testids (sidebar-link-*, sidebar-collapse-toggle, cmdk-trigger, time-picker-trigger Placeholder, save-view-button Placeholder). |
+| 07 — Phase close gate | pending | — | Run matrix (visual + axe + Lighthouse + perf + URL contract) + write 24-VISUAL-CHECK.md verdict (human checkpoint). Depends on Plans 05 + 06 landing. |
 
 ## Next Step
 
-Run `/gsd:execute-phase 24 04` to continue Phase 24 execution (shell redesign + first visual checkpoint).
+Run `/gsd:execute-phase 24 05 06` (Wave 4, parallel) to continue Phase 24 execution — Playwright quality gates + POLI docs land in parallel before the Plan 07 close gate.

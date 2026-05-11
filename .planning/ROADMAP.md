@@ -80,7 +80,7 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 - [x] 01-PLAN.md — Foundation: install deps, density tokens on :root, z-index ladder, min-width:0 on .cmc-card, .cmc-btn:hover transform mitigation, lib/density.ts + applyDensity() pre-mount _(complete 2026-05-10 — 396c092, 2e064cc)_
 - [x] 02-PLAN.md — Density UX: DensityToggle (Radix DropdownMenu) + DensityProvider (no React context) + cascade + persistence vitest tests _(complete 2026-05-10 — 49c135a, b9d5e2e)_
 - [x] 03-PLAN.md — Containment primitives: BoundedPanelCard / TruncatedCell / CopyIconButton + .cmc-page--bounded + DataTable wrap/copyable opt-in/out + transform-audit deliverable _(complete 2026-05-10 — 939cd3e, dddae8d, eb43306)_
-- [ ] 04-PLAN.md — Shell rework: Sidebar (Cmd+B + collapse + active-route bar) + AppShellHeader extraction + DensityProvider stack + delete NavBar.tsx (human checkpoint)
+- [x] 04-PLAN.md — Shell rework: Sidebar (Cmd+B + collapse + active-route bar) + AppShellHeader extraction + DensityProvider stack + delete NavBar.tsx (human checkpoint) _(complete 2026-05-11 — 93d6c2f, aa570cf, 8178cdf; visual checkpoint approved 10/10; SHEL-01..04 satisfied)_
 - [ ] 05-PLAN.md — Quality-gate Playwright specs (visual capture / axe / portal-containment / sidebar / density / truncation / copy-cell) + lighthouserc.json + URL-contract pytest
 - [ ] 06-PLAN.md — POLI docs (z-index-ladder / affordance-checklist / url-contract / testid-registry) + ESLint flat config + custom rules (testid-registry-only, no-raw-z-index)
 - [ ] 07-PLAN.md — Phase close gate: run matrix (visual + axe + Lighthouse + perf) and write 24-VISUAL-CHECK.md verdict (human checkpoint)
@@ -167,7 +167,7 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 | 21. Alert Anomaly Depth & NL Authoring | v1.2 | 3/3 | Complete | 2026-05-07 |
 | 22. Skill Latency Overhead (spike-gated) | v1.2 | 2/2 | Complete | 2026-05-08 |
 | 23. Compare Depth & Milestone Close | v1.2 | 4/4 | Complete | 2026-05-09 |
-| 24. Shell + Density + Containment Primitives | v1.3 | 3/7 | In Progress|  |
+| 24. Shell + Density + Containment Primitives | v1.3 | 4/7 | In Progress|  |
 | 25. Saved Views (Backend + Frontend) | v1.3 | 0/0 | Not started | — |
 | 26. Per-Route Adoption I + Time + Cmd+K | v1.3 | 0/0 | Not started | — |
 | 27. Per-Route Adoption II + Tech Debt | v1.3 | 0/0 | Not started | — |
