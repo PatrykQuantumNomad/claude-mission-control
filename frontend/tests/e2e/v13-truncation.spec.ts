@@ -18,7 +18,10 @@ test.describe('CONT-03 truncation + tooltip', () => {
     page,
   }) => {
     await page.goto('/skills')
-    await page.waitForLoadState('networkidle')
+    // /skills carries persistent OTEL/firehose streams; use DCL + a
+    // settle delay matching the visual-capture + a11y specs.
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(1500)
 
     // Find any cell with .cmc-cell--truncate that is actually overflowing.
     // scrollWidth > clientWidth + 1 — the +1 absorbs sub-pixel rounding

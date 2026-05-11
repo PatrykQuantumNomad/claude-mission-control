@@ -33,14 +33,16 @@ test.describe('SHEL-04 sidebar collapse + persistence', () => {
     page,
   }) => {
     await page.goto('/')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(500)
 
     // Clean slate.
     await page.evaluate(() =>
       window.localStorage.removeItem('cmc.sidebar.collapsed'),
     )
     await page.reload()
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(500)
 
     const sidebar = page.locator('.cmc-sidebar')
     await expect(sidebar).toBeVisible()
@@ -56,14 +58,38 @@ test.describe('SHEL-04 sidebar collapse + persistence', () => {
     await page.waitForFunction(
       () => document.documentElement.dataset.sidebarCollapsed === 'true',
     )
+    // The sidebar `width` carries a 180ms ease-out transition. Wait for
+    // the transition to complete before measuring — Playwright's
+    // waitForFunction returns the instant the attribute flips, well
+    // before the visual width reaches its 52px target.
+    await page.waitForFunction(
+      () => {
+        const sb = document.querySelector('.cmc-sidebar') as HTMLElement | null
+        return sb ? sb.getBoundingClientRect().width < 70 : false
+      },
+      undefined,
+      { timeout: 2000 },
+    )
     const collapsedWidth = await sidebar.evaluate(
       (el) => el.getBoundingClientRect().width,
     )
     expect(collapsedWidth).toBeLessThan(70)
 
-    // Reload → persistence.
+    // Reload → persistence. The applySidebar() boot script reads
+    // localStorage and sets [data-sidebar-collapsed=true] BEFORE first
+    // paint, so the sidebar should render at 52px without transition —
+    // but be defensive in case future plans add a hydration transition.
     await page.reload()
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(500)
+    await page.waitForFunction(
+      () => {
+        const sb = document.querySelector('.cmc-sidebar') as HTMLElement | null
+        return sb ? sb.getBoundingClientRect().width < 70 : false
+      },
+      undefined,
+      { timeout: 2000 },
+    )
     const persistedWidth = await page
       .locator('.cmc-sidebar')
       .evaluate((el) => el.getBoundingClientRect().width)
@@ -77,7 +103,8 @@ test.describe('SHEL-04 sidebar collapse + persistence', () => {
     // Active route survives collapsed mode — the 3px accent-blue bar must
     // still render.
     await page.goto('/activity')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(500)
     const activeLink = page.locator('.cmc-sidebar__navlink--active')
     await expect(activeLink).toBeVisible()
     const borderLeft = await activeLink.evaluate(
@@ -93,7 +120,8 @@ test.describe('SHEL-04 sidebar collapse + persistence', () => {
       window.localStorage.setItem('cmc.sidebar.collapsed', 'true')
     })
     await page.goto('/')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(500)
 
     const activityLink = page.getByTestId('sidebar-link-activity')
     await activityLink.hover()

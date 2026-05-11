@@ -22,7 +22,10 @@ test.describe('CONT-03 click-to-copy on long cells', () => {
     // navigator.clipboard.readText() to resolve.
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
     await page.goto('/skills')
-    await page.waitForLoadState('networkidle')
+    // /skills carries persistent OTEL/firehose streams; use DCL + a
+    // settle delay matching the visual-capture + a11y specs.
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(1500)
 
     // If the route doesn't surface a copyable cell, skip — copyable cells
     // are wired per-column in Phase 26/27 adoption.
