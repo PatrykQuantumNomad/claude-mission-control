@@ -82,9 +82,9 @@ Categorized by surface area. Each maps to exactly one phase in `ROADMAP.md` once
 - [ ] **POLI-09**: Formal per-phase visual checkpoint pattern. Each phase ends with operator-driven visual review documented in `.planning/phases/{N}/VISUAL-CHECK.md` (screenshots + verdict). Verifier gates on visual checkpoint pass.
 - [ ] **POLI-10**: Accessibility audit per phase via axe-core integration. WCAG AA contrast requirement on all new chrome (especially dark-theme text/background pairs in headers/sidebar). Focus rings on all interactive elements.
 - [ ] **POLI-11**: Perf budget per phase — density toggle is CSS-only (no React re-renders confirmed via React DevTools profiler at phase close); chart polling stays <16ms paint; no `ResponsiveContainer` ResizeObserver pile-up regression.
-- [ ] **POLI-12**: Affordance checklist `docs/affordance-checklist.md` — 15 keyboard/interaction affordances enumerated (Esc-to-close, focus-return, Tab-cycle inside Sheet, Cmd+K context commands, scroll-position-restore on Sheet close, drag handles, click-outside-to-close, theme toggle, density toggle, etc.). Verified at every phase close.
-- [ ] **POLI-13**: URL contract documentation `docs/url-contract.md` + CI test (`tests/test_url_contract.py`) — enumerates every preserved URL pattern + validateSearch shape; CI fails if any preserved pattern breaks.
-- [ ] **POLI-14**: `data-testid` registry (`docs/testid-registry.md`) + ESLint rule (`testid-registry-only`) — prevents Playwright selector churn during shell rework. Skip count locked at v1.2 baseline (2 known skips).
+- [x] **POLI-12**: Affordance checklist `docs/affordance-checklist.md` — 15 keyboard/interaction affordances enumerated (Esc-to-close, focus-return, Tab-cycle inside Sheet, Cmd+K context commands, scroll-position-restore on Sheet close, drag handles, click-outside-to-close, theme toggle, density toggle, etc.). Verified at every phase close. _(complete 2026-05-11 — Phase 24 plan 06; commit 3698bf3)_
+- [x] **POLI-13**: URL contract documentation `docs/url-contract.md` + CI test (`tests/test_url_contract.py`) — enumerates every preserved URL pattern + validateSearch shape; CI fails if any preserved pattern breaks. _(complete 2026-05-11 — Phase 24 plans 05 + 06; commits 3698bf3 (docs) + cdeda8d (pytest); 2/2 passing)_
+- [x] **POLI-14**: `data-testid` registry (`docs/testid-registry.md`) + ESLint rule (`testid-registry-only`) — prevents Playwright selector churn during shell rework. Skip count locked at v1.2 baseline (2 known skips). _(complete 2026-05-11 — Phase 24 plan 06; commits e700a9e + 5e6bb73; pnpm lint enforces)_
 
 ### Tech Debt Closure (TDBT) — Phase 27 bundles
 
@@ -219,9 +219,9 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 | POLI-09 | Phase 24 | Pending |
 | POLI-10 | Phase 24 | Pending |
 | POLI-11 | Phase 24 | Pending |
-| POLI-12 | Phase 24 | Pending |
-| POLI-13 | Phase 24 | Pending |
-| POLI-14 | Phase 24 | Pending |
+| POLI-12 | Phase 24 | ✅ Complete (plan 06, 2026-05-11) |
+| POLI-13 | Phase 24 | ✅ Complete (plans 05+06, 2026-05-11) |
+| POLI-14 | Phase 24 | ✅ Complete (plan 06, 2026-05-11) |
 | TDBT-01 | Phase 27 | Pending |
 | TDBT-02 | Phase 27 | Pending |
 | TDBT-03 | Phase 27 | Pending |

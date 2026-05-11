@@ -82,7 +82,7 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 - [x] 03-PLAN.md — Containment primitives: BoundedPanelCard / TruncatedCell / CopyIconButton + .cmc-page--bounded + DataTable wrap/copyable opt-in/out + transform-audit deliverable _(complete 2026-05-10 — 939cd3e, dddae8d, eb43306)_
 - [x] 04-PLAN.md — Shell rework: Sidebar (Cmd+B + collapse + active-route bar) + AppShellHeader extraction + DensityProvider stack + delete NavBar.tsx (human checkpoint) _(complete 2026-05-11 — 93d6c2f, aa570cf, 8178cdf; visual checkpoint approved 10/10; SHEL-01..04 satisfied)_
 - [ ] 05-PLAN.md — Quality-gate Playwright specs (visual capture / axe / portal-containment / sidebar / density / truncation / copy-cell) + lighthouserc.json + URL-contract pytest
-- [ ] 06-PLAN.md — POLI docs (z-index-ladder / affordance-checklist / url-contract / testid-registry) + ESLint flat config + custom rules (testid-registry-only, no-raw-z-index)
+- [x] 06-PLAN.md — POLI docs (z-index-ladder / affordance-checklist / url-contract / testid-registry) + ESLint flat config + custom rules (testid-registry-only, no-raw-z-index) _(complete 2026-05-11 — 3698bf3, e700a9e, 5e6bb73; pnpm lint clean; backend/tests/test_url_contract.py 2/2 passing; POLI-09 + POLI-12 + POLI-13 + POLI-14 + CONT-05 ESLint side satisfied)_
 - [ ] 07-PLAN.md — Phase close gate: run matrix (visual + axe + Lighthouse + perf) and write 24-VISUAL-CHECK.md verdict (human checkpoint)
 **UI hint**: yes
 

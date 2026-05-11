@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Surface Redesign
-status: Plans 01-04 shipped (Waves 1-3 complete). Ready for Wave 4 (Plans 05 + 06 in parallel).
-last_updated: "2026-05-11T00:00:00.000Z"
-last_activity: 2026-05-11 — 24-04-SUMMARY.md authored. Plan 04 (Shell rework) complete: 3 atomic commits 93d6c2f (feat: Sidebar primitives + AppShellHeader), aa570cf (feat: wire shell + delete NavBar), 8178cdf (test: vitest pin Sidebar + AppShellHeader). Visual checkpoint approved by user (10/10 items confirmed). NavBar.tsx + NavBar.test.tsx deleted (research-recommended; rollback via git revert aa570cf). 353/353 vitest green; tsc clean. SHEL-01..04 shipped.
+status: Plans 01-04 + 06 shipped. Plan 05 in flight (parallel Wave 4). Ready for Plan 07 close gate after Plan 05 lands.
+last_updated: "2026-05-11T10:30:45.000Z"
+last_activity: 2026-05-11 — 24-06-SUMMARY.md authored. Plan 06 (POLI docs + ESLint invariant rules) complete: 3 atomic commits 3698bf3 (docs: z-index/affordance/url-contract), e700a9e (docs: testid registry), 5e6bb73 (feat: ESLint flat config + cmc/testid-registry-only + cmc/no-raw-z-index). pnpm lint exits 0; 353/353 vitest preserved; tsc clean; backend/tests/test_url_contract.py 2/2 PASSING (was skipping before this plan landed docs/url-contract.md). Plan 05 running in parallel; coordination clean (no shared-file conflicts).
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 7
-  completed_plans: 4
-  percent: 57
+  completed_plans: 5
+  percent: 71
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-05-10 after v1.3 milestone start)
 
 ## Current Position
 
-Phase: 24 — Shell + Density + Containment Primitives (4/7 plans complete)
-Plan: 04 ✅ → next: Wave 4 (Plans 05 + 06 in parallel)
-Status: Plans 01-04 shipped (Waves 1-3 complete). Ready for Wave 4 (Playwright quality gates + POLI docs).
-Last activity: 2026-05-11 — 24-04-SUMMARY.md authored. Plan 04 (Shell rework) complete: 3 atomic commits (93d6c2f sidebar primitives + AppShellHeader, aa570cf wire shell + delete NavBar, 8178cdf vitest pin behavior). Visual checkpoint approved (10/10). NavBar.tsx + NavBar.test.tsx deleted. 353/353 vitest green; tsc clean. SHEL-01..04 satisfied.
+Phase: 24 — Shell + Density + Containment Primitives (5/7 plans complete; Plan 05 in flight, Plan 06 ✅ this turn)
+Plan: 06 ✅ → Plan 05 finalizing in parallel → next: Plan 07 close gate
+Status: Plans 01-04 + 06 shipped. Plan 05 (Playwright quality gates + URL-contract pytest) running concurrently in Wave 4. Plan 07 (phase close gate) ready as soon as Plan 05 lands.
+Last activity: 2026-05-11 — 24-06-SUMMARY.md authored. Plan 06 (POLI docs + ESLint invariant rules) complete: 3 atomic commits (3698bf3 z-index/affordance/url-contract docs, e700a9e testid registry, 5e6bb73 ESLint flat config + 2 custom rules). docs/{z-index-ladder,affordance-checklist,url-contract,testid-registry}.md shipped. cmc/testid-registry-only + cmc/no-raw-z-index ESLint rules enforce POLI-14 + CONT-05 invariants. pnpm lint exits 0 on v1.2 baseline + Phase 24; 353/353 vitest preserved; tsc clean. backend/tests/test_url_contract.py 2/2 PASSING (cross-plan handshake with parallel Plan 05 worked).
 
-Progress (Phase 24 plans): [█████░░░░░] 57% (4/7 plans complete)
+Progress (Phase 24 plans): [███████░░░] 71% (5/7 plans complete)
 
 ## Performance Metrics
 
@@ -116,6 +116,17 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 - TDD RED-gate commits in this project require `--no-verify` because the pre-commit `frontend typecheck (tsc)` hook rejects test files importing not-yet-existent modules. Used once for `dddae8d` (plan-03 RED). The GREEN commit immediately after passed the hook with implementation in place. Net broken-state lifetime: one commit. Documented; future TDD plans should expect the same pattern unless the hook learns to tolerate `*.test.*` files in the RED window.
 - userEvent.click + vi.useFakeTimers can swallow the synthetic click event in some specs (CopyIconButton "writes to clipboard" spec). Fix: use fireEvent.click for the affected spec. Sibling specs in the same file may still use userEvent. Pattern logged for future test-author awareness.
 
+**v1.3 Phase 24 plan-06 execution decisions:**
+
+- ESLint flat config (`frontend/eslint.config.js`) is ESM (package.json declares `"type": "module"`); the CMC plugin lives in `frontend/eslint-rules/index.cjs` and is bridged into the ESM config via `createRequire(import.meta.url)`. This pattern is the established CJS↔ESM interop convention for any future custom-rule plugin in this codebase.
+- Custom ESLint invariant-rule pattern: load companion docs/*.md as source-of-truth at module init; parse bullet lines with `/^-\s+`([^`]+)`/gm`; separate exact-match (Set) from dynamic-pattern (RegExp[]) buckets; report at JSXAttribute. Forkable for future invariants (e.g., no-cross-route imports, no-raw-spacing-px).
+- Template-literal data-testid reconstruction: a JSX `data-testid={`prefix-${expr}-suffix`}` reconstructs as `prefix-{x}-suffix` (regardless of how many interpolation slots). Pattern matching is by reconstructed shape, not by evaluated expression value. Locked invariant: any future dynamic-testid in the registry must be expressible as a literal-with-placeholders shape.
+- `react-hooks/*` stub-plugin shim (no-op rule for `exhaustive-deps` + `rules-of-hooks`) lets v1.2-baseline `eslint-disable-next-line react-hooks/exhaustive-deps` directives resolve without flipping ESLint 9's "rule not found" fatal. Real `eslint-plugin-react-hooks` adoption is intentionally deferred per research OQ#5 minimal-scope mandate. Pattern: any phase that loads a real plugin replaces the stub by removing the shim object and adding the real `import` + plugin spec.
+- `reportUnusedDisableDirectives: 'off'` on the lint scope. The unused-directive flagger is informational noise (especially with `--max-warnings 0`), not invariant signal. Reinstate when phases 25+ adopt broader rule coverage.
+- testid-registry-only rule's `tests/` ignore boundary INCLUDES `src/**/__tests__/*.test.tsx` (vitest test files live under src/). Generic vitest sentinel IDs (`page`, `row`, `rows`, `inner`, `ico`, `lhs`, `rhs`, `some-test-id`, `sheet-body`) are registered as exact-matches under their own subsection of docs/testid-registry.md. Locked policy: the registry catalogs every targeted `data-testid` in the tree — Playwright AND vitest — not just E2E selectors. Lint scope = `src/**/*.{ts,tsx}` + `tests/**/*.{ts,tsx}`.
+- 9 typescript-eslint rules disabled to keep `pnpm lint` clean on v1.2 baseline (plan listed 3; 6 more required): `no-explicit-any`, `no-unused-vars`, `no-empty-object-type`, `no-empty-function`, `ban-ts-comment`, `no-require-imports`, plus core `no-empty`, `no-useless-escape`, `no-prototype-builtins`. Minimal-scope mandate preserved: only `cmc/testid-registry-only` + `cmc/no-raw-z-index` enforce invariants.
+- `routeTree.gen.ts` actual location is `src/routeTree.gen.ts` (not `src/routes/routeTree.gen.ts` as plan stated). Both paths added to `ignores` for forward-compat.
+
 **v1.3 Phase 24 plan-04 execution decisions:**
 
 - Sidebar chrome collapse-toggle uses Lucide `PanelLeftClose` / `PanelLeftOpen` icon pair (NOT `Menu`/`X` or `ChevronLeft`/`ChevronRight`). Pair telegraphs panel-direction intent and matches VS Code's chrome handle convention. Icon swaps based on `collapsed` state. Locked invariant: any future panel-collapse chrome (right sidebar, bottom panel) should follow the same `Panel*Close` / `Panel*Open` pattern.
@@ -166,7 +177,7 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 3. ✅ Requirements definition (REQUIREMENTS.md authored 2026-05-10 — 45 active across 9 categories)
 4. ✅ Roadmap creation (ROADMAP.md authored 2026-05-10 — Phases 24-28, 45/45 mapped)
 5. ✅ Phase 24 plans authored (01-07-PLAN.md present)
-6. ⏳ Phase 24 execution (4/7 plans complete: Plans 01-04 shipped 2026-05-10..11; visual checkpoint approved)
+6. ⏳ Phase 24 execution (5/7 plans complete: Plans 01-04 + 06 shipped 2026-05-10..11; Plan 05 finalizing in parallel; visual checkpoint approved at Plan 04 close)
 7. Phase 24 → 25 → 26 → 27 → 28 execution
 8. v1.3 milestone audit + close
 
@@ -179,9 +190,9 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 | 03 — BoundedPanelCard | ✅ Complete (2026-05-10) | 939cd3e, dddae8d, eb43306, eafa47a | parallel wave with plan 02; BoundedPanelCard + TruncatedCell + CopyIconButton primitives + DataTable wrap/copyable + 24-TRANSFORM-AUDIT.md (CONT-02 deliverable). CONT-01/02/03/04 all shipped. |
 | 04 — Shell rework | ✅ Complete (2026-05-11) | 93d6c2f, aa570cf, 8178cdf | Sidebar (240/52px collapse, Cmd+B window-level, persisted) + AppShellHeader extraction + 9 new vitest specs; NavBar.tsx + NavBar.test.tsx DELETED (research-recommended; rollback via `git revert aa570cf`); DensityProvider wraps shell content tree; visual checkpoint approved 10/10; 353/353 vitest. SHEL-01..04 shipped. |
 | 05 — Quality-gate Playwright | ⏳ next (Wave 4 parallel with 06) | — | Playwright specs (visual capture / axe / portal-containment / sidebar / density / truncation / copy-cell) + lighthouserc.json + URL-contract pytest. CONSUMES Plan 04's sidebar-link-*, sidebar-collapse-toggle, time-picker-trigger, save-view-button testids. DENS-02 runtime Portal cascade verification belongs here (deferred from Plan 02). |
-| 06 — POLI docs | ⏳ next (Wave 4 parallel with 05) | — | docs/z-index-ladder.md + docs/affordance-checklist.md + docs/url-contract.md + docs/testid-registry.md + ESLint flat config (testid-registry-only, no-raw-z-index). Registry must register Plan 04's testids (sidebar-link-*, sidebar-collapse-toggle, cmdk-trigger, time-picker-trigger Placeholder, save-view-button Placeholder). |
+| 06 — POLI docs | ✅ Complete (2026-05-11) | 3698bf3, e700a9e, 5e6bb73 | docs/{z-index-ladder,affordance-checklist,url-contract,testid-registry}.md shipped + ESLint flat config (ESM) + 2 custom CJS rules (cmc/testid-registry-only, cmc/no-raw-z-index) + `lint` script. pnpm lint exits 0 on v1.2 baseline + Phase 24; 353/353 vitest preserved; tsc clean; backend/tests/test_url_contract.py 2/2 PASSING (was skipping pre-plan-06). POLI-09 + POLI-12 + POLI-13 + POLI-14 + CONT-05 ESLint side all satisfied. 4 deviations (3 Rule-3 blocking on pre-existing eslint-disable directives + wrong ignore path + 6-rule expanded disable list, 1 Rule-2 missing-critical on generic vitest sentinel testids in the registry). |
 | 07 — Phase close gate | pending | — | Run matrix (visual + axe + Lighthouse + perf + URL contract) + write 24-VISUAL-CHECK.md verdict (human checkpoint). Depends on Plans 05 + 06 landing. |
 
 ## Next Step
 
-Run `/gsd:execute-phase 24 05 06` (Wave 4, parallel) to continue Phase 24 execution — Playwright quality gates + POLI docs land in parallel before the Plan 07 close gate.
+Plan 05 (Playwright quality gates) is finalizing in parallel. After Plan 05 lands its SUMMARY, run `/gsd:execute-phase 24 07` to land the Phase 24 close gate (Plan 07: run matrix — visual + axe + Lighthouse + perf + URL contract — and write `24-VISUAL-CHECK.md` verdict).
