@@ -1,0 +1,31 @@
+{
+  "_comment": "POLI-11 Lighthouse CI extension — Phase 24 Plan 05. URL list is research-corrected: /, /activity, /skills (the sessions-compare route was excluded — that route requires demo session-id seeding per RESEARCH Pitfall 5; without seeding LCP measures the empty-state and produces noise). /skills is chart-heavy and requires no search params, making it the right perf-budget proxy. Operator-driven, NOT CI-blocking on every commit — run via 'cd frontend && npx lhci autorun' at phase close (plan 07).",
+  "ci": {
+    "collect": {
+      "url": [
+        "http://127.0.0.1:4173/",
+        "http://127.0.0.1:4173/activity",
+        "http://127.0.0.1:4173/skills"
+      ],
+      "startServerCommand": "pnpm preview --port 4173 --strictPort --host 127.0.0.1",
+      "startServerReadyPattern": "ready in",
+      "numberOfRuns": 3,
+      "settings": {
+        "preset": "desktop",
+        "throttlingMethod": "provided"
+      }
+    },
+    "assert": {
+      "assertions": {
+        "categories:performance": ["warn", { "minScore": 0.9 }],
+        "largest-contentful-paint": ["error", { "maxNumericValue": 2500 }],
+        "cumulative-layout-shift": ["error", { "maxNumericValue": 0.1 }],
+        "interaction-to-next-paint": ["error", { "maxNumericValue": 200 }]
+      }
+    },
+    "upload": {
+      "target": "filesystem",
+      "outputDir": ".lighthouseci"
+    }
+  }
+}
