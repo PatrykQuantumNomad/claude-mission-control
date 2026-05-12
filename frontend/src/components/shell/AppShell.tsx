@@ -5,6 +5,7 @@ import { ActiveSessionProvider } from './ActiveSessionContext'
 import { Sidebar } from './Sidebar'
 import { AppShellHeader } from './AppShellHeader'
 import { DensityProvider } from './DensityProvider'
+import { LoadedViewProvider } from '../savedviews/LoadedViewContext'
 
 interface AppShellProps {
   children: ReactNode
@@ -35,20 +36,29 @@ interface AppShellProps {
  *   - DensityProvider (DENS-03): re-applies persisted density on mount so HMR
  *     doesn't reset `<html data-density>` mid-session. NOT a React context —
  *     density is consumed via CSS variables on :root, not via subscribe.
+ *   - LoadedViewProvider (Phase 25 Plan 06 — VIEW-04/05/08): the
+ *     currently-loaded saved view. Mounts ABOVE the entire shell so
+ *     AppShellHeader (SavedViewMenu + UnsavedPip), Sidebar (Plan 09
+ *     pinned-section highlighting), CommandPalette (Plan 08 saved-view
+ *     items), and EditOrForkDialog (Plan 07) all observe the same loaded
+ *     slot. Plan 10 will mount DefaultViewLoader + RecentStateTracker as
+ *     additional children inside this same provider.
  */
 export function AppShell({ children }: AppShellProps) {
   return (
     <ActiveSessionProvider>
       <TaskComposerProvider>
         <DensityProvider>
-          <div className="cmc-shell">
-            <Sidebar />
-            <div className="cmc-shell__column">
-              <AppShellHeader />
-              <main className="cmc-main">{children}</main>
+          <LoadedViewProvider>
+            <div className="cmc-shell">
+              <Sidebar />
+              <div className="cmc-shell__column">
+                <AppShellHeader />
+                <main className="cmc-main">{children}</main>
+              </div>
+              <CommandPalette />
             </div>
-            <CommandPalette />
-          </div>
+          </LoadedViewProvider>
         </DensityProvider>
       </TaskComposerProvider>
     </ActiveSessionProvider>

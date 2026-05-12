@@ -1,4 +1,4 @@
-// AppShellHeader — Phase 24 Plan 04 (SHEL-02).
+// AppShellHeader — Phase 24 Plan 04 (SHEL-02) + Phase 25 Plan 06 (VIEW-04/05/08).
 //
 // Top-bar action area extracted from the deleted NavBar. The brand moves to
 // the Sidebar (left edge); the header keeps the right-side action area only.
@@ -6,25 +6,32 @@
 // Order (left to right):
 //   1. EmergencyStopBanner (leftmost — high-priority safety control).
 //   2. <button data-testid="time-picker-trigger"> placeholder for Phase 26.
-//   3. <button data-testid="save-view-button"> placeholder for Phase 25.
+//   3. SavedView chrome — `saved-view-chrome` wrapper hosting `SavedViewMenu`
+//      (Radix DropdownMenu of saved views for the current route) and
+//      `UnsavedPip` (visible when URL state diverges from the loaded view).
+//      Replaces the inert `save-view-button` placeholder that lived here
+//      through Phase 24. The placeholder's registry entry stays for audit
+//      traceability (marked 'Removed in Phase 25 Plan 06').
 //   4. Cmd+K trigger (existing palette open button).
 //   5. <DensityToggle /> (Phase 24 Plan 02 — Sliders icon, Radix DropdownMenu).
 //   6. <ThemeToggle /> (existing dark/light flip).
-//
-// The placeholders are rendered with `style={{ display: 'none' }}` so the
-// testids are pre-registered in the DOM (and in docs/testid-registry.md once
-// Plan 06 lands) without affecting layout. Phases 25/26 wire them by
-// removing the display:none rule and supplying onClick.
 //
 // CommandPalette already binds Cmd+K globally at AppShell level via its own
 // window keydown listener — the trigger button is purely a discoverability
 // affordance. We do NOT wire onClick here because a parent prop hand-off
 // would couple AppShellHeader to the palette's open-state mechanics; the
 // label itself ("Cmd+K") teaches the keyboard shortcut.
+//
+// LoadedViewContext requirement: SavedViewMenu + UnsavedPip both call
+// useLoadedView(). The provider mounts ABOVE this header at the AppShell
+// level so Sidebar + future Plan 07 EditOrForkDialog + Plan 09 Sidebar
+// Pinned section all observe the same loaded-view slot.
 
 import { EmergencyStopBanner } from './EmergencyStopBanner'
 import { ThemeToggle } from './ThemeToggle'
 import { DensityToggle } from './DensityToggle'
+import { SavedViewMenu } from '../savedviews/SavedViewMenu'
+import { UnsavedPip } from '../savedviews/UnsavedPip'
 
 export function AppShellHeader() {
   return (
@@ -41,14 +48,13 @@ export function AppShellHeader() {
           aria-label="Time range (coming in Phase 26)"
           style={{ display: 'none' }}
         />
-        {/* Phase 25 placeholder — pre-registered testid, hidden until wired. */}
-        <button
-          type="button"
-          data-testid="save-view-button"
-          disabled
-          aria-label="Save view (coming in Phase 25)"
-          style={{ display: 'none' }}
-        />
+        <div
+          className="cmc-shell__header-savedview"
+          data-testid="saved-view-chrome"
+        >
+          <SavedViewMenu />
+          <UnsavedPip />
+        </div>
         <button
           type="button"
           className="cmc-cmdk-trigger cmc-label"
