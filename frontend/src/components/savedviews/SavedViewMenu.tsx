@@ -49,17 +49,14 @@ import {
 } from '../../lib/savedViews'
 import { EditOrForkDialog } from './EditOrForkDialog'
 import { useLoadedView } from './LoadedViewContext'
+import { normalizeRouteId } from './routeNormalize'
 import { SaveViewDialog } from './SaveViewDialog'
 import { useUrlDivergesFromLoadedView } from './UnsavedPip'
 
-/** Normalize a TanStack pathname like `/skills/foo` to a route id like
- * `/skills/$name`. Wave-2 v1.3 routes are static; only `/skills/<name>`
- * currently uses a dynamic param. Backend `route` column stores whatever the
- * frontend POSTs — this function is the single coercion site. */
-export function normalizeRouteId(pathname: string): string {
-  if (pathname.startsWith('/skills/')) return '/skills/$name'
-  return pathname || '/'
-}
+// Plan 10: re-export normalizeRouteId so existing consumers
+// (CommandPalette Plan 08 imports it from this module) keep working without
+// a churn-edit. The canonical home is `./routeNormalize.ts`.
+export { normalizeRouteId } from './routeNormalize'
 
 export function SavedViewMenu() {
   const navigate = useNavigate()
