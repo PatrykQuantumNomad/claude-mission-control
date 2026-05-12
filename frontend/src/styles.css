@@ -2022,6 +2022,119 @@ body {
   outline: none;
 }
 .cmc-dropdown__item[data-highlighted] { background: var(--cmc-surface-2, rgba(255,255,255,0.04)); }
+.cmc-dropdown__sep {
+  height: 1px;
+  background: var(--cmc-border);
+  margin: var(--cmc-space-2xs) 0;
+}
+.cmc-dropdown__empty {
+  padding: var(--cmc-space-xs) var(--cmc-space-sm);
+  color: var(--cmc-text-dim);
+  font-size: var(--cmc-size-label);
+  font-style: italic;
+}
+.cmc-dropdown__item--danger { color: var(--cmc-status-red); }
+.cmc-dropdown__item--danger[data-highlighted] { background: rgba(255, 80, 80, 0.08); }
+
+/* Phase 25 Plan 06 — SavedViewMenu trigger + chrome wrapper + UnsavedPip + SaveViewDialog form. */
+.cmc-saved-view-menu__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cmc-space-2xs);
+  padding: var(--cmc-space-2xs) var(--cmc-space-sm);
+  background: transparent;
+  border: 1px solid var(--cmc-border);
+  border-radius: 6px;
+  color: var(--cmc-text);
+  font-size: var(--cmc-size-label);
+  cursor: pointer;
+  outline: none;
+}
+.cmc-saved-view-menu__trigger:hover {
+  color: var(--cmc-text);
+  border-color: var(--cmc-border-strong, var(--cmc-text-dim));
+}
+.cmc-saved-view-menu__trigger:focus-visible {
+  outline: 2px solid var(--cmc-accent-blue);
+  outline-offset: 2px;
+}
+.cmc-shell__header-savedview {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cmc-space-2xs);
+}
+.cmc-unsaved-pip {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cmc-status-orange, var(--cmc-status-yellow, #f5a623));
+  box-shadow: 0 0 0 2px var(--cmc-surface);
+}
+
+/* Save dialog — Radix Dialog (not AlertDialog) styled to mirror cmc-alertdialog so
+ * the two share visual vocabulary. */
+.cmc-dialog__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: var(--cmc-z-dialog);
+}
+.cmc-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(480px, 90vw);
+  max-width: 480px;
+  background: var(--cmc-surface);
+  border: 1px solid var(--cmc-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+  z-index: calc(var(--cmc-z-dialog) + 1);
+  outline: none;
+}
+.cmc-dialog__actions {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+.cmc-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+.cmc-field > span {
+  font-size: var(--cmc-size-label);
+  color: var(--cmc-text-dim);
+}
+.cmc-field input,
+.cmc-field textarea {
+  background: var(--cmc-surface-2);
+  border: 1px solid var(--cmc-border);
+  border-radius: 4px;
+  padding: var(--cmc-space-xs) var(--cmc-space-sm);
+  color: var(--cmc-text);
+  font-size: var(--cmc-size-body);
+  font-family: inherit;
+}
+.cmc-field input:focus,
+.cmc-field textarea:focus {
+  outline: 2px solid var(--cmc-accent-blue);
+  outline-offset: -1px;
+  border-color: transparent;
+}
+.cmc-field__error {
+  margin: 0;
+  color: var(--cmc-status-red);
+  font-size: var(--cmc-size-label);
+}
 
 /* Containment primitives — Phase 24 (CONT-01, CONT-03, CONT-04) */
 

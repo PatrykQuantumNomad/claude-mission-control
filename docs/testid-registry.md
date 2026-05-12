@@ -13,8 +13,20 @@ Established: Phase 24 (POLI-14). Skip count locked at the v1.2 baseline of 2 kno
 - `density-option-cozy` — DensityToggle DropdownMenu item
 - `sidebar-collapse-toggle` — `frontend/src/components/shell/Sidebar.tsx`
 - `time-picker-trigger` — `frontend/src/components/shell/AppShellHeader.tsx` (Placeholder; disabled + display:none in Phase 24; wired in Phase 26)
-- `save-view-button` — `frontend/src/components/shell/AppShellHeader.tsx` (Placeholder; disabled + display:none in Phase 24; wired in Phase 25)
+- `save-view-button` — `frontend/src/components/shell/AppShellHeader.tsx` (Removed in Phase 25 Plan 06 — replaced by `saved-view-chrome` wrapper hosting `SavedViewMenu` + `UnsavedPip`. Retained here for audit traceability.)
 - `cmdk-trigger` — `frontend/src/components/shell/AppShellHeader.tsx`
+
+### Saved Views (Phase 25)
+- `saved-view-chrome` — `frontend/src/components/shell/AppShellHeader.tsx` (wrapper hosting SavedViewMenu + UnsavedPip in the action area)
+- `saved-view-menu-trigger` — `frontend/src/components/savedviews/SavedViewMenu.tsx` (Bookmark-icon DropdownMenu trigger)
+- `saved-view-menu-content` — SavedViewMenu DropdownMenu.Content (portal-mounted)
+- `saved-view-menu-save-new` — SavedViewMenu top-of-list "Save current view…" item
+- `unsaved-pip` — `frontend/src/components/savedviews/UnsavedPip.tsx` (visible when URL state diverges from loaded view, VIEW-08)
+- `save-view-dialog` — `frontend/src/components/savedviews/SaveViewDialog.tsx` (Radix Dialog.Content)
+- `save-view-dialog-name-input` — SaveViewDialog name `<input>`
+- `save-view-dialog-description-input` — SaveViewDialog description `<textarea>`
+- `save-view-dialog-submit` — SaveViewDialog submit `<button>`
+- `save-view-dialog-cancel` — SaveViewDialog cancel `<button>`
 
 ### UI primitives (Phase 24)
 - `cell-copy-btn` — `frontend/src/components/ui/CopyIconButton.tsx`
@@ -73,6 +85,12 @@ These testids are constructed at runtime from variable input (e.g., row id, rout
 - `sidebar-link-{slug}` — `frontend/src/components/shell/SidebarNavLink.tsx`. Slug is derived from `to` prop. Phase 24 routes: `home`, `activity`, `sessions-compare`, `skills`, `cost`, `alerts`.
 - `density-option-{value}` — `frontend/src/components/shell/DensityToggle.tsx`. Value is `compact`/`comfortable`/`cozy` (the three exact-match entries above cover Playwright assertions, the pattern covers the JSX construction site).
 - `session-compare-skill-latency-delta-{skill_name}` — `frontend/src/components/panels/SessionCompareView.tsx`. Skill name comes from a CMPR-05 row.
+- `saved-view-item-{id}` — `frontend/src/components/savedviews/SavedViewMenu.tsx`. Per-view DropdownMenu.SubTrigger row. Id is the SavedView.id from the backend.
+- `saved-view-open-{id}` — SavedViewMenu submenu Open action.
+- `saved-view-set-default-{id}` — SavedViewMenu submenu Set-as-default action.
+- `saved-view-pin-{id}` — SavedViewMenu submenu Pin/Unpin toggle.
+- `saved-view-fork-{id}` — SavedViewMenu submenu "Save as new (fork)" action.
+- `saved-view-delete-{id}` — SavedViewMenu submenu Delete action.
 
 ## Skip count
 
