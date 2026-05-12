@@ -6,6 +6,8 @@ import { Sidebar } from './Sidebar'
 import { AppShellHeader } from './AppShellHeader'
 import { DensityProvider } from './DensityProvider'
 import { LoadedViewProvider } from '../savedviews/LoadedViewContext'
+import { DefaultViewLoader } from '../savedviews/DefaultViewLoader'
+import { RecentStateTracker } from '../savedviews/RecentStateTracker'
 
 interface AppShellProps {
   children: ReactNode
@@ -41,8 +43,10 @@ interface AppShellProps {
  *     AppShellHeader (SavedViewMenu + UnsavedPip), Sidebar (Plan 09
  *     pinned-section highlighting), CommandPalette (Plan 08 saved-view
  *     items), and EditOrForkDialog (Plan 07) all observe the same loaded
- *     slot. Plan 10 will mount DefaultViewLoader + RecentStateTracker as
- *     additional children inside this same provider.
+ *     slot. Plan 10 mounted DefaultViewLoader (VIEW-06 — auto-load
+ *     per-route default on empty-search route entry) and RecentStateTracker
+ *     (VIEW-09 — push every URL change to the per-route FIFO ring) as
+ *     additional zero-render children inside this same provider.
  */
 export function AppShell({ children }: AppShellProps) {
   return (
@@ -50,6 +54,12 @@ export function AppShell({ children }: AppShellProps) {
       <TaskComposerProvider>
         <DensityProvider>
           <LoadedViewProvider>
+            {/* Plan 10: zero-render effect components. Must live inside
+                LoadedViewProvider (DefaultViewLoader calls setLoadedView)
+                AND inside the RouterProvider that wraps AppShell (both
+                use useNavigate + useRouterState). */}
+            <DefaultViewLoader />
+            <RecentStateTracker />
             <div className="cmc-shell">
               <Sidebar />
               <div className="cmc-shell__column">
