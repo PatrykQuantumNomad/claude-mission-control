@@ -47,8 +47,10 @@ import {
   setDefaultViewId,
   unpinView,
 } from '../../lib/savedViews'
+import { EditOrForkDialog } from './EditOrForkDialog'
 import { useLoadedView } from './LoadedViewContext'
 import { SaveViewDialog } from './SaveViewDialog'
+import { useUrlDivergesFromLoadedView } from './UnsavedPip'
 
 /** Normalize a TanStack pathname like `/skills/foo` to a route id like
  * `/skills/$name`. Wave-2 v1.3 routes are static; only `/skills/<name>`
@@ -65,9 +67,15 @@ export function SavedViewMenu() {
   const currentRoute = normalizeRouteId(location.pathname)
   const { data, isLoading } = useSavedViews(currentRoute)
   const { loadedView, setLoadedView } = useLoadedView()
+  const urlDiverges = useUrlDivergesFromLoadedView()
   const deleteMutation = useDeleteView()
   const [saveDialogOpen, setSaveDialogOpen] = useState(false)
   const [forkSource, setForkSource] = useState<SavedView | null>(null)
+  // Plan 07 (VIEW-07): edit-or-fork 3-button chooser. Surfaced when the user
+  // has a loaded view AND the URL diverges from it AND they pick "Edit
+  // current view…" (or try to open a DIFFERENT view from the menu while the
+  // current URL is divergent — instead of silently navigating we re-prompt).
+  const [editOrForkOpen, setEditOrForkOpen] = useState(false)
 
   const triggerLabel = loadedView?.name ?? 'Views'
   const defaultId = getDefaultViewId(currentRoute)
@@ -80,6 +88,15 @@ export function SavedViewMenu() {
   }
 
   const handleOpen = (v: SavedView) => {
+    // VIEW-07: if there's a loaded view AND the URL has diverged AND the
+    // user is trying to open a DIFFERENT view, intercept and surface the
+    // 3-button chooser instead of silently overwriting the in-flight
+    // changes. For v1 the user re-clicks Open after picking Discard — no
+    // pending-navigation chaining (documented in 25-07-SUMMARY.md).
+    if (loadedView && urlDiverges && v.id !== loadedView.id) {
+      setEditOrForkOpen(true)
+      return
+    }
     navigate({
       to: location.pathname,
       search: v.state_json as Record<string, unknown>,
@@ -113,6 +130,16 @@ export function SavedViewMenu() {
             align="end"
             data-testid="saved-view-menu-content"
           >
+            {loadedView && urlDiverges && (
+              <DropdownMenu.Item
+                className="cmc-dropdown__item"
+                data-testid="saved-view-menu-edit-current"
+                onSelect={() => setEditOrForkOpen(true)}
+              >
+                <Pencil size={14} aria-hidden /> Edit "{loadedView.name}"…
+              </DropdownMenu.Item>
+            )}
+
             <DropdownMenu.Item
               className="cmc-dropdown__item"
               data-testid="saved-view-menu-save-new"
@@ -201,6 +228,17 @@ export function SavedViewMenu() {
         onOpenChange={setSaveDialogOpen}
         fork={forkSource}
         currentRoute={currentRoute}
+      />
+
+      <EditOrForkDialog
+        open={editOrForkOpen}
+        onOpenChange={setEditOrForkOpen}
+        currentPathname={location.pathname}
+        onFork={() => {
+          // Reuses Plan 06's SaveViewDialog in fork mode with the loaded
+          // view as source — Plan 06's SUMMARY explicitly notes this seam.
+          if (loadedView) openSaveDialog(loadedView)
+        }}
       />
     </>
   )
