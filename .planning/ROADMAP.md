@@ -101,7 +101,7 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 - [x] 02-PLAN.md — Wave 1 backend: Pydantic schemas + 5 CRUD handlers + 50-cap + UNIQUE rejection + pytest router coverage (VIEW-03) ✅ 2026-05-12
 - [x] 03-PLAN.md — Wave 2 frontend: validateSearch on 5 routes (/, /activity, /skills, /cost, /alerts) + schemaVersion on /sessions/compare (VIEW-01) ✅ 2026-05-12
 - [x] 04-PLAN.md — Wave 2 frontend: validateSearch with range filter on /skills/$name; threads URL state into 4 detail panels (VIEW-01 success-criterion-1 enabler) ✅ 2026-05-12
-- [ ] 05-PLAN.md — Wave 2 frontend: API client verbs + TanStack Query hooks + lib/savedViews.ts (default pointer + pinned ids + recent FIFO 50-cap)
+- [x] 05-PLAN.md — Wave 2 frontend: API client verbs + TanStack Query hooks + lib/savedViews.ts (default pointer + pinned ids + recent FIFO 50-cap) ✅ 2026-05-12
 - [ ] 06-PLAN.md — Wave 3 chrome: SavedViewMenu + SaveViewDialog + UnsavedPip + LoadedViewContext; replaces save-view-button placeholder (VIEW-04, VIEW-05, VIEW-08)
 - [ ] 07-PLAN.md — Wave 3 chrome: EditOrForkDialog (3-button Radix Dialog) + wiring into SavedViewMenu's Edit affordance (VIEW-07)
 - [ ] 08-PLAN.md — Wave 4 cross-cut: Cmd+K Saved Views group with current-route-first ordering (CMDK-01)
