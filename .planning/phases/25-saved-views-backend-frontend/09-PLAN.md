@@ -163,7 +163,8 @@ IMPORTANT:
 - The `SidebarSection` component may not accept a `testId` prop — read it first; if it doesn't, add the prop with the obvious passthrough to the section's root element.
   </action>
   <verify>
-`pnpm tsc --noEmit` clean. `pnpm lint` clean. Manual: open sidebar — see "Pinned" section header; pin a view from the SavedViewMenu — see it appear in the sidebar Pinned section after a localStorage write + re-render (you may need to refresh once — localStorage doesn't fire 'storage' events on the same tab; document this limitation in SUMMARY).
+    <automated>cd frontend && pnpm tsc --noEmit && pnpm lint</automated>
+Manual smoke (operator): open sidebar — see "Pinned" section header; pin a view from the SavedViewMenu — see it appear in the sidebar Pinned section after a localStorage write + re-render (you may need to refresh once — localStorage doesn't fire 'storage' events on the same tab; document this limitation in SUMMARY).
   </verify>
   <done>
 PinnedViewsSection renders; empty state visible when no pins; active-state highlighted on full search match; testids registered.
@@ -193,7 +194,8 @@ CRITICAL invariants from Phase 24 plan-04 SUMMARY:
 - Do NOT change the sidebar's brand area, the collapse-toggle, or the active-route-accent CSS.
   </action>
   <verify>
-`pnpm tsc --noEmit` clean. Manual: open sidebar in `pnpm dev` — see Pinned section visually between Operate and Configure; collapsed-mode hides the label but section structure persists; existing 4 sections render identically to Phase 24 close.
+    <automated>cd frontend && pnpm tsc --noEmit</automated>
+Manual smoke (operator): open sidebar in `pnpm dev` — see Pinned section visually between Operate and Configure; collapsed-mode hides the label but section structure persists; existing 4 sections render identically to Phase 24 close.
   </verify>
   <done>
 Sidebar renders 5 sections (Home / Observe / Operate / Pinned / Configure); existing IA preserved.
@@ -261,7 +263,7 @@ IMPORTANT:
 - If a test triggers a `vi.mocked(useRouterState).mockReturnValue(...)` pattern, follow `frontend/src/components/shell/__tests__/Sidebar.test.tsx` (the existing precedent) for the right `vi.mock` shape.
   </action>
   <verify>
-`pnpm test --run src/components/savedviews/__tests__/PinnedViewsSection.test.tsx` — all 5+ cases pass.
+    <automated>cd frontend && pnpm test --run src/components/savedviews/__tests__/PinnedViewsSection.test.tsx</automated>
   </verify>
   <done>
 ~5+ vitest cases passing; active-state logic verified.

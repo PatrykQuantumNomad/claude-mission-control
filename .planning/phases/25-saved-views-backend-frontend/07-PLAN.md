@@ -48,6 +48,8 @@ Per Research Pitfall 4 + §State of the Art, this is a NEW component built on `@
 
 Purpose: Honor VIEW-07's locked decision — never silently overwrite a saved view; always require explicit user choice.
 Output: Visible `EditOrForkDialog` with three primary buttons; wired into SavedViewMenu's "Edit" affordance; user has 3 mutually-exclusive resolutions.
+
+**Component-deviation note:** VIEW-07's REQUIREMENTS text says "AlertDialog"; per Research Pitfall 4, `AlertDialog.tsx` is locked to 2 buttons by Phase 24, so this plan uses Radix `@radix-ui/react-dialog` directly. User-observable behavior (3-button blocking prompt, no silent overwrite) is identical to what REQUIREMENTS describes — the deviation is purely at the component-primitive layer.
 </objective>
 
 <execution_context>
@@ -201,7 +203,8 @@ IMPORTANT:
 - The `escape key` / overlay click closes the dialog WITHOUT acting — user can still cancel by escaping. This is intentional (`onOpenChange(false)` is the no-op exit).
   </action>
   <verify>
-`pnpm tsc --noEmit` clean. `pnpm lint` clean (all 4 testids registered). The dialog renders in isolation (Storybook not used in this repo — verify in dev via the menu wiring in Task 2).
+    <automated>cd frontend && pnpm tsc --noEmit && pnpm lint</automated>
+Manual smoke (operator): the dialog renders in isolation (Storybook not used in this repo — verify in dev via the menu wiring in Task 2).
   </verify>
   <done>
 EditOrForkDialog importable + renderable; 3 buttons + testids; styles for `--three-way` action layout exist.
@@ -281,7 +284,8 @@ IMPORTANT:
 - Do NOT change SaveViewDialog (Plan 06) — fork mode is already supported via the `fork` prop.
   </action>
   <verify>
-`pnpm tsc --noEmit` clean. `pnpm lint` clean (new testid registered). Manual smoke: load a saved view, change a filter, open the menu, see "Edit '...'..." item; click it, see the 3-button dialog; click "Save changes", see the URL persist into the saved view (verifiable via menu → re-open → URL matches).
+    <automated>cd frontend && pnpm tsc --noEmit && pnpm lint</automated>
+Manual smoke (operator): load a saved view, change a filter, open the menu, see "Edit '...'..." item; click it, see the 3-button dialog; click "Save changes", see the URL persist into the saved view (verifiable via menu → re-open → URL matches).
   </verify>
   <done>
 SavedViewMenu has Edit affordance + interception logic; EditOrForkDialog mounts alongside SaveViewDialog; lint + tsc clean.
@@ -345,7 +349,7 @@ IMPORTANT:
 - The 4 branches assertions cover: (a) dialog presence, (b) save mutates + closes, (c) fork triggers parent callback + closes, (d) discard navigates + closes.
   </action>
   <verify>
-`pnpm test --run src/components/savedviews/__tests__/EditOrForkDialog.test.tsx` — all 5+ cases pass.
+    <automated>cd frontend && pnpm test --run src/components/savedviews/__tests__/EditOrForkDialog.test.tsx</automated>
   </verify>
   <done>
 ~5 new vitest cases passing; covers all 3 branches + 2 guard cases.

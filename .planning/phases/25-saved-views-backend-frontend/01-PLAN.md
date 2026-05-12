@@ -135,7 +135,7 @@ IMPORTANT:
 - UNIQUE constraint `(route, name)` rejects duplicate names per Research OQ#1 recommendation — this prevents a class of UX bugs cheaply and surfaces as 409/400 in Plan 02's POST handler.
   </action>
   <verify>
-`cd backend && uv run python -c "from cmc.db.models.saved_views import SavedView; print(SavedView.__tablename__)"` prints `saved_views`. `cd backend && uv run python -c "from cmc.db.models import SQLModel; assert 'saved_views' in SQLModel.metadata.tables; print('registered')"` prints `registered`.
+    <automated>cd backend && uv run python -c "from cmc.db.models.saved_views import SavedView; assert SavedView.__tablename__ == 'saved_views'; print('ok')" && uv run python -c "from cmc.db.models import SQLModel; assert 'saved_views' in SQLModel.metadata.tables; print('registered')"</automated>
   </verify>
   <done>
 SavedView class importable; `saved_views` appears in `SQLModel.metadata.tables` after the `db.models` package import (proves autogenerate registration).
@@ -207,7 +207,7 @@ IMPORTANT:
 - `down_revision = "0003_project_key"` — chain to the most recent existing migration.
   </action>
   <verify>
-`cd backend && uv run alembic upgrade head` on a tmp DB creates the table (test in Task 3). `cd backend && uv run alembic check` does NOT error. `cd backend && uv run alembic history` lists 0004_saved_views with parent 0003_project_key.
+    <automated>cd backend && uv run alembic check && uv run alembic history | grep -E "0004_saved_views.*0003_project_key|0003_project_key.*0004_saved_views"</automated>
   </verify>
   <done>
 Migration file exists; `alembic history` shows correct linkage to 0003_project_key; `alembic upgrade head` on a tmp DB succeeds (verified by Task 3 tests).
@@ -270,7 +270,7 @@ IMPORTANT:
 - Tests MUST pass against `0004_saved_views.py` from Task 2 — if they fail, the migration is wrong, not the tests.
   </action>
   <verify>
-`cd backend && uv run pytest tests/test_migrations.py -k 0004 -v` shows 2 passing tests. Full pytest still green: `cd backend && uv run pytest -x` reports >= 665 passed / 0 failed (was 663 at Phase 24 close; +2 new tests).
+    <automated>cd backend && uv run pytest tests/test_migrations.py -k 0004 -v && uv run pytest -x</automated>
   </verify>
   <done>
 Both new tests pass; backend pytest count = 663 (baseline) + 2 = 665 minimum. No regressions in existing tests.

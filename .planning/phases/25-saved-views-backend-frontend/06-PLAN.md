@@ -12,6 +12,7 @@ files_modified:
   - frontend/src/components/savedviews/__tests__/SavedViewMenu.test.tsx
   - frontend/src/components/savedviews/__tests__/SaveViewDialog.test.tsx
   - frontend/src/components/savedviews/__tests__/UnsavedPip.test.tsx
+  - frontend/src/components/shell/AppShell.tsx
   - frontend/src/components/shell/AppShellHeader.tsx
   - docs/testid-registry.md
 autonomous: true
@@ -60,6 +61,10 @@ Mount the saved-view chrome in the existing AppShellHeader placeholder (VIEW-04,
 
 Purpose: Replace the inert `data-testid="save-view-button"` placeholder at `AppShellHeader.tsx:44-51` with a real Radix DropdownMenu that lists the current route's saved views, plus a Save dialog and an unsaved-changes badge.
 Output: User can open the menu, see views for the current route, click "Save view…", see the dialog, name a view, save it (POST /api/views), and watch the pip light up when they modify a loaded view.
+
+**Scope note (upper bound):** This plan ships 4 tasks across 9 files — at the upper warning threshold for plan size. Do NOT rush; treat each task's `<verify>` block as a hard checkpoint and only proceed when it passes. Task 1 owns the `LoadedViewProvider` mount in `AppShell.tsx`; Plan 10 will add additional children inside the same provider, so leave the provider tag visible and stable.
+
+**File ownership note:** Task 1 of this plan adds `LoadedViewProvider` to `frontend/src/components/shell/AppShell.tsx`. Plan 10 will later mount `DefaultViewLoader` + `RecentStateTracker` inside the SAME provider — collaborative editing is fine because both plans list AppShell.tsx in their `files_modified`.
 </objective>
 
 <execution_context>
@@ -287,7 +292,7 @@ IMPORTANT:
 - The `cmc/testid-registry-only` ESLint rule reads this file as source-of-truth at module init — if a testid is missing here, the lint fails the build (locked invariant per Phase 24 plan-06 SUMMARY).
   </action>
   <verify>
-`cd frontend && pnpm tsc --noEmit` clean. `cd frontend && pnpm lint` exits 0 (all new testids registered). `pnpm test --run` still green (no tests broken yet; Task 4 will add coverage).
+    <automated>cd frontend && pnpm tsc --noEmit && pnpm lint && pnpm test --run</automated>
   </verify>
   <done>
 LoadedViewContext + SavedViewMenu exist; both compile; all new testids registered in docs/testid-registry.md; ESLint clean.
@@ -429,7 +434,8 @@ IMPORTANT:
 - `aria-describedby` is required for axe-core a11y gate.
   </action>
   <verify>
-`pnpm tsc --noEmit` clean. `pnpm lint` clean (testids registered). The dialog renders in dev without console errors when triggered from the menu.
+    <automated>cd frontend && pnpm tsc --noEmit && pnpm lint</automated>
+Manual smoke (operator): the dialog renders in dev without console errors when triggered from the menu.
   </verify>
   <done>
 SaveViewDialog importable; opens/closes via Radix; submits via useCreateView; sets loadedView on success.
@@ -524,7 +530,8 @@ IMPORTANT:
 - Do NOT delete the `save-view-button` registry entry literally — change its status. Future audits may look for it. The Phase 24 plan-04 SUMMARY notes this lock pattern.
   </action>
   <verify>
-`pnpm tsc --noEmit` clean. `pnpm lint` clean. Manual smoke: open `/` in `pnpm dev`, see the SavedViewMenu Bookmark icon in the header (no longer `display: none`). Click it, see the dropdown menu open. No pip (no loaded view yet).
+    <automated>cd frontend && pnpm tsc --noEmit && pnpm lint</automated>
+Manual smoke (operator): open `/` in `pnpm dev`, see the SavedViewMenu Bookmark icon in the header (no longer `display: none`). Click it, see the dropdown menu open. No pip (no loaded view yet).
   </verify>
   <done>
 AppShellHeader mounts SavedViewMenu + UnsavedPip; placeholder removed; LoadedViewProvider wraps consumers; visible menu trigger replaces the invisible placeholder; lint + tsc clean; testid registry updated.
@@ -563,7 +570,7 @@ IMPORTANT:
 - happy-dom (vitest's dom env) limitations on Radix Portal + computed styles are documented in Phase 24 plan-02 SUMMARY — if a test that relies on portal-DOM-presence fails, defer the assertion to Plan 11's Playwright e2e.
   </action>
   <verify>
-`pnpm test --run src/components/savedviews/__tests__` — all ~12+ cases pass. Full vitest matrix still green.
+    <automated>cd frontend && pnpm test --run src/components/savedviews/__tests__ && pnpm test --run</automated>
   </verify>
   <done>
 3 vitest files; ~12 new cases all passing.

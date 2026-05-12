@@ -148,7 +148,7 @@ IMPORTANT:
 - `SavedViewUpdate` excludes `route` to lock view-to-route identity.
   </action>
   <verify>
-`cd backend && uv run python -c "from cmc.api.schemas.views import SavedViewCreate, SavedViewUpdate, SavedViewListItem, SavedViewListResponse; print(SavedViewCreate.model_fields.keys())"` prints `dict_keys(['name', 'description', 'route', 'state_json', 'schema_version'])`.
+    <automated>cd backend && uv run python -c "from cmc.api.schemas.views import SavedViewCreate, SavedViewUpdate, SavedViewListItem, SavedViewListResponse; assert set(SavedViewCreate.model_fields.keys()) == {'name', 'description', 'route', 'state_json', 'schema_version'}; assert 'route' not in SavedViewUpdate.model_fields; print('ok')"</automated>
   </verify>
   <done>
 All 4 schemas importable; field names match the spec; `SavedViewUpdate` has NO `route` field.
@@ -314,7 +314,7 @@ IMPORTANT:
 - The app's exception handler emits `{error: detail}`, NOT FastAPI default `{detail: ...}` — Plan 03 tests must use `r.json()["error"]` (precedent: `test_tasks_router.py:225,283`).
   </action>
   <verify>
-`cd backend && uv run python -c "from cmc.api.routes.views import router; print([r.path for r in router.routes])"` lists `/views`, `/views/{view_id}` (twice for GET/PATCH/DELETE), etc. `cd backend && uv run python -c "from cmc.api.routes import all_routers; assert any('/views' in r.path for router in all_routers() for r in router.routes); print('mounted')"` prints `mounted`.
+    <automated>cd backend && uv run python -c "from cmc.api.routes.views import router; paths = {r.path for r in router.routes}; assert '/views' in paths and '/views/{view_id}' in paths; print('ok')" && uv run python -c "from cmc.api.routes import all_routers; assert any('/views' in r.path for router in all_routers() for r in router.routes); print('mounted')"</automated>
   </verify>
   <done>
 Five handlers defined; router mounted in `all_routers()`; importable cleanly; `now_utc` used (not `datetime.utcnow`).
@@ -403,7 +403,8 @@ IMPORTANT:
 - Use `uv run pytest` (system python is 3.11.7; backend requires 3.13 per STATE.md).
   </action>
   <verify>
-`cd backend && uv run pytest tests/test_views_router.py -v` shows all ~18 tests passing. `cd backend && uv run pytest -x` reports >= 683 passed / 0 failed (was 665 after Plan 01; +18 here). Manual curl smoke (operator runs `cmc start` then `curl -X POST http://127.0.0.1:8765/api/views -H "Content-Type: application/json" -d '{"name":"smoke","route":"/"}'` returns 201; `curl http://127.0.0.1:8765/api/views?route=/` returns the smoke view).
+    <automated>cd backend && uv run pytest tests/test_views_router.py -v && uv run pytest -x</automated>
+Manual curl smoke (operator runs `cmc start` then `curl -X POST http://127.0.0.1:8765/api/views -H "Content-Type: application/json" -d '{"name":"smoke","route":"/"}'` returns 201; `curl http://127.0.0.1:8765/api/views?route=/` returns the smoke view).
   </verify>
   <done>
 All test_views_router.py cases pass; backend pytest >= 683 / 0 / 0 total; manual curl roundtrip on `cmc start` succeeds for all 5 endpoints. Backend deliverable is independently testable; frontend (Waves 2–4) can now begin.

@@ -93,7 +93,8 @@ CRITICAL invariant: NO behavior change today. Default arm of every panel must re
 If you discover a panel that requires significant refactoring to thread a `range` prop down to its data hook, OPEN A CHECKPOINT decision before making the change. The intent of Task 1 is a small surface lift, not a refactor.
   </action>
   <verify>
-`cd frontend && pnpm tsc --noEmit` clean. Existing vitest specs for each panel still green: `pnpm test --run src/components/panels/__tests__/SkillProjectsTable.test.tsx src/components/panels/__tests__/SkillRunsTable.test.tsx src/components/panels/__tests__/SkillLatencySnapshot.test.tsx src/components/panels/__tests__/SkillCostCard.test.tsx` (skip the files that don't have tests). Page renders identically in `pnpm dev` against the pre-plan baseline (default `?` URL on `/skills/$name`).
+    <automated>cd frontend && pnpm tsc --noEmit && pnpm test --run src/components/panels/__tests__/SkillProjectsTable.test.tsx src/components/panels/__tests__/SkillRunsTable.test.tsx src/components/panels/__tests__/SkillLatencySnapshot.test.tsx src/components/panels/__tests__/SkillCostCard.test.tsx</automated>
+Manual smoke (operator): page renders identically in `pnpm dev` against the pre-plan baseline (default `?` URL on `/skills/$name`).
   </verify>
   <done>
 Each of the 4 panels exposes (or already exposed) a `range` prop with default `'14d'`. No visual regression on `/skills/<any-skill>` with empty querystring.
@@ -166,7 +167,8 @@ IMPORTANT:
 This is the route where ROADMAP success criterion 1 lands: "User saves the current filter combination on `/skills/$name` as a named view ... and the view auto-loads as the per-route default."
   </action>
   <verify>
-`cd frontend && pnpm tsc --noEmit` clean (after routeTree.gen.ts regeneration). `pnpm test --run` — full vitest green. Manual: `/skills/<any-skill>` renders default 14d data; `/skills/<any-skill>?range=7d` re-anchors panels to 7d (verify by inspecting RangeToggle or panel API URLs in Network tab).
+    <automated>cd frontend && pnpm tsc --noEmit && pnpm test --run</automated>
+Manual smoke (operator): `/skills/<any-skill>` renders default 14d data; `/skills/<any-skill>?range=7d` re-anchors panels to 7d (verify by inspecting RangeToggle or panel API URLs in Network tab).
   </verify>
   <done>
 `/skills/$name` route has validateSearch with `range`; deep link `?range=30d` overrides default; default `14d` preserved. Panels receive `range` via prop, not literal.
@@ -222,7 +224,7 @@ describe('/skills/$name validateSearch (Phase 25 / VIEW-01)', () => {
 This test is the regression net for ROADMAP success criterion 1. If a future plan accidentally bumps the default away from `'14d'`, this test fails loudly.
   </action>
   <verify>
-`cd frontend && pnpm test --run src/lib/__tests__/skillsDetailRange.test.tsx` — all 7+ cases pass. `cd frontend && pnpm tsc --noEmit` clean.
+    <automated>cd frontend && pnpm test --run src/lib/__tests__/skillsDetailRange.test.tsx && pnpm tsc --noEmit</automated>
   </verify>
   <done>
 skillsDetailRange.test.tsx green; vitest count up by 7+. Append-only + default-preserves-behavior invariants captured.

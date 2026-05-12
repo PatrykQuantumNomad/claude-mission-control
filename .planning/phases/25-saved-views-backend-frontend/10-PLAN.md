@@ -158,7 +158,8 @@ CRITICAL invariants:
 - `replace: true` on the auto-apply prevents a back-button "back to bare URL" hazard.
   </action>
   <verify>
-`pnpm tsc --noEmit` clean. Vitest in Task 3. Manual smoke: set a default view on /cost (via SavedViewMenu "Set as default"); navigate to /alerts; navigate to /cost with NO query — see the default's filters appear in the URL (via DevTools Network or address bar); navigate to /cost?range=7d explicitly — see range=7d remain (deep link wins).
+    <automated>cd frontend && pnpm tsc --noEmit</automated>
+Vitest coverage in Task 3. Manual smoke (operator): set a default view on /cost (via SavedViewMenu "Set as default"); navigate to /alerts; navigate to /cost with NO query — see the default's filters appear in the URL (via DevTools Network or address bar); navigate to /cost?range=7d explicitly — see range=7d remain (deep link wins).
   </verify>
   <done>
 DefaultViewLoader applies default on empty-search route entry; deep-link wins; one-shot per entry.
@@ -217,7 +218,8 @@ IMPORTANT:
 OPTIONAL: surface the at-cap warning visibly. Plan 05's `pushRecentState` returns `{ atCap }` and emits a `console.warn`. For v1, the console.warn is the minimum. Plan 10 can OPTIONALLY add a toast via the existing toast system if there is one — search the codebase for `sonner` or a similar toast library. If no toast system exists, leave `console.warn` as the user-visible signal and document in SUMMARY.
   </action>
   <verify>
-`pnpm tsc --noEmit` clean. Manual: navigate to `/cost?range=7d`, then `/cost?range=30d`, then `/cost?range=14d` — DevTools localStorage → `cmc.savedView.recent./cost` should hold 3 entries with the most recent first.
+    <automated>cd frontend && pnpm tsc --noEmit</automated>
+Manual smoke (operator): navigate to `/cost?range=7d`, then `/cost?range=30d`, then `/cost?range=14d` — DevTools localStorage → `cmc.savedView.recent./cost` should hold 3 entries with the most recent first.
   </verify>
   <done>
 RecentStateTracker pushes meaningful URL changes; out-of-scope routes ignored; bare-URL noise filtered.
@@ -228,17 +230,22 @@ RecentStateTracker pushes meaningful URL changes; out-of-scope routes ignored; b
   <name>Task 3: Mount both effect-only components in AppShell + vitest coverage</name>
   <files>frontend/src/components/shell/AppShell.tsx, frontend/src/components/savedviews/__tests__/DefaultViewLoader.test.tsx, frontend/src/components/savedviews/__tests__/RecentStateTracker.test.tsx</files>
   <action>
-**File A — `AppShell.tsx`**: mount both components inside `LoadedViewProvider` (set up in Plan 06) but ABOVE the Outlet — they need access to navigation + loaded-view context, but they themselves render nothing. Read the existing `AppShell.tsx` structure first.
+**File A — `AppShell.tsx`**: mount both components inside `LoadedViewProvider` but ABOVE the Outlet — they need access to navigation + loaded-view context, but they themselves render nothing. Read the existing `AppShell.tsx` structure first.
+
+**File ownership (Plan 06 vs Plan 10):**
+- Plan 06 (already landed by the time Plan 10 runs) is the OWNER of the `LoadedViewProvider` import + the `<LoadedViewProvider>...</LoadedViewProvider>` wrapper around the existing children (Sidebar / AppShellHeader / Outlet).
+- Plan 10 (this plan) is the OWNER of the two new children INSIDE the existing provider: `<DefaultViewLoader />` and `<RecentStateTracker />`. Do NOT re-add or re-import `LoadedViewProvider` — it must already be present from Plan 06. If it is missing, stop and verify Plan 06 actually shipped (this would be a Plan 06 gap).
 
 ```tsx
+// Plan 10 adds these two imports:
 import { DefaultViewLoader } from '../savedviews/DefaultViewLoader'
 import { RecentStateTracker } from '../savedviews/RecentStateTracker'
 
-// inside the AppShell return, somewhere inside LoadedViewProvider:
+// Plan 10 inserts these two zero-render children directly inside the existing LoadedViewProvider:
 <LoadedViewProvider>
-  <DefaultViewLoader />
-  <RecentStateTracker />
-  {/* existing JSX: Sidebar, AppShellHeader, Outlet */}
+  <DefaultViewLoader />       {/* added by Plan 10 */}
+  <RecentStateTracker />      {/* added by Plan 10 */}
+  {/* existing JSX from Plan 06: Sidebar, AppShellHeader, Outlet */}
 </LoadedViewProvider>
 ```
 
@@ -264,7 +271,7 @@ IMPORTANT:
 - Plan 09's PinnedViewsSection uses `getPinnedIds` synchronously from localStorage; same pattern applies here. Tests reset localStorage between cases.
   </action>
   <verify>
-`pnpm test --run src/components/savedviews/__tests__/DefaultViewLoader.test.tsx src/components/savedviews/__tests__/RecentStateTracker.test.tsx` — all 9+ cases pass. Full vitest matrix still green.
+    <automated>cd frontend && pnpm test --run src/components/savedviews/__tests__/DefaultViewLoader.test.tsx src/components/savedviews/__tests__/RecentStateTracker.test.tsx && pnpm test --run</automated>
   </verify>
   <done>
 Both components mounted in AppShell; ~9 vitest cases passing; tsc + lint clean.

@@ -155,7 +155,8 @@ IMPORTANT:
 - DO NOT touch the existing Pages or Actions groups in CommandPalette.
   </action>
   <verify>
-`pnpm tsc --noEmit` clean. `pnpm lint` clean. Manual smoke with a seeded saved view on `/cost`:
+    <automated>cd frontend && pnpm tsc --noEmit && pnpm lint</automated>
+Manual smoke (operator) with a seeded saved view on `/cost`:
 - Open Cmd+K from `/cost` — see "Saved Views" group with the seeded view first.
 - Open Cmd+K from `/skills/<name>` — same view appears (but lower in the list since it's not the current route).
 - Type the view's name — it filters.
@@ -188,7 +189,7 @@ IMPORTANT:
 - happy-dom may not fully simulate cmdk's keyboard handling; e2e coverage lands in Plan 11.
   </action>
   <verify>
-`pnpm test --run src/components/ui/__tests__/CommandPalette.savedViews.test.tsx` — all 4+ cases pass.
+    <automated>cd frontend && pnpm test --run src/components/ui/__tests__/CommandPalette.savedViews.test.tsx</automated>
   </verify>
   <done>
 ~4 new vitest cases passing; covers ordering, empty state, navigation, dynamic-route guard.

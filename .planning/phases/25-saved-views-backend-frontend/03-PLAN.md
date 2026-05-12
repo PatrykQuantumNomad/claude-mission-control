@@ -164,7 +164,7 @@ CRITICAL invariants (Research Pitfall 3):
 The routeTree.gen.ts will need regeneration since TanStack Router infers search types from validators. Run `pnpm dev` or `pnpm build` to trigger the codegen (or `pnpm tanstack-router generate` if a direct script exists in package.json scripts). Verify routeTree.gen.ts compiles by running `pnpm tsc --noEmit`.
   </action>
   <verify>
-`cd frontend && pnpm tsc --noEmit` exits 0 — type-check passes after routeTree.gen.ts regeneration. `cd frontend && pnpm test --run` — all existing vitest specs still green (353+ passing).
+    <automated>cd frontend && pnpm tsc --noEmit && pnpm test --run</automated>
   </verify>
   <done>
 All 6 route files have validateSearch returning a shape that includes `schemaVersion: 1`. routeTree.gen.ts regenerated and type-checks. No runtime behavior change on any route.
@@ -231,7 +231,7 @@ IMPORTANT:
 - If `routeTree.gen.ts` is the only consumer of the validator, exporting `validateSearch` from each route file as a named export is the cleanest way to test it — do that if `Route.options.validateSearch` is internal.
   </action>
   <verify>
-`cd frontend && pnpm test --run src/lib/__tests__/searchSchemas.test.ts` — all assertions pass. `cd frontend && pnpm tsc --noEmit` still clean.
+    <automated>cd frontend && pnpm test --run src/lib/__tests__/searchSchemas.test.ts && pnpm tsc --noEmit</automated>
   </verify>
   <done>
 searchSchemas.test.ts passes; vitest count up by 6+ (one per route + SCHEMA_VERSION + coerceSchemaVersion). Append-only invariant captured by tests.

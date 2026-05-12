@@ -49,6 +49,8 @@ Ship the frontend data layer for saved views: API client verbs, TanStack Query h
 
 Purpose: Single source of truth for SavedView types + API + queries + local storage. Eliminates duplication across SavedViewMenu, SaveViewDialog, EditOrForkDialog, CommandPalette, Sidebar Pinned section, and per-route default-load logic.
 Output: 5 API verbs + 4 hooks + 6 storage helpers + ~12 vitest cases covering them.
+
+**Scope note (upper bound):** This plan ships 4 tasks across 5 files — at the warning threshold for plan size. Do NOT rush; resist the temptation to inline tests, skip edge cases, or compress error handling. Each task is independently checkpointable via the `<verify>` blocks; if any task's verify fails, stop and fix before proceeding to the next.
 </objective>
 
 <execution_context>
@@ -145,7 +147,8 @@ IMPORTANT:
 - `encodeURIComponent` on the route param — paths like `/skills/$name` contain `$`.
   </action>
   <verify>
-`cd frontend && pnpm tsc --noEmit` clean. Sanity-import test: `pnpm test --run src/lib/__tests__/api.savedViews.test.ts` (if creating an api smoke spec — optional, since Task 3's queries test indirectly covers these).
+    <automated>cd frontend && pnpm tsc --noEmit</automated>
+Optional sanity-import test: `pnpm test --run src/lib/__tests__/api.savedViews.test.ts` (if creating an api smoke spec — Task 4's queries test indirectly covers these).
   </verify>
   <done>
 5 verbs added; types exported; tsc passes. Verbs can be imported as `import { api } from '../lib/api'` (or whatever the existing convention is) and called with proper types.
@@ -220,7 +223,8 @@ IMPORTANT:
 - Match the existing import block / placement convention in queries.ts. Read the existing file's organization (sections by entity) and slot saved-views logically.
   </action>
   <verify>
-`cd frontend && pnpm tsc --noEmit` clean. Vitest covered by Task 4 below.
+    <automated>cd frontend && pnpm tsc --noEmit</automated>
+Vitest coverage lands in Task 4 below.
   </verify>
   <done>
 4 hooks exported from queries.ts; tsc passes; cache invalidation key documented in inline comment.
@@ -344,7 +348,8 @@ IMPORTANT:
 - Verify `storage.remove(key)` exists in `lib/storage.ts`; if it does NOT, add it (the typed wrapper should support remove via `localStorage.removeItem`).
   </action>
   <verify>
-`cd frontend && pnpm tsc --noEmit` clean. Test coverage lands in Task 4.
+    <automated>cd frontend && pnpm tsc --noEmit</automated>
+Test coverage lands in Task 4.
   </verify>
   <done>
 savedViews.ts exists with 8 exports (getDefaultViewId / setDefaultViewId / getPinnedIds / setPinnedIds / pinView / unpinView / pushRecentState / getRecentStates / clearRecentStates / getAllRecentStates + RECENT_STATES_CAP constant + RecentAdHocState type). tsc clean.
@@ -499,7 +504,7 @@ IMPORTANT:
 - Don't import from `../../routes/*` — that would couple this test to a route's runtime, which is brittle. Mock at the api layer.
   </action>
   <verify>
-`cd frontend && pnpm test --run src/lib/__tests__/savedViews.test.ts src/lib/__tests__/queries.savedViews.test.ts` — all cases pass. Full vitest matrix still green: `pnpm test --run` shows >= prior count + 14.
+    <automated>cd frontend && pnpm test --run src/lib/__tests__/savedViews.test.ts src/lib/__tests__/queries.savedViews.test.ts && pnpm test --run</automated>
   </verify>
   <done>
 ~14 new vitest cases passing; covers default pointer, pinned, recent FIFO + cap, hook fetch + mutation invalidation.

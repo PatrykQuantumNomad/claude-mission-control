@@ -230,7 +230,7 @@ IMPORTANT:
 - After each test, the `beforeEach` cleanup wipes server-side views. This is mandatory because Phase 25 introduces persistent server state — without cleanup, runs depend on order.
   </action>
   <verify>
-`cd frontend && pnpm test:e2e v13-saved-views.spec.ts` — all 9+ test blocks pass (8 success-criteria flows + cap warning).
+    <automated>cd frontend && pnpm test:e2e v13-saved-views.spec.ts</automated>
   </verify>
   <done>
 v13-saved-views.spec.ts exists with all 9+ flows passing; covers ROADMAP success criteria 1–4 end-to-end + 50-cap warning.
@@ -275,7 +275,8 @@ IMPORTANT:
 - Visual capture stores PNGs at `visual-check/v13/*.png`; check the existing path convention.
   </action>
   <verify>
-`cd frontend && pnpm test:e2e v13-sidebar.spec.ts v13-a11y.spec.ts command-palette.spec.ts v13-visual-capture.spec.ts` — all extensions pass. axe-core reports 0 NEW blocking violations. Lighthouse 9/9 via `pnpm lhci` still passes (note: Plan 11 does NOT need to re-run Lighthouse from scratch; the existing config covers `/`, `/activity`, `/skills` — verify those URLs still pass).
+    <automated>cd frontend && pnpm test:e2e v13-sidebar.spec.ts v13-a11y.spec.ts command-palette.spec.ts v13-visual-capture.spec.ts && pnpm lhci autorun</automated>
+axe-core results are surfaced inside the e2e specs (`v13-a11y.spec.ts`) — must report 0 NEW blocking violations. Lighthouse: 9/9 audits via `pnpm lhci autorun` against `v13-lighthouserc.json` (3 URLs × 3 runs). If `pnpm lhci` is not wired as a top-level script, invoke `npx lhci autorun` — match the convention in `package.json`.
   </verify>
   <done>
 4 specs extended; new e2e tests + visual frames all pass; axe-core clean.
@@ -291,16 +292,16 @@ IMPORTANT:
   <how-to-verify>
     Run the verification matrix in the same order Phase 24 plan-07 did (see `.planning/phases/24-shell-density-containment-primitives/24-VERIFICATION.md` and `24-VISUAL-CHECK.md` for the precise template — author 25-VISUAL-CHECK.md mirroring its structure).
 
-    1. **Backend gate**: `cd backend && uv run pytest` reports baseline + Plan 01 (+2) + Plan 02 (+18) = >= 683 / 0 / 0.
-    2. **Frontend unit gate**: `cd frontend && pnpm test --run` reports baseline + all wave unit tests (~50 new tests). Document the exact final count.
-    3. **TypeScript gate**: `cd frontend && pnpm tsc --noEmit` exit 0.
-    4. **ESLint gate**: `cd frontend && pnpm lint` exit 0. Every new testid is registered in `docs/testid-registry.md`; every overlay primitive uses the z-index ladder.
-    5. **Build gate**: `cd frontend && pnpm build` exit 0.
-    6. **URL contract gate**: `cd backend && uv run pytest tests/test_url_contract.py` 2/2 PASS.
-    7. **Playwright e2e gate**: `cd frontend && pnpm test:e2e` — full matrix green including the new `v13-saved-views.spec.ts` (≥9 tests) + extensions.
-    8. **Visual matrix**: 36 baseline Phase 24 frames + ~24 NEW Phase 25 frames = 60+ PNGs. Each operator-spot-checks for visible regressions vs the v1.3 design language.
-    9. **Axe-core sweep**: 0 NEW blocking violations on the saved-views surfaces. Accepted-Exception carry-overs from Phase 24 still listed.
-    10. **Lighthouse**: 9/9 audits PASS (3 URLs × 3 runs); LCP/CLS/performance unchanged vs Phase 24 baseline (LCP 559-572ms, CLS 0-0.0032, performance 1.0).
+    1. **Backend gate**: <automated>cd backend && uv run pytest</automated> reports baseline + Plan 01 (+2) + Plan 02 (+18) = >= 683 / 0 / 0.
+    2. **Frontend unit gate**: <automated>cd frontend && pnpm test --run</automated> reports baseline + all wave unit tests (~50 new tests). Document the exact final count.
+    3. **TypeScript gate**: <automated>cd frontend && pnpm tsc --noEmit</automated> exit 0.
+    4. **ESLint gate**: <automated>cd frontend && pnpm lint</automated> exit 0. Every new testid is registered in `docs/testid-registry.md`; every overlay primitive uses the z-index ladder.
+    5. **Build gate**: <automated>cd frontend && pnpm build</automated> exit 0.
+    6. **URL contract gate**: <automated>cd backend && uv run pytest tests/test_url_contract.py</automated> 2/2 PASS.
+    7. **Playwright e2e gate**: <automated>cd frontend && pnpm test:e2e</automated> — full matrix green including the new `v13-saved-views.spec.ts` (≥9 tests) + extensions.
+    8. **Visual matrix**: 36 baseline Phase 24 frames + ~24 NEW Phase 25 frames = 60+ PNGs. Each operator-spot-checks for visible regressions vs the v1.3 design language. (Capture command for refresh if needed: <automated>cd frontend && pnpm test:e2e v13-visual-capture.spec.ts</automated>.)
+    9. **Axe-core sweep**: <automated>cd frontend && pnpm test:e2e v13-a11y.spec.ts</automated> — 0 NEW blocking violations on the saved-views surfaces. Accepted-Exception carry-overs from Phase 24 still listed.
+    10. **Lighthouse**: <automated>cd frontend && pnpm lhci autorun</automated> — 9/9 audits PASS (3 URLs × 3 runs); LCP/CLS/performance unchanged vs Phase 24 baseline (LCP 559-572ms, CLS 0-0.0032, performance 1.0).
     11. **Manual operator flows** — mirror Phase 24 plan-07 SUMMARY's 9-item inline-notes section. For Phase 25 specifically:
         - Save view on `/skills/<name>` → set as default → navigate away → return → default applied (success criterion 1).
         - Modify loaded view → menu → Edit → exercise each of save/fork/discard branches (success criterion 2).
