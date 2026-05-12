@@ -112,9 +112,16 @@ export function PinnedViewsSection() {
   // Build the actual rendered list: intersect pinned ids with the fetched
   // catalog, preserving insertion order from `pinnedIds`. Filter out ids
   // that no longer exist in the catalog (deleted views) — fail-soft.
+  //
+  // Defensive guard (Rule 2): the integration test catch-all fetch returns
+  // `{}` for unknown URLs — so `allViews` is truthy but `allViews.items` is
+  // undefined. Without this guard, `.items.map(...)` would throw and the
+  // ErrorBoundary would swallow the whole app shell. Treat missing-or-bad-
+  // shape responses as an empty catalog.
   const pinnedViews = useMemo<SavedView[]>(() => {
-    if (!allViews) return []
-    const byId = new Map(allViews.items.map((v) => [v.id, v]))
+    const items = allViews?.items
+    if (!Array.isArray(items)) return []
+    const byId = new Map(items.map((v) => [v.id, v]))
     return pinnedIds
       .map((id) => byId.get(id))
       .filter((v): v is SavedView => Boolean(v))

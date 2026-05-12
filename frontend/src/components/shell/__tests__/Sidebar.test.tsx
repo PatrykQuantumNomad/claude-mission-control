@@ -20,7 +20,7 @@
 //   5. Re-mount with localStorage='true' simulates a page reload — the
 //      sidebar respects the persisted value via its mount-time useEffect.
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import {
   createMemoryHistory,
@@ -29,10 +29,35 @@ import {
   createRouter,
   RouterProvider,
 } from '@tanstack/react-router'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Sidebar } from '../Sidebar'
+import { LoadedViewProvider } from '../../savedviews/LoadedViewContext'
+
+// Phase 25 Plan 09 (SHEL-06 Rule 3 fix): Sidebar now hosts PinnedViewsSection
+// which calls useSavedViews() (cross-route fetch). The test must mount a
+// QueryClientProvider + stub fetch + wrap in LoadedViewProvider — same shape
+// as Plan 08's CommandPalette.test.tsx Rule 3 fix. Per-test setup uses the
+// shared helper below; each test keeps its existing assertion semantics.
+
+function makeQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, refetchInterval: false, refetchOnWindowFocus: false },
+      mutations: { retry: false },
+    },
+  })
+}
+
+function SidebarHarness() {
+  return (
+    <LoadedViewProvider>
+      <Sidebar />
+    </LoadedViewProvider>
+  )
+}
 
 function makeRouter(initialPath: string) {
-  const rootRoute = createRootRoute({ component: Sidebar })
+  const rootRoute = createRootRoute({ component: SidebarHarness })
   const indexRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: '/',
@@ -80,18 +105,38 @@ function makeRouter(initialPath: string) {
 describe('Sidebar', () => {
   beforeEach(() => {
     localStorage.removeItem('cmc.sidebar.collapsed')
+    // Phase 25 Plan 09: PinnedViewsSection reads localStorage `cmc.savedView.pinned`.
+    // Default the pin list to empty so the existing Sidebar assertions stay
+    // unaffected by Pinned-section state from earlier tests.
+    localStorage.removeItem('cmc.savedView.pinned')
     delete document.documentElement.dataset.sidebarCollapsed
+    // Phase 25 Plan 09: PinnedViewsSection -> useSavedViews() fires a real
+    // fetch against /api/views. Stub returns an empty list — the Phase 24
+    // assertions in this file don't exercise the Pinned section, but the
+    // fetch must resolve so React Query doesn't surface an error boundary.
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+      return new Response(JSON.stringify({ items: [], total: 0 }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    })
   })
 
   afterEach(() => {
     localStorage.removeItem('cmc.sidebar.collapsed')
+    localStorage.removeItem('cmc.savedView.pinned')
     delete document.documentElement.dataset.sidebarCollapsed
+    vi.restoreAllMocks()
   })
 
   it('renders brand, Home, and Observe/Operate/Configure section headers', async () => {
     const router = makeRouter('/')
     await router.load()
-    render(<RouterProvider router={router} />)
+    render(
+      <QueryClientProvider client={makeQueryClient()}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    )
 
     expect(await screen.findByText('Mission Control')).toBeInTheDocument()
     expect(screen.getByTestId('sidebar-link-home')).toBeInTheDocument()
@@ -110,7 +155,11 @@ describe('Sidebar', () => {
   it('applies cmc-sidebar__navlink--active class to the current route link', async () => {
     const router = makeRouter('/activity')
     await router.load()
-    render(<RouterProvider router={router} />)
+    render(
+      <QueryClientProvider client={makeQueryClient()}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    )
 
     const activityLink = await screen.findByTestId('sidebar-link-activity')
     await waitFor(() => {
@@ -124,7 +173,11 @@ describe('Sidebar', () => {
   it('clicking sidebar-collapse-toggle persists collapsed=true to localStorage and dataset', async () => {
     const router = makeRouter('/')
     await router.load()
-    render(<RouterProvider router={router} />)
+    render(
+      <QueryClientProvider client={makeQueryClient()}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    )
 
     const toggle = await screen.findByTestId('sidebar-collapse-toggle')
     expect(toggle.getAttribute('aria-expanded')).toBe('true')
@@ -140,7 +193,11 @@ describe('Sidebar', () => {
   it('Cmd+B (metaKey + b) flips collapsed state at window level', async () => {
     const router = makeRouter('/')
     await router.load()
-    render(<RouterProvider router={router} />)
+    render(
+      <QueryClientProvider client={makeQueryClient()}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    )
 
     const toggle = await screen.findByTestId('sidebar-collapse-toggle')
     // Start: aria-expanded = 'true' (collapsed = false).
@@ -176,7 +233,11 @@ describe('Sidebar', () => {
 
     const router = makeRouter('/')
     await router.load()
-    const view = render(<RouterProvider router={router} />)
+    const view = render(
+      <QueryClientProvider client={makeQueryClient()}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    )
 
     const toggle = await screen.findByTestId('sidebar-collapse-toggle')
     // After mount-time useEffect, aria-expanded should reflect persisted=true.
@@ -189,7 +250,11 @@ describe('Sidebar', () => {
 
     const router2 = makeRouter('/')
     await router2.load()
-    render(<RouterProvider router={router2} />)
+    render(
+      <QueryClientProvider client={makeQueryClient()}>
+        <RouterProvider router={router2} />
+      </QueryClientProvider>,
+    )
 
     const toggle2 = await screen.findByTestId('sidebar-collapse-toggle')
     await waitFor(() => {

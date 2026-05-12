@@ -1,10 +1,12 @@
-// Sidebar — Phase 24 Plan 04 (SHEL-01, SHEL-03, SHEL-04).
+// Sidebar — Phase 24 Plan 04 (SHEL-01, SHEL-03, SHEL-04) + Phase 25 Plan 09 (SHEL-06).
 //
 // Persistent left sidebar that replaces the old top NavBar. Renders:
 //   - brand "Mission Control" + chrome collapse-toggle in the header,
 //   - top-level Home link (above the section grouping),
 //   - Observe section (Activity / Sessions Compare / Skills / Cost),
 //   - Operate section (Alerts),
+//   - Pinned section (Phase 25 Plan 09 — cross-route saved views the user
+//     has pinned via the SavedViewMenu submenu; header always renders),
 //   - Configure section (header rendered, body empty — reserved for future
 //     Settings / Doctor work; locked in CONTEXT).
 //
@@ -40,6 +42,11 @@ import {
 import { isSidebarCollapsed, setSidebarCollapsed } from '../../lib/sidebar'
 import { SidebarSection } from './SidebarSection'
 import { SidebarNavLink } from './SidebarNavLink'
+// Phase 25 Plan 09 (SHEL-06) — cross-route Pinned section. Mounts BETWEEN
+// Operate and Configure per the locked IA addition (the 4 original Phase 24
+// sections — Home / Observe / Operate / Configure — remain in their locked
+// positions; Pinned is the FIRST sidebar IA addition since the Phase 24 lock).
+import { PinnedViewsSection } from '../savedviews/PinnedViewsSection'
 
 export function Sidebar() {
   // Mount with the SSR-safe default (false). useEffect syncs to the
@@ -128,6 +135,11 @@ export function Sidebar() {
           collapsed={collapsed}
         />
       </SidebarSection>
+
+      {/* Phase 25 Plan 09 (SHEL-06) — cross-route pinned saved-views list.
+       * Section header ALWAYS renders (mirrors the Configure empty-body
+       * precedent below); body is dynamic from localStorage pin state. */}
+      <PinnedViewsSection />
 
       {/* Configure section reserved — header rendered, body empty. */}
       <SidebarSection title="Configure" />

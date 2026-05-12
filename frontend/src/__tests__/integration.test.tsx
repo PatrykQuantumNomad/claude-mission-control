@@ -273,6 +273,12 @@ function makeFetchMock() {
     // current — TPNL SchedulesCard (TPNL-03 / TPNL-04 composer fields)
     if (url.startsWith('/api/schedules'))
       return json({ items: [], total: 0 })
+    // Phase 25 (Plan 09 SHEL-06) — Sidebar's PinnedViewsSection calls
+    // useSavedViews() with no route filter. Default to an empty catalog so
+    // the section renders its empty-state copy. Per-test pin lists are
+    // controlled via localStorage `cmc.savedView.pinned`.
+    if (url.startsWith('/api/views'))
+      return json({ items: [], total: 0 })
     return json({})
   })
 }
