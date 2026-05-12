@@ -31,6 +31,7 @@ from cmc.api.routes.skills import router as skills_router
 from cmc.api.routes.sync import router as sync_router
 from cmc.api.routes.system import router as system_router
 from cmc.api.routes.tasks import router as tasks_router
+from cmc.api.routes.views import router as views_router
 
 
 def all_routers() -> list[APIRouter]:
@@ -54,6 +55,7 @@ def all_routers() -> list[APIRouter]:
         schedules_router,
         notifications_router,
         alerts_router,         # Phase 15 ALRT-09
+        views_router,          # Phase 25 VIEW-03
     ]
 
 
