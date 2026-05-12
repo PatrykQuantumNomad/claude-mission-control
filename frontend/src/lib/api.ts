@@ -1003,6 +1003,46 @@ export interface ContextHealthResponse {
 }
 
 // ============================================================================
+// Saved Views (Phase 25 — VIEW-02/03)
+// Mirror backend/cmc/api/schemas/views.py. state_json is OPAQUE here
+// (Record<string, unknown>) — per-route shape lives in the route's
+// validateSearch; backend never deserializes the blob (VIEW-02 lock).
+// ============================================================================
+
+export interface SavedView {
+  id: number
+  name: string
+  description: string
+  route: string
+  state_json: Record<string, unknown>
+  schema_version: number
+  created_at: string  // ISO datetime
+  updated_at: string  // ISO datetime
+}
+
+export interface SavedViewListResponse {
+  items: SavedView[]
+  total: number
+}
+
+export interface SavedViewCreate {
+  name: string
+  description?: string
+  route: string
+  state_json?: Record<string, unknown>
+  schema_version?: number   // defaults to 1 server-side
+}
+
+export interface SavedViewUpdate {
+  name?: string
+  description?: string
+  state_json?: Record<string, unknown>   // PATCH replaces wholesale, NOT deep-merge
+  schema_version?: number
+  // NOTE: `route` is deliberately NOT patchable — a view's route is intrinsic
+  // to its identity. See backend SavedViewUpdate docstring.
+}
+
+// ============================================================================
 // Fetcher infrastructure
 // ============================================================================
 
@@ -1361,6 +1401,31 @@ export const api = {
   /** @deprecated alias of dispatcherTrigger. */
   triggerDispatcher: () =>
     fetchJson<TaskTriggerResponse>('/api/dispatcher/trigger', { method: 'POST' }),
+
+  // Saved Views (Phase 25 — VIEW-03). Same shape as tasks: 4 JSON verbs +
+  // 1 fetchVoid for DELETE (returns 204 No Content). Optional `route` filter
+  // on viewList is encoded as `?route=...` with URL-encoded path (route values
+  // like `/skills/$name` contain `$`).
+  viewList: (route?: string) =>
+    fetchJson<SavedViewListResponse>(
+      route ? `/api/views?route=${encodeURIComponent(route)}` : '/api/views',
+    ),
+  viewGet: (id: number) =>
+    fetchJson<SavedView>(`/api/views/${id}`),
+  viewCreate: (body: SavedViewCreate) =>
+    fetchJson<SavedView>('/api/views', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify(body),
+    }),
+  viewPatch: (id: number, body: SavedViewUpdate) =>
+    fetchJson<SavedView>(`/api/views/${id}`, {
+      method: 'PATCH',
+      headers: jsonHeaders,
+      body: JSON.stringify(body),
+    }),
+  viewDelete: (id: number) =>
+    fetchVoid(`/api/views/${id}`, { method: 'DELETE' }),
 
   // Schedules
   schedules: () => fetchJson<ScheduleListResponse>('/api/schedules'),
