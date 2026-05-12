@@ -27,6 +27,16 @@
 //
 // Cross-link from /activity TopSkills (Plan 03) lands here via TanStack
 // Link `to="/skills/$name"` (the public URL — not the underscore-id form).
+//
+// PHASE 25 / VIEW-01 — `range` lifted to URL search state via validateSearch.
+//   - URL accepts ?range=7d|14d|30d. Default 14d preserves pre-Phase-25
+//     behavior (Pitfall 3: locked default-as-pre-plan-behavior invariant).
+//   - The data-layer SkillRange (backend Literal["14d","30d"]) is narrower
+//     than the URL's SkillsDetailRange ('7d'|'14d'|'30d'). `narrowToSkillRange`
+//     maps 7d → 14d for hooks that hit the backend; URL state stays canonical
+//     ('7d' survives the round-trip so deep links + saved views work as-is).
+//     If/when the backend broadens SkillRange to include '7d', drop the
+//     narrowing helper and the two surfaces become identical (Phase 26+).
 
 import { createFileRoute, Link, useParams } from '@tanstack/react-router'
 import { KpiTile } from '../components/ui'
@@ -36,19 +46,66 @@ import {
   SkillRunsTable,
 } from '../components/panels'
 import { useSkillLatency } from '../lib/queries'
+import type { SkillRange } from '../lib/api'
+import { SCHEMA_VERSION, coerceSchemaVersion } from '../lib/searchSchemas'
 
 const nf = new Intl.NumberFormat('en')
 
-function SkillLatencySnapshot({ name }: { name: string }) {
+// URL-state range (superset of the backend Literal). '7d' is deep-link/saved-
+// view-addressable; data hooks narrow it to a backend-valid value below.
+export type SkillsDetailRange = '7d' | '14d' | '30d'
+
+export type SkillsDetailSearch = {
+  schemaVersion: typeof SCHEMA_VERSION
+  range: SkillsDetailRange
+}
+
+const VALID_RANGES: readonly SkillsDetailRange[] = ['7d', '14d', '30d'] as const
+
+// Named export so vitest can target validateSearch directly without going
+// through Route.options. Mirrors the export convention Plan 03 established
+// on the shared searchSchemas helpers.
+export function validateSearch(
+  raw: Record<string, unknown>,
+): SkillsDetailSearch {
+  const range =
+    typeof raw.range === 'string' &&
+    (VALID_RANGES as readonly string[]).includes(raw.range)
+      ? (raw.range as SkillsDetailRange)
+      : '14d' // default reproduces pre-Phase-25 behavior (Pitfall 3)
+  return {
+    schemaVersion: coerceSchemaVersion(raw),
+    range,
+  }
+}
+
+// Backend's SkillRange is Literal["14d", "30d"] (cmc/api/schemas/skills.py:30).
+// Map 7d → 14d so URL state can stay canonical while data hooks stay typed.
+// Phase 26+ may broaden SkillRange to include '7d' and retire this helper.
+function narrowToSkillRange(r: SkillsDetailRange): SkillRange {
+  return r === '7d' ? '14d' : r
+}
+
+function SkillLatencySnapshot({
+  name,
+  range = '14d',
+}: {
+  name: string
+  range?: SkillsDetailRange
+}) {
   // Single-skill latency view — inline-consuming useSkillLatency. Reusing
   // SkillLatencyTable would force the multi-skill useQueries fan-out which
   // is the wrong shape for one skill. This snapshot is intentionally
   // un-extracted (one consumer, one route) — promote to a panel only if
   // a second consumer appears.
-  const query = useSkillLatency(name, '14d')
+  //
+  // `range` prop default '14d' preserves the pre-Phase-25 hard-coded value
+  // when the snapshot is rendered without a `range` prop (Pitfall 3).
+  const backendRange = narrowToSkillRange(range)
+  const query = useSkillLatency(name, backendRange)
   const renderedReqId = (
     <span className="cmc-label" style={{ color: 'var(--cmc-text-subtle)' }}>
-      SKIL-06 · 14d
+      SKIL-06 · {range}
     </span>
   )
   if (query.isPending) {
@@ -93,7 +150,7 @@ function SkillLatencySnapshot({ name }: { name: string }) {
           <p className="cmc-caption">
             {data.low_sample
               ? 'Low sample — interpret with care.'
-              : 'Quantiles over the trailing 14 days.'}
+              : `Quantiles over the trailing ${range === '7d' ? '14' : range.replace('d', '')} days.`}
           </p>
         </div>
       </header>
@@ -141,11 +198,17 @@ function SkillDetailPage() {
   // page would render as a child of SkillsPage which has no <Outlet/>,
   // and the detail UI would never appear.
   const { name } = useParams({ from: '/skills_/$name' })
+  // Phase 25 / VIEW-01: range now lives in URL search state. Default '14d'
+  // preserves the pre-Phase-25 page behavior (validateSearch fills it in
+  // whenever ?range= is absent).
+  const { range } = Route.useSearch()
+  const skillRange = narrowToSkillRange(range)
   return (
     <section className="cmc-page" aria-labelledby="skill-detail-heading">
       <header className="cmc-page__header">
         <Link
           to="/skills"
+          search={{ schemaVersion: SCHEMA_VERSION }}
           className="cmc-label"
           style={{ color: 'var(--cmc-text-subtle)', textDecoration: 'none' }}
         >
@@ -164,18 +227,22 @@ function SkillDetailPage() {
           Per-skill cost, latency, and recent invocations.
         </p>
       </header>
-      {/* Single-column stack — each panel is wide enough on its own. */}
+      {/* Single-column stack — each panel is wide enough on its own.
+       * SkillCostCard keeps its own internal RangeToggle (user-facing
+       * UI inside the panel) per Plan 04 Task 1 — Phase 26/27 may unify
+       * the page-level range with the panel-level toggle. */}
       <SkillCostCard name={name} />
-      {/* Phase 19 Plan 04 — SKLP-08 per-project breakdown. Range mirrors
-       * SkillLatencySnapshot's '14d' default (the panel manages its own
-       * sort state but inherits range from the page composition). */}
-      <SkillProjectsTable name={name} range="14d" />
-      <SkillLatencySnapshot name={name} />
+      {/* Phase 19 Plan 04 — SKLP-08 per-project breakdown. Range now
+       * threaded from URL state (?range=) — narrowed to the backend's
+       * SkillRange = '14d' | '30d'. */}
+      <SkillProjectsTable name={name} range={skillRange} />
+      <SkillLatencySnapshot name={name} range={range} />
       <SkillRunsTable name={name} />
     </section>
   )
 }
 
 export const Route = createFileRoute('/skills_/$name')({
+  validateSearch,
   component: SkillDetailPage,
 })
