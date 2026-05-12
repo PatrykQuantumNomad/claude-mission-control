@@ -10,12 +10,26 @@
 //   4. Hovering a collapsed nav icon shows the Radix Tooltip with the
 //      route label (side="right", Portal-mounted).
 //
+// Phase 25 Plan 11 extension (SHEL-06):
+//   5. The "Pinned" section renders between OPERATE and CONFIGURE — IA
+//      preserved (Phase 24 4-section pattern grows to 5 sections; original
+//      4 remain locked).
+//   6. Empty-state copy appears when nothing is pinned.
+//   7. A pinned saved view shows up as `sidebar-pinned-view-{id}` after
+//      reload (Plan 09 documents the same-tab localStorage limitation —
+//      reload required to pick up a fresh pin).
+//   8. Active-state lights up (data-active="true") when both pathname and
+//      structural search match the pinned view's state_json.
+//
 // The sidebar's keyboard listener is attached at window level so Cmd+B
 // works regardless of focus location — see Sidebar.tsx comments. We use
 // ControlOrMeta in Playwright so the test runs identically on macOS and
 // Linux CI workers.
 
 import { test, expect } from '@playwright/test'
+
+const BACKEND = 'http://127.0.0.1:8765'
+const UUID_A = '11111111-1111-4111-8111-111111111111'
 
 test.describe('SHEL-04 sidebar collapse + persistence', () => {
   test.afterEach(async ({ page }) => {
@@ -129,5 +143,120 @@ test.describe('SHEL-04 sidebar collapse + persistence', () => {
     const tooltip = page.locator('[role="tooltip"]').first()
     await expect(tooltip).toBeVisible()
     await expect(tooltip).toContainText('Activity')
+  })
+})
+
+// ────────────────────────────────────────────────────────────────────────
+// Phase 25 Plan 11 extension: Pinned section coverage (SHEL-06)
+// ────────────────────────────────────────────────────────────────────────
+
+async function wipeViewsAndPinned(page: import('@playwright/test').Page) {
+  const r = await page.request.get(`${BACKEND}/api/views`)
+  const data = (await r.json()) as { items: Array<{ id: number }> }
+  for (const v of data.items) {
+    await page.request.delete(`${BACKEND}/api/views/${v.id}`)
+  }
+  // One-shot localStorage wipe: navigate to / so we have a real origin,
+  // then strip the savedView.* keys. Subsequent same-origin navs
+  // preserve the cleaned state.
+  await page.goto('/')
+  await page.evaluate(() => {
+    try {
+      const keys: string[] = []
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const k = window.localStorage.key(i)
+        if (k && k.startsWith('cmc.savedView.')) keys.push(k)
+      }
+      keys.forEach((k) => window.localStorage.removeItem(k))
+    } catch {
+      // ignore
+    }
+  })
+}
+
+test.describe('SHEL-06 Pinned section IA + rendering', () => {
+  test.beforeEach(async ({ page }) => {
+    await wipeViewsAndPinned(page)
+  })
+
+  test('Pinned section header renders between Operate and Configure', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(500)
+
+    // SidebarSection passes testId="sidebar-section-pinned" on the wrapper.
+    const pinnedSection = page.getByTestId('sidebar-section-pinned')
+    await expect(pinnedSection).toBeVisible()
+
+    // IA preservation: header position is between Operate and Configure
+    // sections. Section headers render as `.cmc-sidebar__section-header`
+    // (a <div>, not <h2>) per Phase 24 plan-04 layout. Assert ordering
+    // via insertion order of header text.
+    const sections = await page
+      .locator('.cmc-sidebar .cmc-sidebar__section-header')
+      .allTextContents()
+    // Phase 24 baseline sections: Observe, Operate, Configure. Plan 09
+    // inserts Pinned between Operate and Configure (Sidebar.tsx layout).
+    expect(sections).toContain('Pinned')
+    const pinnedIdx = sections.indexOf('Pinned')
+    const operateIdx = sections.indexOf('Operate')
+    const configureIdx = sections.indexOf('Configure')
+    expect(operateIdx).toBeLessThan(pinnedIdx)
+    expect(pinnedIdx).toBeLessThan(configureIdx)
+  })
+
+  test('Pinned section empty-state renders when nothing is pinned', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(500)
+    await expect(page.getByTestId('sidebar-pinned-empty')).toBeVisible()
+    await expect(page.getByTestId('sidebar-pinned-empty')).toContainText(
+      /pin a saved view/i,
+    )
+  })
+
+  test('A pinned view appears in the sidebar and active-state matches both pathname and search', async ({
+    page,
+  }) => {
+    // Seed: create a view + pin it via direct localStorage (so this spec is
+    // independent of the SavedViewMenu DOM path — covered separately by
+    // v13-saved-views.spec.ts).
+    const created = await page.request.post(`${BACKEND}/api/views`, {
+      data: {
+        name: 'Compare A pinned',
+        description: '',
+        route: '/sessions/compare',
+        state_json: { a: UUID_A },
+        schema_version: 1,
+      },
+    })
+    const view = await created.json()
+    await page.evaluate((id: number) => {
+      window.localStorage.setItem(
+        'cmc.savedView.pinned',
+        JSON.stringify([id]),
+      )
+    }, view.id as number)
+    await page.reload()
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(500)
+
+    const pinned = page.getByTestId(`sidebar-pinned-view-${view.id}`)
+    await expect(pinned).toBeVisible()
+
+    // From /, the pinned view is NOT active (pathname mismatch).
+    expect(await pinned.getAttribute('data-active')).toBe('false')
+
+    // Navigate to the matching pathname + structural search → active true.
+    await page.goto(`/sessions/compare?a=${UUID_A}`)
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(500)
+    const pinnedAfter = page.getByTestId(`sidebar-pinned-view-${view.id}`)
+    expect(await pinnedAfter.getAttribute('data-active')).toBe('true')
+    await expect(pinnedAfter).toHaveClass(/cmc-sidebar__navlink--active/)
   })
 })
