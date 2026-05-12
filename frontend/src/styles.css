@@ -2387,3 +2387,15 @@ body {
   font-size: var(--cmc-size-body);
   color: var(--cmc-text);
 }
+
+/* Phase 25 Plan 09 (SHEL-06) — PinnedViewsSection empty-state copy. Matches
+ * the dim, muted treatment of section labels. Hidden when the sidebar is
+ * collapsed so the empty state doesn't shout from a 52px-wide rail; the
+ * section header (also collapsed-hidden by the existing rule) is the only
+ * remaining marker in collapsed mode. */
+.cmc-sidebar__pinned-empty {
+  color: var(--cmc-text-dim);
+  font-size: var(--cmc-size-label);
+  padding: var(--cmc-space-2xs) var(--cmc-space-md);
+}
+[data-sidebar-collapsed="true"] .cmc-sidebar__pinned-empty { display: none; }

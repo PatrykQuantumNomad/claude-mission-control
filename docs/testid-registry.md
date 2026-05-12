@@ -32,6 +32,8 @@ Established: Phase 24 (POLI-14). Skip count locked at the v1.2 baseline of 2 kno
 - `edit-or-fork-dialog-fork` — EditOrForkDialog "Save as new (fork)" `<button>` (invokes onFork prop)
 - `edit-or-fork-dialog-discard` — EditOrForkDialog "Discard changes" `<button>` (navigates back to loaded view's state_json)
 - `saved-view-menu-edit-current` — `frontend/src/components/savedviews/SavedViewMenu.tsx` (top-of-menu "Edit '<loaded view name>'…" item; renders only when loadedView && URL diverges)
+- `sidebar-section-pinned` — `frontend/src/components/savedviews/PinnedViewsSection.tsx` (Phase 25 Plan 09 SHEL-06: root element of the Sidebar's "Pinned" section, passed via the `testId` prop on `SidebarSection`. Always present in the DOM — the section header renders even when no views are pinned, mirroring the Phase 24 Configure empty-body precedent.)
+- `sidebar-pinned-empty` — PinnedViewsSection empty-state copy ("Pin a saved view from the header menu"); rendered only when `getPinnedIds()` is empty OR all pinned ids reference views no longer present in the catalog.
 
 ### UI primitives (Phase 24)
 - `cell-copy-btn` — `frontend/src/components/ui/CopyIconButton.tsx`
@@ -98,6 +100,7 @@ These testids are constructed at runtime from variable input (e.g., row id, rout
 - `saved-view-fork-{id}` — SavedViewMenu submenu "Save as new (fork)" action.
 - `saved-view-delete-{id}` — SavedViewMenu submenu Delete action.
 - `cmdk-saved-view-{id}` — `frontend/src/components/ui/CommandPalette.tsx` (Phase 25 Plan 08 CMDK-01: per-view Command.Item inside the "Saved Views" Command.Group; id is the SavedView.id from the backend).
+- `sidebar-pinned-view-{id}` — `frontend/src/components/savedviews/PinnedViewsSection.tsx` (Phase 25 Plan 09 SHEL-06: per-view button row inside the Sidebar Pinned section. Id is the SavedView.id from the backend. Each row also carries `data-active="true|false"` reflecting the locked active-state algorithm — pathname-match AND structural search-state match.)
 
 ## Skip count
 
