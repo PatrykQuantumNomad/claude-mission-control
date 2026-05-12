@@ -43,6 +43,8 @@ import type {
   RangeAll,
   ScheduleCreate,
   SchedulePatch,
+  SavedViewCreate,
+  SavedViewUpdate,
   SessionCompareResponse,
   SessionPreviousResponse,
   SessionsListParams,
@@ -143,6 +145,15 @@ export const qk = {
   // discipline lesson from Phase 19 hotfix da592ff, STATE.md L121).
   costBreakdown: (dim: BreakdownDim, range: CostRange) =>
     ['cost-breakdown', dim, range] as const,
+  // Phase 25 (VIEW-03) — saved views. Kebab-prefix per Pitfall 5 from
+  // 14-RESEARCH.md (never reuse a bare 'views' prefix; future 'view-*' keys
+  // get their own scope). Route filter is part of the key so route-scoped
+  // and unfiltered fetches don't share a cache entry; absent route encodes
+  // as '__all__' sentinel so the runtime queryKey is never undefined-laced.
+  // All mutations invalidate the whole ['saved-views'] family — cross-route
+  // consumers (Cmd+K palette) stay fresh after edits anywhere.
+  savedViews: (route?: string) => ['saved-views', route ?? '__all__'] as const,
+  savedView: (id: number | null) => ['saved-views', 'single', id] as const,
 } as const
 
 // ============================================================================
@@ -967,6 +978,76 @@ export function useAckAlert() {
   return useMutation({
     mutationFn: (body: AlertAckRequest) => api.alertAck(body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['alert-events'] }),
+  })
+}
+
+// ---- Queries + Mutations: Saved Views (Phase 25 VIEW-03) ------------------
+//
+// Cache invalidation convention: every saved-views mutation (create/patch/
+// delete) invalidates the entire ['saved-views'] key family, not just the
+// route's slice. Rationale: a saved view edited on /skills can appear in the
+// cross-route Cmd+K palette and the Sidebar Pinned section — those consumers
+// need to refresh too. The blast radius is small (saved views are user-
+// modified rarely; staleTime is generous) so over-invalidation is preferred
+// over missed-invalidation.
+
+const SAVED_VIEWS_KEY = ['saved-views'] as const
+
+/** VIEW-03 — list saved views, optionally filtered to a single route.
+ * staleTime is generous (30s) because saved views are user-modified rarely
+ * and the menu opens cheaply from cache. Mutations explicitly invalidate. */
+export function useSavedViews(route?: string) {
+  return useQuery({
+    queryKey: qk.savedViews(route),
+    queryFn: () => api.viewList(route),
+    staleTime: 30_000,
+  })
+}
+
+/** VIEW-03 — single saved view by id. Pass `null` to disable (Sidebar Pinned
+ * section may not yet have an id loaded). Distinct query-key shape so the
+ * single-view cache slot does not collide with the list-view cache slot. */
+export function useSavedView(id: number | null) {
+  return useQuery({
+    queryKey: qk.savedView(id),
+    queryFn: () => api.viewGet(id as number),
+    enabled: id !== null,
+  })
+}
+
+/** VIEW-03 — create. NOT optimistic (server may 400 on cap-exceeded or
+ * UNIQUE (route, name) collision; preserve typed input on error). */
+export function useCreateView() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: SavedViewCreate) => api.viewCreate(body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: SAVED_VIEWS_KEY })
+    },
+  })
+}
+
+/** VIEW-03 — patch. NOT optimistic. state_json is replaced wholesale by the
+ * server (NOT deep-merged); callers must send the full state blob. */
+export function usePatchView() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: number; patch: SavedViewUpdate }) =>
+      api.viewPatch(id, patch),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: SAVED_VIEWS_KEY })
+    },
+  })
+}
+
+/** VIEW-03 — delete. Returns void (204 No Content). NOT optimistic. */
+export function useDeleteView() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.viewDelete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: SAVED_VIEWS_KEY })
+    },
   })
 }
 
