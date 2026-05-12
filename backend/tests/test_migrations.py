@@ -229,3 +229,149 @@ def test_0003_downgrade_to_0002(tmp_path):
         "idx_sessions_project_key should be dropped on downgrade"
     )
     conn.close()
+
+
+def test_0004_upgrade_from_0003(tmp_path):
+    """Migration 0004 creates the saved_views table.
+
+    Phase 25 (VIEW-02). Asserts the table, its 8 columns, the route index,
+    and the UNIQUE (route, name) constraint all exist after upgrade. Mirrors
+    the test_0003_* shape: tmp_path + _alembic_cfg + raw sqlite3 PRAGMA
+    inspection — no live engine required.
+    """
+    db = tmp_path / "test.db"
+    cfg = _alembic_cfg(db)
+    command.upgrade(cfg, "0003_project_key")
+    command.upgrade(cfg, "0004_saved_views")
+
+    conn = sqlite3.connect(str(db))
+
+    # 1. Table presence.
+    tables = {
+        r[0]
+        for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    }
+    assert "saved_views" in tables, "saved_views table missing after 0004 upgrade"
+
+    # 2. All 8 columns present, none missing, none extra.
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(saved_views)")}
+    assert cols == {
+        "id",
+        "name",
+        "description",
+        "route",
+        "state_json",
+        "schema_version",
+        "created_at",
+        "updated_at",
+    }, f"saved_views columns mismatch: {cols!r}"
+
+    # 3. Route index exists (non-unique, for per-route listing).
+    indexes = [r for r in conn.execute("PRAGMA index_list(saved_views)")]
+    # PRAGMA index_list returns: (seq, name, unique, origin, partial)
+    index_by_name = {row[1]: row for row in indexes}
+    assert "idx_saved_views_route" in index_by_name, (
+        "idx_saved_views_route missing after 0004 upgrade"
+    )
+    assert index_by_name["idx_saved_views_route"][2] == 0, (
+        "idx_saved_views_route should be non-unique (unique=0)"
+    )
+
+    # 4. UNIQUE (route, name) constraint enforcement.
+    # SQLite stores a CREATE TABLE-level UNIQUE constraint as a named CONSTRAINT
+    # in the table DDL plus an auto-generated `sqlite_autoindex_*` index. The
+    # named constraint identity (uq_saved_views_route_name) lives in the DDL
+    # string, and the enforcement lives in the unique autoindex on the same
+    # columns. Assert both: the symbolic name in the DDL (for future migration
+    # `op.drop_constraint("uq_saved_views_route_name")` to remain valid) AND a
+    # unique index covering (route, name) for runtime enforcement.
+    create_sql = conn.execute(
+        "SELECT sql FROM sqlite_master "
+        "WHERE type='table' AND name='saved_views'"
+    ).fetchone()[0]
+    assert "uq_saved_views_route_name" in create_sql, (
+        "uq_saved_views_route_name constraint name missing from saved_views "
+        f"CREATE TABLE DDL: {create_sql!r}"
+    )
+    assert "UNIQUE (route, name)" in create_sql, (
+        f"UNIQUE (route, name) clause missing from DDL: {create_sql!r}"
+    )
+
+    # Runtime enforcement: any unique index covering exactly (route, name).
+    unique_index_covers_route_name = False
+    for _seq, idx_name, is_unique, _origin, _partial in indexes:
+        if is_unique != 1:
+            continue
+        idx_cols = [
+            r[2] for r in conn.execute(f"PRAGMA index_info({idx_name})")
+        ]
+        if idx_cols == ["route", "name"]:
+            unique_index_covers_route_name = True
+            break
+    assert unique_index_covers_route_name, (
+        "No unique index on (route, name) found — UNIQUE constraint is not "
+        f"runtime-enforced. index_list={indexes!r}"
+    )
+
+    # Runtime probe: a duplicate (route, name) insert MUST raise IntegrityError.
+    conn.execute(
+        "INSERT INTO saved_views "
+        "(name, description, route, state_json, schema_version, "
+        "created_at, updated_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        ("v1", "", "/skills", "{}", 1,
+         "2026-05-12T00:00:00", "2026-05-12T00:00:00"),
+    )
+    conn.commit()
+    try:
+        conn.execute(
+            "INSERT INTO saved_views "
+            "(name, description, route, state_json, schema_version, "
+            "created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ("v1", "", "/skills", "{}", 1,
+             "2026-05-12T00:00:00", "2026-05-12T00:00:00"),
+        )
+        conn.commit()
+    except sqlite3.IntegrityError:
+        pass  # expected
+    else:
+        raise AssertionError(
+            "Duplicate (route, name) insert did NOT raise IntegrityError — "
+            "UNIQUE (route, name) is not actually enforced."
+        )
+
+    conn.close()
+
+
+def test_0004_downgrade_to_0003(tmp_path):
+    """Downgrade removes the saved_views table cleanly.
+
+    Asserts pre-downgrade presence, then post-downgrade absence of the
+    saved_views table — the 0003 schema is otherwise untouched.
+    """
+    db = tmp_path / "test.db"
+    cfg = _alembic_cfg(db)
+    command.upgrade(cfg, "0004_saved_views")
+
+    conn = sqlite3.connect(str(db))
+    tables_before = {
+        r[0]
+        for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    }
+    assert "saved_views" in tables_before, (
+        "saved_views should exist at 0004 head before downgrade"
+    )
+    conn.close()
+
+    command.downgrade(cfg, "0003_project_key")
+
+    conn = sqlite3.connect(str(db))
+    tables_after = {
+        r[0]
+        for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    }
+    assert "saved_views" not in tables_after, (
+        "saved_views should be dropped on downgrade to 0003"
+    )
+    conn.close()
