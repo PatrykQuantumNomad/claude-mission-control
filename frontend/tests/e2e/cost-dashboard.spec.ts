@@ -53,8 +53,13 @@ test.describe('ANLY-06/07: /cost dashboard panels', () => {
     // Phase 20 Plan 03 added the 'Cost' link to NavBar between Skills and
     // Alerts. getByRole('link', { name: 'Cost' }) is exact-match and
     // collision-resistant under strict mode.
+    //
+    // Phase 25 Plan 03 (VIEW-01) added validateSearch on /cost so the URL
+    // always rehydrates with `?schemaVersion=1` after navigation — the
+    // regex changed from /\/cost$/ to /\/cost(\?|$)/ to tolerate the
+    // schema-version suffix while still rejecting unrelated prefixes.
     await page.getByRole('link', { name: 'Cost' }).click()
-    await expect(page).toHaveURL(/\/cost$/)
+    await expect(page).toHaveURL(/\/cost(\?|$)/)
     await expect(page.getByTestId('cost-forecast-card')).toBeVisible()
     await expect(page.getByTestId('cost-by-project-card')).toBeVisible()
   })
