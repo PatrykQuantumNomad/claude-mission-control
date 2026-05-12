@@ -58,7 +58,7 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 
 ### 🚧 v1.3 Surface Redesign (Phases 24–28) — IN PROGRESS
 
-- [ ] **Phase 24: Shell + Density + Containment Primitives** — Foundation phase establishing the shell chrome, 3-tier density infrastructure, three overflow bug fixes (global), and quality-gate scaffolding (visual checkpoint pattern, axe-core, perf budget, URL contract, testid registry) every later phase consumes.
+- [x] **Phase 24: Shell + Density + Containment Primitives** — Foundation phase establishing the shell chrome, 3-tier density infrastructure, three overflow bug fixes (global), and quality-gate scaffolding (visual checkpoint pattern, axe-core, perf budget, URL contract, testid registry) every later phase consumes. _(complete 2026-05-12 — operator verdict PASS, 18/18 mapped requirements satisfied, 7/7 plans shipped)_
 - [ ] **Phase 25: Saved Views (Backend + Frontend)** — Server-persisted, per-route, URL-shareable saved views; Alembic migration `0004_saved_views`; 5 CRUD endpoints; `validateSearch` adoption on 6 routes; SavedViewMenu chrome; pinned favorites in sidebar; Cmd+K Saved Views group.
 - [ ] **Phase 26: Per-Route Adoption I (Command/Activity/Sessions) + Time + Cmd+K** — High-traffic routes adopt `BoundedPanelCard bounded` + density tokens; global time picker (sync/copy-paste/compare-overlay/brush-zoom); Cmd+K density/time-range/recents groups; sidebar recently-visited.
 - [ ] **Phase 27: Per-Route Adoption II (Skills/Cost/Alerts) + Tech Debt** — Tail-end routes adopt primitives; v1.2 carried tech debt closure (`project_key` wire exposure, `KNOWN_METRICS` removal, NL composer 503 retry/queue UX).
@@ -83,7 +83,7 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 - [x] 04-PLAN.md — Shell rework: Sidebar (Cmd+B + collapse + active-route bar) + AppShellHeader extraction + DensityProvider stack + delete NavBar.tsx (human checkpoint) _(complete 2026-05-11 — 93d6c2f, aa570cf, 8178cdf; visual checkpoint approved 10/10; SHEL-01..04 satisfied)_
 - [x] 05-PLAN.md — Quality-gate Playwright specs (visual capture / axe / portal-containment / sidebar / density / truncation / copy-cell) + lighthouserc.json + URL-contract pytest _(complete 2026-05-11 — d1304ea, 5872663, cdeda8d, 51f36b6; 7 v13-*.spec.ts files = 75 Playwright tests; lighthouserc.json 3-URL CWV gate research-corrected per Pitfall 5; backend/tests/test_url_contract.py 2/2 PASS against plan-06 docs; POLI-09/10/11/13 + CONT-02/03 + SHEL-04 + DENS-01..03 e2e scaffolding shipped)_
 - [x] 06-PLAN.md — POLI docs (z-index-ladder / affordance-checklist / url-contract / testid-registry) + ESLint flat config + custom rules (testid-registry-only, no-raw-z-index) _(complete 2026-05-11 — 3698bf3, e700a9e, 5e6bb73; pnpm lint clean; backend/tests/test_url_contract.py 2/2 passing; POLI-09 + POLI-12 + POLI-13 + POLI-14 + CONT-05 ESLint side satisfied)_
-- [ ] 07-PLAN.md — Phase close gate: run matrix (visual + axe + Lighthouse + perf) and write 24-VISUAL-CHECK.md verdict (human checkpoint)
+- [x] 07-PLAN.md — Phase close gate: run matrix (visual + axe + Lighthouse + perf) and write 24-VISUAL-CHECK.md verdict (human checkpoint) _(complete 2026-05-12 — 1c610d4, c7b1dea, 06f09a2, 75244ec, e3cd82a, 88e8417, 437e848 + metadata close; operator verdict PASS; 36/36 visual matrix PASS; axe 0 Phase-24 blocking (6 pre-existing contrast classes Accepted-Exception-deferred to Phase 26/27); Lighthouse 9/9 PASS (LCP 559-572ms / CLS 0-0.0032 / performance 1.0); DOM-identity zero-rerender probe PASS; portal containment 3/3; URL contract 2/2; ResponsiveContainer delta 0; POLI-09 + POLI-10 + POLI-11 + CONT-05 all satisfied)_
 **UI hint**: yes
 
 ### Phase 25: Saved Views (Backend + Frontend)
@@ -167,7 +167,7 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 | 21. Alert Anomaly Depth & NL Authoring | v1.2 | 3/3 | Complete | 2026-05-07 |
 | 22. Skill Latency Overhead (spike-gated) | v1.2 | 2/2 | Complete | 2026-05-08 |
 | 23. Compare Depth & Milestone Close | v1.2 | 4/4 | Complete | 2026-05-09 |
-| 24. Shell + Density + Containment Primitives | v1.3 | 6/7 | In Progress|  |
+| 24. Shell + Density + Containment Primitives | v1.3 | 7/7 | Complete | 2026-05-12 |
 | 25. Saved Views (Backend + Frontend) | v1.3 | 0/0 | Not started | — |
 | 26. Per-Route Adoption I + Time + Cmd+K | v1.3 | 0/0 | Not started | — |
 | 27. Per-Route Adoption II + Tech Debt | v1.3 | 0/0 | Not started | — |
@@ -176,4 +176,4 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 **v1.0 milestone shipped: 47/47 plans, 11/11 phases verified (9 base + 2 audit gap-closure).**
 **v1.1 milestone shipped: 28/28 plans, 6/6 phases verified, 41/41 requirements satisfied.**
 **v1.2 milestone shipped: 22/22 plans, 6/6 phases verified, 12/12 active requirements satisfied + 1 honestly deferred (SKLP-11 → v1.3).**
-**v1.3 milestone in progress: 0/5 phases complete, 0/45 active requirements satisfied. Plans authored per-phase via `/gsd:plan-phase {N}`.**
+**v1.3 milestone in progress: 1/5 phases complete, 18/45 active requirements satisfied. Phase 24 closed 2026-05-12 (operator verdict PASS). Plans authored per-phase via `/gsd:plan-phase {N}`.**

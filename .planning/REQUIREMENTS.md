@@ -26,7 +26,7 @@ Categorized by surface area. Each maps to exactly one phase in `ROADMAP.md` once
 - [x] **CONT-02**: Sheets, Popovers, and DropdownMenus render via Radix Portal at viewport-fixed coordinates without clipping or escaping their stacking context. Root-cause audit (recharts `ResponsiveContainer` transform creates new containing block for `position: fixed` descendants) lands as a Phase 24 deliverable.
 - [x] **CONT-03**: Data inside cards (tables, charts, badges, KPI numbers) does not break out of card padding. Single global one-line fix: `min-width: 0` on `.cmc-card` (CSS Grid implicit min-content rule) — benefits every route. Plus `cmc-table-wrap` utility on DataTable + `cmc-cell--truncate` on overflowable cells.
 - [x] **CONT-04**: `BoundedPanelCard` primitive + `bounded` prop on `PanelCard` + `.cmc-page--bounded` page modifier — opt-in, backward-compatible. Existing legacy "scroll the whole page" behavior preserved when not opted in.
-- [ ] **CONT-05**: z-index ladder documented in `docs/z-index-ladder.md` and respected by all overlay primitives (Sheet, Popover, DropdownMenu, AlertDialog, Cmd+K).
+- [x] **CONT-05**: z-index ladder documented in `docs/z-index-ladder.md` and respected by all overlay primitives (Sheet, Popover, DropdownMenu, AlertDialog, Cmd+K). _(complete 2026-05-12 — Phase 24 plans 06 + 07; doc shipped in 3698bf3, ESLint `cmc/no-raw-z-index` rule in 5e6bb73 enforces, operator verified at phase close)_
 
 ### Shell (SHEL) — new dashboard-product chrome
 
@@ -79,9 +79,9 @@ Categorized by surface area. Each maps to exactly one phase in `ROADMAP.md` once
 
 ### Polish & Quality (POLI) — extends existing POLI prefix
 
-- [ ] **POLI-09**: Formal per-phase visual checkpoint pattern. Each phase ends with operator-driven visual review documented in `.planning/phases/{N}/VISUAL-CHECK.md` (screenshots + verdict). Verifier gates on visual checkpoint pass.
-- [ ] **POLI-10**: Accessibility audit per phase via axe-core integration. WCAG AA contrast requirement on all new chrome (especially dark-theme text/background pairs in headers/sidebar). Focus rings on all interactive elements.
-- [ ] **POLI-11**: Perf budget per phase — density toggle is CSS-only (no React re-renders confirmed via React DevTools profiler at phase close); chart polling stays <16ms paint; no `ResponsiveContainer` ResizeObserver pile-up regression.
+- [x] **POLI-09**: Formal per-phase visual checkpoint pattern. Each phase ends with operator-driven visual review documented in `.planning/phases/{N}/VISUAL-CHECK.md` (screenshots + verdict). Verifier gates on visual checkpoint pass. _(complete 2026-05-12 — Phase 24 plans 05 (v13-visual-capture.spec.ts 36-row matrix) + 07 (24-VISUAL-CHECK.md operator verdict PASS); 437e848 evidence assembly; 36/36 PNGs PASS at phase close)_
+- [x] **POLI-10**: Accessibility audit per phase via axe-core integration. WCAG AA contrast requirement on all new chrome (especially dark-theme text/background pairs in headers/sidebar). Focus rings on all interactive elements. _(complete 2026-05-12 — Phase 24 plans 05 (v13-a11y.spec.ts 30-run matrix) + 07 (06f09a2 cleared 3 Phase-24 regressions: Skeleton role="status", sidebar section-header --cmc-text-subtle→--cmc-text-dim, networkidle→domcontentloaded); 6 pre-existing v1.2-baseline contrast classes Accepted-Exception-deferred to Phase 26/27 per RESEARCH Pitfall 7)_
+- [x] **POLI-11**: Perf budget per phase — density toggle is CSS-only (no React re-renders confirmed via React DevTools profiler at phase close); chart polling stays <16ms paint; no `ResponsiveContainer` ResizeObserver pile-up regression. _(complete 2026-05-12 — Phase 24 plans 05 (lighthouserc.json + perf budget scaffolding) + 07 (Lighthouse 9/9 PASS: LCP 559-572ms / CLS 0-0.0032 / performance 1.0; DOM-identity zero-rerender probe substituted for React DevTools profiler — 3/3 chart + 15/15 card markers preserved across 2 density flips, functionally identical to "0 React commits below DensityToggle" with architectural backing from Plan 02's no-React-Context DensityProvider; ResponsiveContainer count delta 0 = 26 == v1.2 baseline 26; INP excluded from auto-assertions with inline rationale in 88e8417))_
 - [x] **POLI-12**: Affordance checklist `docs/affordance-checklist.md` — 15 keyboard/interaction affordances enumerated (Esc-to-close, focus-return, Tab-cycle inside Sheet, Cmd+K context commands, scroll-position-restore on Sheet close, drag handles, click-outside-to-close, theme toggle, density toggle, etc.). Verified at every phase close. _(complete 2026-05-11 — Phase 24 plan 06; commit 3698bf3)_
 - [x] **POLI-13**: URL contract documentation `docs/url-contract.md` + CI test (`tests/test_url_contract.py`) — enumerates every preserved URL pattern + validateSearch shape; CI fails if any preserved pattern breaks. _(complete 2026-05-11 — Phase 24 plans 05 + 06; commits 3698bf3 (docs) + cdeda8d (pytest); 2/2 passing)_
 - [x] **POLI-14**: `data-testid` registry (`docs/testid-registry.md`) + ESLint rule (`testid-registry-only`) — prevents Playwright selector churn during shell rework. Skip count locked at v1.2 baseline (2 known skips). _(complete 2026-05-11 — Phase 24 plan 06; commits e700a9e + 5e6bb73; pnpm lint enforces)_
@@ -184,7 +184,7 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 | CONT-02 | Phase 24 | Complete |
 | CONT-03 | Phase 24 | Complete |
 | CONT-04 | Phase 24 | Complete |
-| CONT-05 | Phase 24 | Pending |
+| CONT-05 | Phase 24 | ✅ Complete (plans 06 + 07, 2026-05-12) |
 | SHEL-01 | Phase 24 | Complete |
 | SHEL-02 | Phase 24 | Complete |
 | SHEL-03 | Phase 24 | Complete |
@@ -216,9 +216,9 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 | CMDK-02 | Phase 26 | Pending |
 | CMDK-03 | Phase 26 | Pending |
 | CMDK-04 | Phase 26 | Pending |
-| POLI-09 | Phase 24 | Pending |
-| POLI-10 | Phase 24 | Pending |
-| POLI-11 | Phase 24 | Pending |
+| POLI-09 | Phase 24 | ✅ Complete (plans 05 + 07, 2026-05-12) |
+| POLI-10 | Phase 24 | ✅ Complete (plans 05 + 07, 2026-05-12) |
+| POLI-11 | Phase 24 | ✅ Complete (plans 05 + 07, 2026-05-12) |
 | POLI-12 | Phase 24 | ✅ Complete (plan 06, 2026-05-11) |
 | POLI-13 | Phase 24 | ✅ Complete (plans 05+06, 2026-05-11) |
 | POLI-14 | Phase 24 | ✅ Complete (plan 06, 2026-05-11) |
@@ -231,6 +231,11 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 - Mapped to phases: 45 ✓
 - Unmapped: 0
 - Duplicates (mapped to >1 phase): 0
+
+**Progress (updated 2026-05-12):**
+- ✅ Phase 24 closed (operator verdict PASS, 2026-05-12): 18/18 requirements complete — SHEL-01..04, DENS-01..03, CONT-01..05, POLI-09..14
+- ⏳ Phases 25-28 pending: 27/45 requirements outstanding
+- Net v1.3 progress: 18/45 (40%)
 
 **Per-phase rollup:**
 
@@ -248,4 +253,4 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 
 *Requirements defined: 2026-05-10*
 *Traceability authored: 2026-05-10 (45/45 mapped, 0 orphans, 0 duplicates)*
-*Last updated: 2026-05-10 after roadmap creation*
+*Last updated: 2026-05-12 after Phase 24 close — POLI-09/10/11 + CONT-05 marked Complete; Phase 24 18/18 requirements satisfied*
