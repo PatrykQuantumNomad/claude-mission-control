@@ -98,7 +98,7 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
   5. Backend `saved_views` Alembic migration `0004_saved_views` applies cleanly; 5 CRUD endpoints (`GET /api/views?route=`, `POST`, `GET /{id}`, `PATCH`, `DELETE`) pass independently via curl + pytest before frontend wires; 50-view-per-route cap enforced with UI warning at cap; opaque `state_json` validated only via route's `validateSearch` on read; `schemaVersion` field on every route's search shape
 **Plans**: 11 plans
 - [x] 01-PLAN.md — Wave 1 backend: SavedView SQLModel + 0004_saved_views Alembic migration + migration round-trip tests (VIEW-02) ✅ 2026-05-12
-- [ ] 02-PLAN.md — Wave 1 backend: Pydantic schemas + 5 CRUD handlers + 50-cap + UNIQUE rejection + pytest router coverage (VIEW-03)
+- [x] 02-PLAN.md — Wave 1 backend: Pydantic schemas + 5 CRUD handlers + 50-cap + UNIQUE rejection + pytest router coverage (VIEW-03) ✅ 2026-05-12
 - [x] 03-PLAN.md — Wave 2 frontend: validateSearch on 5 routes (/, /activity, /skills, /cost, /alerts) + schemaVersion on /sessions/compare (VIEW-01) ✅ 2026-05-12
 - [x] 04-PLAN.md — Wave 2 frontend: validateSearch with range filter on /skills/$name; threads URL state into 4 detail panels (VIEW-01 success-criterion-1 enabler) ✅ 2026-05-12
 - [ ] 05-PLAN.md — Wave 2 frontend: API client verbs + TanStack Query hooks + lib/savedViews.ts (default pointer + pinned ids + recent FIFO 50-cap)
