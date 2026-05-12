@@ -48,11 +48,11 @@ Categorized by surface area. Each maps to exactly one phase in `ROADMAP.md` once
 - [x] **VIEW-01**: URL state via TanStack `validateSearch` extended to `/`, `/activity`, `/skills`, `/skills/$name`, `/cost`, `/alerts` (sessions/compare is already the reference implementation). Append-only schemas; `schemaVersion` field on every route. ✅ 2026-05-12 (Plans 03 + 04)
 - [x] **VIEW-02**: `saved_views` SQLite table + Alembic migration `0004_saved_views`. Columns at minimum: `id`, `name`, `description`, `route`, `state_json`, `schema_version`, `created_at`, `updated_at`. Pattern mirrors `tasks.py` shape. ✅ 2026-05-12 (Plan 01)
 - [x] **VIEW-03**: 5 CRUD endpoints (`GET /api/views?route=`, `POST /api/views`, `GET /api/views/{id}`, `PATCH /api/views/{id}`, `DELETE /api/views/{id}`). Independently testable via curl before frontend wires up. ✅ 2026-05-12 (Plan 02)
-- [ ] **VIEW-04**: SavedViewMenu mounted in `AppShellHeader`. Lists current-route's views; menu actions: open, set as default, edit/fork, delete. Per-route filtering.
-- [ ] **VIEW-05**: Save-view dialog with name + optional description; current URL state captured into `state_json`.
+- [x] **VIEW-04**: SavedViewMenu mounted in `AppShellHeader`. Lists current-route's views; menu actions: open, set as default, edit/fork, delete. Per-route filtering. ✅ 2026-05-12 (Plan 06)
+- [x] **VIEW-05**: Save-view dialog with name + optional description; current URL state captured into `state_json`. ✅ 2026-05-12 (Plan 06)
 - [ ] **VIEW-06**: Per-route default-view affordance — user can mark a saved view as "default for this route". Cold-loads on visit. Persistence: localStorage pointer (route → saved view id). Querystring always wins over default.
 - [ ] **VIEW-07**: Edit-vs-fork explicit semantics — when user modifies a loaded saved view, AlertDialog prompts: save changes / save as new (fork) / discard. No silent overwrite.
-- [ ] **VIEW-08**: Unsaved-changes pip indicator in chrome — visible badge when current URL state diverges from the loaded saved view.
+- [x] **VIEW-08**: Unsaved-changes pip indicator in chrome — visible badge when current URL state diverges from the loaded saved view. ✅ 2026-05-12 (Plan 06)
 - [ ] **VIEW-09**: Recent ad-hoc states list — last N URL states tracked in localStorage even if not saved as a view. Surfaced via Cmd+K (CMDK-04). 50-state cap with FIFO eviction; user warning at cap.
 
 ### Time-Anchored Navigation (TIME) — global time picker
@@ -197,11 +197,11 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 | VIEW-01 | Phase 25 | ✅ Complete (plans 03 + 04, 2026-05-12) |
 | VIEW-02 | Phase 25 | ✅ Complete (plan 01, 2026-05-12) |
 | VIEW-03 | Phase 25 | ✅ Complete (plan 02, 2026-05-12) |
-| VIEW-04 | Phase 25 | Pending |
-| VIEW-05 | Phase 25 | Pending |
+| VIEW-04 | Phase 25 | ✅ Complete (plan 06, 2026-05-12) |
+| VIEW-05 | Phase 25 | ✅ Complete (plan 06, 2026-05-12) |
 | VIEW-06 | Phase 25 | Pending |
 | VIEW-07 | Phase 25 | Pending |
-| VIEW-08 | Phase 25 | Pending |
+| VIEW-08 | Phase 25 | ✅ Complete (plan 06, 2026-05-12) |
 | VIEW-09 | Phase 25 | Pending |
 | TIME-01 | Phase 26 | Pending |
 | TIME-02 | Phase 26 | Pending |

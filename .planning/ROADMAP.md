@@ -102,7 +102,7 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 - [x] 03-PLAN.md — Wave 2 frontend: validateSearch on 5 routes (/, /activity, /skills, /cost, /alerts) + schemaVersion on /sessions/compare (VIEW-01) ✅ 2026-05-12
 - [x] 04-PLAN.md — Wave 2 frontend: validateSearch with range filter on /skills/$name; threads URL state into 4 detail panels (VIEW-01 success-criterion-1 enabler) ✅ 2026-05-12
 - [x] 05-PLAN.md — Wave 2 frontend: API client verbs + TanStack Query hooks + lib/savedViews.ts (default pointer + pinned ids + recent FIFO 50-cap) ✅ 2026-05-12
-- [ ] 06-PLAN.md — Wave 3 chrome: SavedViewMenu + SaveViewDialog + UnsavedPip + LoadedViewContext; replaces save-view-button placeholder (VIEW-04, VIEW-05, VIEW-08)
+- [x] 06-PLAN.md — Wave 3 chrome: SavedViewMenu + SaveViewDialog + UnsavedPip + LoadedViewContext; replaces save-view-button placeholder (VIEW-04, VIEW-05, VIEW-08) ✅ 2026-05-12 — 4 commits (9beb70d, 007c47e, f3b1241, 42500c8); frontend vitest 408 → 420 / 0 / 0; LoadedViewContext mounted in AppShell.tsx above Sidebar + Header; Radix DropdownMenu trigger with Bookmark icon replaces inert save-view-button placeholder; SaveViewDialog (Radix Dialog, NOT AlertDialog) with name + description form; UnsavedPip with schemaVersion-stripping stableStringify divergence detection; 16 testids registered (10 exact + 6 dynamic); normalizeRouteId exported; tsc/lint/build all clean.
 - [ ] 07-PLAN.md — Wave 3 chrome: EditOrForkDialog (3-button Radix Dialog) + wiring into SavedViewMenu's Edit affordance (VIEW-07)
 - [ ] 08-PLAN.md — Wave 4 cross-cut: Cmd+K Saved Views group with current-route-first ordering (CMDK-01)
 - [ ] 09-PLAN.md — Wave 4 cross-cut: Sidebar Pinned section with active-state on full search match (SHEL-06)
