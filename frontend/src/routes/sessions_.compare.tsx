@@ -23,18 +23,32 @@
 
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { SessionCompareView } from '../components/panels/SessionCompareView'
+import { SCHEMA_VERSION, coerceSchemaVersion } from '../lib/searchSchemas'
 
-type CompareSearch = { a?: string; b?: string }
+// Phase 25 / VIEW-01 extends this validator with `schemaVersion` (append-only;
+// existing UUID coercion of `a`/`b` untouched). Existing deep-links of the
+// shape `/sessions/compare?a=<uuid>&b=<uuid>` resolve identically — the
+// validator just augments the returned object with `schemaVersion: 1` so the
+// future saved-views layer can persist this route's search shape verbatim
+// without a special case.
+export type CompareSearch = {
+  // OPTIONAL on input — existing `<Link to="/sessions/compare" search={{ a, b }}>`
+  // and `navigate({ to: '/sessions/compare', search: { a, b } })` call sites
+  // stay untouched; the validator always populates the field on output.
+  schemaVersion?: typeof SCHEMA_VERSION
+  a?: string
+  b?: string
+}
 
 const UUID_RE =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
 
-function validateSearch(raw: Record<string, unknown>): CompareSearch {
+export function validateSearch(raw: Record<string, unknown>): CompareSearch {
   const a =
     typeof raw.a === 'string' && UUID_RE.test(raw.a) ? raw.a : undefined
   const b =
     typeof raw.b === 'string' && UUID_RE.test(raw.b) ? raw.b : undefined
-  return { a, b }
+  return { schemaVersion: coerceSchemaVersion(raw), a, b }
 }
 
 function SessionComparePage() {
