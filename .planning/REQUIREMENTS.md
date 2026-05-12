@@ -51,7 +51,7 @@ Categorized by surface area. Each maps to exactly one phase in `ROADMAP.md` once
 - [x] **VIEW-04**: SavedViewMenu mounted in `AppShellHeader`. Lists current-route's views; menu actions: open, set as default, edit/fork, delete. Per-route filtering. ✅ 2026-05-12 (Plan 06)
 - [x] **VIEW-05**: Save-view dialog with name + optional description; current URL state captured into `state_json`. ✅ 2026-05-12 (Plan 06)
 - [ ] **VIEW-06**: Per-route default-view affordance — user can mark a saved view as "default for this route". Cold-loads on visit. Persistence: localStorage pointer (route → saved view id). Querystring always wins over default.
-- [ ] **VIEW-07**: Edit-vs-fork explicit semantics — when user modifies a loaded saved view, AlertDialog prompts: save changes / save as new (fork) / discard. No silent overwrite.
+- [x] **VIEW-07**: Edit-vs-fork explicit semantics — when user modifies a loaded saved view, AlertDialog prompts: save changes / save as new (fork) / discard. No silent overwrite. ✅ 2026-05-12 (Plan 07; component-deviation note: shipped as Radix Dialog NOT AlertDialog per Pitfall 4 — user-observable behavior identical: 3 explicit choices, no silent overwrite path)
 - [x] **VIEW-08**: Unsaved-changes pip indicator in chrome — visible badge when current URL state diverges from the loaded saved view. ✅ 2026-05-12 (Plan 06)
 - [ ] **VIEW-09**: Recent ad-hoc states list — last N URL states tracked in localStorage even if not saved as a view. Surfaced via Cmd+K (CMDK-04). 50-state cap with FIFO eviction; user warning at cap.
 
@@ -200,7 +200,7 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 | VIEW-04 | Phase 25 | ✅ Complete (plan 06, 2026-05-12) |
 | VIEW-05 | Phase 25 | ✅ Complete (plan 06, 2026-05-12) |
 | VIEW-06 | Phase 25 | Pending |
-| VIEW-07 | Phase 25 | Pending |
+| VIEW-07 | Phase 25 | ✅ Complete (plan 07, 2026-05-12) |
 | VIEW-08 | Phase 25 | ✅ Complete (plan 06, 2026-05-12) |
 | VIEW-09 | Phase 25 | Pending |
 | TIME-01 | Phase 26 | Pending |
