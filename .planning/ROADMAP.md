@@ -96,7 +96,18 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
   3. User opens Cmd+K, types a saved view name, hits Enter, and lands on the matching route with the saved filters applied (current-route filtered first in the Saved Views command group)
   4. User pins a saved view from the SavedViewMenu and the view appears in the sidebar Pinned section for one-click access from any route
   5. Backend `saved_views` Alembic migration `0004_saved_views` applies cleanly; 5 CRUD endpoints (`GET /api/views?route=`, `POST`, `GET /{id}`, `PATCH`, `DELETE`) pass independently via curl + pytest before frontend wires; 50-view-per-route cap enforced with UI warning at cap; opaque `state_json` validated only via route's `validateSearch` on read; `schemaVersion` field on every route's search shape
-**Plans**: TBD
+**Plans**: 11 plans
+- [ ] 01-PLAN.md — Wave 1 backend: SavedView SQLModel + 0004_saved_views Alembic migration + migration round-trip tests (VIEW-02)
+- [ ] 02-PLAN.md — Wave 1 backend: Pydantic schemas + 5 CRUD handlers + 50-cap + UNIQUE rejection + pytest router coverage (VIEW-03)
+- [ ] 03-PLAN.md — Wave 2 frontend: validateSearch on 5 routes (/, /activity, /skills, /cost, /alerts) + schemaVersion on /sessions/compare (VIEW-01)
+- [ ] 04-PLAN.md — Wave 2 frontend: validateSearch with range filter on /skills/$name; threads URL state into 4 detail panels (VIEW-01 success-criterion-1 enabler)
+- [ ] 05-PLAN.md — Wave 2 frontend: API client verbs + TanStack Query hooks + lib/savedViews.ts (default pointer + pinned ids + recent FIFO 50-cap)
+- [ ] 06-PLAN.md — Wave 3 chrome: SavedViewMenu + SaveViewDialog + UnsavedPip + LoadedViewContext; replaces save-view-button placeholder (VIEW-04, VIEW-05, VIEW-08)
+- [ ] 07-PLAN.md — Wave 3 chrome: EditOrForkDialog (3-button Radix Dialog) + wiring into SavedViewMenu's Edit affordance (VIEW-07)
+- [ ] 08-PLAN.md — Wave 4 cross-cut: Cmd+K Saved Views group with current-route-first ordering (CMDK-01)
+- [ ] 09-PLAN.md — Wave 4 cross-cut: Sidebar Pinned section with active-state on full search match (SHEL-06)
+- [ ] 10-PLAN.md — Wave 4 cross-cut: DefaultViewLoader (VIEW-06) + RecentStateTracker (VIEW-09); both mount in AppShell
+- [ ] 11-PLAN.md — Wave 5 close gate: v13-saved-views.spec.ts + extend axe/sidebar/cmdk/visual-capture specs + author 25-VISUAL-CHECK.md (operator checkpoint)
 **UI hint**: yes
 
 ### Phase 26: Per-Route Adoption I (Command/Activity/Sessions) + Time + Cmd+K
@@ -168,7 +179,7 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 | 22. Skill Latency Overhead (spike-gated) | v1.2 | 2/2 | Complete | 2026-05-08 |
 | 23. Compare Depth & Milestone Close | v1.2 | 4/4 | Complete | 2026-05-09 |
 | 24. Shell + Density + Containment Primitives | v1.3 | 7/7 | Complete | 2026-05-12 |
-| 25. Saved Views (Backend + Frontend) | v1.3 | 0/0 | Not started | — |
+| 25. Saved Views (Backend + Frontend) | v1.3 | 0/11 | Not started | — |
 | 26. Per-Route Adoption I + Time + Cmd+K | v1.3 | 0/0 | Not started | — |
 | 27. Per-Route Adoption II + Tech Debt | v1.3 | 0/0 | Not started | — |
 | 28. Layout Customization | v1.3 | 0/0 | Not started | — |
