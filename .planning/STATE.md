@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Surface Redesign
-status: Phase 24 complete (7/7 plans). Operator verdict PASS signed 2026-05-12. Ready for Phase 25 (Saved Views — Backend + Frontend).
-last_updated: "2026-05-12T00:00:00.000Z"
-last_activity: 2026-05-12 — 24-07-SUMMARY.md authored. Phase 24 closes 7/7 plans complete. Plan 07 (phase close gate) shipped 8 atomic commits — 1c610d4 (CSS comment terminator), c7b1dea (visual-capture networkidle→domcontentloaded), 06f09a2 (axe a11y regressions cleared), 75244ec (portal-containment spec stabilization), e3cd82a (e2e + dropdown density-cascade), 88e8417 (Lighthouse INP exclusion), 437e848 (VISUAL-CHECK.md evidence assembly), and the metadata close commit. Operator-signed verdict PASS on 2026-05-12: 18/18 mapped requirements (SHEL-01..04, DENS-01..03, CONT-01..05, POLI-09..14) functionally verified. 36/36 visual matrix PASS, axe 0 Phase-24 blocking violations (3 regressions cleared inline, 6 pre-existing v1.2 contrast classes Accepted-Exception-deferred to Phase 26/27), Lighthouse 9/9 PASS (LCP 559-572ms, CLS 0-0.0032, performance 1.0), DOM-identity zero-rerender probe PASS (3/3 chart + 15/15 card markers preserved across 2 density flips), portal containment 3/3, URL contract 2/2, ResponsiveContainer delta 0. v1.3 milestone advances 0/5 → 1/5 phases complete.
+status: "Phase 24 closed 2026-05-12 with operator verdict PASS. v1.3 milestone progress 1/5 phases. Phase 25 ready to spawn via `/gsd:discuss-phase 25` or `/gsd:plan-phase 25`."
+last_updated: "2026-05-12T14:05:35.984Z"
+last_activity: 2026-05-12 — Phase 24 close-gate metadata write. 24-07-SUMMARY.md authored; 24-VISUAL-CHECK.md operator verdict signed PASS; STATE/ROADMAP/REQUIREMENTS updated. 6 operator screenshots force-added (visual-check/operator-*.png; otherwise .gitignored). 18/18 Phase 24 mapped requirements (SHEL-01..04, DENS-01..03, CONT-01..05, POLI-09..14) all marked Complete. 353/353 vitest preserved; backend pytest 663/0/0; pnpm build + tsc + lint all clean; Playwright 20 specs (18 pass + 2 forward-compat skip for truncation/copy-cell). DOM-identity zero-rerender probe substituted for React DevTools profiler at phase close — equivalent strength evidence, architectural backing from Plan 02's no-React-Context DensityProvider.
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 7
-  completed_plans: 7
-  percent: 100
+  total_plans: 18
+  completed_plans: 8
+  percent: 44
 ---
 
 # Project State
@@ -63,6 +63,7 @@ Progress (v1.3 milestone): [██░░░░░░░░] 20% (1/5 phases comp
 | Lighthouse CI (POLI-11) | n/a | 9/9 PASS | n/a | LCP 559-572ms / CLS 0-0.0032 / performance 1.0; INP excluded with rationale |
 | DOM-identity zero-rerender probe (POLI-11) | n/a | PASS | n/a | 3/3 chart + 15/15 card markers preserved across 2 density flips |
 | ResponsiveContainer count (POLI-11) | 26 | 26 | 0 | Phase 24 added zero charts |
+| Phase 25 P04 | ~6 min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -181,6 +182,9 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 - Brand `Mission Control` moved from header → top of sidebar (`.cmc-sidebar__header` + `.cmc-sidebar__brand`). When sidebar collapses, brand hides via `[data-sidebar-collapsed='true'] .cmc-sidebar__brand { display: none }` and only the collapse-toggle chevron remains in the sidebar header. Frees AppShellHeader for the action-area-only layout (locked invariant: AppShellHeader hosts no branding).
 - `min-width: 0` on `.cmc-shell__column` is the horizontal twin of the `min-height: 0` ladder — prevents a horizontal scrollbar when sidebar collapses and the column reclaims width. Locked invariant: any future flex-column-inside-flex-row pattern needs BOTH `min-width: 0` AND `min-height: 0` on the inner column to behave correctly.
 - DensityProvider wraps the `.cmc-shell` content tree (between TaskComposerProvider and the `.cmc-shell` div). Density cascade flows into Sidebar + AppShellHeader + main + Radix Portal descendants. Runtime Portal cascade verification (DENS-02) is deferred to Plan 05's Playwright fixture per Plan 02's documented happy-dom limitation — Plan 04's wiring made that fixture buildable.
+- [Phase ?]: Phase 25 Plan 04 — URL range '7d'|'14d'|'30d' narrows to backend SkillRange '14d'|'30d' via narrowToSkillRange helper
+- [Phase ?]: Phase 25 Plan 04 — /skills/$name validateSearch default range='14d' (locked invariant; any other default breaks every pre-Phase-25 deep-link without ?range=)
+- [Phase ?]: Phase 25 Plan 04 — validateSearch exported as named function (in addition to Route.options.validateSearch) — vitest entry-point pattern mirroring Plan 03's convention
 
 ### Resolved Blockers
 

@@ -179,7 +179,7 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 | 22. Skill Latency Overhead (spike-gated) | v1.2 | 2/2 | Complete | 2026-05-08 |
 | 23. Compare Depth & Milestone Close | v1.2 | 4/4 | Complete | 2026-05-09 |
 | 24. Shell + Density + Containment Primitives | v1.3 | 7/7 | Complete | 2026-05-12 |
-| 25. Saved Views (Backend + Frontend) | v1.3 | 0/11 | Not started | — |
+| 25. Saved Views (Backend + Frontend) | v1.3 | 1/11 | In Progress|  |
 | 26. Per-Route Adoption I + Time + Cmd+K | v1.3 | 0/0 | Not started | — |
 | 27. Per-Route Adoption II + Tech Debt | v1.3 | 0/0 | Not started | — |
 | 28. Layout Customization | v1.3 | 0/0 | Not started | — |
