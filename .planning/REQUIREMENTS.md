@@ -50,10 +50,10 @@ Categorized by surface area. Each maps to exactly one phase in `ROADMAP.md` once
 - [x] **VIEW-03**: 5 CRUD endpoints (`GET /api/views?route=`, `POST /api/views`, `GET /api/views/{id}`, `PATCH /api/views/{id}`, `DELETE /api/views/{id}`). Independently testable via curl before frontend wires up. ✅ 2026-05-12 (Plan 02)
 - [x] **VIEW-04**: SavedViewMenu mounted in `AppShellHeader`. Lists current-route's views; menu actions: open, set as default, edit/fork, delete. Per-route filtering. ✅ 2026-05-12 (Plan 06)
 - [x] **VIEW-05**: Save-view dialog with name + optional description; current URL state captured into `state_json`. ✅ 2026-05-12 (Plan 06)
-- [ ] **VIEW-06**: Per-route default-view affordance — user can mark a saved view as "default for this route". Cold-loads on visit. Persistence: localStorage pointer (route → saved view id). Querystring always wins over default.
+- [x] **VIEW-06**: Per-route default-view affordance — user can mark a saved view as "default for this route". Cold-loads on visit. Persistence: localStorage pointer (route → saved view id). Querystring always wins over default. ✅ 2026-05-12 (Plan 10 — DefaultViewLoader zero-render effect; Pitfall 8 deep-link-wins lock; e2e fixture substitution for /skills/$name documented as Accepted Exception (a) deferred to Phase 26)
 - [x] **VIEW-07**: Edit-vs-fork explicit semantics — when user modifies a loaded saved view, AlertDialog prompts: save changes / save as new (fork) / discard. No silent overwrite. ✅ 2026-05-12 (Plan 07; component-deviation note: shipped as Radix Dialog NOT AlertDialog per Pitfall 4 — user-observable behavior identical: 3 explicit choices, no silent overwrite path)
 - [x] **VIEW-08**: Unsaved-changes pip indicator in chrome — visible badge when current URL state diverges from the loaded saved view. ✅ 2026-05-12 (Plan 06)
-- [ ] **VIEW-09**: Recent ad-hoc states list — last N URL states tracked in localStorage even if not saved as a view. Surfaced via Cmd+K (CMDK-04). 50-state cap with FIFO eviction; user warning at cap.
+- [x] **VIEW-09**: Recent ad-hoc states list — last N URL states tracked in localStorage even if not saved as a view. Surfaced via Cmd+K (CMDK-04). 50-state cap with FIFO eviction; user warning at cap. ✅ 2026-05-12 (Plan 10 — RecentStateTracker zero-render effect; FIFO 50-cap with structural JSON.stringify dedupe via Plan 05's pushRecentState; IN_SCOPE_ROUTES hard-coded Set; bare-URL filter skips schemaVersion-only URLs; cap-warning surfaced as console.warn — CMDK-04 surface deferred to Phase 26)
 
 ### Time-Anchored Navigation (TIME) — global time picker
 
@@ -190,7 +190,7 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 | SHEL-03 | Phase 24 | Complete |
 | SHEL-04 | Phase 24 | Complete |
 | SHEL-05 | Phase 26 | Pending |
-| SHEL-06 | Phase 25 | Complete |
+| SHEL-06 | Phase 25 | ✅ Complete (plan 09, 2026-05-12) |
 | DENS-01 | Phase 24 | ✅ Complete (plans 02 + 05 e2e, 2026-05-11) |
 | DENS-02 | Phase 24 | ✅ Complete (plans 02 + 05 runtime Portal cascade fixture, 2026-05-11) |
 | DENS-03 | Phase 24 | ✅ Complete (plans 02 + 05 e2e persistence, 2026-05-11) |
@@ -199,10 +199,10 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 | VIEW-03 | Phase 25 | ✅ Complete (plan 02, 2026-05-12) |
 | VIEW-04 | Phase 25 | ✅ Complete (plan 06, 2026-05-12) |
 | VIEW-05 | Phase 25 | ✅ Complete (plan 06, 2026-05-12) |
-| VIEW-06 | Phase 25 | Pending |
+| VIEW-06 | Phase 25 | ✅ Complete (plan 10, 2026-05-12) |
 | VIEW-07 | Phase 25 | ✅ Complete (plan 07, 2026-05-12) |
 | VIEW-08 | Phase 25 | ✅ Complete (plan 06, 2026-05-12) |
-| VIEW-09 | Phase 25 | Pending |
+| VIEW-09 | Phase 25 | ✅ Complete (plan 10, 2026-05-12) |
 | TIME-01 | Phase 26 | Pending |
 | TIME-02 | Phase 26 | Pending |
 | TIME-03 | Phase 26 | Pending |
@@ -232,10 +232,11 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 - Unmapped: 0
 - Duplicates (mapped to >1 phase): 0
 
-**Progress (updated 2026-05-12):**
+**Progress (updated 2026-05-12 — Phase 25 close):**
 - ✅ Phase 24 closed (operator verdict PASS, 2026-05-12): 18/18 requirements complete — SHEL-01..04, DENS-01..03, CONT-01..05, POLI-09..14
-- ⏳ Phases 25-28 pending: 27/45 requirements outstanding
-- Net v1.3 progress: 18/45 (40%)
+- ✅ Phase 25 closed (operator verdict PASS, 2026-05-12): 11/11 requirements complete — VIEW-01..09, CMDK-01, SHEL-06
+- ⏳ Phases 26-28 pending: 16/45 requirements outstanding
+- Net v1.3 progress: 29/45 (64%)
 
 **Per-phase rollup:**
 
@@ -253,4 +254,4 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 
 *Requirements defined: 2026-05-10*
 *Traceability authored: 2026-05-10 (45/45 mapped, 0 orphans, 0 duplicates)*
-*Last updated: 2026-05-12 after Phase 24 close — POLI-09/10/11 + CONT-05 marked Complete; Phase 24 18/18 requirements satisfied*
+*Last updated: 2026-05-12 after Phase 25 close — VIEW-06 + VIEW-09 marked Complete; Phase 25 11/11 requirements satisfied (VIEW-01..09 + CMDK-01 + SHEL-06); v1.3 net progress 18/45 → 29/45 (40% → 64%)*
