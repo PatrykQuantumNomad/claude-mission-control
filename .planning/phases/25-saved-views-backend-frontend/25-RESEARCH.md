@@ -976,32 +976,37 @@ const id = storage.get<number>(`savedView.default.${route}`)
 
 **If the operator wants to lock these:** running `/gsd:discuss-phase` against this RESEARCH.md would convert them into CONTEXT.md decisions before plans land.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should `name` be UNIQUE per `(route, name)`?**
    - What we know: REQUIREMENTS.md / ROADMAP don't specify. The current `tasks` table has no uniqueness on title. Without uniqueness, two views can share a name on the same route, which is confusing in the menu but recoverable.
    - What's unclear: operator preference. Adding `UniqueConstraint("route", "name", name="uq_saved_views_route_name")` is cheap and prevents the confusing state.
    - Recommendation: **Add the unique constraint.** Reject duplicate names with 409 Conflict. Document explicitly in the migration. Cost: one extra `UniqueConstraint` + one extra pytest case. Benefit: prevents a class of UX bugs cheaply.
+   - **RESOLVED:** Plan 01 (model + migration) adds `UniqueConstraint("route", "name", name="uq_saved_views_route_name")`; Plan 02 (POST/PATCH handlers) catches `IntegrityError` and maps to 409 Conflict, with a pytest case in `test_views_router.py` asserting the conflict response.
 
 2. **Should `lifespan` auto-prune views beyond the 50-cap on boot, or always enforce only at write?**
    - What we know: cap is at-write only per current pattern.
    - What's unclear: whether stale data above-cap (from a future schema change that lowered the cap, or a hand-edited DB) should auto-prune.
    - Recommendation: write-only enforcement. Don't add boot-time pruning — too magical for single-user.
+   - **RESOLVED:** Plan 02 enforces the 50-cap inside the POST handler only (no lifespan / startup hook); a pytest case in `test_views_router.py` asserts that the 51st insert returns 400 with the cap-exceeded error.
 
 3. **Should the Cmd+K Saved Views group respect the `validateSearch` `schemaVersion` mismatch (warning if loading a v1 view on a v2 route)?**
    - What we know: §Pitfall 6 documents the round-trip caveat.
    - What's unclear: how loud the warning should be.
    - Recommendation: V1 — no warning, silent best-effort coercion. V2 (future) — soft inline warning when `view.schema_version < currentVersion`.
+   - **RESOLVED:** Plan 08 (Cmd+K Saved Views group) ships with silent best-effort coercion in v1 — no inline warning. Future schema bumps will revisit via a soft warning slot; documented in Plan 08's IMPORTANT notes.
 
 4. **Should pinned views appear in the sidebar in user-defined order, or default-sorted?**
    - What we know: SHEL-06 says "user-favorited", not ordered.
    - What's unclear: whether pin order matters.
    - Recommendation: default insertion order; expose drag-reorder in Phase 28 LAYO-02 if needed.
+   - **RESOLVED:** Plan 09 (PinnedViewsSection) renders pinned views in insertion order from `getPinnedIds()` (the localStorage array preserves push order); no sort applied. Drag-reorder is deferred to Phase 28 LAYO-02.
 
 5. **Should `GET /api/views` (no `route=` filter) be added for cross-route surfacing in Cmd+K?**
    - What we know: VIEW-03 spec lists `GET /api/views?route=` (REQUIRED filter). CMDK-01 says "current route filtered first" implying ALL routes are surfaced.
    - What's unclear: implementation. Two paths: (a) frontend calls `GET /api/views?route=<each route>` for each known route and merges client-side; (b) backend accepts `route` as optional and returns all when absent.
    - Recommendation: **Backend accepts `route` as optional.** Cleaner one-call surface for Cmd+K. Two-line change: drop `min_length=1`, omit `where` when None. Document explicitly that `route=` absent → all views. Mirrors `tasks` list's optional filters (`tasks.py:67-72`).
+   - **RESOLVED:** Plan 02 (router) declares `route: str | None = Query(default=None, max_length=200)` and omits the `where` clause when None — returning ALL views. Plan 05's `api.viewList(route?)` mirrors the optional shape; Plan 08's CommandPalette calls `useSavedViews()` (no route arg) to surface cross-route views.
 
 ## Validation Architecture
 
