@@ -2105,6 +2105,16 @@ body {
   justify-content: flex-end;
   gap: var(--space-sm);
 }
+/* Three-way action row: two secondaries on the left, primary on the right.
+ * Used by EditOrForkDialog (Phase 25 Plan 07 — VIEW-07). The 3-button
+ * variant keeps the 2-button AlertDialog primitive locked at 2 (Phase 24
+ * invariant); see Pitfall 4 in 25-RESEARCH.md. */
+.cmc-dialog__actions--three-way {
+  justify-content: space-between;
+}
+.cmc-dialog__actions--three-way > :first-child {
+  margin-right: auto;
+}
 .cmc-field {
   display: flex;
   flex-direction: column;

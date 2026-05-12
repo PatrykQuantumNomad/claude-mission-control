@@ -27,6 +27,11 @@ Established: Phase 24 (POLI-14). Skip count locked at the v1.2 baseline of 2 kno
 - `save-view-dialog-description-input` — SaveViewDialog description `<textarea>`
 - `save-view-dialog-submit` — SaveViewDialog submit `<button>`
 - `save-view-dialog-cancel` — SaveViewDialog cancel `<button>`
+- `edit-or-fork-dialog` — `frontend/src/components/savedviews/EditOrForkDialog.tsx` (Radix Dialog.Content — 3-button Edit/Fork/Discard chooser, Plan 07 VIEW-07)
+- `edit-or-fork-dialog-save` — EditOrForkDialog "Save changes" `<button>` (calls usePatchView)
+- `edit-or-fork-dialog-fork` — EditOrForkDialog "Save as new (fork)" `<button>` (invokes onFork prop)
+- `edit-or-fork-dialog-discard` — EditOrForkDialog "Discard changes" `<button>` (navigates back to loaded view's state_json)
+- `saved-view-menu-edit-current` — `frontend/src/components/savedviews/SavedViewMenu.tsx` (top-of-menu "Edit '<loaded view name>'…" item; renders only when loadedView && URL diverges)
 
 ### UI primitives (Phase 24)
 - `cell-copy-btn` — `frontend/src/components/ui/CopyIconButton.tsx`
