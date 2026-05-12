@@ -12,6 +12,7 @@ import { render, screen, userEvent, waitFor } from '../../../test/utils'
 import { CommandPalette } from '../CommandPalette'
 import { TaskComposerProvider } from '../../panels/TaskComposer'
 import { ActiveSessionProvider, useActiveSession } from '../../shell/ActiveSessionContext'
+import { LoadedViewProvider } from '../../savedviews/LoadedViewContext'
 import { qk } from '../../../lib/queries'
 import type {
   SessionListItemFull,
@@ -74,10 +75,17 @@ function TestWrap({
   // (production wiring in shell/AppShell.tsx). Most existing tests don't
   // exercise this gate; the provider's default activeSessionId=null keeps
   // the new action hidden so legacy assertions still pass.
+  // Phase 25 Plan 08: LoadedViewProvider must wrap CommandPalette because
+  // the palette now consumes useLoadedView() to wire the saved-views group's
+  // post-navigation chrome (SavedViewMenu trigger label etc.). Production
+  // mount site is AppShell (shell/AppShell.tsx). Without this provider the
+  // palette throws "useLoadedView must be used within LoadedViewProvider".
   return (
     <QueryClientProvider client={client}>
       <ActiveSessionProvider>
-        <TaskComposerProvider>{children}</TaskComposerProvider>
+        <LoadedViewProvider>
+          <TaskComposerProvider>{children}</TaskComposerProvider>
+        </LoadedViewProvider>
       </ActiveSessionProvider>
     </QueryClientProvider>
   )

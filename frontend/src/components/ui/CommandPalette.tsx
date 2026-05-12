@@ -33,6 +33,20 @@
 // `chosenSid === currentA` (defensive — backend already 400-rejects a==b
 // per Plan 16-01, but the UI shouldn't even let the user try).
 //
+// Phase 25 Plan 08 (CMDK-01) — "Saved Views" Command.Group surfaces every
+// saved view across every route (cross-route useSavedViews() with no filter).
+// Sort: current-route's views first (using normalizeRouteId(location.pathname)
+// to map `/skills/foo` → `/skills/$name`), then other routes' views — secondary
+// sort is alphabetical by name. Selecting a view does TWO things: navigate to
+// its route with state_json as search params, AND setLoadedView(v) so the
+// header chrome (SavedViewMenu trigger label + UnsavedPip + EditOrForkDialog)
+// wires correctly post-navigation. Dynamic-segment routes (`/skills/$name`)
+// have a v1 limitation: state_json is search-only, so the view is navigable
+// ONLY when the user is already on a matching pathname (e.g. /skills/foo). When
+// the user is elsewhere, selecting the view is a no-op + console.warn. Future
+// improvement: add a `params` field on SavedView (Phase 26+) if this is a UX
+// pain point. routePathFromId() encapsulates the navigability decision.
+//
 // Phase 23 Plan 02 (CMPR-07) — "Compare with previous session" action +
 // project_key picker scoping (D-07..D-14):
 //   - Visibility: action only renders when there is an "active session" to
@@ -60,11 +74,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useRouterState } from '@tanstack/react-router'
 import { useTaskComposer } from '../panels/TaskComposer'
 import {
+  useSavedViews,
   useSessionCompare,
   useSessionPrevious,
   useSessionsList,
 } from '../../lib/queries'
 import { useActiveSession } from '../shell/ActiveSessionContext'
+import { useLoadedView } from '../savedviews/LoadedViewContext'
+import { normalizeRouteId } from '../savedviews/SavedViewMenu'
+import type { SavedView } from '../../lib/api'
 import { Sheet } from './Sheet'
 
 const UUID_RE =
@@ -72,6 +90,53 @@ const UUID_RE =
 
 function parseSearchUuid(value: unknown): string | undefined {
   return typeof value === 'string' && UUID_RE.test(value) ? value : undefined
+}
+
+/**
+ * Phase 25 Plan 08 (CMDK-01) — resolve a SavedView.route id into a navigable
+ * pathname relative to the user's current location.
+ *
+ * - Static routes (no `$`): returns the route id verbatim.
+ * - Dynamic-segment routes (e.g. `/skills/$name`): navigable ONLY when the
+ *   current pathname is on the same base prefix (so the dynamic param value
+ *   is implicitly preserved). Returns the current pathname in that case;
+ *   returns `null` otherwise — caller should NOT navigate.
+ *
+ * v1 limitation: a saved view's `state_json` is search-params only — it does
+ * NOT carry the resolved dynamic param value. If the user saves a view on
+ * `/skills/foo` and later opens the Cmd+K palette from `/cost`, we cannot
+ * reconstruct `/skills/foo` without that param. Phase 26+ may add a `params`
+ * field on SavedView to lift this restriction.
+ */
+export function routePathFromId(
+  routeId: string,
+  currentPathname: string,
+): string | null {
+  if (!routeId.includes('$')) return routeId
+  const base = routeId.split('/$')[0] // e.g. '/skills/$name' → '/skills'
+  if (currentPathname === base) return null
+  if (currentPathname.startsWith(base + '/')) return currentPathname
+  return null
+}
+
+/**
+ * Phase 25 Plan 08 (CMDK-01) — produce the cross-route saved-views list
+ * sorted with the current-route's views first, then everything else, with a
+ * stable alphabetical secondary sort by name. Pure function (no hooks) so
+ * the test suite can exercise the ordering invariant without rendering the
+ * Command.Dialog. The CommandPalette body memoizes the result with the
+ * current route + the raw items array as deps.
+ */
+export function sortSavedViewsForPalette(
+  items: SavedView[],
+  currentRoute: string,
+): SavedView[] {
+  return [...items].sort((a, b) => {
+    const aIsCurrent = a.route === currentRoute ? 0 : 1
+    const bIsCurrent = b.route === currentRoute ? 0 : 1
+    if (aIsCurrent !== bIsCurrent) return aIsCurrent - bIsCurrent
+    return a.name.localeCompare(b.name)
+  })
 }
 
 export function CommandPalette() {
@@ -89,6 +154,22 @@ export function CommandPalette() {
   const search = (location.search ?? {}) as Record<string, unknown>
   const currentA = isOnCompareRoute ? parseSearchUuid(search.a) : undefined
   const currentB = isOnCompareRoute ? parseSearchUuid(search.b) : undefined
+
+  // Phase 25 Plan 08 (CMDK-01) — cross-route saved-views list. No route
+  // filter ⇒ every view across every route is fetched. Sort places the
+  // current-route's views first (via normalizeRouteId — same coercion site
+  // SavedViewMenu uses). setLoadedView wires the chrome after selection.
+  const { data: savedViewsData } = useSavedViews()
+  const { setLoadedView } = useLoadedView()
+  const currentRouteForViews = normalizeRouteId(location.pathname)
+  const sortedSavedViews = useMemo(
+    () =>
+      sortSavedViewsForPalette(
+        savedViewsData?.items ?? [],
+        currentRouteForViews,
+      ),
+    [savedViewsData, currentRouteForViews],
+  )
 
   // Phase 23 Plan 02 (CMPR-07): "Compare with previous session" needs to know
   // the user's currently focused session id. Two sources, in priority order:
@@ -171,6 +252,33 @@ export function CommandPalette() {
     })
     close()
   }, [compareWithPreviousSourceId, previousSid, navigate, close])
+
+  // Phase 25 Plan 08 (CMDK-01) — saved-view selection handler. Dynamic-route
+  // guard: routePathFromId returns null when the view's route requires a
+  // pathname param the current location can't supply (e.g. a /skills/$name
+  // view selected from /cost). In that case we soft-warn and exit; the user
+  // can still navigate to the right base route and re-open the palette.
+  // Successful navigation also runs setLoadedView(v) so the SavedViewMenu
+  // trigger label + UnsavedPip + EditOrForkDialog wire correctly.
+  const onSavedViewSelect = useCallback(
+    (v: SavedView) => {
+      const target = routePathFromId(v.route, location.pathname)
+      if (target === null) {
+        console.warn(
+          `[CommandPalette] Saved view "${v.name}" requires a specific entity (route ${v.route}) — navigate to ${v.route.split('/$')[0]}/<id> first.`,
+        )
+        close()
+        return
+      }
+      navigate({
+        to: target,
+        search: v.state_json as Record<string, unknown>,
+      })
+      setLoadedView(v)
+      close()
+    },
+    [navigate, setLoadedView, close, location.pathname],
+  )
 
   // Picker scoping (D-11..D-13): when side A is known, fetch its compare-side
   // payload to read `cwd` (the project-identity proxy — see header note).
@@ -266,6 +374,31 @@ export function CommandPalette() {
             >
               Skills
             </Command.Item>
+          </Command.Group>
+          <Command.Group heading="Saved Views" className="cmc-cmdk__group">
+            {sortedSavedViews.length === 0 ? (
+              <div
+                className="cmc-cmdk__empty"
+                data-testid="cmdk-saved-views-empty"
+              >
+                No saved views yet
+              </div>
+            ) : (
+              sortedSavedViews.map((v) => (
+                <Command.Item
+                  key={v.id}
+                  // cmdk searches against `value`; include name + route so
+                  // typing either surface filters the item in.
+                  value={`saved-view-${v.id} ${v.name} ${v.route}`}
+                  className="cmc-cmdk__item"
+                  data-testid={`cmdk-saved-view-${v.id}`}
+                  onSelect={() => onSavedViewSelect(v)}
+                >
+                  <span className="cmc-cmdk__item-name">{v.name}</span>
+                  <span className="cmc-cmdk__item-meta">{v.route}</span>
+                </Command.Item>
+              ))
+            )}
           </Command.Group>
           <Command.Group heading="Actions" className="cmc-cmdk__group">
             <Command.Item

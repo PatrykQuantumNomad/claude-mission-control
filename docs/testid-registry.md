@@ -42,6 +42,7 @@ Established: Phase 24 (POLI-14). Skip count locked at the v1.2 baseline of 2 kno
 ### Cmd+K (v1.2 baseline)
 - `cmdk-compare-picker-list` — `frontend/src/components/cmdk/*` (Compare-picker list container)
 - `cmdk-compare-with-previous` — Compare-with-previous command item
+- `cmdk-saved-views-empty` — `frontend/src/components/ui/CommandPalette.tsx` (Phase 25 Plan 08 CMDK-01: empty-state body inside the "Saved Views" Command.Group when useSavedViews returns zero items)
 
 ### Cost route (v1.2 baseline)
 - `cost-by-project-card` — `frontend/src/components/panels/CostByProjectCard.tsx`
@@ -96,6 +97,7 @@ These testids are constructed at runtime from variable input (e.g., row id, rout
 - `saved-view-pin-{id}` — SavedViewMenu submenu Pin/Unpin toggle.
 - `saved-view-fork-{id}` — SavedViewMenu submenu "Save as new (fork)" action.
 - `saved-view-delete-{id}` — SavedViewMenu submenu Delete action.
+- `cmdk-saved-view-{id}` — `frontend/src/components/ui/CommandPalette.tsx` (Phase 25 Plan 08 CMDK-01: per-view Command.Item inside the "Saved Views" Command.Group; id is the SavedView.id from the backend).
 
 ## Skip count
 
