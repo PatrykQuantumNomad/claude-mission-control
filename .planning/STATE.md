@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Surface Redesign
-status: "Phase 24 closed 2026-05-12 with operator verdict PASS. v1.3 milestone progress 1/5 phases. Phase 25 ready to spawn via `/gsd:discuss-phase 25` or `/gsd:plan-phase 25`."
-last_updated: "2026-05-12T14:05:35.984Z"
-last_activity: 2026-05-12 — Phase 24 close-gate metadata write. 24-07-SUMMARY.md authored; 24-VISUAL-CHECK.md operator verdict signed PASS; STATE/ROADMAP/REQUIREMENTS updated. 6 operator screenshots force-added (visual-check/operator-*.png; otherwise .gitignored). 18/18 Phase 24 mapped requirements (SHEL-01..04, DENS-01..03, CONT-01..05, POLI-09..14) all marked Complete. 353/353 vitest preserved; backend pytest 663/0/0; pnpm build + tsc + lint all clean; Playwright 20 specs (18 pass + 2 forward-compat skip for truncation/copy-cell). DOM-identity zero-rerender probe substituted for React DevTools profiler at phase close — equivalent strength evidence, architectural backing from Plan 02's no-React-Context DensityProvider.
+status: "Phase 25 in flight — plan-03 ✅ complete (parallel wave 1 with plans 01 + 04). Frontend `validateSearch` + `schemaVersion` substrate landed across 6 routes."
+last_updated: "2026-05-12T14:09:00.000Z"
+last_activity: 2026-05-12 — Phase 25 plan-03 shipped 2 atomic commits (062c2d4 feat + e1a2cd2 test). Frontend `validateSearch` + `schemaVersion` substrate landed on 6 routes (/, /activity, /skills, /cost, /alerts, /sessions/compare). Shared `lib/searchSchemas.ts` (SCHEMA_VERSION=1 + coerceSchemaVersion helper). 19 new vitest specs (380 total = 353 baseline + plan-03 +19 + plan-04 +8). 1 Rule-2 deviation: `schemaVersion?:` marked optional on input type so existing Link/navigate sites stay untouched (CommandPalette + SessionsTable + SessionComparePage all preserved). Named-export validateSearch pattern locked; Plan 04 mirrored. pnpm tsc/lint/build clean; backend URL contract 2/2 PASS preserved (no route renames). VIEW-01 schema substrate ready for Plan 05's hook layer.
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 18
-  completed_plans: 8
-  percent: 44
+  completed_plans: 9
+  percent: 50
 ---
 
 # Project State
@@ -25,13 +25,13 @@ See: .planning/PROJECT.md (updated 2026-05-10 after v1.3 milestone start)
 
 ## Current Position
 
-Phase: 25 — Saved Views (Backend + Frontend) (0/0 plans authored — pending discuss-phase / plan-phase)
-Plan: Phase 24 ✅ complete (7/7) → next: spawn Phase 25 planning
-Status: Phase 24 closed 2026-05-12 with operator verdict PASS. v1.3 milestone progress 1/5 phases. Phase 25 ready to spawn via `/gsd:discuss-phase 25` or `/gsd:plan-phase 25`.
-Last activity: 2026-05-12 — Phase 24 close-gate metadata write. 24-07-SUMMARY.md authored; 24-VISUAL-CHECK.md operator verdict signed PASS; STATE/ROADMAP/REQUIREMENTS updated. 6 operator screenshots force-added (visual-check/operator-*.png; otherwise .gitignored). 18/18 Phase 24 mapped requirements (SHEL-01..04, DENS-01..03, CONT-01..05, POLI-09..14) all marked Complete. 353/353 vitest preserved; backend pytest 663/0/0; pnpm build + tsc + lint all clean; Playwright 20 specs (18 pass + 2 forward-compat skip for truncation/copy-cell). DOM-identity zero-rerender probe substituted for React DevTools profiler at phase close — equivalent strength evidence, architectural backing from Plan 02's no-React-Context DensityProvider.
+Phase: 25 — Saved Views (Backend + Frontend) (11 plans authored; execution in progress — Plan 03 complete in parallel wave 1 with Plan 04)
+Plan: Phase 25 plan-03 ✅ complete (2/2 tasks) — `validateSearch` + `schemaVersion` schema landed on 6 frontend routes
+Status: Plan 03 commits 062c2d4 (feat) + e1a2cd2 (test) landed 2026-05-12. Parallel wave 1: Plan 01 (backend Alembic 0004) + Plan 03 (frontend search schema) + Plan 04 (frontend /skills/$name range hoist) all executing. Next: wave 1 close + spawn wave 2 (Plan 05 saved-views hook layer).
+Last activity: 2026-05-12 — Plan 03 shipped 2 atomic commits. 380/380 vitest (baseline 353 + plan-03 +19 + plan-04 +8). `validateSearch` named-export pattern locked; `schemaVersion?:` optional-on-input invariant locked across all 6 routes (preserves every existing Link/navigate call site). `pnpm tsc/lint/build` clean; URL contract 2/2 PASS preserved (no route renames). VIEW-01 schema substrate ready for Plan 05's hook layer to consume.
 
-Progress (Phase 24 plans): [██████████] 100% (7/7 plans complete)
-Progress (v1.3 milestone): [██░░░░░░░░] 20% (1/5 phases complete)
+Progress (Phase 25 plans): [██░░░░░░░░░] 18% (2/11 plans complete — assuming Plan 01 and Plan 03 closed; Plan 04 still in flight at this writeback)
+Progress (v1.3 milestone): [██░░░░░░░░] 20% (1/5 phases complete — Phase 25 in flight)
 
 ## Performance Metrics
 
@@ -171,6 +171,19 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 - **Operator screenshots saved as `visual-check/operator-*.png` and force-added via `git add -f`** — `visual-check/*.png` is `.gitignored` by default per plan 05; operator-curated evidence is the explicit exception. Pattern locked for Phases 25-28 close-gates.
 - **9-item operator inline-notes section in VISUAL-CHECK.md** captures the in-browser verification narrative: (1) shell IA snapshot, (2) Cmd+B keyboard collapse + persistence, (3) Radix Tooltip portal on collapsed icon, (4) active-route accent CSS measurements, (5) density DropdownMenu portal, (6) DOM-identity zero-rerender probe, (7) visual-matrix spot-check, (8) console errors review, (9) Accepted Exceptions acknowledgement. Forkable for Phase 25-28 close-gates.
 
+**v1.3 Phase 25 plan-03 execution decisions:**
+
+- `validateSearch` is exported as a **named export** from each route file (not via `Route.options.validateSearch`). Plan 04 must mirror — verified done in commits 5e79a22 + 625dc01. Locked pattern: any future route's validator is a `export function validateSearch(raw): XxxSearch` declaration above `createFileRoute(...)({ validateSearch, component })`. Trivially testable via direct import; zero coupling to TanStack Router internals; visible at file top without scrolling past JSX.
+- `schemaVersion?: typeof SCHEMA_VERSION` (OPTIONAL on input) is the locked type-system pattern. TanStack Router infers navigation input type from the validator's return type; marking the field required would force `search={{ schemaVersion: 1 }}` on every existing `<Link to=...>` / `navigate({ to })` call site (8 sites discovered in CommandPalette / SessionsTable / SessionComparePage / skills_.$name). Optional marker preserves the runtime guarantee (validator always populates) without the navigation surface concession. Locked invariant for all future routes that bump SCHEMA_VERSION.
+- `frontend/src/lib/searchSchemas.ts` is the single source of truth for `SCHEMA_VERSION` and `coerceSchemaVersion`. `coerceSchemaVersion(raw)` is the migration seam — today returns `1` regardless of input; future bumps branch on `raw.schemaVersion` to migrate older blobs into the current shape before returning the current constant. Underscore-prefixed parameter (`_raw`) silences ESLint `no-unused-vars` per Phase 24 Plan 06 ESLint config convention.
+- The plan deliberately did NOT thread filters into panel JSX. Saved views (Plan 05) WILL persist a `state_json` blob that the future per-route adoption (Phase 26/27) will then hydrate into the actual panel state. Locked sequencing: schema first (Plan 03/04), hook layer second (Plan 05), per-route adoption third (Phase 26/27). Panel-internal localStorage state is enumerated in 25-03-SUMMARY.md "Panel-internal filter state" table — saved views WILL NOT capture them until per-route adoption migrates them into the search shape.
+- The 6 routes covered by Plan 03: `/`, `/activity`, `/skills`, `/cost`, `/alerts`, `/sessions/compare`. Plan 04 covers `/skills/$name`. All 7 in-scope routes for VIEW-01 now have `validateSearch` named exports. Plan 03 + Plan 04 ran in parallel without file overlap (Plan 04's only touch in shared scope is reading the `SCHEMA_VERSION` / `coerceSchemaVersion` symbols from `lib/searchSchemas.ts` — pure consumer).
+
+**v1.3 Phase 25 plan-03 execution coordination notes:**
+
+- Parallel-agent pre-staging cleanup: at Plan 03 Task 1 commit time, Plan 04 had `frontend/src/lib/__tests__/skillsDetailRange.test.tsx` pre-staged in the index (`A` line in `git status --short`). My `git add <my-files>` would have swept it into MY commit. Resolution: `git reset HEAD frontend/src/lib/__tests__/skillsDetailRange.test.tsx` BEFORE my scoped `git add`. Plan 04 then re-staged and committed it as `625dc01`. Locked pattern: always run `git status --short` immediately before staging, and `git reset HEAD <file>` any `A`-prefixed files that aren't part of the current task. This is the same pattern documented in Phase 24 plan-03 coordination notes.
+- Confused snapshot-timing system reminders: during execution, Claude received system reminders quoting the **pre-edit** state of route files even though my edits had already landed on disk. `git status` confirmed the edits as modified-but-unstaged. The reminders are best-treated as informational; trust `git status --short` + `grep` on the actual on-disk file as the ground truth.
+
 **v1.3 Phase 24 plan-04 execution decisions:**
 
 - Sidebar chrome collapse-toggle uses Lucide `PanelLeftClose` / `PanelLeftOpen` icon pair (NOT `Menu`/`X` or `ChevronLeft`/`ChevronRight`). Pair telegraphs panel-direction intent and matches VS Code's chrome handle convention. Icon swaps based on `collapsed` state. Locked invariant: any future panel-collapse chrome (right sidebar, bottom panel) should follow the same `Panel*Close` / `Panel*Open` pattern.
@@ -225,8 +238,14 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 4. ✅ Roadmap creation (ROADMAP.md authored 2026-05-10 — Phases 24-28, 45/45 mapped)
 5. ✅ Phase 24 plans authored (01-07-PLAN.md present)
 6. ✅ Phase 24 execution complete (7/7 plans, 2026-05-10..12; operator verdict PASS signed 2026-05-12; 18/18 mapped requirements satisfied)
-7. ⏳ Phase 25 → 26 → 27 → 28 execution (0/4 phases started; recommended next: `/gsd:discuss-phase 25`)
+7. ⏳ Phase 25 → 26 → 27 → 28 execution (Phase 25 in flight — plans 01, 03 closed; plan 04 in flight; wave 2+ pending)
 8. v1.3 milestone audit + close
+
+**Phase 25 plan execution log:**
+
+| Plan | Status | Commits | Notes |
+|---|---|---|---|
+| 03 — frontend validateSearch + schemaVersion (VIEW-01) | ✅ Complete (2026-05-12) | 062c2d4, e1a2cd2 | parallel wave 1 with plan 01 (backend) + plan 04 (frontend /skills/$name). Shared lib/searchSchemas.ts (SCHEMA_VERSION=1 + coerceSchemaVersion). 6 routes gained `validateSearch` named export: /, /activity, /skills, /cost, /alerts + /sessions/compare (existing UUID coercion preserved verbatim, append-only invariant honored). 19 new vitest specs (380 total = 353 baseline + plan-03 +19 + plan-04 +8). 1 Rule-2 deviation: `schemaVersion?:` marked optional on input type (was required in plan), so existing Link/navigate call sites in CommandPalette/SessionsTable/SessionComparePage stay untouched — validator always populates on output regardless. Plan 04 mirrored named-export pattern (commits 5e79a22 + 625dc01). pnpm tsc/lint/build clean; URL contract 2/2 PASS preserved (no route renames). |
 
 **Phase 24 plan execution log:**
 
@@ -242,4 +261,7 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 
 ## Next Step
 
-Phase 24 complete (7/7). v1.3 milestone progress: 1/5 phases. Run `/gsd:discuss-phase 25` (or `/gsd:plan-phase 25` if discussion already happened in the v1.3 roadmap-time conversation) to author Phase 25 plans — Saved Views (Backend + Frontend). Phase 25 consumes from Phase 24: `AppShellHeader` (SHEL-02), density tokens (DENS-01..03), `docs/testid-registry.md` + `cmc/testid-registry-only` ESLint rule (POLI-14), `docs/url-contract.md` + `tests/test_url_contract.py` (POLI-13), Radix Popover + Radix DropdownMenu (Plan 01), axe-core gate (POLI-10), visual checkpoint pattern (POLI-09).
+Phase 25 plan 03 ✅ complete. Plans 01 (backend Alembic 0004) + 04 (/skills/$name range hoist) running in parallel wave 1. Once wave 1 closes, spawn wave 2 — Plan 05 (saved-views hook layer consuming the validated search shapes from Plan 03 + Plan 04). Locked invariants established by Plan 03 for the hook layer:
+- `validateSearch` is a named export from every route file (`import { validateSearch } from '../../routes/<name>'`) — Plan 05 hook can import and re-coerce a raw search blob on save.
+- `schemaVersion?: typeof SCHEMA_VERSION` is optional on input, always populated on output — Plan 05's `useSearch()` consumers can safely assume `searchVersion === 1` at runtime.
+- `frontend/src/lib/searchSchemas.ts` exports `SCHEMA_VERSION` + `coerceSchemaVersion` — the migration seam for any future version bump.
