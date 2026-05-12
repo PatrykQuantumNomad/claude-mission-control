@@ -142,6 +142,10 @@ async def patch_view(
         raise HTTPException(status_code=404, detail="saved view not found")
 
     updates = payload.model_dump(exclude_unset=True)
+    # Capture route BEFORE setattr loop so the error message survives a
+    # rollback-induced expiry (SQLAlchemy expires attrs on rollback even when
+    # the sessionmaker is configured expire_on_commit=False).
+    row_route = row.route
     for k, v in updates.items():
         setattr(row, k, v)
     row.updated_at = now_utc()
@@ -153,7 +157,7 @@ async def patch_view(
             status_code=400,
             detail=(
                 f"saved view name {payload.name!r} already exists "
-                f"on route {row.route!r}"
+                f"on route {row_route!r}"
             ),
         ) from exc
     await db.refresh(row)

@@ -824,3 +824,48 @@ def make_schedule_orm(**overrides):
     )
     defaults.update(overrides)
     return Schedule(**defaults)
+
+
+# ---- Phase 25 plan-02 — saved_views direct-DB seeding factory ----
+
+
+async def make_saved_view_row(
+    session,
+    *,
+    name: str = "Test view",
+    description: str = "",
+    route: str = "/",
+    state_json: dict | None = None,
+    schema_version: int = 1,
+):
+    """Async factory for direct-DB seeding of saved_views rows in tests.
+
+    Unlike `make_task_row` / `make_session_row` (which return dicts for caller-
+    side INSERT), this helper inserts + commits + refreshes in a single call.
+    The 50-cap test (`test_create_view_enforces_50_cap`) seeds 50 rows in a
+    tight loop, so the async-DB-writer shape removes per-call boilerplate at
+    the test sites.
+
+    Mirrors the SavedView model defaults exactly:
+      - `name` non-empty by default; tests may override
+      - `state_json` defaults to {} (opaque dict; never schema-validated backend-side)
+      - `created_at` / `updated_at` stamped via cmc.core.time.now_utc (canonical
+        naive-UTC factory; locked invariant)
+    """
+    from cmc.core.time import now_utc
+    from cmc.db.models.saved_views import SavedView
+
+    now = now_utc()
+    row = SavedView(
+        name=name,
+        description=description,
+        route=route,
+        state_json=state_json or {},
+        schema_version=schema_version,
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+    return row
