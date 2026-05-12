@@ -45,8 +45,8 @@ Categorized by surface area. Each maps to exactly one phase in `ROADMAP.md` once
 
 ### Saved Views (VIEW) — server-persisted, per-route, URL-shareable
 
-- [ ] **VIEW-01**: URL state via TanStack `validateSearch` extended to `/`, `/activity`, `/skills`, `/skills/$name`, `/cost`, `/alerts` (sessions/compare is already the reference implementation). Append-only schemas; `schemaVersion` field on every route.
-- [ ] **VIEW-02**: `saved_views` SQLite table + Alembic migration `0004_saved_views`. Columns at minimum: `id`, `name`, `description`, `route`, `state_json`, `schema_version`, `created_at`, `updated_at`. Pattern mirrors `tasks.py` shape.
+- [x] **VIEW-01**: URL state via TanStack `validateSearch` extended to `/`, `/activity`, `/skills`, `/skills/$name`, `/cost`, `/alerts` (sessions/compare is already the reference implementation). Append-only schemas; `schemaVersion` field on every route. ✅ 2026-05-12 (Plans 03 + 04)
+- [x] **VIEW-02**: `saved_views` SQLite table + Alembic migration `0004_saved_views`. Columns at minimum: `id`, `name`, `description`, `route`, `state_json`, `schema_version`, `created_at`, `updated_at`. Pattern mirrors `tasks.py` shape. ✅ 2026-05-12 (Plan 01)
 - [ ] **VIEW-03**: 5 CRUD endpoints (`GET /api/views?route=`, `POST /api/views`, `GET /api/views/{id}`, `PATCH /api/views/{id}`, `DELETE /api/views/{id}`). Independently testable via curl before frontend wires up.
 - [ ] **VIEW-04**: SavedViewMenu mounted in `AppShellHeader`. Lists current-route's views; menu actions: open, set as default, edit/fork, delete. Per-route filtering.
 - [ ] **VIEW-05**: Save-view dialog with name + optional description; current URL state captured into `state_json`.
@@ -194,8 +194,8 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 | DENS-01 | Phase 24 | ✅ Complete (plans 02 + 05 e2e, 2026-05-11) |
 | DENS-02 | Phase 24 | ✅ Complete (plans 02 + 05 runtime Portal cascade fixture, 2026-05-11) |
 | DENS-03 | Phase 24 | ✅ Complete (plans 02 + 05 e2e persistence, 2026-05-11) |
-| VIEW-01 | Phase 25 | Pending |
-| VIEW-02 | Phase 25 | Pending |
+| VIEW-01 | Phase 25 | ✅ Complete (plans 03 + 04, 2026-05-12) |
+| VIEW-02 | Phase 25 | ✅ Complete (plan 01, 2026-05-12) |
 | VIEW-03 | Phase 25 | Pending |
 | VIEW-04 | Phase 25 | Pending |
 | VIEW-05 | Phase 25 | Pending |

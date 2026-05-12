@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Surface Redesign
-status: "Phase 25 in flight — plan-03 ✅ complete (parallel wave 1 with plans 01 + 04). Frontend `validateSearch` + `schemaVersion` substrate landed across 6 routes."
-last_updated: "2026-05-12T14:09:00.000Z"
-last_activity: 2026-05-12 — Phase 25 plan-03 shipped 2 atomic commits (062c2d4 feat + e1a2cd2 test). Frontend `validateSearch` + `schemaVersion` substrate landed on 6 routes (/, /activity, /skills, /cost, /alerts, /sessions/compare). Shared `lib/searchSchemas.ts` (SCHEMA_VERSION=1 + coerceSchemaVersion helper). 19 new vitest specs (380 total = 353 baseline + plan-03 +19 + plan-04 +8). 1 Rule-2 deviation: `schemaVersion?:` marked optional on input type so existing Link/navigate sites stay untouched (CommandPalette + SessionsTable + SessionComparePage all preserved). Named-export validateSearch pattern locked; Plan 04 mirrored. pnpm tsc/lint/build clean; backend URL contract 2/2 PASS preserved (no route renames). VIEW-01 schema substrate ready for Plan 05's hook layer.
+status: "Phase 25 wave 1 closed — Plans 01 + 03 + 04 all shipped. Backend saved_views table + Alembic 0004 + frontend validateSearch substrate + /skills/$name range hoist all landed. Ready for wave 2 (Plan 05 hook layer + Plan 02 backend endpoints)."
+last_updated: "2026-05-12T14:13:22.000Z"
+last_activity: "2026-05-12 — Plan 01 shipped 3 atomic commits (06f3e77 model + 03df53f Alembic 0004 + b0aa566 round-trip tests). Backend pytest 663 → 665 / 0 / 0. SavedView SQLModel + Alembic 0004_saved_views migration foundation for Phase 25 VIEW-02. UNIQUE (route, name) constraint enforced + tested. Wave 1 (Plans 01 + 03 + 04) closes parallel-execution band. Plan 05 (frontend hook layer) + Plan 02 (backend POST/GET endpoints) are wave 2 next."
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 18
-  completed_plans: 9
-  percent: 50
+  completed_plans: 11
+  percent: 61
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-05-10 after v1.3 milestone start)
 
 ## Current Position
 
-Phase: 25 — Saved Views (Backend + Frontend) (11 plans authored; execution in progress — Plan 03 complete in parallel wave 1 with Plan 04)
-Plan: Phase 25 plan-03 ✅ complete (2/2 tasks) — `validateSearch` + `schemaVersion` schema landed on 6 frontend routes
-Status: Plan 03 commits 062c2d4 (feat) + e1a2cd2 (test) landed 2026-05-12. Parallel wave 1: Plan 01 (backend Alembic 0004) + Plan 03 (frontend search schema) + Plan 04 (frontend /skills/$name range hoist) all executing. Next: wave 1 close + spawn wave 2 (Plan 05 saved-views hook layer).
-Last activity: 2026-05-12 — Plan 03 shipped 2 atomic commits. 380/380 vitest (baseline 353 + plan-03 +19 + plan-04 +8). `validateSearch` named-export pattern locked; `schemaVersion?:` optional-on-input invariant locked across all 6 routes (preserves every existing Link/navigate call site). `pnpm tsc/lint/build` clean; URL contract 2/2 PASS preserved (no route renames). VIEW-01 schema substrate ready for Plan 05's hook layer to consume.
+Phase: 25 — Saved Views (Backend + Frontend) (11 plans authored; parallel wave 1 closed — Plans 01 + 03 + 04 all complete)
+Plan: Phase 25 plan-01 ✅ complete (3/3 tasks) — backend saved_views table + Alembic 0004 migration + round-trip tests
+Status: Wave 1 closed 2026-05-12 — Plan 01 (backend Alembic 0004) + Plan 03 (frontend search schema) + Plan 04 (frontend /skills/$name range hoist) all shipped. Plan 01 commits 06f3e77 (model + autogen) + 03df53f (Alembic 0004) + b0aa566 (round-trip tests). Backend pytest 663 → 665 / 0 / 0. Next: spawn wave 2 (Plan 05 saved-views hook layer consuming Plan 03's validateSearch shapes + Plan 01's backend table).
+Last activity: 2026-05-12 — Plan 01 shipped 3 atomic commits. SavedView SQLModel (`cmc.db.models.saved_views`) + Alembic 0004_saved_views (DDL-only, chained off 0003_project_key) + 2 migration round-trip tests + test_foundation_boot table-count assertions bumped 18 → 19. UNIQUE (route, name) test asserts both CREATE TABLE DDL identity AND runtime enforcement via IntegrityError probe (SQLite stores table-level UNIQUE as `sqlite_autoindex_*`, not the declared name). 5 Rule-1 deviations (mechanical: test-fixture pattern correction, table-count delta in sibling tests, ruff E501 + B007 lints). Backend pytest 665/0/0; foundation ready for Plan 02 (POST/GET endpoints) + Plan 05 (frontend hook layer).
 
-Progress (Phase 25 plans): [██░░░░░░░░░] 18% (2/11 plans complete — assuming Plan 01 and Plan 03 closed; Plan 04 still in flight at this writeback)
+Progress (Phase 25 plans): [███░░░░░░░░] 27% (3/11 plans complete — Plans 01, 03, 04)
 Progress (v1.3 milestone): [██░░░░░░░░] 20% (1/5 phases complete — Phase 25 in flight)
 
 ## Performance Metrics
@@ -171,6 +171,20 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 - **Operator screenshots saved as `visual-check/operator-*.png` and force-added via `git add -f`** — `visual-check/*.png` is `.gitignored` by default per plan 05; operator-curated evidence is the explicit exception. Pattern locked for Phases 25-28 close-gates.
 - **9-item operator inline-notes section in VISUAL-CHECK.md** captures the in-browser verification narrative: (1) shell IA snapshot, (2) Cmd+B keyboard collapse + persistence, (3) Radix Tooltip portal on collapsed icon, (4) active-route accent CSS measurements, (5) density DropdownMenu portal, (6) DOM-identity zero-rerender probe, (7) visual-matrix spot-check, (8) console errors review, (9) Accepted Exceptions acknowledgement. Forkable for Phase 25-28 close-gates.
 
+**v1.3 Phase 25 plan-01 execution decisions:**
+
+- `SavedView.state_json` is OPAQUE to backend (VIEW-02 lock). Declared as `dict[str, Any]` + `sa_column=Column(JSON, nullable=False)` — backend round-trips it without deserializing. Validation lives in the route's frontend `validateSearch` on read. Locked invariant: any future backend code that calls `json.loads()` on `state_json` or schema-validates it on insert is a contract violation. Mirror schedules.task_template precedent (same JSON column pattern, same opaque-blob philosophy).
+- `UNIQUE (route, name)` chosen over a plain non-unique (route, name) index — surfaces duplicate-name attempts as HTTP 409 Conflict in Plan 02's POST handler instead of leaking the bug to the frontend (Research OQ#1 resolved). SQLite stores this table-level constraint as a `sqlite_autoindex_*` autoindex on (route, name), but the declared name `uq_saved_views_route_name` is preserved in the CREATE TABLE DDL — so future `op.drop_constraint("uq_saved_views_route_name")` still works. Test `test_0004_upgrade_from_0003` asserts both the DDL identity AND runtime enforcement via a duplicate-insert IntegrityError probe.
+- Migration body is hand-written, NOT autogen-derived. Pitfall 10: `cmc/app/lifespan.py:100` runs `command.upgrade(alembic_cfg, "head")` on every `cmc start`, so any data-seed side-effect in `upgrade()` would re-run on every dev boot. 0004_saved_views is pure DDL — `create_table` + `batch_alter_table` for the index + UNIQUE only. Mirrors 0003_project_key's DDL discipline (0003 has Python loop ONLY because of `os.path.realpath`'s SQL-unreachability; 0004 has no such excuse).
+- Migration round-trip tests follow the existing `test_0003_*` shape exactly: `tmp_path` fixture + `_alembic_cfg(db_path)` helper + raw `sqlite3.connect(...)` with PRAGMA queries. Plan text speculated about `temp_alembic_db` fixture and `get_tables`/`get_columns`/`get_indexes` helpers that do NOT exist in this codebase — source-of-truth scan of `backend/tests/test_migrations.py` won over plan-text speculation. Locked pattern: any future migration round-trip test in this file uses the `_alembic_cfg` + sqlite3 + PRAGMA shape.
+- `test_alembic_upgrade_creates_all_tables` and `test_lifespan_creates_all_tables` in `test_foundation_boot.py` hardcode the schema-wide app-table count. The count moved 18 → 19 with 0004. Mechanical Rule-1 fix: updated both assertions + added explicit `'saved_views' in app_tables` checks (early break-glass for any future migration that bumps the count without naming the table). Locked pattern: every future new-table migration in Phase 25-28 will need to bump these two assertions; future regressions in this area are spotted on the same commit as the new migration.
+
+**v1.3 Phase 25 plan-01 execution coordination notes:**
+
+- Parallel sibling agents on Plans 03 + 04 were active throughout Plan 01 execution. Backend-only scope had ZERO file overlap with their frontend-only scope. `git status --short` showed sibling `?? frontend/src/lib/searchSchemas.ts` and `M .planning/STATE.md` (uncommitted sibling writebacks) at various points. Pre-commit hook runs project-wide `tsc` against an unrelated `frontend/` tree — passed cleanly each time because frontend tsc was independently green throughout the wave. Locked pattern: backend-only plans in a parallel wave with frontend-only plans need NO `git restore --staged` choreography because their file scopes don't intersect; `git add <my-backend-files>` is sufficient.
+- Pre-commit ruff caught two surface-level issues across my commits (E501 line-too-long on the `route` field comment in Task 1, B007 unused-loop-variables in Task 3's unique-index walk). Both fixed inline by line-rewrite; the commits did NOT happen so amend was not an option — fixed-and-restaged into the same logical commit. Pattern: ruff B007 + E501 are mechanical lints; never disable them, always fix them.
+- Concurrent sibling agent had unstaged STATE.md edits in the working tree throughout my run. My state writeback layered onto those changes (sibling's status text overwrite + completed_plans bump from 9 → 10 was preserved; my changes added Plan 01 row, bumped 10 → 11, and overwrote the now-stale status text with one reflecting wave-1 close). Locked pattern: when sibling agents are concurrently mutating STATE.md, prefer additive edits (table rows, decision blocks) and absorb the sibling's frontmatter status into my replacement — the LAST writer wins on prose fields, but the table rows accumulate.
+
 **v1.3 Phase 25 plan-03 execution decisions:**
 
 - `validateSearch` is exported as a **named export** from each route file (not via `Route.options.validateSearch`). Plan 04 must mirror — verified done in commits 5e79a22 + 625dc01. Locked pattern: any future route's validator is a `export function validateSearch(raw): XxxSearch` declaration above `createFileRoute(...)({ validateSearch, component })`. Trivially testable via direct import; zero coupling to TanStack Router internals; visible at file top without scrolling past JSX.
@@ -245,6 +259,7 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 
 | Plan | Status | Commits | Notes |
 |---|---|---|---|
+| 01 — Backend saved_views table + 0004 migration (VIEW-02) | ✅ Complete (2026-05-12) | 06f3e77, 03df53f, b0aa566 | parallel wave 1 with plan 03 + plan 04 (frontend). Backend-only: new cmc.db.models.saved_views.SavedView (8 cols + idx_saved_views_route + UNIQUE (route, name) as uq_saved_views_route_name) + Alembic 0004_saved_views chained off 0003_project_key (pure DDL, lifespan auto-applies on next `cmc start`). +2 round-trip tests (test_0004_upgrade_from_0003 + test_0004_downgrade_to_0003) — backend pytest 663 → 665 / 0 / 0. Test asserts BOTH constraint identity in CREATE TABLE DDL AND runtime enforcement via unique-index walk + IntegrityError probe (SQLite stores the constraint as `sqlite_autoindex_*` not the declared name). 5 Rule-1 deviations: plan text speculated about non-existent test fixtures/helpers (used existing _alembic_cfg pattern instead); test_foundation_boot table-count assertions (18 → 19) on both alembic + lifespan paths; ruff E501 + B007 lint fixes. Foundation for Plan 02's POST/GET handlers + Plan 05's hook layer. |
 | 03 — frontend validateSearch + schemaVersion (VIEW-01) | ✅ Complete (2026-05-12) | 062c2d4, e1a2cd2 | parallel wave 1 with plan 01 (backend) + plan 04 (frontend /skills/$name). Shared lib/searchSchemas.ts (SCHEMA_VERSION=1 + coerceSchemaVersion). 6 routes gained `validateSearch` named export: /, /activity, /skills, /cost, /alerts + /sessions/compare (existing UUID coercion preserved verbatim, append-only invariant honored). 19 new vitest specs (380 total = 353 baseline + plan-03 +19 + plan-04 +8). 1 Rule-2 deviation: `schemaVersion?:` marked optional on input type (was required in plan), so existing Link/navigate call sites in CommandPalette/SessionsTable/SessionComparePage stay untouched — validator always populates on output regardless. Plan 04 mirrored named-export pattern (commits 5e79a22 + 625dc01). pnpm tsc/lint/build clean; URL contract 2/2 PASS preserved (no route renames). |
 
 **Phase 24 plan execution log:**
@@ -261,7 +276,10 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 
 ## Next Step
 
-Phase 25 plan 03 ✅ complete. Plans 01 (backend Alembic 0004) + 04 (/skills/$name range hoist) running in parallel wave 1. Once wave 1 closes, spawn wave 2 — Plan 05 (saved-views hook layer consuming the validated search shapes from Plan 03 + Plan 04). Locked invariants established by Plan 03 for the hook layer:
+Phase 25 wave 1 ✅ closed — Plans 01 (backend Alembic 0004 + saved_views table) + 03 (frontend validateSearch + schemaVersion substrate, 6 routes) + 04 (/skills/$name range hoist) all shipped 2026-05-12. Backend pytest 665/0/0; frontend vitest 380/380. Spawn wave 2 next — Plan 02 (backend POST/GET /api/saved_views endpoints) + Plan 05 (frontend useSavedViews hook layer consuming the validated search shapes from Plan 03 + Plan 04). Locked invariants established by wave 1 for the hook layer:
+
+- **Plan 01 (backend):** `SavedView` lives at `backend/cmc/db/models/saved_views.py` (import via `from cmc.db.models.saved_views import SavedView`). `state_json` is OPAQUE to backend — no schema validation on insert/select (validation lives in route's `validateSearch` on read). `UNIQUE (route, name)` constraint will raise `sqlalchemy.exc.IntegrityError` on duplicate POST — Plan 02 must translate to HTTP 409 Conflict.
+
 - `validateSearch` is a named export from every route file (`import { validateSearch } from '../../routes/<name>'`) — Plan 05 hook can import and re-coerce a raw search blob on save.
 - `schemaVersion?: typeof SCHEMA_VERSION` is optional on input, always populated on output — Plan 05's `useSearch()` consumers can safely assume `searchVersion === 1` at runtime.
 - `frontend/src/lib/searchSchemas.ts` exports `SCHEMA_VERSION` + `coerceSchemaVersion` — the migration seam for any future version bump.
