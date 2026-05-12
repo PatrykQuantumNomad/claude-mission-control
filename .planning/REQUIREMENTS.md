@@ -72,7 +72,7 @@ Categorized by surface area. Each maps to exactly one phase in `ROADMAP.md` once
 
 ### Command Palette (CMDK) — additive Command.Group blocks
 
-- [ ] **CMDK-01**: Saved Views group — open view by name (current route filtered first), set as default, jump to view's URL. No new context; reuses `useSavedViews(route)` from VIEW-04.
+- [x] **CMDK-01**: Saved Views group — open view by name (current route filtered first), set as default, jump to view's URL. No new context; reuses `useSavedViews(route)` from VIEW-04. _(complete 2026-05-12, Phase 25 Plan 08 — CommandPalette "Saved Views" Command.Group, cross-route useSavedViews(), current-route-first sort, routePathFromId dynamic-route guard, selection navigates+setLoadedView+closes; 11 vitest specs)_
 - [ ] **CMDK-02**: Set Density command (Compact / Comfortable / Cozy) with current-state indicator.
 - [ ] **CMDK-03**: Time Range commands — set predefined ranges (last 1h / 24h / 7d / 30d), copy current range, paste clipboard range.
 - [ ] **CMDK-04**: Recent items group — last 5 visited routes (SHEL-05) + last N ad-hoc states (VIEW-09). Cross-route surfacing.
@@ -212,7 +212,7 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 | LAYO-02 | Phase 28 | Pending |
 | LAYO-03 | Phase 28 | Pending |
 | LAYO-04 | Phase 28 | Pending |
-| CMDK-01 | Phase 25 | Pending |
+| CMDK-01 | Phase 25 | ✅ Complete (plan 08, 2026-05-12) |
 | CMDK-02 | Phase 26 | Pending |
 | CMDK-03 | Phase 26 | Pending |
 | CMDK-04 | Phase 26 | Pending |
