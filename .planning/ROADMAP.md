@@ -60,7 +60,7 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 
 - [x] **Phase 24: Shell + Density + Containment Primitives** — Foundation phase establishing the shell chrome, 3-tier density infrastructure, three overflow bug fixes (global), and quality-gate scaffolding (visual checkpoint pattern, axe-core, perf budget, URL contract, testid registry) every later phase consumes. _(complete 2026-05-12 — operator verdict PASS, 18/18 mapped requirements satisfied, 7/7 plans shipped)_
 - [x] **Phase 25: Saved Views (Backend + Frontend)** — Server-persisted, per-route, URL-shareable saved views; Alembic migration `0004_saved_views`; 5 CRUD endpoints; `validateSearch` adoption on 7 routes; SavedViewMenu chrome; pinned favorites in sidebar; Cmd+K Saved Views group. _(complete 2026-05-12 — operator verdict PASS, 11/11 mapped requirements VIEW-01..09 + CMDK-01 + SHEL-06 satisfied, 11/11 plans shipped)_
-- [ ] **Phase 26: Per-Route Adoption I (Command/Activity/Sessions) + Time + Cmd+K** — High-traffic routes adopt `BoundedPanelCard bounded` + density tokens; global time picker (sync/copy-paste/compare-overlay/brush-zoom); Cmd+K density/time-range/recents groups; sidebar recently-visited.
+- [ ] **Phase 26: Per-Route Adoption I (Command/Activity/Sessions) + Time + Cmd+K** — High-traffic routes adopt `BoundedPanelCard bounded` + density tokens; global time picker (sync/copy-paste/compare-overlay/brush-zoom); Cmd+K density/time-range/recents groups; sidebar recently-visited. _(in progress 2026-05-13 — 2/9 plans complete: Plan 01 time-lib substrate + 3 deps + Toaster; Plan 02 append-only validateSearch on /, /activity, /sessions/compare)_
 - [ ] **Phase 27: Per-Route Adoption II (Skills/Cost/Alerts) + Tech Debt** — Tail-end routes adopt primitives; v1.2 carried tech debt closure (`project_key` wire exposure, `KNOWN_METRICS` removal, NL composer 503 retry/queue UX).
 - [ ] **Phase 28: Layout Customization** — Per-route panel show/hide, 1D drag-reorder, split-pane resize via `react-resizable-panels@4.11.0`, reset-to-default. Layout state piggybacks on saved-view `state_json` (no new DB table).
 
@@ -120,7 +120,16 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
   3. User drags a region on a recharts time-series on `/activity` and the chart zooms to that range — the global time picker updates to match, every other panel on the page re-anchors, the URL `?time_from=&time_to=` updates
   4. User opens Cmd+K and the Recent items group shows the last 5 visited routes (SHEL-05) plus last N ad-hoc states (VIEW-09 from Phase 25); user invokes "Set density: Compact" or "Last 7 days" command and the dashboard re-paints without navigating
   5. User opens any Sheet on `/sessions/compare` (compare picker, session detail) and the Sheet stays inside the viewport at every density and viewport size from 1024px upward; long session IDs and cwd paths truncate with tooltip; pages stay bounded with internal panel scroll
-**Plans**: TBD
+**Plans**: 9 plans
+- [x] 26-01-PLAN.md — Wave 1 foundation: install sonner/react-day-picker/date-fns; ship grafanaSyntax + coerce + rangeToVocab + clipboard libs; mount sonner Toaster (ADR: frontend-coerce bridge, backend extension deferred to Phase 27) ✅ 2026-05-13 — 2 commits (6df78d9 Task 1: install sonner@2.0.7 + react-day-picker@10.0.0 + date-fns@4.1.0 + grafanaSyntax.ts pure regex parser + coerce.ts ISO/Grafana→Date with date-fns + 25 vitest cases; 399ff10 Task 2: rangeToVocab.ts LOAD-BEARING bridge + clipboard.ts serializeRange/parseRangeFromText + Toaster mount in AppShell as sibling of CommandPalette + 26 vitest cases). Frontend vitest 452 → 533 / 0 / 0 (+81 across Plan 01 + parallel Plan 02). pnpm tsc + lint clean. 12 files (8 created + 4 modified). 198 source LOC + 344 test LOC. Bridge ADR locked: backend extension deferred to Phase 27 TDBT; bridge collapses to no-op when backend learns time_from/time_to. Zero deviations. Plan 02 (sibling agent) committed 80c126c between my commits — parallel-safe, zero file overlap.
+- [ ] 26-02-PLAN.md — Wave 1 URL contract: append-only validateSearch on /, /activity, /sessions/compare for time_from/time_to (defaults to undefined per Pitfall 13); ship cmc.recents.routes FIFO ring; update docs/url-contract.md
+- [ ] 26-03-PLAN.md — Wave 2 chrome: TimePicker (Radix Popover + preset list + dual-month RDP calendar) + RefreshDropdown + AutoRefreshController + Cmd+Shift+C/V hotkeys (TIME-01, TIME-02)
+- [ ] 26-04-PLAN.md — Wave 2 sidebar: RecentRoutesTracker zero-render effect + RecentlyVisitedSection (top 3, current-filtered, between Pinned and Configure) (SHEL-05)
+- [ ] 26-05-PLAN.md — Wave 3 brush-zoom: useChartBrush hook + ResetZoomButton; wire Brush into ChartsStrip on /activity (TIME-05; ResponsiveContainer count stays 26)
+- [ ] 26-06-PLAN.md — Wave 3 Cmd+K extensions: Recents + Time range + Density groups (JSX order Pitfall 10) (CMDK-02, CMDK-03, CMDK-04)
+- [ ] 26-07-PLAN.md — Wave 4 compare-overlay: CompareToggle per-panel + compare_panels CSV URL param + same-length-prior overlay demo on TokenUsageCard (TIME-04)
+- [ ] 26-08-PLAN.md — Wave 4 per-route adoption sweep: BoundedPanelCard + density tokens + truncation primitives on /, /activity, /sessions/compare panels (21 files); v1.2 a11y carry-overs lite fix (.cmc-numeric + .cmc-system-health-strip__*); rangeToVocab bridge at panel read sites
+- [ ] 26-09-PLAN.md — Wave 5 close gate: v13-time-picker.spec.ts + axe/portal/saved-views/sidebar/cmdk extensions + 30 NEW visual-capture PNGs + 26-VISUAL-CHECK.md operator verdict (POLI-09)
 **UI hint**: yes
 
 ### Phase 27: Per-Route Adoption II (Skills/Cost/Alerts) + Tech Debt
@@ -180,7 +189,7 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 | 23. Compare Depth & Milestone Close | v1.2 | 4/4 | Complete | 2026-05-09 |
 | 24. Shell + Density + Containment Primitives | v1.3 | 7/7 | Complete | 2026-05-12 |
 | 25. Saved Views (Backend + Frontend) | v1.3 | 11/11 | Complete | 2026-05-12 |
-| 26. Per-Route Adoption I + Time + Cmd+K | v1.3 | 0/0 | Not started | — |
+| 26. Per-Route Adoption I + Time + Cmd+K | v1.3 | 0/9 | Not started | — |
 | 27. Per-Route Adoption II + Tech Debt | v1.3 | 0/0 | Not started | — |
 | 28. Layout Customization | v1.3 | 0/0 | Not started | — |
 
