@@ -8,11 +8,11 @@ Established: Phase 24 (POLI-13). Locked invariant from REQUIREMENTS.md milestone
 
 | URL pattern         | Route file                       | Description                            | validateSearch shape |
 |---------------------|----------------------------------|----------------------------------------|----------------------|
-| `/`                 | `routes/index.tsx`               | Mission Control / Home                 | none in v1.2; Phase 26 may add |
-| `/activity`         | `routes/activity.tsx`            | Activity heatmap + sessions list       | none in v1.2; Phase 26 may add |
+| `/`                 | `routes/index.tsx`               | Mission Control / Home                 | Phase 26 / TIME-01: `time_from` + `time_to` PRESENT (both Grafana-style tokens via shared `asTimeToken`; default `undefined` per Pitfall 13) |
+| `/activity`         | `routes/activity.tsx`            | Activity heatmap + sessions list       | Phase 26 / TIME-01: `time_from` + `time_to` PRESENT (both Grafana-style tokens via shared `asTimeToken`; default `undefined` per Pitfall 13) |
 | `/skills`           | `routes/skills.tsx`              | Skills registry                        | none in v1.2 |
 | `/skills/$name`     | `routes/skills_.$name.tsx`       | Skill detail (per-skill panels)        | none in v1.2 |
-| `/sessions/compare` | `routes/sessions_.compare.tsx`   | Session compare (TWO-arg required)     | `{ a: string, b: string }` (validated; v1.2 baseline — only existing `validateSearch` route) |
+| `/sessions/compare` | `routes/sessions_.compare.tsx`   | Session compare (TWO-arg required)     | `{ a: string, b: string }` (validated; v1.2 baseline). Phase 26 / TIME-01 adds `time_from` + `time_to` PRESENT (both Grafana-style tokens via shared `asTimeToken`; default `undefined`) |
 | `/cost`             | `routes/cost.tsx`                | Cost analytics                         | none in v1.2 |
 | `/alerts`           | `routes/alerts.tsx`              | Alert rules + events                   | none in v1.2 |
 
@@ -27,6 +27,13 @@ Established: Phase 24 (POLI-13). Locked invariant from REQUIREMENTS.md milestone
 
 - No new routes added; no `validateSearch` shapes changed. Phase 24 is shell + primitives + quality gates only.
 - The `cmc.density`, `cmc.theme`, `cmc.sidebar.collapsed` keys are localStorage-only — they intentionally do NOT enter the URL.
+
+## Phase 26 effects on URL contract
+
+- **Append-only extension on `/`, `/activity`, `/sessions/compare`:** Three routes now ACCEPT `?time_from` + `?time_to` Grafana-style relative tokens (`now`, `now-Nu`, `now/u`, `now-Nu/u`) or ISO-8601 absolute timestamps. Shape-invalid values strip to `undefined` (defense in depth). No route file renames; no breaking changes.
+- **Validator default is `undefined`, NOT a per-route fallback** (RESEARCH Pitfall 13). Per-route panel fallback (24h on `/`, 1h on `/activity`, 7d on `/sessions/compare`) is applied AT THE PANEL READ SITE in Wave 3 plans. Defaulting in the validator would defeat `DefaultViewLoader`'s bare-URL gate (Phase 25 Plan 10 Accepted Exception).
+- **SCHEMA_VERSION stays at 1.** Optional fields defaulting to `undefined` reproduce pre-Phase-26 behavior identically.
+- **`cmc.recents.routes` localStorage key (Phase 26 Plan 02 / SHEL-05 + CMDK-04):** A new cross-route FIFO ring tracks recently-visited routes. localStorage-only — does NOT enter the URL. Single source of truth in `frontend/src/lib/recents.ts`.
 
 ## Test gate
 
