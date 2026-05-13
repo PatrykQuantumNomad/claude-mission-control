@@ -55,6 +55,9 @@ Established: Phase 24 (POLI-14). Skip count locked at the v1.2 baseline of 2 kno
 - `cmdk-compare-picker-list` — `frontend/src/components/cmdk/*` (Compare-picker list container)
 - `cmdk-compare-with-previous` — Compare-with-previous command item
 - `cmdk-saved-views-empty` — `frontend/src/components/ui/CommandPalette.tsx` (Phase 25 Plan 08 CMDK-01: empty-state body inside the "Saved Views" Command.Group when useSavedViews returns zero items)
+- `cmdk-recents-empty` — `frontend/src/components/ui/CommandPalette.tsx` (Phase 26 Plan 06 CMDK-04: empty-state body inside the "Recents" Command.Group when both `getRecentRoutes()` and `getAllRecentStates()` return empty arrays. Rendered as a `<div>` (not a Command.Item) so cmdk's search filter doesn't score it.)
+- `cmdk-time-range-copy` — `frontend/src/components/ui/CommandPalette.tsx` (Phase 26 Plan 06 CMDK-03: "Copy time range (Cmd+Shift+C)" Command.Item inside the "Time range" group. Selection mirrors the TimePicker's Cmd+Shift+C codepath via `serializeRange()` + `navigator.clipboard.writeText()`.)
+- `cmdk-time-range-paste` — `frontend/src/components/ui/CommandPalette.tsx` (Phase 26 Plan 06 CMDK-03: "Paste time range (Cmd+Shift+V)" Command.Item inside the "Time range" group. Selection mirrors the TimePicker's Cmd+Shift+V codepath via `navigator.clipboard.readText()` + `parseRangeFromText()` + function-form `navigate()`.)
 
 ### Cost route (v1.2 baseline)
 - `cost-by-project-card` — `frontend/src/components/panels/CostByProjectCard.tsx`
@@ -113,6 +116,9 @@ These testids are constructed at runtime from variable input (e.g., row id, rout
 - `sidebar-pinned-view-{id}` — `frontend/src/components/savedviews/PinnedViewsSection.tsx` (Phase 25 Plan 09 SHEL-06: per-view button row inside the Sidebar Pinned section. Id is the SavedView.id from the backend. Each row also carries `data-active="true|false"` reflecting the locked active-state algorithm — pathname-match AND structural search-state match.)
 - `time-picker-preset-{slug}` — `frontend/src/components/time/PresetList.tsx` (Phase 26 Plan 03 — per-preset `<button role="option">`; slug derived from the preset label by lowercasing + replacing whitespace with `-`. Slugs in use: `last-5-minutes`, `last-15-minutes`, `last-1-hour`, `last-6-hours`, `last-24-hours`, `last-7-days`, `last-30-days`, `last-90-days`, `today`, `yesterday`, `this-week`, `last-week`, `this-month`.)
 - `refresh-option-{value}` — `frontend/src/components/time/RefreshDropdown.tsx` (Phase 26 Plan 03 — per-interval DropdownMenu.Item. Values: `off`, `30s`, `1m`, `5m`.)
+- `cmdk-recents-route-{slug}` — `frontend/src/components/ui/CommandPalette.tsx` (Phase 26 Plan 06 CMDK-04: per-route Command.Item inside the "Recents" group. Slug is derived from the route pathname via `routeToTestidSlug()` — root `/` collapses to `home`; other pathnames have leading slash stripped and remaining slashes hyphenated. Same slug vocabulary as `sidebar-link-{slug}`. Slugs in use: `home`, `activity`, `sessions-compare`, `skills`, `skills-name`, `cost`, `alerts`.)
+- `cmdk-recents-state-{idx}` — `frontend/src/components/ui/CommandPalette.tsx` (Phase 26 Plan 06 CMDK-04: per-state Command.Item inside the "Recents" group for cross-route ad-hoc states aggregated from `getAllRecentStates()`. Index is the integer position in the top-5 truncation (0..4).)
+- `cmdk-time-range-{value}` — `frontend/src/components/ui/CommandPalette.tsx` (Phase 26 Plan 06 CMDK-03: per-preset Command.Item inside the "Time range" group. Values: `1h`, `24h`, `7d`, `30d` (the four condensed CMDK_TIME_PRESETS — the full 13-preset grid lives in TimePicker). The Copy/Paste items are registered as exact-match testids `cmdk-time-range-copy` and `cmdk-time-range-paste` above so the pattern only covers the navigable preset rows.)
 
 ## Skip count
 

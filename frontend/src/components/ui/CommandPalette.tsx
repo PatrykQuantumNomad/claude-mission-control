@@ -72,6 +72,7 @@
 import { Command } from 'cmdk'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useRouterState } from '@tanstack/react-router'
+import { toast } from 'sonner'
 import { useTaskComposer } from '../panels/TaskComposer'
 import {
   useSavedViews,
@@ -84,6 +85,10 @@ import { useLoadedView } from '../savedviews/LoadedViewContext'
 import { normalizeRouteId } from '../savedviews/SavedViewMenu'
 import type { SavedView } from '../../lib/api'
 import { Sheet } from './Sheet'
+import { getRecentRoutes } from '../../lib/recents'
+import { getAllRecentStates } from '../../lib/savedViews'
+import { serializeRange, parseRangeFromText } from '../../lib/time/clipboard'
+import { asTimeToken } from '../../lib/searchSchemas'
 
 const UUID_RE =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
@@ -91,6 +96,49 @@ const UUID_RE =
 function parseSearchUuid(value: unknown): string | undefined {
   return typeof value === 'string' && UUID_RE.test(value) ? value : undefined
 }
+
+// Phase 26 Plan 06 (CMDK-04) — IN_SCOPE_ROUTES for cross-route ad-hoc recent
+// states aggregation. Mirror of RecentRoutesTracker.tsx and
+// RecentStateTracker.tsx route sets — keep these three lists in sync. If a new
+// route opts into validateSearch + push-on-mount tracking it MUST also be
+// listed here so the Cmd+K palette surfaces its recents.
+const RECENTS_IN_SCOPE_ROUTES: readonly string[] = [
+  '/',
+  '/activity',
+  '/sessions/compare',
+  '/skills',
+  '/skills/$name',
+  '/cost',
+  '/alerts',
+] as const
+
+/**
+ * Phase 26 Plan 06 (CMDK-04) — slug the route pathname for use inside
+ * `cmdk-recents-route-{slug}`. The root path collapses to `home`; all other
+ * pathnames have leading slash stripped and remaining slashes hyphenated.
+ * Mirror of SidebarNavLink's slug derivation so the surfaces speak the same
+ * vocabulary in tests (`sidebar-link-home` ↔ `cmdk-recents-route-home`).
+ */
+export function routeToTestidSlug(route: string): string {
+  if (route === '/') return 'home'
+  return route.replace(/^\//, '').replace(/\//g, '-').replace(/\$/g, '')
+}
+
+// Phase 26 Plan 06 (CMDK-03) — Time range presets for the Cmd+K palette.
+// Condensed mirror of the 13-preset TimePicker list (lib/time/PresetList.tsx).
+// CONTEXT.md picks the four most-used windows for the palette; the full grid
+// stays in the TimePicker popover.
+const CMDK_TIME_PRESETS: readonly {
+  value: string
+  label: string
+  from: string
+  to: string
+}[] = [
+  { value: '1h', label: 'Last 1 hour', from: 'now-1h', to: 'now' },
+  { value: '24h', label: 'Last 24 hours', from: 'now-24h', to: 'now' },
+  { value: '7d', label: 'Last 7 days', from: 'now-7d', to: 'now' },
+  { value: '30d', label: 'Last 30 days', from: 'now-30d', to: 'now' },
+] as const
 
 /**
  * Phase 25 Plan 08 (CMDK-01) — resolve a SavedView.route id into a navigable
@@ -329,6 +377,83 @@ export function CommandPalette() {
     [currentA, navigate, closePicker],
   )
 
+  // Phase 26 Plan 06 (CMDK-04) — Recents group data. Read via plain function
+  // calls from the localStorage-backed rings (cmc.recents.routes for routes
+  // and cmc.savedView.recent.<route> for ad-hoc states). Memoised on
+  // pathname so the list refreshes after each navigation push: useRouterState
+  // already re-renders this component on navigation, which is when the rings
+  // grow. Top-5 truncation per CONTEXT.md decision.
+  const recentRoutes = useMemo(() => {
+    return getRecentRoutes().slice(0, 5)
+  }, [location.pathname])
+
+  const recentAdHocStates = useMemo(() => {
+    return getAllRecentStates(RECENTS_IN_SCOPE_ROUTES).slice(0, 5)
+  }, [location.pathname])
+
+  // Phase 26 Plan 06 (CMDK-03) — Time range commands. applyTimeRange writes
+  // the time_from/time_to URL params via function-form navigate (Pitfall 4:
+  // no stale-closure infinite-loop). Matches TimePicker preset apply exactly
+  // so Cmd+K is a genuine second access path with no extra contract.
+  const applyTimeRange = useCallback(
+    (from: string, to: string) => {
+      navigate({
+        to: location.pathname as never,
+        search: ((prev: Record<string, unknown>) => ({
+          ...prev,
+          time_from: from,
+          time_to: to,
+        })) as never,
+      })
+    },
+    [navigate, location.pathname],
+  )
+
+  const onCopyTimeRange = useCallback(async () => {
+    const currentSearch = (location.search ?? {}) as Record<string, unknown>
+    const timeFrom =
+      typeof currentSearch.time_from === 'string'
+        ? currentSearch.time_from
+        : undefined
+    const timeTo =
+      typeof currentSearch.time_to === 'string'
+        ? currentSearch.time_to
+        : undefined
+    close()
+    if (!timeFrom || !timeTo) {
+      toast.error('No time range to copy')
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(serializeRange(timeFrom, timeTo))
+      toast.success('Time range copied')
+    } catch {
+      toast.error('Could not access clipboard')
+    }
+  }, [location.search, close])
+
+  const onPasteTimeRange = useCallback(async () => {
+    close()
+    try {
+      const text = await navigator.clipboard.readText()
+      const parsed = parseRangeFromText(text)
+      if (!parsed) {
+        toast.error('No time range on clipboard')
+        return
+      }
+      const f = asTimeToken(parsed.time_from)
+      const t = asTimeToken(parsed.time_to)
+      if (!f || !t) {
+        toast.error('No time range on clipboard')
+        return
+      }
+      applyTimeRange(f, t)
+      toast.message('Pasted time range')
+    } catch {
+      toast.error('Could not access clipboard')
+    }
+  }, [close, applyTimeRange])
+
   return (
     <>
       <Command.Dialog
@@ -346,6 +471,89 @@ export function CommandPalette() {
           <Command.Empty className="cmc-cmdk__empty">
             No matches. Try fewer letters or open the page directly.
           </Command.Empty>
+          {/* Phase 26 Plan 06 (CMDK-04) — Recents group. Top-5 recent routes
+              from cmc.recents.routes + top-5 cross-route ad-hoc states from
+              cmc.savedView.recent.<route>. JSX position is the FIRST group
+              (Pitfall 10: cmdk renders by JSX child position — frequency-first
+              ordering per CONTEXT.md). */}
+          <Command.Group heading="Recents" className="cmc-cmdk__group">
+            {recentRoutes.length === 0 && recentAdHocStates.length === 0 ? (
+              <div
+                className="cmc-cmdk__empty"
+                data-testid="cmdk-recents-empty"
+              >
+                No recents yet
+              </div>
+            ) : (
+              <>
+                {recentRoutes.map((r) => {
+                  const slug = routeToTestidSlug(r.route)
+                  return (
+                    <Command.Item
+                      key={`recent-route-${r.route}`}
+                      value={`recent-route-${r.route}`}
+                      className="cmc-cmdk__item"
+                      data-testid={`cmdk-recents-route-${slug}`}
+                      onSelect={() => {
+                        navigate({ to: r.route as never })
+                        close()
+                      }}
+                    >
+                      <span className="cmc-cmdk__item-name">
+                        {r.route === '/' ? 'Home' : r.route}
+                      </span>
+                      <span className="cmc-cmdk__item-meta">route</span>
+                    </Command.Item>
+                  )
+                })}
+                {recentAdHocStates.map((s, i) => (
+                  <Command.Item
+                    key={`recent-state-${i}-${s.route}-${s.visitedAt}`}
+                    value={`recent-state-${i}-${s.route}`}
+                    className="cmc-cmdk__item"
+                    data-testid={`cmdk-recents-state-${i}`}
+                    onSelect={() => {
+                      navigate({
+                        to: s.route as never,
+                        search: s.state as never,
+                      })
+                      close()
+                    }}
+                  >
+                    <span className="cmc-cmdk__item-name">{s.route}</span>
+                    <span className="cmc-cmdk__item-meta">
+                      {Object.keys(s.state ?? {}).length} filters
+                    </span>
+                  </Command.Item>
+                ))}
+              </>
+            )}
+          </Command.Group>
+          <Command.Group heading="Saved Views" className="cmc-cmdk__group">
+            {sortedSavedViews.length === 0 ? (
+              <div
+                className="cmc-cmdk__empty"
+                data-testid="cmdk-saved-views-empty"
+              >
+                No saved views yet
+              </div>
+            ) : (
+              sortedSavedViews.map((v) => (
+                <Command.Item
+                  key={v.id}
+                  // cmdk searches against `value`; include name + route so
+                  // typing either surface filters the item in.
+                  value={`saved-view-${v.id} ${v.name} ${v.route}`}
+                  className="cmc-cmdk__item"
+                  data-testid={`cmdk-saved-view-${v.id}`}
+                  onSelect={() => onSavedViewSelect(v)}
+                >
+                  <span className="cmc-cmdk__item-name">{v.name}</span>
+                  <span className="cmc-cmdk__item-meta">{v.route}</span>
+                </Command.Item>
+              ))
+            )}
+          </Command.Group>
           <Command.Group heading="Pages" className="cmc-cmdk__group">
             <Command.Item
               onSelect={() => {
@@ -375,31 +583,53 @@ export function CommandPalette() {
               Skills
             </Command.Item>
           </Command.Group>
-          <Command.Group heading="Saved Views" className="cmc-cmdk__group">
-            {sortedSavedViews.length === 0 ? (
-              <div
-                className="cmc-cmdk__empty"
-                data-testid="cmdk-saved-views-empty"
+          {/* Phase 26 Plan 06 (CMDK-03) — Time range group. 4 condensed
+              presets + Copy + Paste. Selection writes time_from/time_to via
+              function-form navigate (Pitfall 4) — identical to the
+              TimePicker preset apply codepath. Copy/Paste reuse the
+              Cmd+Shift+C/V codepaths from TimePicker via the same clipboard
+              helpers from lib/time/clipboard.ts. */}
+          <Command.Group heading="Time range" className="cmc-cmdk__group">
+            {CMDK_TIME_PRESETS.map((p) => (
+              <Command.Item
+                key={`time-${p.value}`}
+                value={`time-range-${p.value} ${p.label}`}
+                className="cmc-cmdk__item"
+                data-testid={`cmdk-time-range-${p.value}`}
+                onSelect={() => {
+                  applyTimeRange(p.from, p.to)
+                  close()
+                }}
               >
-                No saved views yet
-              </div>
-            ) : (
-              sortedSavedViews.map((v) => (
-                <Command.Item
-                  key={v.id}
-                  // cmdk searches against `value`; include name + route so
-                  // typing either surface filters the item in.
-                  value={`saved-view-${v.id} ${v.name} ${v.route}`}
-                  className="cmc-cmdk__item"
-                  data-testid={`cmdk-saved-view-${v.id}`}
-                  onSelect={() => onSavedViewSelect(v)}
-                >
-                  <span className="cmc-cmdk__item-name">{v.name}</span>
-                  <span className="cmc-cmdk__item-meta">{v.route}</span>
-                </Command.Item>
-              ))
-            )}
+                {p.label}
+              </Command.Item>
+            ))}
+            <Command.Item
+              value="time-range-copy"
+              className="cmc-cmdk__item"
+              data-testid="cmdk-time-range-copy"
+              onSelect={() => {
+                void onCopyTimeRange()
+              }}
+            >
+              Copy time range (Cmd+Shift+C)
+            </Command.Item>
+            <Command.Item
+              value="time-range-paste"
+              className="cmc-cmdk__item"
+              data-testid="cmdk-time-range-paste"
+              onSelect={() => {
+                void onPasteTimeRange()
+              }}
+            >
+              Paste time range (Cmd+Shift+V)
+            </Command.Item>
           </Command.Group>
+          {/* Phase 26 Plan 06 (CMDK-02) — Density group lands in Task 2 of
+              this same plan. JSX slot is RESERVED here so the locked 6-group
+              order matches the final layout: Recents → Saved Views → Pages →
+              Time range → Density → Actions (Pitfall 10). Filled in atomically
+              by the next commit; no intermediate state reaches main. */}
           <Command.Group heading="Actions" className="cmc-cmdk__group">
             <Command.Item
               onSelect={() => {
