@@ -1055,3 +1055,53 @@ export function useDeleteView() {
 // panels need these row types alongside the response types.
 // Compile-time noop: re-export under a private alias.
 export type _PanelRowReexports = DecisionListItem | InboxListItem
+
+// ============================================================================
+// Time-anchored query-key predicate — Phase 26 Plan 03 (TIME-01).
+//
+// AutoRefreshController calls queryClient.invalidateQueries({ predicate })
+// on its window setInterval tick; this is the predicate. Returns true for
+// query keys whose first element names a time-anchored data source — panels
+// that re-query against the global time picker's range via the rangeToVocab
+// bridge. The set lives HERE (not in AutoRefreshController) so any future
+// caller (e.g. a manual "Refresh now" button) can reuse the same matcher
+// without re-encoding the list.
+//
+// ORTHOGONAL layer: per-query refetchInterval inside the hooks above
+// continues to operate untouched. This predicate is for the user-chosen
+// global cadence on top of per-query polling.
+// ============================================================================
+const TIME_ANCHORED = new Set<string>([
+  // Recharts panels that read range / time_from / time_to from URL.
+  'tokens',
+  'cache',
+  'sessions',
+  'skills',
+  'cost',
+  'alerts',
+  'productivity',
+  'editAcceptance',
+  'hookActivity',
+  'agentFanout',
+  'sessionOutcomes',
+  'projectBreakdown',
+  'systemHealth',
+  // Kebab-prefix scoped keys used by Phase 14/15/16/19/20 panels — also
+  // anchored to a time range. Keep these synchronized with qk.* above.
+  'skill-usage',
+  'skill-cost',
+  'skill-latency',
+  'skill-runs',
+  'skill-projects',
+  'alert-rules',
+  'alert-events',
+  'alert-metrics',
+  'session-compare',
+  'cost-forecast',
+  'cost-breakdown',
+])
+
+export function isTimeAnchoredKey(queryKey: readonly unknown[] | unknown): boolean {
+  if (!Array.isArray(queryKey) || queryKey.length === 0) return false
+  return typeof queryKey[0] === 'string' && TIME_ANCHORED.has(queryKey[0])
+}

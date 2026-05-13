@@ -10,6 +10,7 @@ import { LoadedViewProvider } from '../savedviews/LoadedViewContext'
 import { DefaultViewLoader } from '../savedviews/DefaultViewLoader'
 import { RecentStateTracker } from '../savedviews/RecentStateTracker'
 import { RecentRoutesTracker } from '../recents/RecentRoutesTracker'
+import { AutoRefreshController } from '../time/AutoRefreshController'
 
 interface AppShellProps {
   children: ReactNode
@@ -68,6 +69,17 @@ export function AppShell({ children }: AppShellProps) {
             <DefaultViewLoader />
             <RecentStateTracker />
             <RecentRoutesTracker />
+            {/* Phase 26 Plan 03 (TIME-01): AutoRefreshController is a
+                zero-render effect that fires queryClient.invalidateQueries
+                on a window setInterval at the cadence chosen via
+                RefreshDropdown (localStorage cmc.autoRefresh.interval).
+                Skips invalidation when the URL window is absolute (brush-
+                zoom committed → frozen). Lives next to DefaultViewLoader /
+                RecentStateTracker / RecentRoutesTracker for the same
+                reason — inside LoadedViewProvider AND inside the
+                RouterProvider so useQueryClient + useRouterState both
+                resolve cleanly. */}
+            <AutoRefreshController />
             <div className="cmc-shell">
               <Sidebar />
               <div className="cmc-shell__column">

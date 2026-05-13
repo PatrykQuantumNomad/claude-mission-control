@@ -1,4 +1,5 @@
-// AppShellHeader — Phase 24 Plan 04 (SHEL-02) + Phase 25 Plan 06 (VIEW-04/05/08).
+// AppShellHeader — Phase 24 Plan 04 (SHEL-02) + Phase 25 Plan 06 (VIEW-04/05/08) +
+// Phase 26 Plan 03 (TIME-01/TIME-03).
 //
 // Test strategy:
 //   - AppShellHeader mounts EmergencyStopBanner (TanStack Query via
@@ -8,18 +9,21 @@
 //     (the production wiring lives in AppShell.tsx) and stub fetch with a
 //     URL-routed response so both the emergency-stop poll and the saved-views
 //     list both resolve.
+//   - sonner is mocked so the TimePicker keydown listener can call toast.*
+//     without needing the real Toaster mounted in this test surface.
 //   - The right-side action area is asserted by inspecting the children of
-//     `.cmc-app-shell-header__right` in DOM order.
-//   - The Phase 25 saved-view-chrome is asserted by its wrapper testid; the
-//     legacy save-view-button placeholder it replaced is gone (the registry
-//     entry stays for audit traceability, see docs/testid-registry.md).
+//     `.cmc-app-shell-header__right` in DOM order. Phase 26 Plan 03 inserts
+//     TimePicker (replacing the Phase 24 hidden placeholder) and
+//     RefreshDropdown ahead of saved-view-chrome.
 //
 // Behaviour exercised:
 //   1. EmergencyStopBanner mounts in the LEFT region.
-//   2. Right region children, in order: time-picker-trigger, saved-view-chrome,
-//      cmdk-trigger, density-toggle-trigger, theme-toggle.
-//   3. time-picker-trigger is the only Phase 26 placeholder still hidden;
-//      saved-view-chrome is visible and contains the SavedViewMenu trigger.
+//   2. Right region children, in order: time-picker-trigger,
+//      refresh-dropdown-trigger, saved-view-chrome, cmdk-trigger,
+//      density-toggle-trigger, theme-toggle.
+//   3. TimePicker trigger renders with a default "Last 7 days" label and is
+//      enabled (no longer the Phase 24 hidden placeholder); saved-view-chrome
+//      wraps the SavedViewMenu trigger.
 //   4. DensityToggle integration still works (regression cover for the
 //      slot reshuffle).
 
@@ -32,6 +36,19 @@ import {
 } from '@tanstack/react-router'
 import { render, screen, userEvent } from '../../../test/utils'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
+// Phase 26 Plan 03: TimePicker binds Cmd+Shift+C/V hotkeys and calls into
+// sonner's toast.*; mock the module here so a real Toaster mount is not
+// required for this test surface (mirror of Pitfall 11 / TimePicker.test).
+vi.mock('sonner', () => ({
+  toast: {
+    success: vi.fn((_msg?: unknown) => undefined),
+    error: vi.fn((_msg?: unknown) => undefined),
+    message: vi.fn((_msg?: unknown) => undefined),
+  },
+  Toaster: () => null,
+}))
+
 import { AppShellHeader } from '../AppShellHeader'
 import { LoadedViewProvider } from '../../savedviews/LoadedViewContext'
 
@@ -115,6 +132,7 @@ describe('AppShellHeader', () => {
     const testids = children.map((el) => el.getAttribute('data-testid'))
     expect(testids).toEqual([
       'time-picker-trigger',
+      'refresh-dropdown-trigger',
       'saved-view-chrome',
       'cmdk-trigger',
       'density-toggle-trigger',
@@ -122,15 +140,17 @@ describe('AppShellHeader', () => {
     ])
   })
 
-  it('keeps the time-picker placeholder hidden (Phase 26) and mounts the SavedView chrome (Phase 25)', async () => {
+  it('mounts the wired TimePicker (Phase 26) + SavedView chrome (Phase 25)', async () => {
     await renderHeader()
     const timePicker = screen.getByTestId('time-picker-trigger') as HTMLButtonElement
-    expect(timePicker.style.display).toBe('none')
-    expect(timePicker.disabled).toBe(true)
-    expect(timePicker.getAttribute('aria-label')).toMatch(/Phase 26/i)
+    // Phase 26 Plan 03 un-placeholdered the trigger: it is enabled, visible,
+    // and shows the default "Last 7 days" label when the URL has no time
+    // params.
+    expect(timePicker.disabled).toBe(false)
+    expect(timePicker.textContent).toContain('Last 7 days')
 
-    // Phase 25 chrome: the wrapper exists AND its first child is the
-    // SavedViewMenu trigger button (Bookmark icon + label).
+    // Phase 25 chrome: the wrapper exists AND the SavedViewMenu trigger
+    // (Bookmark icon + label) is reachable via its dedicated testid.
     const chrome = screen.getByTestId('saved-view-chrome')
     expect(chrome).toBeInTheDocument()
     expect(screen.getByTestId('saved-view-menu-trigger')).toBeInTheDocument()
