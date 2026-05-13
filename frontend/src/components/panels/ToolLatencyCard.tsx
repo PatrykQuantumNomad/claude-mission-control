@@ -11,6 +11,7 @@ import { Badge, DataTable, PanelCard, RangeToggle } from '../ui'
 import type { DataTableColumn, DataTableSort } from '../ui'
 import { useLatency } from '../../lib/queries'
 import type { Range, ToolLatencyResponse, ToolLatencyRow } from '../../lib/api'
+import { useRouteRange } from '../../lib/time/useRouteRange'
 
 const RANGE_OPTIONS = [
   { value: 'today' as const, label: 'Today' },
@@ -108,24 +109,27 @@ const COLUMNS: DataTableColumn<ToolLatencyRow>[] = [
 ]
 
 export function ToolLatencyCard() {
-  const [range, setRange] = useState<Range>('7d')
+  // Phase 26 TIME-02 bridge: URL → vocab; per-route default 'today' on /.
+  const globalRange = useRouteRange('today')
+  const [localRange, setLocalRange] = useState<Range | null>(null)
+  const effectiveRange = localRange ?? globalRange
   const [sort, setSort] = useState<DataTableSort>({ col: 'p95_ms', dir: 'desc' })
-  const query = useLatency(range)
+  const query = useLatency(effectiveRange)
   return (
     <PanelCard<ToolLatencyResponse>
       reqId="OPNL-08"
       title="Tool Latency"
       query={query}
+      bounded
       empty={{
         dataNoun: 'tool latency data',
         when: (d) => d.items.length === 0,
       }}
       trailing={
         <RangeToggle<Range>
-          value={range}
-          onChange={setRange}
+          value={effectiveRange}
+          onChange={setLocalRange}
           options={RANGE_OPTIONS}
-          persistKey="tool-latency"
         />
       }
     >

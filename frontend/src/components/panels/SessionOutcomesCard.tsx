@@ -18,6 +18,7 @@ import {
 import { PanelCard, RangeToggle } from '../ui'
 import { useOutcomes } from '../../lib/queries'
 import type { OutcomesResponse, Range } from '../../lib/api'
+import { useRouteRange } from '../../lib/time/useRouteRange'
 
 const RANGE_OPTIONS = [
   { value: 'today' as const, label: 'Today' },
@@ -26,23 +27,26 @@ const RANGE_OPTIONS = [
 ]
 
 export function SessionOutcomesCard() {
-  const [range, setRange] = useState<Range>('7d')
-  const query = useOutcomes(range)
+  // Phase 26 TIME-02 bridge: URL → vocab; per-route default 'today' on /.
+  const globalRange = useRouteRange('today')
+  const [localRange, setLocalRange] = useState<Range | null>(null)
+  const effectiveRange = localRange ?? globalRange
+  const query = useOutcomes(effectiveRange)
   return (
     <PanelCard<OutcomesResponse>
       reqId="OPNL-07"
       title="Session Outcomes"
       query={query}
+      bounded
       empty={{
         dataNoun: 'session outcome data',
         when: (d) => d.items.length === 0,
       }}
       trailing={
         <RangeToggle<Range>
-          value={range}
-          onChange={setRange}
+          value={effectiveRange}
+          onChange={setLocalRange}
           options={RANGE_OPTIONS}
-          persistKey="session-outcomes"
         />
       }
     >

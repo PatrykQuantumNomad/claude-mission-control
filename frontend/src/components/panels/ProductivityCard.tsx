@@ -9,6 +9,7 @@ import { GitCommit, GitPullRequest, Minus, Plus } from 'lucide-react'
 import { PanelCard, RangeToggle, StatList } from '../ui'
 import { useProductivity } from '../../lib/queries'
 import type { ProductivityResponse, Range } from '../../lib/api'
+import { useRouteRange } from '../../lib/time/useRouteRange'
 
 const RANGE_OPTIONS = [
   { value: 'today' as const, label: 'Today' },
@@ -19,13 +20,17 @@ const RANGE_OPTIONS = [
 const nf = new Intl.NumberFormat('en')
 
 export function ProductivityCard() {
-  const [range, setRange] = useState<Range>('7d')
-  const query = useProductivity(range)
+  // Phase 26 TIME-02 bridge: URL → vocab; per-route default 'today' on /.
+  const globalRange = useRouteRange('today')
+  const [localRange, setLocalRange] = useState<Range | null>(null)
+  const effectiveRange = localRange ?? globalRange
+  const query = useProductivity(effectiveRange)
   return (
     <PanelCard<ProductivityResponse>
       reqId="OPNL-13"
       title="Productivity"
       query={query}
+      bounded
       empty={{
         dataNoun: 'productivity metrics',
         when: (d) =>
@@ -33,10 +38,9 @@ export function ProductivityCard() {
       }}
       trailing={
         <RangeToggle<Range>
-          value={range}
-          onChange={setRange}
+          value={effectiveRange}
+          onChange={setLocalRange}
           options={RANGE_OPTIONS}
-          persistKey="productivity"
         />
       }
     >

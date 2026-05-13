@@ -12,6 +12,7 @@ import { DataTable, PanelCard, RangeToggle } from '../ui'
 import type { DataTableColumn } from '../ui'
 import { useByProject } from '../../lib/queries'
 import type { ProjectRollupResponse, ProjectRollupRow, RangeAll } from '../../lib/api'
+import { useRouteRange } from '../../lib/time/useRouteRange'
 
 const RANGE_OPTIONS = [
   { value: 'today' as const, label: 'Today' },
@@ -68,23 +69,28 @@ const COLUMNS: DataTableColumn<ProjectRollupRow>[] = [
 ]
 
 export function ProjectBreakdownCard() {
-  const [range, setRange] = useState<RangeAll>('30d')
-  const query = useByProject(range)
+  // Phase 26 TIME-02 bridge: URL → vocab; per-route default 'today' on /.
+  // ProjectBreakdownCard's vocab is RangeAll (adds 'all'); the bridge returns
+  // Range, which is a subtype of RangeAll — assignment is type-safe.
+  const globalRange: RangeAll = useRouteRange('today')
+  const [localRange, setLocalRange] = useState<RangeAll | null>(null)
+  const effectiveRange = localRange ?? globalRange
+  const query = useByProject(effectiveRange)
   return (
     <PanelCard<ProjectRollupResponse>
       reqId="OPNL-10"
       title="Projects"
       query={query}
+      bounded
       empty={{
         dataNoun: 'project session data',
         when: (d) => d.items.length === 0,
       }}
       trailing={
         <RangeToggle<RangeAll>
-          value={range}
-          onChange={setRange}
+          value={effectiveRange}
+          onChange={setLocalRange}
           options={RANGE_OPTIONS}
-          persistKey="project-breakdown"
         />
       }
     >

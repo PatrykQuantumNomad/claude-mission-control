@@ -55,6 +55,7 @@ export function SystemHealthStrip() {
       title="System Health"
       query={query}
       empty={{ dataNoun: 'health metrics', when: () => false }}
+      bounded
     >
       {(data) => (
         <div className="cmc-system-health-strip">

@@ -53,6 +53,7 @@ import {
   KpiTile,
   PanelCard,
   StatePill,
+  TruncatedCell,
 } from '../ui'
 import type { DataTableColumn } from '../ui'
 import { useSessionCompare } from '../../lib/queries'
@@ -588,6 +589,47 @@ function ToolCountsDiff({ data }: { data: SessionCompareResponse }) {
   )
 }
 
+function SessionIdRow({
+  label,
+  sessionId,
+  cwd,
+}: {
+  label: string
+  sessionId: string
+  cwd: string | null
+}) {
+  // Phase 26 Plan 08 / CONT-03: long UUID + cwd surfaces with TruncatedCell
+  // tooltip + CopyIconButton. CompareToggle ergonomics need the operator to
+  // be able to grab the raw UUID and cwd for sharing / linking.
+  return (
+    <div
+      className="cmc-session-id-row"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--space-2xs)',
+        minWidth: 0,
+        flex: 1,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2xs)' }}>
+        <span className="cmc-label" style={{ color: 'var(--cmc-text-subtle)', minWidth: 16 }}>
+          {label} id
+        </span>
+        <TruncatedCell value={sessionId} copyable />
+      </div>
+      {cwd ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2xs)' }}>
+          <span className="cmc-label" style={{ color: 'var(--cmc-text-subtle)', minWidth: 16 }}>
+            {label} cwd
+          </span>
+          <TruncatedCell value={cwd} copyable />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 function CompareBody({ data }: { data: SessionCompareResponse }) {
   return (
     <div
@@ -597,6 +639,13 @@ function CompareBody({ data }: { data: SessionCompareResponse }) {
         gap: 'var(--space-md)',
       }}
     >
+      <section
+        aria-label="Compared session IDs"
+        style={{ display: 'flex', gap: 'var(--space-md)', flexWrap: 'wrap' }}
+      >
+        <SessionIdRow label="A" sessionId={data.a.session_id} cwd={data.a.cwd} />
+        <SessionIdRow label="B" sessionId={data.b.session_id} cwd={data.b.cwd} />
+      </section>
       <section
         aria-label="Side-by-side KPIs"
         style={{ display: 'flex', gap: 'var(--space-md)' }}
@@ -675,12 +724,23 @@ export function SessionCompareView({
     )
   }
 
+  // Phase 26 Plan 08: bounded mode enables the .cmc-card--bounded modifier so
+  // this panel pins to the .cmc-page--bounded flex ladder's height and scrolls
+  // its content internally (long sessions with many skills/tools no longer
+  // grow the page beyond the viewport).
+  //
+  // No useRouteRange bridge here: the comparison payload is keyed by the
+  // (a, b) UUID pair and is range-INDEPENDENT (server computes
+  // session-lifetime aggregates). TIME-02 for this route is satisfied by the
+  // route validator accepting time_from/time_to (Plan 07) + future overlay
+  // panels (deferred).
   return (
     <PanelCard<SessionCompareResponse>
       reqId="CMPR-02"
       title="Session Compare"
       description="Paired session metrics + skill-set diff."
       query={query}
+      bounded
       empty={{
         dataNoun: 'comparison',
         when: (d) => !d.a || !d.b,

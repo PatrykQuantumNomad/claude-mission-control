@@ -205,6 +205,7 @@ export function McpPanel({ reqId = 'OPNL-15' }: McpPanelProps = {}) {
       reqId={reqId}
       title="MCP Servers"
       query={query}
+      bounded
       empty={{
         dataNoun: 'MCP server data',
         when: (d) => d.items.length === 0,

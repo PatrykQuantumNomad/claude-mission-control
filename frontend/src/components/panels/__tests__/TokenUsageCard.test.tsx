@@ -2,6 +2,17 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor } from '../../../test/utils'
+
+// Phase 26 Plan 08 (TIME-02) — TokenUsageCard now consumes useRouteRange,
+// which calls useRouterState. Mock router to feed time tokens that resolve to
+// '7d' via rangeToVocab() so existing `qk.tokens('7d')` seeds still match.
+// Also stubs useNavigate for the CompareToggle (Plan 07) mounted in the chrome.
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => vi.fn(),
+  useRouterState: ({ select }: { select: (s: { location: { pathname: string; search: Record<string, unknown> } }) => unknown }) =>
+    select({ location: { pathname: '/', search: { time_from: 'now-7d', time_to: 'now' } } }),
+}))
+
 import { TokenUsageCard } from '../TokenUsageCard'
 import { groupTokensByDay } from '../TokenUsageCard.utils'
 import { qk } from '../../../lib/queries'

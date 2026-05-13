@@ -29,6 +29,7 @@ export function PressurePanel() {
       reqId="OPNL-14"
       title="Pressure"
       query={query}
+      bounded
       empty={{
         dataNoun: 'system pressure data',
         when: () => false,

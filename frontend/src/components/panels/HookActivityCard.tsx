@@ -18,6 +18,7 @@ import {
 import { PanelCard, RangeToggle } from '../ui'
 import { useHooks } from '../../lib/queries'
 import type { HookActivityResponse, Range } from '../../lib/api'
+import { useRouteRange } from '../../lib/time/useRouteRange'
 import { aggregateP50ByHook, colorForHook, pivotHooksByDay } from './HookActivityCard.utils'
 
 const RANGE_OPTIONS = [
@@ -27,23 +28,26 @@ const RANGE_OPTIONS = [
 ]
 
 export function HookActivityCard() {
-  const [range, setRange] = useState<Range>('7d')
-  const query = useHooks(range)
+  // Phase 26 TIME-02 bridge: URL → vocab; per-route default 'today' on /.
+  const globalRange = useRouteRange('today')
+  const [localRange, setLocalRange] = useState<Range | null>(null)
+  const effectiveRange = localRange ?? globalRange
+  const query = useHooks(effectiveRange)
   return (
     <PanelCard<HookActivityResponse>
       reqId="OPNL-09"
       title="Hook Activity"
       query={query}
+      bounded
       empty={{
         dataNoun: 'hook fires',
         when: (d) => d.total_fires === 0,
       }}
       trailing={
         <RangeToggle<Range>
-          value={range}
-          onChange={setRange}
+          value={effectiveRange}
+          onChange={setLocalRange}
           options={RANGE_OPTIONS}
-          persistKey="hook-activity"
         />
       }
     >

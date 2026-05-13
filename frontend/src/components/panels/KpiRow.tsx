@@ -34,6 +34,7 @@ export function KpiRow() {
       title="Today"
       query={query}
       empty={{ dataNoun: 'today summary', when: () => false }}
+      bounded
       trailing={
         query.data ? <RelativeTime value={query.data.date} absoluteTooltip={false} /> : null
       }

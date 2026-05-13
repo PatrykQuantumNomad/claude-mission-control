@@ -18,6 +18,7 @@ import {
 import { Badge, KpiTile, PanelCard, RangeToggle } from '../ui'
 import { useCache } from '../../lib/queries'
 import type { CacheResponse, Range } from '../../lib/api'
+import { useRouteRange } from '../../lib/time/useRouteRange'
 
 const RANGE_OPTIONS = [
   { value: 'today' as const, label: 'Today' },
@@ -26,23 +27,26 @@ const RANGE_OPTIONS = [
 ]
 
 export function CacheEfficiencyCard() {
-  const [range, setRange] = useState<Range>('7d')
-  const query = useCache(range)
+  // Phase 26 TIME-02 bridge: URL → vocab; per-route default 'today' on /.
+  const globalRange = useRouteRange('today')
+  const [localRange, setLocalRange] = useState<Range | null>(null)
+  const effectiveRange = localRange ?? globalRange
+  const query = useCache(effectiveRange)
   return (
     <PanelCard<CacheResponse>
       reqId="OPNL-06"
       title="Cache Efficiency"
       query={query}
+      bounded
       empty={{
         dataNoun: 'cache hit rate data',
         when: (d) => d.trend.length === 0,
       }}
       trailing={
         <RangeToggle<Range>
-          value={range}
-          onChange={setRange}
+          value={effectiveRange}
+          onChange={setLocalRange}
           options={RANGE_OPTIONS}
-          persistKey="cache-efficiency"
         />
       }
     >

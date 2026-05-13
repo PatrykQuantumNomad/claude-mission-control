@@ -39,6 +39,7 @@ export function AttentionBar() {
       title="Attention"
       query={query}
       hiddenWhenEmpty
+      bounded
       empty={{
         dataNoun: 'attention items',
         when: (d) =>

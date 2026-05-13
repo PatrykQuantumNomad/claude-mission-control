@@ -2,6 +2,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor } from '../../../test/utils'
+
+// Phase 26 Plan 08 (TIME-02) — ProductivityCard now consumes useRouteRange.
+// Feed router with time tokens resolving to '7d' so existing fixture seeds
+// `qk.productivity('7d')` continue to match the panel's query key.
+vi.mock('@tanstack/react-router', () => ({
+  useRouterState: ({ select }: { select: (s: { location: { pathname: string; search: Record<string, unknown> } }) => unknown }) =>
+    select({ location: { pathname: '/', search: { time_from: 'now-7d', time_to: 'now' } } }),
+}))
+
 import { ProductivityCard } from '../ProductivityCard'
 import { qk } from '../../../lib/queries'
 import type { ProductivityResponse } from '../../../lib/api'

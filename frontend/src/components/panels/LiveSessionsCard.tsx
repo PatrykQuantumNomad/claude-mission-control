@@ -201,6 +201,7 @@ export function LiveSessionsCard() {
         reqId="OPNL-04"
         title="Live Sessions"
         query={query}
+        bounded
         empty={{
           dataNoun: 'live sessions',
           when: (d) => Array.isArray(d) && d.length === 0,

@@ -11,6 +11,7 @@ import { Badge, DataTable, PanelCard, RangeToggle } from '../ui'
 import type { DataTableColumn } from '../ui'
 import { useEdits } from '../../lib/queries'
 import type { EditDecisionRow, EditDecisionsResponse, Range } from '../../lib/api'
+import { useRouteRange } from '../../lib/time/useRouteRange'
 
 const RANGE_OPTIONS = [
   { value: 'today' as const, label: 'Today' },
@@ -73,13 +74,17 @@ const COLUMNS: DataTableColumn<EditDecisionRow>[] = [
 ]
 
 export function EditAcceptanceCard() {
-  const [range, setRange] = useState<Range>('7d')
-  const query = useEdits(range)
+  // Phase 26 TIME-02 bridge: URL → vocab; per-route default 'today' on /.
+  const globalRange = useRouteRange('today')
+  const [localRange, setLocalRange] = useState<Range | null>(null)
+  const effectiveRange = localRange ?? globalRange
+  const query = useEdits(effectiveRange)
   return (
     <PanelCard<EditDecisionsResponse>
       reqId="OPNL-12"
       title="Edit Acceptance"
       query={query}
+      bounded
       empty={{
         dataNoun: 'edit decision data',
         // Fixed-row card always renders → never empty.
@@ -87,10 +92,9 @@ export function EditAcceptanceCard() {
       }}
       trailing={
         <RangeToggle<Range>
-          value={range}
-          onChange={setRange}
+          value={effectiveRange}
+          onChange={setLocalRange}
           options={RANGE_OPTIONS}
-          persistKey="edit-acceptance"
         />
       }
     >

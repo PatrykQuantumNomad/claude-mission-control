@@ -2,6 +2,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor } from '../../../test/utils'
+
+// Phase 26 Plan 08 (TIME-02) — ProjectBreakdownCard now consumes useRouteRange.
+// ProjectBreakdownCard uses RangeAll (extends Range). The existing fixture
+// seeds use '30d', so feed router with time tokens whose window resolves to
+// '30d' via rangeToVocab (window >8 days → '30d' per the snap rule).
+vi.mock('@tanstack/react-router', () => ({
+  useRouterState: ({ select }: { select: (s: { location: { pathname: string; search: Record<string, unknown> } }) => unknown }) =>
+    select({ location: { pathname: '/', search: { time_from: 'now-30d', time_to: 'now' } } }),
+}))
+
 import { ProjectBreakdownCard } from '../ProjectBreakdownCard'
 import { qk } from '../../../lib/queries'
 import type { ProjectRollupResponse } from '../../../lib/api'
