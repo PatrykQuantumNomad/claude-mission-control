@@ -337,3 +337,195 @@ test.describe('Phase 25 Plan 11 — saved-views chrome visual capture', () => {
     }
   }
 })
+
+// ────────────────────────────────────────────────────────────────────────
+// Phase 26 Plan 09 extension: 5 NEW chrome surfaces × 3 densities × 2 themes
+// = 30 NEW PNGs into the Phase 26 visual-check directory.
+//   1. time-picker-open — TimePicker popover with PresetList + Calendar
+//   2. refresh-dropdown-open — RefreshDropdown menu with 4 intervals
+//   3. compare-toggle-active — TokenUsageCard with the prior-period overlay
+//      active (aria-pressed="true" via ?compare_panels=token-usage)
+//   4. cmdk-with-recents — Cmd+K palette with seeded Recents + Time range
+//      + Density groups visible
+//   5. sidebar-with-recently-visited — Sidebar Recently Visited section
+//      with 3 seeded rows
+// Output dir: `.planning/phases/26-per-route-adoption-i-command-activity-sessions-time-cmd-k/visual-check/`
+// ────────────────────────────────────────────────────────────────────────
+
+const PHASE_26_DIR = path.resolve(
+  __dirname,
+  '../../../.planning/phases/26-per-route-adoption-i-command-activity-sessions-time-cmd-k/visual-check',
+)
+
+test.beforeAll(() => {
+  fs.mkdirSync(PHASE_26_DIR, { recursive: true })
+})
+
+async function wipeAllForCapture26(
+  page: import('@playwright/test').Page,
+) {
+  // Wipe both server views and the Phase 26 localStorage keys we touch.
+  const r = await page.request.get(`${BACKEND}/api/views`)
+  const data = (await r.json()) as { items: Array<{ id: number }> }
+  for (const v of data.items) {
+    await page.request.delete(`${BACKEND}/api/views/${v.id}`)
+  }
+}
+
+test.describe('Phase 26 Plan 09 — Phase 26 chrome visual capture', () => {
+  for (const density of DENSITIES) {
+    for (const theme of THEMES) {
+      // Surface 1: TimePicker popover open.
+      test(`time-picker-open d=${density} t=${theme}`, async ({ page }) => {
+        await page.addInitScript(
+          ([d, t]) => {
+            window.localStorage.setItem('cmc.density', d as string)
+            window.localStorage.setItem('cmc.theme', t as string)
+          },
+          [density, theme],
+        )
+        await wipeAllForCapture26(page)
+        await page.goto('/')
+        await page.waitForLoadState('domcontentloaded')
+        await page.waitForTimeout(1500)
+        await page.getByTestId('time-picker-trigger').click()
+        await expect(page.getByTestId('time-picker-popover')).toBeVisible()
+        await page.screenshot({
+          path: path.join(
+            PHASE_26_DIR,
+            `time-picker-open__${density}__${theme}.png`,
+          ),
+          fullPage: true,
+        })
+      })
+
+      // Surface 2: RefreshDropdown menu open.
+      test(`refresh-dropdown-open d=${density} t=${theme}`, async ({
+        page,
+      }) => {
+        await page.addInitScript(
+          ([d, t]) => {
+            window.localStorage.setItem('cmc.density', d as string)
+            window.localStorage.setItem('cmc.theme', t as string)
+          },
+          [density, theme],
+        )
+        await wipeAllForCapture26(page)
+        await page.goto('/')
+        await page.waitForLoadState('domcontentloaded')
+        await page.waitForTimeout(1500)
+        await page.getByTestId('refresh-dropdown-trigger').click()
+        await expect(page.getByTestId('refresh-option-30s')).toBeVisible()
+        await page.screenshot({
+          path: path.join(
+            PHASE_26_DIR,
+            `refresh-dropdown-open__${density}__${theme}.png`,
+          ),
+          fullPage: true,
+        })
+      })
+
+      // Surface 3: CompareToggle active on TokenUsageCard.
+      test(`compare-toggle-active d=${density} t=${theme}`, async ({
+        page,
+      }) => {
+        await page.addInitScript(
+          ([d, t]) => {
+            window.localStorage.setItem('cmc.density', d as string)
+            window.localStorage.setItem('cmc.theme', t as string)
+          },
+          [density, theme],
+        )
+        await wipeAllForCapture26(page)
+        await page.goto('/?compare_panels=token-usage&range=7d')
+        await page.waitForLoadState('domcontentloaded')
+        await page.waitForTimeout(1500)
+        await expect(
+          page.getByTestId('compare-overlay-toggle-token-usage'),
+        ).toBeVisible()
+        await page.screenshot({
+          path: path.join(
+            PHASE_26_DIR,
+            `compare-toggle-active__${density}__${theme}.png`,
+          ),
+          fullPage: true,
+        })
+      })
+
+      // Surface 4: Cmd+K palette open with seeded Recents.
+      test(`cmdk-with-recents d=${density} t=${theme}`, async ({ page }) => {
+        await page.addInitScript(
+          ([d, t]) => {
+            window.localStorage.setItem('cmc.density', d as string)
+            window.localStorage.setItem('cmc.theme', t as string)
+            const now = Date.now()
+            window.localStorage.setItem(
+              'cmc.recents.routes',
+              JSON.stringify([
+                { route: '/activity', visitedAt: now - 1000 },
+                { route: '/skills', visitedAt: now - 2000 },
+                { route: '/cost', visitedAt: now - 3000 },
+                { route: '/alerts', visitedAt: now - 4000 },
+              ]),
+            )
+          },
+          [density, theme],
+        )
+        await wipeAllForCapture26(page)
+        await page.goto('/')
+        await page.waitForLoadState('domcontentloaded')
+        await page.waitForTimeout(1500)
+        await page.locator('body').click()
+        await page.keyboard.press('ControlOrMeta+KeyK')
+        await expect(
+          page.getByRole('dialog', { name: 'Mission Control command palette' }),
+        ).toBeVisible()
+        // Wait for entrance animation to settle.
+        await page.waitForTimeout(400)
+        await page.screenshot({
+          path: path.join(
+            PHASE_26_DIR,
+            `cmdk-with-recents__${density}__${theme}.png`,
+          ),
+          fullPage: true,
+        })
+      })
+
+      // Surface 5: Sidebar with Recently Visited section populated.
+      test(`sidebar-with-recently-visited d=${density} t=${theme}`, async ({
+        page,
+      }) => {
+        await page.addInitScript(
+          ([d, t]) => {
+            window.localStorage.setItem('cmc.density', d as string)
+            window.localStorage.setItem('cmc.theme', t as string)
+            const now = Date.now()
+            window.localStorage.setItem(
+              'cmc.recents.routes',
+              JSON.stringify([
+                { route: '/activity', visitedAt: now - 1000 },
+                { route: '/skills', visitedAt: now - 2000 },
+                { route: '/cost', visitedAt: now - 3000 },
+              ]),
+            )
+          },
+          [density, theme],
+        )
+        await wipeAllForCapture26(page)
+        await page.goto('/')
+        await page.waitForLoadState('domcontentloaded')
+        await page.waitForTimeout(1500)
+        await expect(
+          page.getByTestId('sidebar-section-recently-visited'),
+        ).toBeVisible()
+        await page.screenshot({
+          path: path.join(
+            PHASE_26_DIR,
+            `sidebar-with-recently-visited__${density}__${theme}.png`,
+          ),
+          fullPage: true,
+        })
+      })
+    }
+  }
+})
