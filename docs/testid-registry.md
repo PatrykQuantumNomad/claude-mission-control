@@ -12,7 +12,12 @@ Established: Phase 24 (POLI-14). Skip count locked at the v1.2 baseline of 2 kno
 - `density-option-comfortable` — DensityToggle DropdownMenu item
 - `density-option-cozy` — DensityToggle DropdownMenu item
 - `sidebar-collapse-toggle` — `frontend/src/components/shell/Sidebar.tsx`
-- `time-picker-trigger` — `frontend/src/components/shell/AppShellHeader.tsx` (Placeholder; disabled + display:none in Phase 24; wired in Phase 26)
+- `time-picker-trigger` — `frontend/src/components/time/TimePicker.tsx` (Phase 26 Plan 03 — Radix Popover.Trigger; Clock icon + current-range label; replaces the Phase 24 hidden placeholder in AppShellHeader)
+- `time-picker-popover` — `frontend/src/components/time/TimePicker.tsx` (Phase 26 Plan 03 — Radix Popover.Content; Portal-mounted at --cmc-z-popover: 40; hosts PresetList + CustomRangeCalendar)
+- `time-picker-calendar` — `frontend/src/components/time/CustomRangeCalendar.tsx` (Phase 26 Plan 03 — react-day-picker mode="range" wrapper)
+- `time-picker-custom-apply` — `frontend/src/components/time/CustomRangeCalendar.tsx` (Phase 26 Plan 03 — "Apply custom range" button; disabled until both range endpoints chosen)
+- `refresh-dropdown-trigger` — `frontend/src/components/time/RefreshDropdown.tsx` (Phase 26 Plan 03 — Radix DropdownMenu.Trigger; RefreshCw icon + current interval label or "Paused" badge)
+- `refresh-active-indicator` — `frontend/src/components/time/RefreshDropdown.tsx` (Phase 26 Plan 03 — pulse dot inside the trigger; rendered only while an interval is selected AND the URL window is NOT absolute)
 - `save-view-button` — `frontend/src/components/shell/AppShellHeader.tsx` (Removed in Phase 25 Plan 06 — replaced by `saved-view-chrome` wrapper hosting `SavedViewMenu` + `UnsavedPip`. Retained here for audit traceability.)
 - `cmdk-trigger` — `frontend/src/components/shell/AppShellHeader.tsx`
 
@@ -34,6 +39,9 @@ Established: Phase 24 (POLI-14). Skip count locked at the v1.2 baseline of 2 kno
 - `saved-view-menu-edit-current` — `frontend/src/components/savedviews/SavedViewMenu.tsx` (top-of-menu "Edit '<loaded view name>'…" item; renders only when loadedView && URL diverges)
 - `sidebar-section-pinned` — `frontend/src/components/savedviews/PinnedViewsSection.tsx` (Phase 25 Plan 09 SHEL-06: root element of the Sidebar's "Pinned" section, passed via the `testId` prop on `SidebarSection`. Always present in the DOM — the section header renders even when no views are pinned, mirroring the Phase 24 Configure empty-body precedent.)
 - `sidebar-pinned-empty` — PinnedViewsSection empty-state copy ("Pin a saved view from the header menu"); rendered only when `getPinnedIds()` is empty OR all pinned ids reference views no longer present in the catalog.
+
+### Recents (Phase 26)
+- `sidebar-section-recently-visited` — `frontend/src/components/recents/RecentlyVisitedSection.tsx` (Phase 26 Plan 04 SHEL-05: root element of the Sidebar's "Recently Visited" section, passed via the `testId` prop on `SidebarSection`. Always present in the DOM — the section header renders even when the `cmc.recents.routes` ring is empty, mirroring the Phase 25 Pinned + Phase 24 Configure empty-body precedent. Per-row addressing reuses SidebarNavLink's existing `sidebar-link-{slug}` testid; tests scope via `within(section)` to disambiguate from the Observe / Operate sections.)
 
 ### UI primitives (Phase 24)
 - `cell-copy-btn` — `frontend/src/components/ui/CopyIconButton.tsx`
@@ -101,6 +109,8 @@ These testids are constructed at runtime from variable input (e.g., row id, rout
 - `saved-view-delete-{id}` — SavedViewMenu submenu Delete action.
 - `cmdk-saved-view-{id}` — `frontend/src/components/ui/CommandPalette.tsx` (Phase 25 Plan 08 CMDK-01: per-view Command.Item inside the "Saved Views" Command.Group; id is the SavedView.id from the backend).
 - `sidebar-pinned-view-{id}` — `frontend/src/components/savedviews/PinnedViewsSection.tsx` (Phase 25 Plan 09 SHEL-06: per-view button row inside the Sidebar Pinned section. Id is the SavedView.id from the backend. Each row also carries `data-active="true|false"` reflecting the locked active-state algorithm — pathname-match AND structural search-state match.)
+- `time-picker-preset-{slug}` — `frontend/src/components/time/PresetList.tsx` (Phase 26 Plan 03 — per-preset `<button role="option">`; slug derived from the preset label by lowercasing + replacing whitespace with `-`. Slugs in use: `last-5-minutes`, `last-15-minutes`, `last-1-hour`, `last-6-hours`, `last-24-hours`, `last-7-days`, `last-30-days`, `last-90-days`, `today`, `yesterday`, `this-week`, `last-week`, `this-month`.)
+- `refresh-option-{value}` — `frontend/src/components/time/RefreshDropdown.tsx` (Phase 26 Plan 03 — per-interval DropdownMenu.Item. Values: `off`, `30s`, `1m`, `5m`.)
 
 ## Skip count
 

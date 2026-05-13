@@ -1,4 +1,5 @@
-// Sidebar — Phase 24 Plan 04 (SHEL-01, SHEL-03, SHEL-04) + Phase 25 Plan 09 (SHEL-06).
+// Sidebar — Phase 24 Plan 04 (SHEL-01, SHEL-03, SHEL-04) + Phase 25 Plan 09 (SHEL-06)
+// + Phase 26 Plan 04 (SHEL-05).
 //
 // Persistent left sidebar that replaces the old top NavBar. Renders:
 //   - brand "Mission Control" + chrome collapse-toggle in the header,
@@ -7,8 +8,22 @@
 //   - Operate section (Alerts),
 //   - Pinned section (Phase 25 Plan 09 — cross-route saved views the user
 //     has pinned via the SavedViewMenu submenu; header always renders),
+//   - Recently Visited section (Phase 26 Plan 04 — auto-curated top 3
+//     recent routes from cmc.recents.routes; header always renders;
+//     currently-active route filtered out per Pitfall 8 option b),
 //   - Configure section (header rendered, body empty — reserved for future
 //     Settings / Doctor work; locked in CONTEXT).
+//
+// IA RECONCILIATION (Phase 26 Plan 04 — rationale_for_deviation): CONTEXT.md
+// originally described "Pinned → Recently Visited → Operate → Configure",
+// but Phase 25 Plan 09 SUMMARY locked Pinned BETWEEN Operate and Configure
+// (current shape: Observe → Operate → Pinned → Configure). Re-locating
+// Pinned is out of scope for Phase 26, so Recently Visited is inserted
+// BELOW Pinned, ABOVE Configure. Final order:
+//   Home → Observe → Operate → Pinned → Recently Visited → Configure
+// This preserves the CONTEXT spirit (both starting-point sections —
+// user-curated Pinned + auto-curated Recently Visited — adjacent at the
+// end of the sidebar).
 //
 // Collapsed mode (52px width vs 240px expanded):
 //   - Section headers + nav labels hide via CSS `[data-sidebar-collapsed]`.
@@ -47,6 +62,11 @@ import { SidebarNavLink } from './SidebarNavLink'
 // sections — Home / Observe / Operate / Configure — remain in their locked
 // positions; Pinned is the FIRST sidebar IA addition since the Phase 24 lock).
 import { PinnedViewsSection } from '../savedviews/PinnedViewsSection'
+// Phase 26 Plan 04 (SHEL-05) — auto-curated "Recently Visited" section.
+// Mounts BELOW Pinned, ABOVE Configure per the locked IA reconciliation
+// documented in the file header. Cap = 3 rows (CONTEXT-locked); current
+// pathname filtered out (Pitfall 8 option b).
+import { RecentlyVisitedSection } from '../recents/RecentlyVisitedSection'
 
 export function Sidebar() {
   // Mount with the SSR-safe default (false). useEffect syncs to the
@@ -140,6 +160,11 @@ export function Sidebar() {
        * Section header ALWAYS renders (mirrors the Configure empty-body
        * precedent below); body is dynamic from localStorage pin state. */}
       <PinnedViewsSection />
+
+      {/* Phase 26 Plan 04 (SHEL-05) — auto-curated Recently Visited list.
+       * Section header ALWAYS renders; body is top 3 from cmc.recents.routes
+       * (current pathname filtered out). */}
+      <RecentlyVisitedSection collapsed={collapsed} />
 
       {/* Configure section reserved — header rendered, body empty. */}
       <SidebarSection title="Configure" />
