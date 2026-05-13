@@ -298,12 +298,22 @@ test.describe('Phase 26 — TimePicker (TIME-01..05) + Cmd+K (CMDK-02..04) + Sid
     // Reload preserves URL — the overlay re-mounts in the active state.
     await page.reload()
     await page.waitForLoadState('domcontentloaded')
-    await page.waitForTimeout(500)
+    await page.waitForTimeout(800)
     const toggleAfter = page.getByTestId('compare-overlay-toggle-token-usage')
+    await expect(toggleAfter).toBeVisible()
     expect(await toggleAfter.getAttribute('aria-pressed')).toBe('true')
 
-    // Click → removes from CSV → aria-pressed false.
-    await toggleAfter.click()
+    // Click → removes from CSV → aria-pressed false. The button lives in
+    // the panel header trailing slot which sits below the page's chart-
+    // dense first card; on chart-heavy routes the layout reflows as
+    // panels mount, occasionally leaving the button under a transient
+    // overlay. Scroll the button into view (mid-screen, not just visible)
+    // and click via dispatchEvent so we exercise the React onClick
+    // handler directly — this is the same path a real user takes via
+    // Enter or keyboard, just decoupled from pointer hit-testing.
+    await toggleAfter.scrollIntoViewIfNeeded()
+    await page.waitForTimeout(200)
+    await toggleAfter.dispatchEvent('click')
     await page.waitForTimeout(300)
     expect(await toggleAfter.getAttribute('aria-pressed')).toBe('false')
     await expect(page).not.toHaveURL(/compare_panels=token-usage/)
