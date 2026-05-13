@@ -34,7 +34,7 @@ Categorized by surface area. Each maps to exactly one phase in `ROADMAP.md` once
 - [x] **SHEL-02**: Top bar (`AppShellHeader` extracted from existing NavBar) hosting Cmd+K trigger, global time picker, density toggle, save-view button, theme toggle. URL-shareable across routes. _(Phase 24 Plan 04 — AppShellHeader.tsx; time-picker-trigger + save-view-button ship as disabled+display:none placeholders pre-registered for Phases 25/26)_
 - [x] **SHEL-03**: Active-route indicator in sidebar (highlight + section header collapse-aware). _(Phase 24 Plan 04 — `cmc-sidebar__navlink--active` via TanStack `activeProps`; 3px `border-left` accent bar survives 240→52px collapse flip)_
 - [x] **SHEL-04**: Sidebar collapses to icon-only mode with persistent toggle state (localStorage). Toggleable via chrome control + keyboard shortcut. _(Phase 24 Plan 04 — lib/sidebar.ts + window-level Cmd+B/Ctrl+B keydown with preventDefault + chrome `sidebar-collapse-toggle` button; pre-mount applySidebar() in main.tsx prevents flash)_
-- [ ] **SHEL-05**: Sidebar "Recently visited" section auto-tracks last 5 routes/views (localStorage; renders below main nav).
+- [x] **SHEL-05**: Sidebar "Recently visited" section auto-tracks last 5 routes/views (localStorage; renders below main nav).
 - [x] **SHEL-06**: Sidebar "Pinned" section for user-favorited saved views — depends on VIEW-04. One-click access from sidebar.
 
 ### Density (DENS) — 3-tier dashboard density
@@ -189,7 +189,7 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 | SHEL-02 | Phase 24 | Complete |
 | SHEL-03 | Phase 24 | Complete |
 | SHEL-04 | Phase 24 | Complete |
-| SHEL-05 | Phase 26 | Pending |
+| SHEL-05 | Phase 26 | Complete |
 | SHEL-06 | Phase 25 | ✅ Complete (plan 09, 2026-05-12) |
 | DENS-01 | Phase 24 | ✅ Complete (plans 02 + 05 e2e, 2026-05-11) |
 | DENS-02 | Phase 24 | ✅ Complete (plans 02 + 05 runtime Portal cascade fixture, 2026-05-11) |

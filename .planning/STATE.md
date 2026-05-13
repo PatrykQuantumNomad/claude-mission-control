@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Surface Redesign
 status: "Plans 01 + 02 ship 4 atomic commits across both plans. Plan 01: Task 1 (6df78d9 — grafanaSyntax.ts + coerce.ts + 3 deps + 25 vitest cases); Task 2 (399ff10 — rangeToVocab.ts + clipboard.ts + Toaster + 26 vitest cases). Plan 02: Task 1 (80c126c — asTimeToken validator + 3-route extension append-only + 20 new vitest cases — SCHEMA_VERSION stays at 1, Pitfall 13 preserved); Task 2 (b68eb55 — recents.ts FIFO ring + 11 vitest cases + docs/url-contract.md Phase 26 section + per-route shape rows updated). Frontend vitest 452 baseline → 533 / 0 / 0 (+81 total: +51 Plan 01 + +31 Plan 02 — clean handoff between parallel agents). pnpm tsc --noEmit clean. pnpm lint --max-warnings 0 clean. Backend pytest 686 / 0 / 0 baseline preserved. backend/tests/test_url_contract.py 2/2 PASS. Plan 02 files: 2 created (recents.ts + recents.test.ts) + 5 modified (searchSchemas.ts + 3 route files + searchSchemas.test.ts + url-contract.md). Zero deviations across both plans. Wave 2 (Plan 03 TimePicker UI) ready: consumes Plan 01's parseGrafanaToken (input validation) + coerceToAbsolute (calendar snap-to-day preview) + Toaster (mounted); writes back via Plan 02's accepted time_from + time_to URL params. Wave 2 RecentRoutesTracker (Plan 04+) consumes Plan 02's pushRecentRoute on routerState location change. Wave 3 ChartBrushController (Plan 06+) consumes serializeRange + parseRangeFromText. Panel READ-SITE wiring (Wave 5) consumes rangeToVocab to keep useTokens/useCache hooks unchanged + applies per-route fallback (24h / 1h / 7d)."
-last_updated: "2026-05-13T10:46:15.643Z"
-last_activity: 2026-05-13 — 26-02-SUMMARY.md authored. Phase 26 Plans 01 + 02 (Foundation Wave 1) complete. Frontend vitest 533/0/0. Wave 2 (Plan 03 TimePicker UI) ready to spawn.
+last_updated: "2026-05-13T10:55:30Z"
+last_activity: 2026-05-13 — 26-04-SUMMARY.md authored. SHEL-05 surface complete. Frontend vitest 550/0/0. Plan 03 in-flight in parallel.
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 27
-  completed_plans: 20
-  percent: 74
+  completed_plans: 22
+  percent: 81
 ---
 
 # Project State
@@ -25,14 +25,14 @@ See: .planning/PROJECT.md (updated 2026-05-10 after v1.3 milestone start)
 
 ## Current Position
 
-Phase: 26 — Per-Route Adoption I (Command/Activity/Sessions + Time + Cmd+K) ⏳ in progress (2/9 plans complete)
-Plan: Phase 26 plans 01 + 02 ✅ both complete (Foundation Wave 1). Plan 01 (2/2 tasks): time-lib helpers (parseGrafanaToken / coerceToAbsolute / rangeToVocab / serializeRange+parseRangeFromText) + 3 runtime deps (sonner@2.0.7 / react-day-picker@10.0.0 / date-fns@4.1.0) + sonner Toaster mount in AppShell. Plan 02 (2/2 tasks): shared asTimeToken validator + per-route validateSearch extension (append-only) on /, /activity, /sessions/compare accepting ?time_from + ?time_to defaulting to undefined per Pitfall 13 + cmc.recents.routes FIFO ring (cap 20, head-dedupe) + docs/url-contract.md Phase 26 section. ADRs locked: (a) frontend-coerce-to-vocab bridge is Phase 26 path; backend time_from/time_to acceptance deferred to Phase 27 TDBT (b) validator-default is undefined — per-route fallback (24h / 1h / 7d) applied at panel READ SITE in Wave 3.
+Phase: 26 — Per-Route Adoption I (Command/Activity/Sessions + Time + Cmd+K) ⏳ in progress (3/9 plans complete; Plan 03 in-flight in parallel)
+Plan: Phase 26 plans 01 + 02 + 04 ✅ complete (Foundation Wave 1 + SHEL-05 surface). Plan 01 (2/2 tasks): time-lib helpers + 3 runtime deps + Toaster mount. Plan 02 (2/2 tasks): asTimeToken validator + 3-route validateSearch extension + cmc.recents.routes FIFO ring + url-contract.md Phase 26 section. Plan 04 (2/2 tasks): RecentRoutesTracker zero-render effect (mounted as 3rd effect in AppShell after DefaultViewLoader + RecentStateTracker) + RecentlyVisitedSection sidebar surface (top 3, current-route filtered, between Pinned and Configure per CONTEXT-reconciled IA). +10 vitest specs (550/0/0 total on disk including sibling Plan 03 in-flight 7 specs). Commits: 28dd978 (Task 1 — RecentRoutesTracker + AppShell), 4010a8b (Task 2 — RecentlyVisitedSection + Sidebar + testid).
 Status: Plans 01 + 02 ship 4 atomic commits across both plans. Plan 01: Task 1 (6df78d9 — grafanaSyntax.ts + coerce.ts + 3 deps + 25 vitest cases); Task 2 (399ff10 — rangeToVocab.ts + clipboard.ts + Toaster + 26 vitest cases). Plan 02: Task 1 (80c126c — asTimeToken validator + 3-route extension append-only + 20 new vitest cases — SCHEMA_VERSION stays at 1, Pitfall 13 preserved); Task 2 (b68eb55 — recents.ts FIFO ring + 11 vitest cases + docs/url-contract.md Phase 26 section + per-route shape rows updated). Frontend vitest 452 baseline → 533 / 0 / 0 (+81 total: +51 Plan 01 + +31 Plan 02 — clean handoff between parallel agents). pnpm tsc --noEmit clean. pnpm lint --max-warnings 0 clean. Backend pytest 686 / 0 / 0 baseline preserved. backend/tests/test_url_contract.py 2/2 PASS. Plan 02 files: 2 created (recents.ts + recents.test.ts) + 5 modified (searchSchemas.ts + 3 route files + searchSchemas.test.ts + url-contract.md). Zero deviations across both plans. Wave 2 (Plan 03 TimePicker UI) ready: consumes Plan 01's parseGrafanaToken (input validation) + coerceToAbsolute (calendar snap-to-day preview) + Toaster (mounted); writes back via Plan 02's accepted time_from + time_to URL params. Wave 2 RecentRoutesTracker (Plan 04+) consumes Plan 02's pushRecentRoute on routerState location change. Wave 3 ChartBrushController (Plan 06+) consumes serializeRange + parseRangeFromText. Panel READ-SITE wiring (Wave 5) consumes rangeToVocab to keep useTokens/useCache hooks unchanged + applies per-route fallback (24h / 1h / 7d).
-Last activity: 2026-05-13 — 26-02-SUMMARY.md authored. Phase 26 Plans 01 + 02 (Foundation Wave 1) complete. Frontend vitest 533/0/0. Wave 2 (Plan 03 TimePicker UI) ready to spawn.
+Last activity: 2026-05-13 — 26-04-SUMMARY.md authored. SHEL-05 surface complete (RecentRoutesTracker + RecentlyVisitedSection). Frontend vitest 550/0/0 (533 baseline + sibling Plan 03 in-flight +7 + Plan 04 +10). Plan 03 (TimePicker / RefreshDropdown / AutoRefreshController) still running in parallel.
 
 (Previous Phase 25 close: 2026-05-12 — operator verdict PASS signed by Patryk Golabek. Phase 25 closes 11/11 plans complete. Backend pytest 686/0/0; frontend vitest 452/0/0; Playwright 141 tests (137 pass + 4 forward-compat skip); Lighthouse 9/9 PASS; axe 34/34 PASS; URL contract 2/2 PASS. 3 Accepted Exceptions operator-approved.)
 
-Progress (Phase 26 plans): [██░░░░░░░░] 22% (2/9 plans complete — Plans 01, 02; Plans 03-09 pending)
+Progress (Phase 26 plans): [███░░░░░░░] 33% (3/9 plans complete — Plans 01, 02, 04; Plan 03 in-flight in parallel; Plans 05-09 pending)
 Progress (v1.3 milestone): [████░░░░░░] 40% (2/5 phases complete — Phases 24+25 closed; Phase 26 in progress)
 
 ## Performance Metrics
@@ -91,6 +91,7 @@ Progress (v1.3 milestone): [████░░░░░░] 40% (2/5 phases comp
 | URL contract pytest (POLI-13) | 2/2 PASS | 2/2 PASS | 0 | No URL renames in Phase 25; validateSearch adoptions don't break bidirectional doc⇄route contract |
 | Backend CRUD curl matrix (criterion 5b) | n/a | 8/8 PASS | n/a | Create / list / list-filtered / get / patch / UNIQUE-collision / delete / 50-cap rejection |
 | ResponsiveContainer count | 26 (= v1.2 baseline) | 26 | 0 | Phase 25 added zero charts |
+| Phase 26 P04 | 7 min | 2 tasks tasks | 4 created / 3 modified files |
 
 ## Accumulated Context
 
@@ -382,6 +383,7 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 **v1.3 Phase 26 plan-01 execution coordination notes:**
 
 - **Parallel-safe execution with Plan 02 sibling agent verified.** Plan 02 modifies `frontend/src/lib/searchSchemas.{ts,test.ts}` + `routes/{index,activity,sessions_.compare}.tsx`; Plan 01 modifies `frontend/src/lib/time/*` + `frontend/src/components/shell/AppShell{,test}.tsx` + `frontend/package.json` + `frontend/pnpm-lock.yaml`. Zero file overlap, zero race condition observed. Plan 02 committed `80c126c` between my Task 1 (`6df78d9`) and Task 2 (`399ff10`) without conflict. Mid-execution `pnpm tsc --noEmit` reported a transient `TS6133: 'asTimeToken' declared but never read` in `searchSchemas.test.ts` because Plan 02 staged its import before its commit. Resolution: pre-commit hook stashes unstaged sibling-agent files, runs tsc on my staged set in isolation, restores stash on completion. Post-Plan-02-commit tsc is fully clean. **Locked pattern: parallel Wave 1 plans must not share files in `frontend/src/lib/`; foundation helpers and route-validator extensions are orthogonal by construction.**
+- [Phase ?]: Phase 26 Plan 04 (SHEL-05): RecentRoutesTracker mounts as third zero-render effect in AppShell; RecentlyVisitedSection sits between Pinned and Configure (CONTEXT-reconciled IA — Phase 25 locked Pinned between Operate and Configure so Recently Visited slots below Pinned). Pitfall 8 option b: post-render useEffect push + filter currently-active route from displayed list. /skills/$name v1 navigates to /skills index (no dynamic-value carryforward in ring entry — mirrors Phase 25 PinnedViewsSection limitation).
 
 ### Resolved Blockers
 
