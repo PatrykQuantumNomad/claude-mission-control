@@ -9,6 +9,7 @@ import { DensityProvider } from './DensityProvider'
 import { LoadedViewProvider } from '../savedviews/LoadedViewContext'
 import { DefaultViewLoader } from '../savedviews/DefaultViewLoader'
 import { RecentStateTracker } from '../savedviews/RecentStateTracker'
+import { RecentRoutesTracker } from '../recents/RecentRoutesTracker'
 
 interface AppShellProps {
   children: ReactNode
@@ -58,9 +59,15 @@ export function AppShell({ children }: AppShellProps) {
             {/* Plan 10: zero-render effect components. Must live inside
                 LoadedViewProvider (DefaultViewLoader calls setLoadedView)
                 AND inside the RouterProvider that wraps AppShell (both
-                use useNavigate + useRouterState). */}
+                use useNavigate + useRouterState).
+                Phase 26 Plan 04 (SHEL-05): RecentRoutesTracker mounts as the
+                third zero-render effect — pushes the current pathname into
+                cmc.recents.routes on every IN_SCOPE_ROUTES navigation. Drives
+                the Sidebar "Recently Visited" section (top 3) and the future
+                Cmd+K Recents group (top 5). */}
             <DefaultViewLoader />
             <RecentStateTracker />
+            <RecentRoutesTracker />
             <div className="cmc-shell">
               <Sidebar />
               <div className="cmc-shell__column">
