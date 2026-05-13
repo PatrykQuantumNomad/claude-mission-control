@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Surface Redesign
-status: "Phase 26 Wave 3 Plan 05 closed — TIME-05 brush-zoom surface shipped on /activity ChartsStrip. Task 1 (0ac6ed8 — useChartBrush hook + ResetZoomButton component + 9 vitest specs); Task 2 (2bf27be — Brush + useChartBrush + ResetZoomButton wired into ChartsStrip; render-prop body extracted to ChartsStripBody so the hook sits at a stable component scope; 5 new brush integration specs + 1 fix to pre-existing ChartsStrip.test.tsx to mock useNavigate/useRouterState). Frontend scoped vitest 18/18 pass across my files. pnpm tsc --noEmit clean on my files. Scoped lint clean on my files. Whole-project tsc + 2 tests have failures in sibling Plan 26-06's uncommitted CommandPalette WIP — out of scope (parallel agent). 2 new testids registered (reset-zoom-button + charts-strip-brush-chrome). ResponsiveContainer count across panels/*.tsx preserved at 8 (delta = 0; Phase 24 Pitfall 4 lock holds). 2 documented deviations: (1) Rule 1 fix to existing ChartsStrip.test.tsx (added router mock to match new ChartsStrip useNavigate dependency); (2) Rule 3 parallel-coordination workaround for pre-commit hook (sibling's uncommitted tsc-failing file moved aside during commit then restored — no content edit). Wave 3 ready for Plan 26-07/08/09: useChartBrush + ResetZoomButton are generic chrome primitives any time-series recharts chart can adopt; URL contract preserved."
-last_updated: "2026-05-13T11:15:41Z"
-last_activity: 2026-05-13 — 26-05-SUMMARY.md authored. TIME-05 brush-zoom surface shipped on /activity ChartsStrip via the new useChartBrush hook + ResetZoomButton chrome. 5/9 Phase 26 plans complete (Plan 26-06 running in parallel).
+status: "Phase 26 Wave 3 Plan 06 (CMDK-02/CMDK-03/CMDK-04) closed in parallel with Plan 05. CommandPalette extended with 3 new Command.Groups in the locked JSX child order (Pitfall 10): Recents → Saved Views → Pages → Time range → Density → Actions. Recents reads getRecentRoutes() (Plan 02) + getAllRecentStates() (Phase 25 Plan 10) and renders top-5 of each with empty-state fallback. Time range condenses TimePicker's 13-preset grid to 4 high-frequency windows (1h/24h/7d/30d) + Copy/Paste commands that reuse lib/time/clipboard.ts + sonner exactly. Density ships 3 discrete commands with ✓ check-prefix; selection routes through setDensity() directly (Pitfall 3 lock — no React Context bridge). 4 new dynamic testid families registered (cmdk-recents-route/state, cmdk-time-range, cmdk-density) + 3 exact-match testids. 17 new vitest cases (6 recents + 6 time range + 5 density). 2 deviations documented in SUMMARY: (1) Rule 1 vitest clipboard ordering — navigator.clipboard override MUST run AFTER userEvent.setup() to defeat user-event's attachClipboardStubToView getter; (2) Rule 1 TanStack Router as-never cast for runtime pathname/route strings (mirror of Plan 03 TimePicker). 6/9 Phase 26 plans complete. ResponsiveContainer count delta = 0 (zero new charts). Plan 05 sibling agent shipped TIME-05 brush-zoom in parallel; zero file overlap. Wave 3 remaining: Plans 07/08/09 per-route adoption."
+last_updated: "2026-05-13T11:26:42.247Z"
+last_activity: 2026-05-13 — 26-06-SUMMARY.md authored. CMDK-02 + CMDK-03 + CMDK-04 shipped on CommandPalette. 6/9 Phase 26 plans complete (5 + 6 both closed today in parallel).
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 27
-  completed_plans: 24
-  percent: 89
+  completed_plans: 25
+  percent: 93
 ---
 
 # Project State
@@ -25,14 +25,14 @@ See: .planning/PROJECT.md (updated 2026-05-10 after v1.3 milestone start)
 
 ## Current Position
 
-Phase: 26 — Per-Route Adoption I (Command/Activity/Sessions + Time + Cmd+K) ⏳ in progress (5/9 plans complete; Wave 3 Plan 05 closed — Plan 26-06 running in parallel)
-Plan: Phase 26 plans 01 + 02 + 03 + 04 + 05 ✅ complete (Foundation Wave 1 + Wave 2 TIME-01 + SHEL-05 surfaces + Wave 3 TIME-05 brush surface). Plan 01 (2/2 tasks): time-lib helpers + 3 runtime deps + Toaster mount. Plan 02 (2/2 tasks): asTimeToken validator + 3-route validateSearch extension + cmc.recents.routes FIFO ring + url-contract.md Phase 26 section. Plan 03 (2/2 tasks): TimePicker + PresetList + CustomRangeCalendar + Cmd+Shift+C/V hotkeys (9e60307) + RefreshDropdown + AutoRefreshController + isTimeAnchoredKey + AppShellHeader/AppShell wiring (9d3ee0c). Plan 04 (2/2 tasks): RecentRoutesTracker + RecentlyVisitedSection (28dd978 + 4010a8b). Plan 05 (2/2 tasks): useChartBrush hook + ResetZoomButton component (0ac6ed8) + ChartsStrip Brush wiring + render-prop scope extraction + 5 new brush integration specs + 1 fix to pre-existing ChartsStrip.test.tsx (2bf27be). +14 new vitest specs (9 hook + 5 brush integration) — scoped 18/18 pass.
-Status: Phase 26 Wave 3 Plan 05 (TIME-05) closed. Brush-zoom commits absolute ISO time_from/time_to to URL via useChartBrush; ResetZoomButton in ChartsStrip chrome clears the zoom round-trip. AutoRefreshController pause branch (Plan 03 pre-wired) exercised by the absolute-ISO commits. ResponsiveContainer count across panels/*.tsx preserved at 8 (delta = 0; Phase 24 Pitfall 4 lock holds). 2 new testids registered (reset-zoom-button + charts-strip-brush-chrome). 2 deviations documented in SUMMARY: (1) Rule 1 fix to existing ChartsStrip.test.tsx (added router mock); (2) Rule 3 parallel-coordination workaround for pre-commit hook (sibling Plan 26-06 untracked WIP file with tsc error moved aside during commit then restored — no content edit). Wave 3 ready for Plan 26-07/08/09: useChartBrush + ResetZoomButton are generic chrome primitives any time-series recharts chart can adopt with zero panel-to-panel coupling. Plan 26-06 (CommandPalette extensions for CMDK-02/03/04) is running in parallel — zero file overlap with Plan 05's work.
-Last activity: 2026-05-13 — 26-05-SUMMARY.md authored. TIME-05 brush-zoom shipped on /activity ChartsStrip. 5/9 Phase 26 plans complete (parallel Plan 06 still running).
+Phase: 26 — Per-Route Adoption I (Command/Activity/Sessions + Time + Cmd+K) ⏳ in progress (6/9 plans complete; Wave 3 Plans 05 + 06 both closed today in parallel)
+Plan: Phase 26 plans 01 + 02 + 03 + 04 + 05 + 06 ✅ complete (Foundation Wave 1 + Wave 2 TIME-01 + SHEL-05 surfaces + Wave 3 TIME-05 brush + CMDK-02/03/04 surfaces). Plan 01 (2/2 tasks): time-lib helpers + 3 runtime deps + Toaster mount. Plan 02 (2/2 tasks): asTimeToken validator + 3-route validateSearch extension + cmc.recents.routes FIFO ring + url-contract.md Phase 26 section. Plan 03 (2/2 tasks): TimePicker + PresetList + CustomRangeCalendar + Cmd+Shift+C/V hotkeys (9e60307) + RefreshDropdown + AutoRefreshController + isTimeAnchoredKey + AppShellHeader/AppShell wiring (9d3ee0c). Plan 04 (2/2 tasks): RecentRoutesTracker + RecentlyVisitedSection (28dd978 + 4010a8b). Plan 05 (2/2 tasks): useChartBrush hook + ResetZoomButton component (0ac6ed8) + ChartsStrip Brush wiring + render-prop scope extraction + 5 new brush integration specs (2bf27be). Plan 06 (2/2 tasks): CommandPalette Recents + Time range groups (21ebf9b) + Density group (a829862); 4 dynamic + 3 exact-match testids; 17 new vitest specs (6 recents + 6 timeRange + 5 density). +31 new vitest specs across Plans 05+06 — scoped 36/36 pass. Frontend vitest 587/0/0 (556 baseline + 31). pnpm tsc/lint clean.
+Status: Phase 26 Wave 3 Plan 06 (CMDK-02/CMDK-03/CMDK-04) closed in parallel with Plan 05. CommandPalette extended with 3 new Command.Groups in the locked JSX child order (Pitfall 10): Recents → Saved Views → Pages → Time range → Density → Actions. Recents reads getRecentRoutes() (Plan 02) + getAllRecentStates() (Phase 25 Plan 10) and renders top-5 of each with empty-state fallback. Time range condenses TimePicker's 13-preset grid to 4 high-frequency windows (1h/24h/7d/30d) + Copy/Paste commands that reuse lib/time/clipboard.ts + sonner exactly. Density ships 3 discrete commands with ✓ check-prefix; selection routes through setDensity() directly (Pitfall 3 lock — no React Context bridge). 4 new dynamic testid families registered (cmdk-recents-route/state, cmdk-time-range, cmdk-density) + 3 exact-match testids. 17 new vitest cases (6 recents + 6 time range + 5 density). 2 deviations documented in SUMMARY: (1) Rule 1 vitest clipboard ordering — navigator.clipboard override MUST run AFTER userEvent.setup() to defeat user-event's attachClipboardStubToView getter; (2) Rule 1 TanStack Router as-never cast for runtime pathname/route strings (mirror of Plan 03 TimePicker). 6/9 Phase 26 plans complete. ResponsiveContainer count delta = 0 (zero new charts). Wave 3 remaining: Plans 07/08/09 per-route adoption.
+Last activity: 2026-05-13 — 26-06-SUMMARY.md authored. CMDK-02 + CMDK-03 + CMDK-04 shipped on CommandPalette. 6/9 Phase 26 plans complete (5 + 6 both closed today in parallel).
 
 (Previous Phase 25 close: 2026-05-12 — operator verdict PASS signed by Patryk Golabek. Phase 25 closes 11/11 plans complete. Backend pytest 686/0/0; frontend vitest 452/0/0; Playwright 141 tests (137 pass + 4 forward-compat skip); Lighthouse 9/9 PASS; axe 34/34 PASS; URL contract 2/2 PASS. 3 Accepted Exceptions operator-approved.)
 
-Progress (Phase 26 plans): [█████░░░░░] 56% (5/9 plans complete — Plans 01, 02, 03, 04, 05; Plan 06 running in parallel; Plans 07-09 pending)
+Progress (Phase 26 plans): [██████░░░░] 67% (6/9 plans complete — Plans 01, 02, 03, 04, 05, 06; Plans 07-09 pending)
 Progress (v1.3 milestone): [████░░░░░░] 40% (2/5 phases complete — Phases 24+25 closed; Phase 26 in progress)
 
 ## Performance Metrics
@@ -94,6 +94,7 @@ Progress (v1.3 milestone): [████░░░░░░] 40% (2/5 phases comp
 | ResponsiveContainer count | 26 (= v1.2 baseline) | 26 | 0 | Phase 25 added zero charts |
 | Phase 26 P04 | 7 min | 2 tasks tasks | 4 created / 3 modified files |
 | Phase 26 P05 | ~9 min | 2 tasks | 4 created / 4 modified files |
+| Phase 26 P06 | 20min | 2 tasks | 2 modified / 3 created files |
 
 ## Accumulated Context
 
@@ -423,6 +424,9 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 - **STATE.md uncommitted edits detected mid-execution.** Sibling agent (Plan 06) had touched `.planning/STATE.md` with textual condensation of the status field + last_updated bump to `2026-05-13T11:17:01.293Z` — no semantic change. My Plan 05 updates layer cleanly on top via targeted Edit calls (no replace_all). Locked pattern reaffirmed (mirrors Plan 03 coordination note): STATE.md edits from parallel agents must be SURGICAL — line-anchored Edit calls, never blanket overwrites.
 
 (Cleared at milestone close — see `.planning/milestones/v1.2-MILESTONE-AUDIT.md` for the full v1.2 issues-resolved log.)
+
+- [Phase ?]: Phase 26 Plan 06 CMDK-04 in-scope routes for getAllRecentStates aggregation: mirror RecentRoutesTracker IN_SCOPE_ROUTES set verbatim — three lists now must stay in sync (RecentStateTracker, RecentRoutesTracker, CommandPalette RECENTS_IN_SCOPE_ROUTES); breadcrumb comments added. Future phase may unify into lib/routes.ts.
+- [Phase ?]: Phase 26 Plan 06 vitest clipboard ordering invariant: navigator.clipboard override MUST run AFTER userEvent.setup() — user-event installs a getter-based clipboard stub via attachClipboardStubToView that clobbers any prior defineProperty. Documented inline in CommandPalette.timeRange.test.tsx.
 
 ### Open Blockers / Carried Items
 

@@ -73,9 +73,9 @@ Categorized by surface area. Each maps to exactly one phase in `ROADMAP.md` once
 ### Command Palette (CMDK) — additive Command.Group blocks
 
 - [x] **CMDK-01**: Saved Views group — open view by name (current route filtered first), set as default, jump to view's URL. No new context; reuses `useSavedViews(route)` from VIEW-04. _(complete 2026-05-12, Phase 25 Plan 08 — CommandPalette "Saved Views" Command.Group, cross-route useSavedViews(), current-route-first sort, routePathFromId dynamic-route guard, selection navigates+setLoadedView+closes; 11 vitest specs)_
-- [ ] **CMDK-02**: Set Density command (Compact / Comfortable / Cozy) with current-state indicator.
-- [ ] **CMDK-03**: Time Range commands — set predefined ranges (last 1h / 24h / 7d / 30d), copy current range, paste clipboard range.
-- [ ] **CMDK-04**: Recent items group — last 5 visited routes (SHEL-05) + last N ad-hoc states (VIEW-09). Cross-route surfacing.
+- [x] **CMDK-02**: Set Density command (Compact / Comfortable / Cozy) with current-state indicator. ✅ 2026-05-13 (Phase 26 Plan 06 Task 2 — Density Command.Group with 3 discrete items + ✓ check-prefix on currently-active; selection calls setDensity() directly via lib/density.ts — Pitfall 3 lock NO React Context bridge; POLI-11 zero-rerender preserved; 5 vitest cases; cmdk-density-{value} dynamic testid)
+- [x] **CMDK-03**: Time Range commands — set predefined ranges (last 1h / 24h / 7d / 30d), copy current range, paste clipboard range. ✅ 2026-05-13 (Phase 26 Plan 06 Task 1 — Time range Command.Group with 4 condensed presets + Copy/Paste commands reusing lib/time/clipboard.ts serializeRange/parseRangeFromText + sonner toasts exactly; function-form navigate writes time_from/time_to mirroring TimePicker Plan 03 URL contract; 6 vitest cases; cmdk-time-range-{value} dynamic + cmdk-time-range-copy/paste exact testids)
+- [x] **CMDK-04**: Recent items group — last 5 visited routes (SHEL-05) + last N ad-hoc states (VIEW-09). Cross-route surfacing. ✅ 2026-05-13 (Phase 26 Plan 06 Task 1 — Recents Command.Group at top of palette reading getRecentRoutes() top-5 from cmc.recents.routes Plan 02 + getAllRecentStates() top-5 cross-route ad-hoc states from Phase 25 Plan 10; empty-state cmdk-recents-empty surfaces when both rings empty; 6 vitest cases; cmdk-recents-route-{slug}/state-{idx} dynamic testids; routeToTestidSlug() pure helper mirrors SidebarNavLink slug vocabulary)
 
 ### Polish & Quality (POLI) — extends existing POLI prefix
 
@@ -213,9 +213,9 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 | LAYO-03 | Phase 28 | Pending |
 | LAYO-04 | Phase 28 | Pending |
 | CMDK-01 | Phase 25 | ✅ Complete (plan 08, 2026-05-12) |
-| CMDK-02 | Phase 26 | Pending |
-| CMDK-03 | Phase 26 | Pending |
-| CMDK-04 | Phase 26 | Pending |
+| CMDK-02 | Phase 26 | ✅ Complete (plan 06 Task 2, 2026-05-13) |
+| CMDK-03 | Phase 26 | ✅ Complete (plan 06 Task 1, 2026-05-13) |
+| CMDK-04 | Phase 26 | ✅ Complete (plan 06 Task 1, 2026-05-13) |
 | POLI-09 | Phase 24 | ✅ Complete (plans 05 + 07, 2026-05-12) |
 | POLI-10 | Phase 24 | ✅ Complete (plans 05 + 07, 2026-05-12) |
 | POLI-11 | Phase 24 | ✅ Complete (plans 05 + 07, 2026-05-12) |
