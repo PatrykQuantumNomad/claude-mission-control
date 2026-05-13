@@ -164,3 +164,84 @@ test.describe('CONT-02 portal containment — no transform ancestor traps Radix 
     }
   })
 })
+
+// ────────────────────────────────────────────────────────────────────────
+// Phase 26 Plan 09 extension: TimePicker popover + RefreshDropdown menu +
+// Sonner Toaster region all Portal-mount via Radix or sonner's own
+// document.body mount. Mirror the Phase 24 walker — none of these
+// content roots may have a transform ancestor (only the Radix
+// popper-content-wrapper's intrinsic translate is permitted).
+// ────────────────────────────────────────────────────────────────────────
+
+async function assertNoTransformAncestor(
+  locator: import('@playwright/test').Locator,
+): Promise<void> {
+  const ancestorTransforms: TransformAncestor[] = await locator.evaluate(
+    (el) => {
+      const isRadixPopperWrapper = (e: Element) =>
+        e.hasAttribute('data-radix-popper-content-wrapper')
+      const offenders: Array<{
+        tag: string
+        cls: string
+        transform: string
+      }> = []
+      let cur: Element | null = el.parentElement
+      while (cur && cur !== document.body) {
+        if (isRadixPopperWrapper(cur)) {
+          cur = cur.parentElement
+          continue
+        }
+        const cs = window.getComputedStyle(cur)
+        if (cs.transform && cs.transform !== 'none') {
+          offenders.push({
+            tag: cur.tagName,
+            cls: cur.className?.toString?.() ?? '',
+            transform: cs.transform,
+          })
+        }
+        cur = cur.parentElement
+      }
+      return offenders
+    },
+  )
+  expect(ancestorTransforms, JSON.stringify(ancestorTransforms)).toEqual([])
+}
+
+test.describe('CONT-02 portal containment — Phase 26 chrome (TimePicker / RefreshDropdown / Toaster)', () => {
+  test('TimePicker popover content has no transform ancestor', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+
+    await page.getByTestId('time-picker-trigger').click()
+    const popover = page.getByTestId('time-picker-popover')
+    await expect(popover).toBeVisible()
+    await assertNoTransformAncestor(popover)
+  })
+
+  test('RefreshDropdown menu content has no transform ancestor', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+
+    await page.getByTestId('refresh-dropdown-trigger').click()
+    // Radix DropdownMenu.Content is the role=menu surface.
+    const menu = page.locator('[role="menu"]').first()
+    await expect(menu).toBeVisible()
+    await assertNoTransformAncestor(menu)
+  })
+
+  test('Sonner Toaster region has no transform ancestor when a toast fires', async ({
+    page,
+  }) => {
+    await page.goto('/?time_from=now-7d&time_to=now')
+    await page.waitForLoadState('networkidle')
+    await page.locator('body').click()
+    // Cmd+Shift+C fires toast.success('Time range copied') — sonner
+    // mounts a region in <body>.
+    await page.keyboard.press('ControlOrMeta+Shift+KeyC')
+    // Wait for the toast region to appear (sonner uses [data-sonner-toaster]
+    // on its outer wrapper).
+    const toaster = page.locator('[data-sonner-toaster], [aria-label*="Notifications" i]').first()
+    await expect(toaster).toBeAttached({ timeout: 5_000 })
+    await assertNoTransformAncestor(toaster)
+  })
+})

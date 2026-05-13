@@ -122,6 +122,65 @@ test.describe('Phase 25 — Cmd+K Saved Views group', () => {
     await expect(page).toHaveURL(/\/cost/)
   })
 
+  // ──────────────────────────────────────────────────────────────────
+  // Phase 26 Plan 09 extension: group order + Density + Time range
+  // commands (CMDK-02 / CMDK-03 / Pitfall 10 lock).
+  // ──────────────────────────────────────────────────────────────────
+
+  test('Phase 26: Cmd+K group order is Recents → Saved Views → Pages → Time range → Density → Actions', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(500)
+    await page.locator('body').click()
+    await page.keyboard.press('ControlOrMeta+KeyK')
+    await expect(
+      page.getByRole('dialog', { name: 'Mission Control command palette' }),
+    ).toBeVisible()
+    const headings = await page
+      .locator('[cmdk-group-heading]')
+      .allTextContents()
+    expect(headings).toEqual([
+      'Recents',
+      'Saved Views',
+      'Pages',
+      'Time range',
+      'Density',
+      'Actions',
+    ])
+  })
+
+  test('CMDK-02: "Set density: Compact" command flips <html data-density="compact">', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(500)
+    await page.locator('body').click()
+    await page.keyboard.press('ControlOrMeta+KeyK')
+    await page.getByTestId('cmdk-density-compact').click()
+    await page.waitForTimeout(200)
+    const density = await page.evaluate(() =>
+      document.documentElement.getAttribute('data-density'),
+    )
+    expect(density).toBe('compact')
+  })
+
+  test('CMDK-03: "Last 7 days" Time range command writes URL', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(500)
+    await page.locator('body').click()
+    await page.keyboard.press('ControlOrMeta+KeyK')
+    await page.getByTestId('cmdk-time-range-7d').click()
+    await page.waitForTimeout(300)
+    await expect(page).toHaveURL(/time_from=now-7d/)
+    await expect(page).toHaveURL(/time_to=now/)
+  })
+
   test('Current-route views appear before other-route views in the palette', async ({
     page,
   }) => {

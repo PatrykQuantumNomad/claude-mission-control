@@ -260,3 +260,88 @@ test.describe('SHEL-06 Pinned section IA + rendering', () => {
     await expect(pinnedAfter).toHaveClass(/cmc-sidebar__navlink--active/)
   })
 })
+
+// ────────────────────────────────────────────────────────────────────────
+// Phase 26 Plan 09 extension: Sidebar Recently Visited section (SHEL-05)
+// ────────────────────────────────────────────────────────────────────────
+
+test.describe('SHEL-05 Recently Visited section', () => {
+  test.beforeEach(async ({ page }) => {
+    // Wipe relevant localStorage so each test sees a clean rings state.
+    await page.goto('/')
+    await page.evaluate(() => {
+      try {
+        const keys: string[] = []
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const k = window.localStorage.key(i)
+          if (k && k.startsWith('cmc.recents.')) keys.push(k)
+        }
+        keys.forEach((k) => window.localStorage.removeItem(k))
+      } catch {
+        // ignore
+      }
+    })
+  })
+
+  test('Recently Visited header renders even with empty localStorage', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(500)
+    await expect(
+      page.getByTestId('sidebar-section-recently-visited'),
+    ).toBeVisible()
+  })
+
+  test('Seeded recents render as sidebar links; current pathname is filtered out', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await page.evaluate(() => {
+      const now = Date.now()
+      window.localStorage.setItem(
+        'cmc.recents.routes',
+        JSON.stringify([
+          { route: '/activity', visitedAt: now - 1000 },
+          { route: '/skills', visitedAt: now - 2000 },
+          { route: '/cost', visitedAt: now - 3000 },
+        ]),
+      )
+    })
+    // Navigate to /cost → its row is current pathname, so should be filtered.
+    await page.goto('/cost')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(800)
+    const section = page.getByTestId('sidebar-section-recently-visited')
+    await expect(section).toBeVisible()
+    await expect(section.getByTestId('sidebar-link-activity')).toBeVisible()
+    await expect(section.getByTestId('sidebar-link-skills')).toBeVisible()
+    // /cost is the current pathname → filtered out of Recently Visited
+    // (RecentlyVisitedSection's current-pathname filter).
+    await expect(section.getByTestId('sidebar-link-cost')).toHaveCount(0)
+  })
+
+  test('Recently Visited entries survive sidebar collapsed mode (Cmd+B)', async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem('cmc.sidebar.collapsed', 'true')
+      const now = Date.now()
+      window.localStorage.setItem(
+        'cmc.recents.routes',
+        JSON.stringify([
+          { route: '/activity', visitedAt: now - 1000 },
+          { route: '/skills', visitedAt: now - 2000 },
+        ]),
+      )
+    })
+    await page.goto('/')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(800)
+    const section = page.getByTestId('sidebar-section-recently-visited')
+    await expect(section).toBeVisible()
+    // Seeded links should still render as icons in collapsed mode.
+    await expect(section.getByTestId('sidebar-link-activity')).toBeVisible()
+  })
+})

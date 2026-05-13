@@ -435,6 +435,99 @@ test.describe('Phase 25 — Saved Views (ROADMAP success criteria 1-4)', () => {
     await expect(page.getByTestId('sidebar-pinned-empty')).toBeVisible()
   })
 
+  // ──────────────────────────────────────────────────────────────────
+  // Phase 26 Plan 09 extension: time_from + time_to + compare_panels
+  // round-trip through state_json. Saved-views are an opaque blob the
+  // route's validateSearch deserializes on read; Phase 26 adds 3 new
+  // keys to / + /activity's validateSearch (time_from, time_to,
+  // compare_panels). Round-tripping these proves saved-views remain
+  // contract-compliant after the Phase 26 surface expansion.
+  // ──────────────────────────────────────────────────────────────────
+
+  test('Phase 26: saved view containing time_from + time_to round-trips through state_json', async ({
+    page,
+  }) => {
+    const created = await page.request.post(`${BACKEND}/api/views`, {
+      data: {
+        name: 'Last 7 days view',
+        description: '',
+        route: '/',
+        state_json: { time_from: 'now-7d', time_to: 'now' },
+        schema_version: 1,
+      },
+    })
+    const view = await created.json()
+
+    await page.goto('/')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(800)
+    // Open the view via the SavedViewMenu — exercises the read path
+    // (validateSearch decodes state_json on navigation).
+    await page.getByTestId('saved-view-menu-trigger').click()
+    await page.getByTestId(`saved-view-item-${view.id}`).hover()
+    await page.getByTestId(`saved-view-open-${view.id}`).click()
+    await expect(page).toHaveURL(/time_from=now-7d/)
+    await expect(page).toHaveURL(/time_to=now/)
+  })
+
+  test('Phase 26: saved view containing compare_panels=token-usage round-trips through state_json', async ({
+    page,
+  }) => {
+    const created = await page.request.post(`${BACKEND}/api/views`, {
+      data: {
+        name: 'Compare overlay view',
+        description: '',
+        route: '/',
+        state_json: { compare_panels: 'token-usage', range: '7d' },
+        schema_version: 1,
+      },
+    })
+    const view = await created.json()
+
+    await page.goto('/')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(800)
+    await page.getByTestId('saved-view-menu-trigger').click()
+    await page.getByTestId(`saved-view-item-${view.id}`).hover()
+    await page.getByTestId(`saved-view-open-${view.id}`).click()
+    await expect(page).toHaveURL(/compare_panels=token-usage/)
+    // The CompareToggle reads aria-pressed from the URL — the overlay
+    // should be active after the open path.
+    const toggle = page.getByTestId('compare-overlay-toggle-token-usage')
+    await expect(toggle).toBeVisible()
+    expect(await toggle.getAttribute('aria-pressed')).toBe('true')
+  })
+
+  test('Phase 26: saved view with time_from + time_to + compare_panels round-trips fully', async ({
+    page,
+  }) => {
+    const created = await page.request.post(`${BACKEND}/api/views`, {
+      data: {
+        name: 'Composite Phase 26 view',
+        description: '',
+        route: '/',
+        state_json: {
+          time_from: 'now-7d',
+          time_to: 'now',
+          compare_panels: 'token-usage',
+          range: '7d',
+        },
+        schema_version: 1,
+      },
+    })
+    const view = await created.json()
+
+    await page.goto('/')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(800)
+    await page.getByTestId('saved-view-menu-trigger').click()
+    await page.getByTestId(`saved-view-item-${view.id}`).hover()
+    await page.getByTestId(`saved-view-open-${view.id}`).click()
+    await expect(page).toHaveURL(/time_from=now-7d/)
+    await expect(page).toHaveURL(/time_to=now/)
+    await expect(page).toHaveURL(/compare_panels=token-usage/)
+  })
+
   // ── ROADMAP criterion 5 frontend surface: 50-view cap warning
   test('UI surfaces an error when the 50-view-per-route cap is reached', async ({
     page,

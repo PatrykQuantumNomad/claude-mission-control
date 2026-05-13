@@ -159,11 +159,40 @@ const PHASE_25_NET_CLASS_MARKERS = [
   'sidebar-section-pinned',
 ]
 
+// Phase 26 NET class markers — same inversion pattern, extended for Phase
+// 26's chrome surface (TimePicker / RefreshDropdown / CompareToggle /
+// ResetZoomButton / RecentlyVisitedSection). Phase 26 Plan 09 scans below
+// gate on this list so a Phase-26-attributable violation FAILS while a
+// pre-existing v1.2/Phase-06 carry-over (already documented in Phase 25's
+// Accepted Exceptions table) flows through unflagged.
+//
+// Pattern: any axe violation whose `nodes` array contains AT LEAST ONE
+// element whose html includes one of these markers is Phase-26-attributable.
+// A violation with NONE of these markers is presumed pre-existing.
+const PHASE_26_NET_CLASS_MARKERS = [
+  'cmc-time-picker',
+  'cmc-refresh-dropdown',
+  'cmc-compare-toggle',
+  'cmc-reset-zoom-button',
+  'cmc-sidebar__recently-visited',
+  'sidebar-section-recently-visited',
+  'time-picker-popover',
+  'compare-overlay-toggle',
+]
+
 function violationTouchesPhase25(violation: {
   nodes: { html: string }[]
 }): boolean {
   return violation.nodes.some((n) =>
     PHASE_25_NET_CLASS_MARKERS.some((m) => n.html.includes(m)),
+  )
+}
+
+function violationTouchesPhase26(violation: {
+  nodes: { html: string }[]
+}): boolean {
+  return violation.nodes.some((n) =>
+    PHASE_26_NET_CLASS_MARKERS.some((m) => n.html.includes(m)),
   )
 }
 
@@ -181,11 +210,16 @@ function isPreExistingViolation(violation: {
   ) {
     return true
   }
-  // Inversion: if the violation has no node touching Phase 25's net
-  // class set, treat as pre-existing. This catches contrast violations
-  // surfaced by dev-DB-seeded data that don't appear in the explicit
-  // PRE_EXISTING_CONTRAST_SELECTORS catalogue.
-  return !violationTouchesPhase25(violation)
+  // Inversion: if the violation has no node touching Phase 25's OR Phase
+  // 26's net class set, treat as pre-existing. This catches contrast
+  // violations surfaced by dev-DB-seeded data that don't appear in the
+  // explicit PRE_EXISTING_CONTRAST_SELECTORS catalogue. Phase 26 Plan 09
+  // extends the inversion to honor both phases — a Phase-25 surface
+  // violation still fails (preserves Phase 25's regression net) AND a
+  // Phase-26 surface violation also fails. Anything else is presumed
+  // pre-existing v1.2 baseline (Pitfall 7 rebalance window deferred to
+  // Phase 27).
+  return !violationTouchesPhase25(violation) && !violationTouchesPhase26(violation)
 }
 
 test.describe('POLI-10 a11y — serious + critical violations block', () => {
@@ -428,6 +462,178 @@ test.describe('Phase 25 axe a11y — saved-views chrome', () => {
     expect(
       phase25Blocking,
       JSON.stringify(phase25Blocking.map((v) => ({ id: v.id, help: v.help })), null, 2),
+    ).toEqual([])
+  })
+})
+
+// ────────────────────────────────────────────────────────────────────────
+// Phase 26 Plan 09 extension: TimePicker / RefreshDropdown / CompareToggle /
+// Cmd+K (Recents + Time range + Density groups) + Sidebar Recently Visited
+// chrome scans. Same inversion pattern (PHASE_26_NET_CLASS_MARKERS) so
+// pre-existing v1.2 carry-overs flow through unflagged.
+// ────────────────────────────────────────────────────────────────────────
+
+test.describe('Phase 26 axe a11y — TimePicker / RefreshDropdown / CompareToggle / Cmd+K / Recently Visited', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/')
+    await page.evaluate(() => {
+      try {
+        const keys: string[] = []
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const k = window.localStorage.key(i)
+          if (
+            k &&
+            (k.startsWith('cmc.savedView.') ||
+              k.startsWith('cmc.recents.') ||
+              k === 'cmc.autoRefresh.interval')
+          ) {
+            keys.push(k)
+          }
+        }
+        keys.forEach((k) => window.localStorage.removeItem(k))
+      } catch {
+        // ignore
+      }
+    })
+  })
+
+  test('TimePicker popover open: no Phase-26-attributable blocking violations', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(800)
+    await page.getByTestId('time-picker-trigger').click()
+    await expect(page.getByTestId('time-picker-popover')).toBeVisible()
+
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze()
+    const blocking = results.violations.filter(
+      (v) => (v.impact === 'serious' || v.impact === 'critical') &&
+        !isPreExistingViolation(v),
+    )
+    expect(
+      blocking,
+      JSON.stringify(blocking.map((v) => ({ id: v.id, help: v.help })), null, 2),
+    ).toEqual([])
+  })
+
+  test('RefreshDropdown menu open: no Phase-26-attributable blocking violations', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(800)
+    await page.getByTestId('refresh-dropdown-trigger').click()
+    await expect(page.getByTestId('refresh-option-30s')).toBeVisible()
+
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze()
+    const blocking = results.violations.filter(
+      (v) => (v.impact === 'serious' || v.impact === 'critical') &&
+        !isPreExistingViolation(v),
+    )
+    expect(
+      blocking,
+      JSON.stringify(blocking.map((v) => ({ id: v.id, help: v.help })), null, 2),
+    ).toEqual([])
+  })
+
+  test('Compare overlay active on token-usage: no Phase-26-attributable blocking violations', async ({
+    page,
+  }) => {
+    await page.goto('/?compare_panels=token-usage&range=7d')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(800)
+    await expect(
+      page.getByTestId('compare-overlay-toggle-token-usage'),
+    ).toBeVisible()
+
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze()
+    const blocking = results.violations.filter(
+      (v) => (v.impact === 'serious' || v.impact === 'critical') &&
+        !isPreExistingViolation(v),
+    )
+    expect(
+      blocking,
+      JSON.stringify(blocking.map((v) => ({ id: v.id, help: v.help })), null, 2),
+    ).toEqual([])
+  })
+
+  test('Cmd+K with seeded Recents + Time range + Density groups: no Phase-26-attributable blocking violations', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await page.evaluate(() => {
+      const now = Date.now()
+      window.localStorage.setItem(
+        'cmc.recents.routes',
+        JSON.stringify([
+          { route: '/activity', visitedAt: now - 1000 },
+          { route: '/skills', visitedAt: now - 2000 },
+          { route: '/cost', visitedAt: now - 3000 },
+        ]),
+      )
+    })
+    await page.goto('/')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(500)
+    await page.locator('body').click()
+    await page.keyboard.press('ControlOrMeta+KeyK')
+    await expect(
+      page.getByRole('dialog', { name: 'Mission Control command palette' }),
+    ).toBeVisible()
+    // Wait for the entrance scale animation to settle.
+    await page.waitForTimeout(300)
+
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze()
+    const blocking = results.violations.filter(
+      (v) => (v.impact === 'serious' || v.impact === 'critical') &&
+        !isPreExistingViolation(v),
+    )
+    expect(
+      blocking,
+      JSON.stringify(blocking.map((v) => ({ id: v.id, help: v.help })), null, 2),
+    ).toEqual([])
+  })
+
+  test('Sidebar Recently Visited section: no Phase-26-attributable blocking violations', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await page.evaluate(() => {
+      const now = Date.now()
+      window.localStorage.setItem(
+        'cmc.recents.routes',
+        JSON.stringify([
+          { route: '/activity', visitedAt: now - 1000 },
+          { route: '/skills', visitedAt: now - 2000 },
+        ]),
+      )
+    })
+    await page.goto('/cost')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(800)
+    await expect(
+      page.getByTestId('sidebar-section-recently-visited'),
+    ).toBeVisible()
+
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze()
+    const blocking = results.violations.filter(
+      (v) => (v.impact === 'serious' || v.impact === 'critical') &&
+        !isPreExistingViolation(v),
+    )
+    expect(
+      blocking,
+      JSON.stringify(blocking.map((v) => ({ id: v.id, help: v.help })), null, 2),
     ).toEqual([])
   })
 })
