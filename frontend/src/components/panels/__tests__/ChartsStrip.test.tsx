@@ -2,6 +2,18 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor } from '../../../test/utils'
+
+// Phase 26 Plan 05 (TIME-05) — ChartsStrip now wires `<Brush />` via
+// useChartBrush, which calls useNavigate + useRouterState. The existing
+// suite predates that dependency; mock the router module so tests don't
+// need a full RouterProvider. Direct hook semantics are covered by
+// ChartBrushController.test.tsx.
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => vi.fn(),
+  useRouterState: ({ select }: { select: (s: { location: { pathname: string; search: Record<string, unknown> } }) => unknown }) =>
+    select({ location: { pathname: '/activity', search: {} } }),
+}))
+
 import { ChartsStrip } from '../ChartsStrip'
 import { sliceLast14Days } from '../ChartsStrip.utils'
 import { qk } from '../../../lib/queries'
