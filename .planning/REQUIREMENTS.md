@@ -61,7 +61,7 @@ Categorized by surface area. Each maps to exactly one phase in `ROADMAP.md` once
 - [ ] **TIME-02**: All time-anchored panels sync to global time picker via `validateSearch` time params. Panels not previously time-aware (e.g., live sessions) opt out cleanly. _(URL contract shipped Plan 02; chrome writes params shipped Plan 03; per-route panel adoption pending Plan 08.)_
 - [x] **TIME-03**: Copy/paste time-range shortcuts — Cmd+Shift+C copies current time range to clipboard; Cmd+Shift+V applies clipboard time range. Grafana 2024-01-28 convention. ✅ 2026-05-13 (Phase 26 Plan 03 — window-level keydown listener mounted by TimePicker; serializeRange + parseRangeFromText + asTimeToken defense-in-depth; sonner toast.success / toast.message / toast.error feedback on every event; commit 9e60307; affordance-checklist row 16)
 - [ ] **TIME-04**: Compare-to-previous-period overlay toggle — checkbox in time picker chrome enables prior-period overlay on supported charts (cost, tokens, latency). Reuses Phase 19 prev-period CTE pattern.
-- [ ] **TIME-05**: Brush-zoom on time-series charts — drag-select on a chart zoom into that range; updates global time picker. Recharts `Brush` component used natively.
+- [x] **TIME-05**: Brush-zoom on time-series charts — drag-select on a chart zoom into that range; updates global time picker. Recharts `Brush` component used natively.
 
 ### Layout Customization (LAYO) — show/hide + reorder + split-pane resize
 
@@ -207,7 +207,7 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 | TIME-02 | Phase 26 | URL contract + chrome shipped (plans 02 + 03, 2026-05-13); per-route panel adoption pending plan 08 |
 | TIME-03 | Phase 26 | ✅ Complete (plan 03, 2026-05-13) |
 | TIME-04 | Phase 26 | Pending |
-| TIME-05 | Phase 26 | Pending |
+| TIME-05 | Phase 26 | Complete |
 | LAYO-01 | Phase 28 | Pending |
 | LAYO-02 | Phase 28 | Pending |
 | LAYO-03 | Phase 28 | Pending |
