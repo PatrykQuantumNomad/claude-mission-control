@@ -34,7 +34,7 @@ Categorized by surface area. Each maps to exactly one phase in `ROADMAP.md` once
 - [x] **SHEL-02**: Top bar (`AppShellHeader` extracted from existing NavBar) hosting Cmd+K trigger, global time picker, density toggle, save-view button, theme toggle. URL-shareable across routes. _(Phase 24 Plan 04 — AppShellHeader.tsx; time-picker-trigger + save-view-button ship as disabled+display:none placeholders pre-registered for Phases 25/26)_
 - [x] **SHEL-03**: Active-route indicator in sidebar (highlight + section header collapse-aware). _(Phase 24 Plan 04 — `cmc-sidebar__navlink--active` via TanStack `activeProps`; 3px `border-left` accent bar survives 240→52px collapse flip)_
 - [x] **SHEL-04**: Sidebar collapses to icon-only mode with persistent toggle state (localStorage). Toggleable via chrome control + keyboard shortcut. _(Phase 24 Plan 04 — lib/sidebar.ts + window-level Cmd+B/Ctrl+B keydown with preventDefault + chrome `sidebar-collapse-toggle` button; pre-mount applySidebar() in main.tsx prevents flash)_
-- [x] **SHEL-05**: Sidebar "Recently visited" section auto-tracks last 5 routes/views (localStorage; renders below main nav).
+- [x] **SHEL-05**: Sidebar "Recently visited" section auto-tracks last 5 routes/views (localStorage; renders below main nav). ✅ 2026-05-13 (Phase 26 Plan 04 — RecentRoutesTracker zero-render effect + RecentlyVisitedSection slotted between Pinned and Configure; Pitfall 8 option b filters current pathname; cap=20 in cmc.recents.routes; sidebar IA grows to 6 sections; Plan 09 close gate verified)
 - [x] **SHEL-06**: Sidebar "Pinned" section for user-favorited saved views — depends on VIEW-04. One-click access from sidebar.
 
 ### Density (DENS) — 3-tier dashboard density
@@ -58,10 +58,10 @@ Categorized by surface area. Each maps to exactly one phase in `ROADMAP.md` once
 ### Time-Anchored Navigation (TIME) — global time picker
 
 - [x] **TIME-01**: Global time picker in top bar (`AppShellHeader`). Relative time symbols (`now-7d`, `now-1h`) + absolute datetime range. Auto-refresh interval selector (off / 30s / 1m / 5m). ✅ 2026-05-13 (Phase 26 Plan 03 — TimePicker (Radix Popover + 3-group PresetList + dual-month react-day-picker calendar) + RefreshDropdown (off / 30s / 1m / 5m + active pulse + Paused on absolute time_from) + AutoRefreshController zero-render effect firing queryClient.invalidateQueries on isTimeAnchoredKey predicate; mounted in AppShellHeader for every route; commits 9e60307 + 9d3ee0c)
-- [x] **TIME-02**: All time-anchored panels sync to global time picker via `validateSearch` time params. Panels not previously time-aware (e.g., live sessions) opt out cleanly. _(URL contract shipped Plan 02; chrome writes params shipped Plan 03; per-route panel adoption pending Plan 08.)_
+- [x] **TIME-02**: All time-anchored panels sync to global time picker via `validateSearch` time params. Panels not previously time-aware (e.g., live sessions) opt out cleanly. ✅ 2026-05-13 (Phase 26 Plans 02 + 03 + 08 — URL contract validateSearch time_from/time_to APPEND-ONLY on /, /activity, /sessions/compare per Pitfall 13 (Plan 02); TimePicker writes time params via function-form navigate (Plan 03); 21 panels migrated to BoundedPanelCard `bounded` mode + useRouteRange URL→Range bridge hook reads time_from/time_to from useRouterState and coerces to backend Range vocab via rangeToVocab (Plan 08); 9 time-anchored panels on / consume the bridge with effectiveRange = localRange ?? globalRange; OtelPanel live SSE opt-out preserved; Plan 09 close gate v13-time-picker.spec.ts:182/194 verified)
 - [x] **TIME-03**: Copy/paste time-range shortcuts — Cmd+Shift+C copies current time range to clipboard; Cmd+Shift+V applies clipboard time range. Grafana 2024-01-28 convention. ✅ 2026-05-13 (Phase 26 Plan 03 — window-level keydown listener mounted by TimePicker; serializeRange + parseRangeFromText + asTimeToken defense-in-depth; sonner toast.success / toast.message / toast.error feedback on every event; commit 9e60307; affordance-checklist row 16)
-- [ ] **TIME-04**: Compare-to-previous-period overlay toggle — checkbox in time picker chrome enables prior-period overlay on supported charts (cost, tokens, latency). Reuses Phase 19 prev-period CTE pattern.
-- [x] **TIME-05**: Brush-zoom on time-series charts — drag-select on a chart zoom into that range; updates global time picker. Recharts `Brush` component used natively.
+- [x] **TIME-04**: Compare-to-previous-period overlay toggle — checkbox in time picker chrome enables prior-period overlay on supported charts (cost, tokens, latency). Reuses Phase 19 prev-period CTE pattern. ✅ 2026-05-13 (Phase 26 Plan 07 — asComparePanels validator (CSV regex) + APPEND-ONLY validateSearch on /, /activity, /sessions/compare accepting compare_panels?: string per Pitfall 13; CompareToggle component reads/writes single CSV via useRouterState + useNavigate function-form, sorted + de-duped on write for deterministic fork-save round-trip, route-agnostic; TokenUsageCard prior-period overlay gates on compare_panels — useTokens('30d') + client-side slice [-14, -7) for prior week, merge under prior_total dataKey, render Bar with stackId='prior' + fillOpacity=0.25 + var(--cmc-text-subtle); v1 scope range='7d' on TokenUsageCard; Plan 09 close gate verified including Rule-1 click hit-test patch (e838135) for portal-overlay-resilience; v13-time-picker.spec.ts:285 + v13-saved-views.spec.ts:473/501 round-trip verified)
+- [x] **TIME-05**: Brush-zoom on time-series charts — drag-select on a chart zoom into that range; updates global time picker. Recharts `Brush` component used natively. ✅ 2026-05-13 (Phase 26 Plan 05 — useChartBrush hook + ResetZoomButton chrome on /activity ChartsStrip; brush commits write ABSOLUTE ISO time_from/time_to (date-only coerced to start-of-day / end-of-day ISO) — deliberately triggers AutoRefreshController's pause branch (Plan 03 pre-wired); always-mounted 28px chrome row with reserved min-height for ResetZoomButton conditional mount/unmount — no layout shift; ResponsiveContainer count preserved at 8; Plan 09 close gate v13-time-picker.spec.ts:326/345 verified)
 
 ### Layout Customization (LAYO) — show/hide + reorder + split-pane resize
 
@@ -189,7 +189,7 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 | SHEL-02 | Phase 24 | Complete |
 | SHEL-03 | Phase 24 | Complete |
 | SHEL-04 | Phase 24 | Complete |
-| SHEL-05 | Phase 26 | Complete |
+| SHEL-05 | Phase 26 | ✅ Complete (plan 04 + plan 09 close gate, 2026-05-13) |
 | SHEL-06 | Phase 25 | ✅ Complete (plan 09, 2026-05-12) |
 | DENS-01 | Phase 24 | ✅ Complete (plans 02 + 05 e2e, 2026-05-11) |
 | DENS-02 | Phase 24 | ✅ Complete (plans 02 + 05 runtime Portal cascade fixture, 2026-05-11) |
@@ -204,10 +204,10 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 | VIEW-08 | Phase 25 | ✅ Complete (plan 06, 2026-05-12) |
 | VIEW-09 | Phase 25 | ✅ Complete (plan 10, 2026-05-12) |
 | TIME-01 | Phase 26 | ✅ Complete (plan 03, 2026-05-13) |
-| TIME-02 | Phase 26 | URL contract + chrome shipped (plans 02 + 03, 2026-05-13); per-route panel adoption pending plan 08 |
+| TIME-02 | Phase 26 | ✅ Complete (plans 02 + 03 + 08 + plan 09 close gate, 2026-05-13) |
 | TIME-03 | Phase 26 | ✅ Complete (plan 03, 2026-05-13) |
-| TIME-04 | Phase 26 | Pending |
-| TIME-05 | Phase 26 | Complete |
+| TIME-04 | Phase 26 | ✅ Complete (plan 07 + plan 09 close gate, 2026-05-13) |
+| TIME-05 | Phase 26 | ✅ Complete (plan 05 + plan 09 close gate, 2026-05-13) |
 | LAYO-01 | Phase 28 | Pending |
 | LAYO-02 | Phase 28 | Pending |
 | LAYO-03 | Phase 28 | Pending |
@@ -232,11 +232,12 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 - Unmapped: 0
 - Duplicates (mapped to >1 phase): 0
 
-**Progress (updated 2026-05-12 — Phase 25 close):**
+**Progress (updated 2026-05-13 — Phase 26 close):**
 - ✅ Phase 24 closed (operator verdict PASS, 2026-05-12): 18/18 requirements complete — SHEL-01..04, DENS-01..03, CONT-01..05, POLI-09..14
 - ✅ Phase 25 closed (operator verdict PASS, 2026-05-12): 11/11 requirements complete — VIEW-01..09, CMDK-01, SHEL-06
-- ⏳ Phases 26-28 pending: 16/45 requirements outstanding
-- Net v1.3 progress: 29/45 (64%)
+- ✅ Phase 26 closed (operator verdict PASS, 2026-05-13): 9/9 requirements complete — SHEL-05, TIME-01..05, CMDK-02..04
+- ⏳ Phases 27-28 pending: 7/45 requirements outstanding
+- Net v1.3 progress: 38/45 (84%)
 
 **Per-phase rollup:**
 
@@ -254,4 +255,4 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 
 *Requirements defined: 2026-05-10*
 *Traceability authored: 2026-05-10 (45/45 mapped, 0 orphans, 0 duplicates)*
-*Last updated: 2026-05-12 after Phase 25 close — VIEW-06 + VIEW-09 marked Complete; Phase 25 11/11 requirements satisfied (VIEW-01..09 + CMDK-01 + SHEL-06); v1.3 net progress 18/45 → 29/45 (40% → 64%)*
+*Last updated: 2026-05-13 after Phase 26 close — SHEL-05 + TIME-01..05 + CMDK-02..04 marked Complete (TIME-02 and TIME-04 progressed from partial/pending to Complete); Phase 26 9/9 requirements satisfied; v1.3 net progress 29/45 → 38/45 (64% → 84%)*
