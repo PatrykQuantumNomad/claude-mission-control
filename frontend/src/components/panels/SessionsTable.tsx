@@ -26,10 +26,18 @@
 
 import { useState, useMemo, ChangeEvent } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { Button, DataTable, PanelCard, RelativeTime } from '../ui'
+import {
+  Button,
+  CopyIconButton,
+  DataTable,
+  PanelCard,
+  RelativeTime,
+  TruncatedCell,
+} from '../ui'
 import type { DataTableColumn } from '../ui'
 import { useSessionsList } from '../../lib/queries'
 import type { Range, SessionListItemFull, SessionListResponse } from '../../lib/api'
+import { useRouteRange } from '../../lib/time/useRouteRange'
 
 const RANGE_OPTIONS: ReadonlyArray<{ value: Range; label: string }> = [
   { value: 'today', label: 'Today' },
@@ -54,7 +62,12 @@ interface SessionsTableProps {
 
 export function SessionsTable({ onCompareClick }: SessionsTableProps = {}) {
   const navigate = useNavigate()
-  const [range, setRange] = useState<Range>('7d')
+  // Phase 26 TIME-02 bridge: URL → vocab; per-route default 'today' on
+  // /activity (where SessionsTable mounts). Local select-toggle clicks
+  // override (localRange wins until reset).
+  const globalRange = useRouteRange('today')
+  const [localRange, setLocalRange] = useState<Range | null>(null)
+  const range = localRange ?? globalRange
   const [source, setSource] = useState<string>('')
   const [model, setModel] = useState<string>('')
   const [search, setSearch] = useState<string>('')
@@ -75,17 +88,27 @@ export function SessionsTable({ onCompareClick }: SessionsTableProps = {}) {
         header: 'Session',
         sortable: true,
         sort: (a, b) => a.session_id.localeCompare(b.session_id),
+        // Phase 26 Plan 08 / CONT-03: full UUID gets a hover tooltip via
+        // TruncatedCell + a hover-revealed CopyIconButton sibling. Display
+        // text remains the short 8-char prefix so the column stays scannable.
         cell: (r) => (
-          <span className="cmc-mono" title={r.session_id}>
-            {r.session_id.slice(0, 8)}
-            {'…'}
+          <span className="cmc-cell--copyable cmc-mono">
+            <TruncatedCell value={r.session_id} />
+            <CopyIconButton value={r.session_id} />
           </span>
         ),
       },
       {
         id: 'cwd',
         header: 'Project',
-        cell: (r) => <span className="cmc-mono">{r.cwd ?? '—'}</span>,
+        // Phase 26 Plan 08 / CONT-03: cwd is a long path; truncate with
+        // tooltip + copy. EM dash placeholder bare span when cwd is null.
+        cell: (r) =>
+          r.cwd ? (
+            <TruncatedCell value={r.cwd} copyable />
+          ) : (
+            <span className="cmc-mono">—</span>
+          ),
       },
       {
         id: 'model',
@@ -145,7 +168,7 @@ export function SessionsTable({ onCompareClick }: SessionsTableProps = {}) {
   }
 
   function handleRangeChange(e: ChangeEvent<HTMLSelectElement>) {
-    setRange(e.target.value as Range)
+    setLocalRange(e.target.value as Range)
     setPage(0)
   }
   function handleSourceChange(e: ChangeEvent<HTMLInputElement>) {
@@ -215,6 +238,7 @@ export function SessionsTable({ onCompareClick }: SessionsTableProps = {}) {
       reqId="ACTV-06"
       title="Sessions"
       query={query}
+      bounded
       trailing={trailing}
       empty={{
         dataNoun: 'session history',

@@ -1,6 +1,31 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
+// Phase 26 Plan 08 (TIME-02) — SessionsTable now consumes useRouteRange.
+// Use a PARTIAL mock so existing tests that use createRouter / RouterProvider /
+// useNavigate (Compare-click tests) keep working with the real router APIs,
+// while non-router tests get a stub useRouterState that returns search with
+// time tokens resolving to '7d' (preserves existing `range: '7d'` fixture
+// seeds). Tests that render inside a real RouterProvider hit the mocked
+// useRouterState too — that returns a static search regardless of the real
+// router's URL. Compare-click tests assert on `router.state.location`, not
+// on useRouterState reads, so they're unaffected.
+vi.mock('@tanstack/react-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tanstack/react-router')>()
+  return {
+    ...actual,
+    useRouterState: ({
+      select,
+    }: {
+      select: (s: { location: { pathname: string; search: Record<string, unknown> } }) => unknown
+    }) =>
+      select({
+        location: { pathname: '/activity', search: { time_from: 'now-7d', time_to: 'now' } },
+      }),
+  }
+})
+
 import {
   createMemoryHistory,
   createRootRoute,

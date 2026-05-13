@@ -20,12 +20,19 @@ function formatTooltip(row: HeatmapDayRow): string {
 }
 
 export function ActivityHeatmap() {
+  // Phase 26 Plan 08: the heatmap is INTRINSICALLY a 30-day surface (visual
+  // grid is 30 cells). No URL bridge here — the surface is fixed at '30d'
+  // regardless of global time picker; the TimePicker effectively zooms the
+  // OTHER panels on /activity. This is a v1 ergonomic call (RESEARCH §State
+  // of the Art): a future Phase 27 plan can dispatch the heatmap window
+  // through rangeToVocab if user feedback warrants.
   const query = useHeatmap('30d')
   return (
     <PanelCard<HeatmapResponse>
       reqId="ACTV-01"
       title="30-Day Activity"
       query={query}
+      bounded
       empty={{
         dataNoun: '30 days of session activity',
         when: (d) => d.items.length === 0,

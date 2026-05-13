@@ -2,6 +2,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor } from '../../../test/utils'
+
+// Phase 26 Plan 08 (TIME-02) — UnifiedFailures now consumes useRouteRange.
+// Feed router with time tokens resolving to '30d' so existing fixture seeds
+// `qk.failures('30d')` continue to match the panel's query key.
+vi.mock('@tanstack/react-router', () => ({
+  useRouterState: ({ select }: { select: (s: { location: { pathname: string; search: Record<string, unknown> } }) => unknown }) =>
+    select({ location: { pathname: '/activity', search: { time_from: 'now-30d', time_to: 'now' } } }),
+}))
+
 import { UnifiedFailures } from '../UnifiedFailures'
 import { qk } from '../../../lib/queries'
 import type { FailuresResponse } from '../../../lib/api'

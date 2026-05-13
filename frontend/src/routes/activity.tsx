@@ -62,7 +62,7 @@ export function validateSearch(raw: Record<string, unknown>): ActivitySearch {
 
 function ActivityPage() {
   return (
-    <section className="cmc-page" aria-labelledby="activity-heading">
+    <section className="cmc-page cmc-page--bounded" aria-labelledby="activity-heading">
       <header className="cmc-page__header">
         <span className="cmc-label" style={{ color: 'var(--cmc-text-subtle)' }}>
           Mission Control

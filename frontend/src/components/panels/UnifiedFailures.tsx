@@ -14,6 +14,7 @@
 import { Badge, PanelCard, RelativeTime } from '../ui'
 import { useFailures } from '../../lib/queries'
 import type { FailuresResponse, FailureRow } from '../../lib/api'
+import { useRouteRange } from '../../lib/time/useRouteRange'
 
 function outcomeVariant(outcome: string): 'danger' | 'warning' | 'neutral' {
   if (outcome === 'errored') return 'danger'
@@ -22,12 +23,19 @@ function outcomeVariant(outcome: string): 'danger' | 'warning' | 'neutral' {
 }
 
 export function UnifiedFailures() {
-  const query = useFailures('30d')
+  // Phase 26 TIME-02 bridge: URL → vocab; per-route default 'today' on
+  // /activity. RESEARCH §"Default range" recommends 1h precision for
+  // /activity, but the backend vocab tightest bucket is 'today'; that is the
+  // closest fit until Phase 27 TDBT extends the backend (tracked by the
+  // rangeToVocab ADR — Plan 01 objective).
+  const range = useRouteRange('today')
+  const query = useFailures(range)
   return (
     <PanelCard<FailuresResponse>
       reqId="ACTV-05"
       title="Recent Failures"
       query={query}
+      bounded
       empty={{
         dataNoun: 'failed sessions',
         when: (d) => d.items.length === 0,

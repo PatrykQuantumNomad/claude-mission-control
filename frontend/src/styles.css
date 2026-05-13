@@ -203,8 +203,22 @@ body {
   text-transform: uppercase;
 }
 
-/* Numeric/data display — tabular figures rule (UI-SPEC) */
-.cmc-numeric { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+/* Numeric/data display — tabular figures rule (UI-SPEC).
+ * Phase 26 Plan 08 (v1.2 a11y carry-over contrast lift, Pitfall 7 lite path):
+ * the class previously inherited whatever color its parent carried, which
+ * often landed on --cmc-text-subtle (Phase 25 axe scan AA flag). Bump to
+ * --cmc-text-dim by default; specific high-contrast call sites already
+ * override via inline `color: var(--cmc-text)` (e.g. EditAcceptanceCard
+ * Tool column, ToolLatencyCard Tool column). Phase 27 deferral: aria /
+ * semantic carry-overs (.cmc-heatmap-cell aria-prohibited-attr,
+ * .cmc-otel-feed scrollable-region-focusable, .cmc-sessions-table-header__label,
+ * <select aria-label="Range filter">) live OUTSIDE this contrast lift —
+ * separate plan handoff. */
+.cmc-numeric {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--cmc-text-dim);
+}
 
 /* Focus visible — UI-SPEC Accessibility */
 :focus-visible { outline: 2px solid var(--cmc-accent-blue); outline-offset: 2px; }
@@ -933,14 +947,18 @@ body {
   color: var(--cmc-text-dim);
   font-size: var(--size-body);
 }
+/* Phase 26 Plan 08 (v1.2 a11y carry-over contrast lift):
+ * stat-label + tz previously rode --cmc-text-subtle which failed AA in the
+ * Phase 25 axe scan. Bump to --cmc-text-dim to clear AA without losing the
+ * "subordinate" visual rank vs. the value text. */
 .cmc-system-health-strip__stat-label {
-  color: var(--cmc-text-subtle);
+  color: var(--cmc-text-dim);
   font-size: var(--size-label);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 .cmc-system-health-strip__tz {
-  color: var(--cmc-text-subtle);
+  color: var(--cmc-text-dim);
   font-size: var(--size-label);
   margin-left: auto;
 }

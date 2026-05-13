@@ -107,12 +107,20 @@ function ChartsStripBody({ data }: { data: TokenUsageResponse }) {
 export function ChartsStrip() {
   // /api/usage/tokens does not accept '14d' (Literal closed in observability.py);
   // we overfetch 30d and slice client-side per design notes.
+  //
+  // Phase 26 Plan 08: ChartsStrip's 14-day window is intrinsic to the
+  // visualisation (the chart literally shows the last 14 days). The
+  // brush-zoom from Plan 05 writes absolute time_from/time_to to the URL;
+  // OTHER panels (TopSkills, UnifiedFailures, ChartsStrip's siblings) on
+  // /activity pick that up via useRouteRange. ChartsStrip itself remains a
+  // 14-day surface so the brush has stable bounds to slide within.
   const query = useTokens('30d')
   return (
     <PanelCard<TokenUsageResponse>
       reqId="ACTV-02"
       title="14-Day Token Trend"
       query={query}
+      bounded
       empty={{
         dataNoun: '14 days of token usage',
         when: (d) => d.items.length === 0,

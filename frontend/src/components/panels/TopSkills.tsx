@@ -126,11 +126,18 @@ export function TopSkills() {
   const [range, setRange] = useState<SkillRange>('14d')
   const query = useSkillUsage(range, 10)
 
+  // Phase 26 Plan 08: bounded mode adopted; URL→Range bridge is N/A here
+  // because TopSkills uses SkillRange ('14d' | '30d'), a DIFFERENT closed-set
+  // vocab from the rangeToVocab output ('today' | '7d' | '30d'). Mapping the
+  // two without backend work would either lossy-coerce ('today' → '14d'?) or
+  // create a vocab-coupling we don't want. Defer to Phase 27 when backend
+  // window vocab unifies. The existing per-panel RangeToggle stays.
   return (
     <PanelCard<SkillUsageResponse>
       reqId="ACTV-04"
       title="Top Skills"
       query={query}
+      bounded
       empty={{
         dataNoun: 'skill activity',
         // Defensive: guard against malformed/empty server payloads (e.g. `{}`)

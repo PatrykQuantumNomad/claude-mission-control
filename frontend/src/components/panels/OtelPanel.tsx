@@ -45,8 +45,13 @@ export function OtelPanel() {
 
   const pillState = status === 'open' ? 'ok' : status === 'connecting' ? 'pending' : 'stale'
 
+  // Phase 26 Plan 08: OtelPanel is bespoke (NOT PanelCard) because the SSE
+  // firehose's status shape doesn't fit PanelCard's UseQueryResult branches.
+  // We pass the bounded modifier class directly to Card so the panel pins
+  // to the .cmc-page--bounded flex ladder's height and the .cmc-otel-feed
+  // scroll container caps internally (long sessions don't grow the page).
   return (
-    <Card>
+    <Card className="cmc-card--bounded">
       <CardHeader>
         <div className="cmc-panel-card__header">
           <div>
