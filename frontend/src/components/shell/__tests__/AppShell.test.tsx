@@ -67,4 +67,24 @@ describe('AppShell', () => {
     expect(getByRole('main')).toBeInTheDocument()
     expect(getByTestId('page')).toBeInTheDocument()
   })
+
+  // Phase 26 Plan 01 (TIME-01): the sonner Toaster must mount once at AppShell
+  // level so TIME-03 paste feedback + cap warnings have a destination from
+  // Wave 2 onward. Sonner renders a top-level <section aria-label="Notifications …">
+  // unconditionally; the inner <ol data-sonner-toaster> only renders when a
+  // toast is queued. We assert on the always-present <section>.
+  it('mounts the sonner <Toaster /> as a sibling of CommandPalette', async () => {
+    const router = makeRouter()
+    const client = makeClient()
+    await router.load()
+    render(
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    )
+    // Sonner's containerAriaLabel default is "Notifications" suffixed with
+    // the hotkey label ("alt+T" with the configured Alt+T hotkey).
+    const toasters = document.querySelectorAll('section[aria-label^="Notifications"]')
+    expect(toasters.length).toBe(1)
+  })
 })

@@ -1,4 +1,5 @@
 import { ReactNode } from 'react'
+import { Toaster } from 'sonner'
 import { CommandPalette } from '../ui/CommandPalette'
 import { TaskComposerProvider } from '../panels/TaskComposer'
 import { ActiveSessionProvider } from './ActiveSessionContext'
@@ -67,6 +68,21 @@ export function AppShell({ children }: AppShellProps) {
                 <main className="cmc-main">{children}</main>
               </div>
               <CommandPalette />
+              {/*
+                Phase 26 Plan 01 (TIME-01): mount sonner Toaster ONCE at AppShell
+                level so TIME-03 paste feedback + cap warnings have a destination
+                from Wave 2 onward. Placed AFTER <CommandPalette /> so the toast
+                layer wins document-order ties at the same --cmc-z-toast level
+                in the z-index ladder. Sonner portals to document.body; no
+                stacking-context interference with the cmc-shell flex layout.
+              */}
+              <Toaster
+                position="bottom-right"
+                theme="system"
+                richColors
+                closeButton
+                duration={3000}
+              />
             </div>
           </LoadedViewProvider>
         </DensityProvider>
