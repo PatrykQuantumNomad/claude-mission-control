@@ -1135,6 +1135,40 @@ body {
   min-height: 24px;
 }
 
+/* Phase 26 Plan 07 (TIME-04) — CompareToggle button.
+   Lives in panel header chrome alongside per-panel range toggles. Active
+   state surfaces with a thin accent border + subtle surface lift so it
+   reads at a glance without competing with the primary action chrome. */
+.cmc-compare-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cmc-space-2xs);
+  padding: var(--cmc-space-2xs) var(--cmc-space-xs);
+  font-size: var(--cmc-size-label);
+  border-radius: 6px;
+  cursor: pointer;
+  line-height: 1;
+}
+.cmc-compare-toggle--active {
+  border: 1px solid var(--cmc-accent-blue);
+  background: var(--cmc-surface-3, rgba(255, 255, 255, 0.04));
+  color: var(--cmc-text);
+}
+
+/* TokenUsageCard chrome row — flex container that lines up RangeToggle +
+   CompareToggle in the panel's `trailing` slot. Right-aligned with a
+   modest gap; padded so it visually separates from the title row. */
+.cmc-token-usage__chrome {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cmc-space-xs);
+}
+.cmc-token-usage__compare-hint {
+  color: var(--cmc-text-subtle);
+  font-size: var(--cmc-text-xs, var(--cmc-size-label));
+  margin: 0 0 var(--cmc-space-2xs);
+}
+
 /* Visually-hidden table recipe — kept off-screen but readable by AT.
    Used as the alt-text fallback inside chart figures. */
 .cmc-sr-only {

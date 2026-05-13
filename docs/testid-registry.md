@@ -45,6 +45,9 @@ Established: Phase 24 (POLI-14). Skip count locked at the v1.2 baseline of 2 kno
 ### Recents (Phase 26)
 - `sidebar-section-recently-visited` — `frontend/src/components/recents/RecentlyVisitedSection.tsx` (Phase 26 Plan 04 SHEL-05: root element of the Sidebar's "Recently Visited" section, passed via the `testId` prop on `SidebarSection`. Always present in the DOM — the section header renders even when the `cmc.recents.routes` ring is empty, mirroring the Phase 25 Pinned + Phase 24 Configure empty-body precedent. Per-row addressing reuses SidebarNavLink's existing `sidebar-link-{slug}` testid; tests scope via `within(section)` to disambiguate from the Observe / Operate sections.)
 
+### Compare-overlay (Phase 26 Plan 07)
+- `compare-overlay-hint` — `frontend/src/components/panels/TokenUsageCard.tsx` (Phase 26 Plan 07 TIME-04: inline `<p>` that surfaces when `compare_panels` includes a panel id whose v1 range vocabulary doesn't support the prior-period overlay (today, 30d). Currently scoped to TokenUsageCard; future adopters that support a richer prior-period contract will not need the hint.)
+
 ### UI primitives (Phase 24)
 - `cell-copy-btn` — `frontend/src/components/ui/CopyIconButton.tsx`
 
