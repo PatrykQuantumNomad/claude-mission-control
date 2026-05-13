@@ -18,7 +18,11 @@
 // regression nets together cover all 7 in-scope routes for VIEW-01.
 
 import { describe, expect, it } from 'vitest'
-import { SCHEMA_VERSION, coerceSchemaVersion } from '../searchSchemas'
+import {
+  SCHEMA_VERSION,
+  asTimeToken,
+  coerceSchemaVersion,
+} from '../searchSchemas'
 import { validateSearch as validateIndex } from '../../routes/index'
 import { validateSearch as validateActivity } from '../../routes/activity'
 import { validateSearch as validateSkills } from '../../routes/skills'
@@ -51,21 +55,40 @@ describe('coerceSchemaVersion (Phase 25 / VIEW-01)', () => {
 
 describe('per-route validateSearch — schemaVersion + unknown-field drop', () => {
   it('/ (index) returns schemaVersion 1 for empty input', () => {
-    expect(validateIndex({})).toEqual({ schemaVersion: 1 })
+    // Phase 26 / TIME-01 extends `/` validator append-only with optional
+    // time_from + time_to (both default to `undefined` — Pitfall 13).
+    expect(validateIndex({})).toEqual({
+      schemaVersion: 1,
+      time_from: undefined,
+      time_to: undefined,
+    })
   })
 
   it('/ (index) drops unknown fields silently', () => {
     expect(validateIndex({ foo: 'bar', stale: 42 })).toEqual({
       schemaVersion: 1,
+      time_from: undefined,
+      time_to: undefined,
     })
   })
 
   it('/activity returns schemaVersion 1 for empty input', () => {
-    expect(validateActivity({})).toEqual({ schemaVersion: 1 })
+    // Phase 26 / TIME-01 — bare /activity must still produce undefined
+    // time_from + time_to so DefaultViewLoader's bare-URL gate continues to
+    // fire (RESEARCH Pitfall 13).
+    expect(validateActivity({})).toEqual({
+      schemaVersion: 1,
+      time_from: undefined,
+      time_to: undefined,
+    })
   })
 
   it('/activity drops unknown fields silently', () => {
-    expect(validateActivity({ foo: 'bar' })).toEqual({ schemaVersion: 1 })
+    expect(validateActivity({ foo: 'bar' })).toEqual({
+      schemaVersion: 1,
+      time_from: undefined,
+      time_to: undefined,
+    })
   })
 
   it('/skills returns schemaVersion 1 for empty input', () => {
@@ -100,10 +123,15 @@ describe('/sessions/compare validateSearch (append-only invariant)', () => {
   const VALID_UUID_2 = 'abcdef01-2345-6789-abcd-ef0123456789'
 
   it('preserves a + b when both are valid UUIDs', () => {
+    // Phase 26 / TIME-01 — append-only extension adds time_from + time_to to
+    // /sessions/compare's return shape; existing UUID coercion of a/b is
+    // unchanged.
     expect(validateCompare({ a: VALID_UUID, b: VALID_UUID_2 })).toEqual({
       schemaVersion: 1,
       a: VALID_UUID,
       b: VALID_UUID_2,
+      time_from: undefined,
+      time_to: undefined,
     })
   })
 
@@ -112,6 +140,8 @@ describe('/sessions/compare validateSearch (append-only invariant)', () => {
       schemaVersion: 1,
       a: VALID_UUID,
       b: undefined,
+      time_from: undefined,
+      time_to: undefined,
     })
   })
 
@@ -120,6 +150,8 @@ describe('/sessions/compare validateSearch (append-only invariant)', () => {
       schemaVersion: 1,
       a: undefined,
       b: undefined,
+      time_from: undefined,
+      time_to: undefined,
     })
   })
 
@@ -128,6 +160,8 @@ describe('/sessions/compare validateSearch (append-only invariant)', () => {
       schemaVersion: 1,
       a: VALID_UUID,
       b: undefined,
+      time_from: undefined,
+      time_to: undefined,
     })
   })
 
@@ -136,6 +170,146 @@ describe('/sessions/compare validateSearch (append-only invariant)', () => {
       schemaVersion: 1,
       a: undefined,
       b: undefined,
+      time_from: undefined,
+      time_to: undefined,
+    })
+  })
+})
+
+describe('asTimeToken (Phase 26 / TIME-01)', () => {
+  // Shared helper used by /, /activity, /sessions/compare validators.
+  // Locked invariant: returns the input verbatim for shape-valid Grafana
+  // relative tokens or ISO-8601 absolute timestamps; returns `undefined`
+  // for anything else (defense-in-depth — clipboard paste + brush-zoom
+  // commits re-validate through this seam).
+
+  it('accepts the bare `now` keyword', () => {
+    expect(asTimeToken('now')).toBe('now')
+  })
+
+  it('accepts Grafana relative tokens with subtraction (now-7d)', () => {
+    expect(asTimeToken('now-7d')).toBe('now-7d')
+  })
+
+  it('accepts Grafana relative tokens with addition (now+1h)', () => {
+    expect(asTimeToken('now+1h')).toBe('now+1h')
+  })
+
+  it('accepts Grafana relative tokens with day-snap (now/d)', () => {
+    expect(asTimeToken('now/d')).toBe('now/d')
+  })
+
+  it('accepts Grafana relative tokens with subtraction + snap (now-30d/d)', () => {
+    expect(asTimeToken('now-30d/d')).toBe('now-30d/d')
+  })
+
+  it('accepts ISO-8601 absolute timestamps with Z suffix', () => {
+    expect(asTimeToken('2026-05-12T10:00:00Z')).toBe('2026-05-12T10:00:00Z')
+  })
+
+  it('accepts ISO-8601 absolute timestamps with offset', () => {
+    expect(asTimeToken('2026-05-12T10:00:00+02:00')).toBe(
+      '2026-05-12T10:00:00+02:00',
+    )
+  })
+
+  it('rejects arbitrary strings (bogus → undefined)', () => {
+    expect(asTimeToken('bogus')).toBeUndefined()
+  })
+
+  it('rejects empty strings', () => {
+    expect(asTimeToken('')).toBeUndefined()
+  })
+
+  it('rejects numbers (only strings pass the type guard)', () => {
+    expect(asTimeToken(123)).toBeUndefined()
+  })
+
+  it('rejects undefined', () => {
+    expect(asTimeToken(undefined)).toBeUndefined()
+  })
+
+  it('rejects null', () => {
+    expect(asTimeToken(null)).toBeUndefined()
+  })
+
+  it('rejects malformed Grafana tokens (now-7 missing unit)', () => {
+    expect(asTimeToken('now-7')).toBeUndefined()
+  })
+
+  it('rejects bare date without T-time component', () => {
+    expect(asTimeToken('2026-05-12')).toBeUndefined()
+  })
+})
+
+describe('Phase 26 route validators accept time_from + time_to (TIME-01)', () => {
+  // Append-only extension. Each in-scope route accepts ?time_from=... &
+  // time_to=... Grafana-style tokens. Shape-invalid tokens coerce to
+  // `undefined` — Pitfall 13 invariant (no defaulting in the validator).
+
+  it('/ (index) round-trips time_from + time_to verbatim', () => {
+    expect(validateIndex({ time_from: 'now-24h', time_to: 'now' })).toEqual({
+      schemaVersion: 1,
+      time_from: 'now-24h',
+      time_to: 'now',
+    })
+  })
+
+  it('/ (index) strips bogus time tokens to undefined', () => {
+    expect(validateIndex({ time_from: 'bogus', time_to: 42 })).toEqual({
+      schemaVersion: 1,
+      time_from: undefined,
+      time_to: undefined,
+    })
+  })
+
+  it('/activity round-trips time_from + time_to verbatim', () => {
+    expect(
+      validateActivity({ time_from: 'now-1h', time_to: 'now' }),
+    ).toEqual({
+      schemaVersion: 1,
+      time_from: 'now-1h',
+      time_to: 'now',
+    })
+  })
+
+  it('/activity strips bogus time_from to undefined (defense-in-depth)', () => {
+    expect(validateActivity({ time_from: 'bogus' })).toEqual({
+      schemaVersion: 1,
+      time_from: undefined,
+      time_to: undefined,
+    })
+  })
+
+  it('/activity accepts ISO absolute timestamps', () => {
+    expect(
+      validateActivity({
+        time_from: '2026-05-12T00:00:00Z',
+        time_to: '2026-05-12T23:59:59Z',
+      }),
+    ).toEqual({
+      schemaVersion: 1,
+      time_from: '2026-05-12T00:00:00Z',
+      time_to: '2026-05-12T23:59:59Z',
+    })
+  })
+
+  it('/sessions/compare round-trips time_from + time_to alongside UUID a/b', () => {
+    const VALID_UUID = '12345678-1234-1234-1234-123456789012'
+    const VALID_UUID_2 = 'abcdef01-2345-6789-abcd-ef0123456789'
+    expect(
+      validateCompare({
+        a: VALID_UUID,
+        b: VALID_UUID_2,
+        time_from: 'now-7d',
+        time_to: 'now',
+      }),
+    ).toEqual({
+      schemaVersion: 1,
+      a: VALID_UUID,
+      b: VALID_UUID_2,
+      time_from: 'now-7d',
+      time_to: 'now',
     })
   })
 })

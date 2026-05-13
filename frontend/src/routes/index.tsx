@@ -28,7 +28,11 @@ import {
   TokenUsageCard,
   ToolLatencyCard,
 } from '../components/panels'
-import { SCHEMA_VERSION, coerceSchemaVersion } from '../lib/searchSchemas'
+import {
+  SCHEMA_VERSION,
+  asTimeToken,
+  coerceSchemaVersion,
+} from '../lib/searchSchemas'
 
 // Phase 25 / VIEW-01. The `/` route lands NO new filters in Phase 25 — only the
 // `schemaVersion` field so future saved views can hydrate against a typed shape.
@@ -36,12 +40,24 @@ import { SCHEMA_VERSION, coerceSchemaVersion } from '../lib/searchSchemas'
 // untouched) but always populated on output by `validateSearch`. Unknown fields
 // drop silently (RESEARCH Pitfall 6) so a stale state_json blob from a saved
 // view doesn't crash the page on load.
+//
+// Phase 26 / TIME-01 (Plan 02). Append-only extension: ACCEPT `time_from?` +
+// `time_to?` Grafana-style tokens on `/`. Both default to `undefined` — the
+// per-route 24h fallback is applied AT THE PANEL READ SITE (Wave 3 plans),
+// NOT in the validator. Defaulting here would defeat DefaultViewLoader's
+// bare-URL gate (RESEARCH Pitfall 13).
 export type IndexSearch = {
   schemaVersion?: typeof SCHEMA_VERSION
+  time_from?: string | undefined
+  time_to?: string | undefined
 }
 
 export function validateSearch(raw: Record<string, unknown>): IndexSearch {
-  return { schemaVersion: coerceSchemaVersion(raw) }
+  return {
+    schemaVersion: coerceSchemaVersion(raw),
+    time_from: asTimeToken(raw.time_from),
+    time_to: asTimeToken(raw.time_to),
+  }
 }
 
 function CommandPage() {

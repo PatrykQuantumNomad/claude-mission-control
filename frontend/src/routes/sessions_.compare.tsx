@@ -23,7 +23,11 @@
 
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { SessionCompareView } from '../components/panels/SessionCompareView'
-import { SCHEMA_VERSION, coerceSchemaVersion } from '../lib/searchSchemas'
+import {
+  SCHEMA_VERSION,
+  asTimeToken,
+  coerceSchemaVersion,
+} from '../lib/searchSchemas'
 
 // Phase 25 / VIEW-01 extends this validator with `schemaVersion` (append-only;
 // existing UUID coercion of `a`/`b` untouched). Existing deep-links of the
@@ -31,6 +35,12 @@ import { SCHEMA_VERSION, coerceSchemaVersion } from '../lib/searchSchemas'
 // validator just augments the returned object with `schemaVersion: 1` so the
 // future saved-views layer can persist this route's search shape verbatim
 // without a special case.
+//
+// Phase 26 / TIME-01 (Plan 02). Append-only extension: ACCEPT `time_from?` +
+// `time_to?` Grafana-style tokens on `/sessions/compare`. Both default to
+// `undefined` — the per-route 7d fallback is applied AT THE PANEL READ SITE
+// (Wave 3 plans), NOT in the validator. Defaulting here would defeat
+// DefaultViewLoader's bare-URL gate (RESEARCH Pitfall 13).
 export type CompareSearch = {
   // OPTIONAL on input — existing `<Link to="/sessions/compare" search={{ a, b }}>`
   // and `navigate({ to: '/sessions/compare', search: { a, b } })` call sites
@@ -38,6 +48,8 @@ export type CompareSearch = {
   schemaVersion?: typeof SCHEMA_VERSION
   a?: string
   b?: string
+  time_from?: string | undefined
+  time_to?: string | undefined
 }
 
 const UUID_RE =
@@ -48,7 +60,13 @@ export function validateSearch(raw: Record<string, unknown>): CompareSearch {
     typeof raw.a === 'string' && UUID_RE.test(raw.a) ? raw.a : undefined
   const b =
     typeof raw.b === 'string' && UUID_RE.test(raw.b) ? raw.b : undefined
-  return { schemaVersion: coerceSchemaVersion(raw), a, b }
+  return {
+    schemaVersion: coerceSchemaVersion(raw),
+    a,
+    b,
+    time_from: asTimeToken(raw.time_from),
+    time_to: asTimeToken(raw.time_to),
+  }
 }
 
 function SessionComparePage() {

@@ -52,3 +52,25 @@ export function coerceSchemaVersion(
   // Future: if (raw.schemaVersion === 2) return 2 (etc.)
   return SCHEMA_VERSION
 }
+
+/**
+ * Validate a raw search value as a Grafana-style relative time token
+ * (`now`, `now-Nu`, `now/u`, `now-Nu/u`) OR an ISO-8601 absolute timestamp.
+ * Returns the value verbatim if shape-valid, else `undefined`.
+ *
+ * Phase 26 / TIME-01. Used by /, /activity, /sessions/compare validators
+ * to accept ?time_from=now-7d&time_to=now URL params APPEND-ONLY without
+ * defaulting (per RESEARCH Pitfall 13 — DefaultViewLoader's bare-URL gate
+ * must continue firing when these params are absent).
+ *
+ * Defense in depth: clipboard paste (TIME-03) re-validates through this
+ * helper before applying; brush-zoom commits (TIME-05) produce ISO strings
+ * that pass the ISO_ABS leg.
+ */
+const GRAFANA_REL = /^now(?:[-+]\d+[smhdwMy](?:\/[dwMy])?|\/[dwMy])?$/
+const ISO_ABS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/
+
+export function asTimeToken(v: unknown): string | undefined {
+  if (typeof v !== 'string') return undefined
+  return GRAFANA_REL.test(v) || ISO_ABS.test(v) ? v : undefined
+}
