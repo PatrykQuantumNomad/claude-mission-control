@@ -1119,6 +1119,22 @@ body {
   display: block;
 }
 
+/* Phase 26 Plan 05 (TIME-05) — Brush-zoom chrome.
+   ChartsStrip header row that hosts the conditional ResetZoomButton.
+   Visible only when URL time_from is an absolute ISO timestamp. */
+.cmc-charts-strip__chrome {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--space-2xs) 0 var(--space-xs);
+  min-height: 28px; /* reserve row height so chart doesn't jump when button toggles */
+}
+.cmc-reset-zoom-button {
+  /* Inherits .cmc-btn .cmc-btn--ghost .cmc-btn--sm — only override size to match small chart-chrome footprint. */
+  font-size: var(--size-label);
+  padding: var(--space-2xs) var(--space-xs);
+  min-height: 24px;
+}
+
 /* Visually-hidden table recipe — kept off-screen but readable by AT.
    Used as the alt-text fallback inside chart figures. */
 .cmc-sr-only {

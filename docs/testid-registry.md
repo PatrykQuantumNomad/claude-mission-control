@@ -18,6 +18,8 @@ Established: Phase 24 (POLI-14). Skip count locked at the v1.2 baseline of 2 kno
 - `time-picker-custom-apply` — `frontend/src/components/time/CustomRangeCalendar.tsx` (Phase 26 Plan 03 — "Apply custom range" button; disabled until both range endpoints chosen)
 - `refresh-dropdown-trigger` — `frontend/src/components/time/RefreshDropdown.tsx` (Phase 26 Plan 03 — Radix DropdownMenu.Trigger; RefreshCw icon + current interval label or "Paused" badge)
 - `refresh-active-indicator` — `frontend/src/components/time/RefreshDropdown.tsx` (Phase 26 Plan 03 — pulse dot inside the trigger; rendered only while an interval is selected AND the URL window is NOT absolute)
+- `reset-zoom-button` — `frontend/src/components/ui/ResetZoomButton.tsx` (Phase 26 Plan 05 TIME-05 — chart-header chrome `<button>` rendered only when URL `time_from` matches `/^\d{4}-\d{2}-\d{2}T/` (absolute ISO). Click clears `time_from`/`time_to` from the URL via `useNavigate`, which also unfreezes AutoRefreshController. Currently mounted by ChartsStrip on `/activity`.)
+- `charts-strip-brush-chrome` — `frontend/src/components/panels/ChartsStrip.tsx` (Phase 26 Plan 05 TIME-05 — `<div class="cmc-charts-strip__chrome">` row that hosts the conditional `ResetZoomButton`. Always present in the DOM so the chart layout doesn't reflow when the button mounts/unmounts; tests scope to it via `within(...)` to disambiguate from other panel chrome.)
 - `save-view-button` — `frontend/src/components/shell/AppShellHeader.tsx` (Removed in Phase 25 Plan 06 — replaced by `saved-view-chrome` wrapper hosting `SavedViewMenu` + `UnsavedPip`. Retained here for audit traceability.)
 - `cmdk-trigger` — `frontend/src/components/shell/AppShellHeader.tsx`
 
