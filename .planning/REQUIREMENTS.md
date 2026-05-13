@@ -57,9 +57,9 @@ Categorized by surface area. Each maps to exactly one phase in `ROADMAP.md` once
 
 ### Time-Anchored Navigation (TIME) — global time picker
 
-- [ ] **TIME-01**: Global time picker in top bar (`AppShellHeader`). Relative time symbols (`now-7d`, `now-1h`) + absolute datetime range. Auto-refresh interval selector (off / 30s / 1m / 5m).
-- [ ] **TIME-02**: All time-anchored panels sync to global time picker via `validateSearch` time params. Panels not previously time-aware (e.g., live sessions) opt out cleanly.
-- [ ] **TIME-03**: Copy/paste time-range shortcuts — Cmd+Shift+C copies current time range to clipboard; Cmd+Shift+V applies clipboard time range. Grafana 2024-01-28 convention.
+- [x] **TIME-01**: Global time picker in top bar (`AppShellHeader`). Relative time symbols (`now-7d`, `now-1h`) + absolute datetime range. Auto-refresh interval selector (off / 30s / 1m / 5m). ✅ 2026-05-13 (Phase 26 Plan 03 — TimePicker (Radix Popover + 3-group PresetList + dual-month react-day-picker calendar) + RefreshDropdown (off / 30s / 1m / 5m + active pulse + Paused on absolute time_from) + AutoRefreshController zero-render effect firing queryClient.invalidateQueries on isTimeAnchoredKey predicate; mounted in AppShellHeader for every route; commits 9e60307 + 9d3ee0c)
+- [ ] **TIME-02**: All time-anchored panels sync to global time picker via `validateSearch` time params. Panels not previously time-aware (e.g., live sessions) opt out cleanly. _(URL contract shipped Plan 02; chrome writes params shipped Plan 03; per-route panel adoption pending Plan 08.)_
+- [x] **TIME-03**: Copy/paste time-range shortcuts — Cmd+Shift+C copies current time range to clipboard; Cmd+Shift+V applies clipboard time range. Grafana 2024-01-28 convention. ✅ 2026-05-13 (Phase 26 Plan 03 — window-level keydown listener mounted by TimePicker; serializeRange + parseRangeFromText + asTimeToken defense-in-depth; sonner toast.success / toast.message / toast.error feedback on every event; commit 9e60307; affordance-checklist row 16)
 - [ ] **TIME-04**: Compare-to-previous-period overlay toggle — checkbox in time picker chrome enables prior-period overlay on supported charts (cost, tokens, latency). Reuses Phase 19 prev-period CTE pattern.
 - [ ] **TIME-05**: Brush-zoom on time-series charts — drag-select on a chart zoom into that range; updates global time picker. Recharts `Brush` component used natively.
 
@@ -203,9 +203,9 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 | VIEW-07 | Phase 25 | ✅ Complete (plan 07, 2026-05-12) |
 | VIEW-08 | Phase 25 | ✅ Complete (plan 06, 2026-05-12) |
 | VIEW-09 | Phase 25 | ✅ Complete (plan 10, 2026-05-12) |
-| TIME-01 | Phase 26 | Pending |
-| TIME-02 | Phase 26 | Pending |
-| TIME-03 | Phase 26 | Pending |
+| TIME-01 | Phase 26 | ✅ Complete (plan 03, 2026-05-13) |
+| TIME-02 | Phase 26 | URL contract + chrome shipped (plans 02 + 03, 2026-05-13); per-route panel adoption pending plan 08 |
+| TIME-03 | Phase 26 | ✅ Complete (plan 03, 2026-05-13) |
 | TIME-04 | Phase 26 | Pending |
 | TIME-05 | Phase 26 | Pending |
 | LAYO-01 | Phase 28 | Pending |
