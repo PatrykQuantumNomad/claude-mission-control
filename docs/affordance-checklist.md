@@ -1,6 +1,6 @@
 # Affordance checklist
 
-15 keyboard / pointer / a11y affordances every route must honor. Verified at every phase close as part of `.planning/phases/{N}/{N}-VISUAL-CHECK.md`.
+16 keyboard / pointer / a11y affordances every route must honor. Verified at every phase close as part of `.planning/phases/{N}/{N}-VISUAL-CHECK.md`.
 
 Established: Phase 24 (POLI-12). Surface scope: every route under `frontend/src/routes/`.
 
@@ -21,6 +21,7 @@ Established: Phase 24 (POLI-12). Surface scope: every route under `frontend/src/
 | 13 | Truncated cells show full value on hover via tooltip | `frontend/tests/e2e/v13-truncation.spec.ts` | Phase 24 CONT-03; activates fully in Phase 26/27 column adoption |
 | 14 | Active route highlighted in sidebar (left-edge bar + tinted bg) — visible in collapsed mode too | `frontend/tests/e2e/v13-sidebar.spec.ts` | Phase 24 SHEL-03 |
 | 15 | Sheet body scrolls internally; outer page does not gain a scrollbar | `frontend/tests/e2e/v13-portal-containment.spec.ts` (related) + manual VISUAL-CHECK | Per-route adoption is Phase 26/27 (`bounded` prop opt-in) |
+| 16 | `Cmd+Shift+C` copies current time range to clipboard; `Cmd+Shift+V` pastes clipboard time range and navigates the active route. Toast feedback on every event (`success`/`message`/`error`). | `frontend/src/components/time/__tests__/TimePicker.test.tsx` | Phase 26 Plan 03 (TIME-03); window-level keydown listener mounted by `TimePicker` in `AppShellHeader` — fires on every route. |
 
 ## Mobile / narrow viewport
 

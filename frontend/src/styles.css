@@ -2399,3 +2399,164 @@ body {
   padding: var(--cmc-space-2xs) var(--cmc-space-md);
 }
 [data-sidebar-collapsed="true"] .cmc-sidebar__pinned-empty { display: none; }
+
+/* ─────────────────────────────────────────────────────────── */
+/* Phase 26 Plan 03 (TIME-01) — TimePicker + RefreshDropdown.   */
+/* TimePicker lives in the popover layer (--cmc-z-popover: 40);  */
+/* the dual-month calendar inside the Popover.Content does NOT   */
+/* escalate z-index — both live in the same Portal stacking      */
+/* context (Phase 24 Pitfall 6 + CONT-02 lock).                  */
+/* ─────────────────────────────────────────────────────────── */
+.cmc-time-picker__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cmc-space-2xs);
+  padding: var(--cmc-space-2xs) var(--cmc-space-sm);
+  background: transparent;
+  border: 1px solid var(--cmc-border);
+  border-radius: 6px;
+  color: var(--cmc-text);
+  font-size: var(--cmc-size-label);
+  cursor: pointer;
+  outline: none;
+}
+.cmc-time-picker__trigger:hover {
+  color: var(--cmc-text);
+  border-color: var(--cmc-border-strong, var(--cmc-text-dim));
+}
+.cmc-time-picker__trigger:focus-visible {
+  outline: 2px solid var(--cmc-accent-blue);
+  outline-offset: 2px;
+}
+.cmc-time-picker__popover {
+  background: var(--cmc-surface-2);
+  border: 1px solid var(--cmc-border);
+  border-radius: 8px;
+  padding: var(--cmc-space-md);
+  min-width: 480px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+  z-index: var(--cmc-z-popover);
+  display: flex;
+  flex-direction: column;
+  gap: var(--cmc-space-sm);
+  /* Density cascade entry-point: same reasoning as .cmc-dropdown — set
+   * font-size at the Portal-mounted root so density tokens reach descendants. */
+  font-size: var(--cmc-size-body);
+  color: var(--cmc-text);
+}
+.cmc-time-picker__presets {
+  display: flex;
+  flex-direction: column;
+}
+.cmc-time-picker__group {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--cmc-border);
+  padding: var(--cmc-space-2xs) 0;
+}
+.cmc-time-picker__group:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+.cmc-time-picker__preset {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--cmc-text);
+  font-size: var(--cmc-size-body);
+  padding: var(--cmc-space-xs) var(--cmc-space-sm);
+  border-radius: 4px;
+  cursor: pointer;
+  outline: none;
+}
+.cmc-time-picker__preset:hover {
+  background: var(--cmc-surface-3);
+}
+.cmc-time-picker__preset:focus-visible {
+  outline: 2px solid var(--cmc-accent-blue);
+  outline-offset: -2px;
+}
+.cmc-time-picker__preset--active {
+  background: var(--cmc-surface-3);
+  color: var(--cmc-text);
+  font-weight: var(--weight-semibold);
+}
+.cmc-time-picker__calendar {
+  border-top: 1px solid var(--cmc-border);
+  padding-top: var(--cmc-space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--cmc-space-sm);
+}
+.cmc-time-picker__custom-apply {
+  align-self: flex-end;
+}
+
+/* RefreshDropdown — adjacent to TimePicker in AppShellHeader. */
+.cmc-refresh-dropdown__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cmc-space-2xs);
+  padding: var(--cmc-space-2xs) var(--cmc-space-sm);
+  background: transparent;
+  border: 1px solid var(--cmc-border);
+  border-radius: 6px;
+  color: var(--cmc-text);
+  font-size: var(--cmc-size-label);
+  cursor: pointer;
+  outline: none;
+}
+.cmc-refresh-dropdown__trigger:hover {
+  color: var(--cmc-text);
+  border-color: var(--cmc-border-strong, var(--cmc-text-dim));
+}
+.cmc-refresh-dropdown__trigger:focus-visible {
+  outline: 2px solid var(--cmc-accent-blue);
+  outline-offset: 2px;
+}
+.cmc-refresh-dropdown__trigger--active {
+  border-color: var(--cmc-accent-blue);
+  color: var(--cmc-text);
+}
+.cmc-refresh-dropdown__pulse {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cmc-accent-blue);
+  animation: cmc-refresh-pulse 1.6s ease-in-out infinite;
+}
+@keyframes cmc-refresh-pulse {
+  /* Opacity-only — NO transform. Transforms create a containing block for
+   * Portal descendants (Phase 24 Plan 03 / CONT-02 invariant). */
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+/* Naming compat: RefreshDropdown uses Radix DropdownMenu styled the same
+ * as .cmc-dropdown but referenced with className "cmc-dropdown-menu" in
+ * the plan's code block. Provide an alias so existing .cmc-dropdown rules
+ * are reused without forking the styling. */
+.cmc-dropdown-menu {
+  background: var(--cmc-surface);
+  border: 1px solid var(--cmc-border);
+  border-radius: 8px;
+  padding: var(--cmc-space-2xs);
+  min-width: 160px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  z-index: var(--cmc-z-dropdown);
+  font-size: var(--cmc-size-body);
+}
+.cmc-dropdown-menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--cmc-space-sm);
+  padding: var(--cmc-space-xs) var(--cmc-space-sm);
+  color: var(--cmc-text);
+  font-size: var(--cmc-size-body);
+  border-radius: 4px;
+  cursor: pointer;
+  outline: none;
+}
+.cmc-dropdown-menu__item[data-highlighted] { background: var(--cmc-surface-2, rgba(255,255,255,0.04)); }
