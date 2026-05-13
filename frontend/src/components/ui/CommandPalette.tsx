@@ -89,6 +89,7 @@ import { getRecentRoutes } from '../../lib/recents'
 import { getAllRecentStates } from '../../lib/savedViews'
 import { serializeRange, parseRangeFromText } from '../../lib/time/clipboard'
 import { asTimeToken } from '../../lib/searchSchemas'
+import { getDensity, setDensity, type Density } from '../../lib/density'
 
 const UUID_RE =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
@@ -138,6 +139,16 @@ const CMDK_TIME_PRESETS: readonly {
   { value: '24h', label: 'Last 24 hours', from: 'now-24h', to: 'now' },
   { value: '7d', label: 'Last 7 days', from: 'now-7d', to: 'now' },
   { value: '30d', label: 'Last 30 days', from: 'now-30d', to: 'now' },
+] as const
+
+// Phase 26 Plan 06 (CMDK-02) — three discrete density commands. The label is
+// rendered with a check-prefix ('✓ ') when the value equals the currently-
+// active density (read via getDensity()). Mirror of DensityToggle's option
+// list — keep ordering consistent (compact → comfortable → cozy).
+const CMDK_DENSITIES: readonly { value: Density; label: string }[] = [
+  { value: 'compact', label: 'Compact' },
+  { value: 'comfortable', label: 'Comfortable' },
+  { value: 'cozy', label: 'Cozy' },
 ] as const
 
 /**
@@ -454,6 +465,26 @@ export function CommandPalette() {
     }
   }, [close, applyTimeRange])
 
+  // Phase 26 Plan 06 (CMDK-02) — Density command. Local useState mirrors the
+  // DensityToggle pattern from Phase 24: real state lives in
+  // `<html data-density>` + localStorage via setDensity(). The local copy is
+  // ONLY used to drive the check-prefix in the rendered item label. POLI-11
+  // zero-rerender invariant is preserved: setDensity does NOT trigger a
+  // React subtree re-render below the palette — CSS variables re-cascade
+  // through the document with no React work. NO React Context (Pitfall 3).
+  const [currentDensity, setCurrentDensity] = useState<Density>(() =>
+    typeof window !== 'undefined' ? getDensity() : 'comfortable',
+  )
+
+  const chooseDensity = useCallback(
+    (d: Density) => {
+      setDensity(d)
+      setCurrentDensity(d) // local checkmark only
+      close()
+    },
+    [close],
+  )
+
   return (
     <>
       <Command.Dialog
@@ -625,11 +656,25 @@ export function CommandPalette() {
               Paste time range (Cmd+Shift+V)
             </Command.Item>
           </Command.Group>
-          {/* Phase 26 Plan 06 (CMDK-02) — Density group lands in Task 2 of
-              this same plan. JSX slot is RESERVED here so the locked 6-group
-              order matches the final layout: Recents → Saved Views → Pages →
-              Time range → Density → Actions (Pitfall 10). Filled in atomically
-              by the next commit; no intermediate state reaches main. */}
+          {/* Phase 26 Plan 06 (CMDK-02) — Density group. Three discrete items
+              with check-prefix indicator on the currently-active density.
+              Selection calls setDensity() directly (no React Context lookup —
+              Pitfall 3 lock). POLI-11 invariant: re-painting via Cmd+K
+              re-cascades CSS variables; no React subtree re-render below
+              this component. */}
+          <Command.Group heading="Density" className="cmc-cmdk__group">
+            {CMDK_DENSITIES.map((d) => (
+              <Command.Item
+                key={`density-${d.value}`}
+                value={`density-${d.value} ${d.label}`}
+                className="cmc-cmdk__item"
+                data-testid={`cmdk-density-${d.value}`}
+                onSelect={() => chooseDensity(d.value)}
+              >
+                {d.value === currentDensity ? '✓ ' : ''}Set density: {d.label}
+              </Command.Item>
+            ))}
+          </Command.Group>
           <Command.Group heading="Actions" className="cmc-cmdk__group">
             <Command.Item
               onSelect={() => {
