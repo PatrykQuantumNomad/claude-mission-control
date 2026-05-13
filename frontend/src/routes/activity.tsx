@@ -22,6 +22,7 @@ import {
 } from '../components/panels'
 import {
   SCHEMA_VERSION,
+  asComparePanels,
   asTimeToken,
   coerceSchemaVersion,
 } from '../lib/searchSchemas'
@@ -37,12 +38,17 @@ import {
 // — the per-route 1h fallback is applied AT THE PANEL READ SITE (Wave 3
 // plans), NOT in the validator. Defaulting here would defeat
 // DefaultViewLoader's bare-URL gate (RESEARCH Pitfall 13).
+//
+// Phase 26 / TIME-04 (Plan 07). Append-only extension: ACCEPT `compare_panels?`
+// as a CSV list of panel ids — same shape + validator as `/` and
+// `/sessions/compare`. SCHEMA_VERSION stays at 1.
 export type ActivitySearch = {
   // OPTIONAL on input — existing `<Link to="/activity">` sites stay untouched;
   // the validator always populates the field on output.
   schemaVersion?: typeof SCHEMA_VERSION
   time_from?: string | undefined
   time_to?: string | undefined
+  compare_panels?: string | undefined
 }
 
 export function validateSearch(raw: Record<string, unknown>): ActivitySearch {
@@ -50,6 +56,7 @@ export function validateSearch(raw: Record<string, unknown>): ActivitySearch {
     schemaVersion: coerceSchemaVersion(raw),
     time_from: asTimeToken(raw.time_from),
     time_to: asTimeToken(raw.time_to),
+    compare_panels: asComparePanels(raw.compare_panels),
   }
 }
 

@@ -20,6 +20,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   SCHEMA_VERSION,
+  asComparePanels,
   asTimeToken,
   coerceSchemaVersion,
 } from '../searchSchemas'
@@ -57,10 +58,13 @@ describe('per-route validateSearch — schemaVersion + unknown-field drop', () =
   it('/ (index) returns schemaVersion 1 for empty input', () => {
     // Phase 26 / TIME-01 extends `/` validator append-only with optional
     // time_from + time_to (both default to `undefined` — Pitfall 13).
+    // Phase 26 / TIME-04 (Plan 07) further extends with `compare_panels?` —
+    // CSV of panel ids, defaults to undefined.
     expect(validateIndex({})).toEqual({
       schemaVersion: 1,
       time_from: undefined,
       time_to: undefined,
+      compare_panels: undefined,
     })
   })
 
@@ -69,17 +73,20 @@ describe('per-route validateSearch — schemaVersion + unknown-field drop', () =
       schemaVersion: 1,
       time_from: undefined,
       time_to: undefined,
+      compare_panels: undefined,
     })
   })
 
   it('/activity returns schemaVersion 1 for empty input', () => {
     // Phase 26 / TIME-01 — bare /activity must still produce undefined
     // time_from + time_to so DefaultViewLoader's bare-URL gate continues to
-    // fire (RESEARCH Pitfall 13).
+    // fire (RESEARCH Pitfall 13). Phase 26 / TIME-04 (Plan 07) adds
+    // `compare_panels` (undefined-by-default — same gate invariant).
     expect(validateActivity({})).toEqual({
       schemaVersion: 1,
       time_from: undefined,
       time_to: undefined,
+      compare_panels: undefined,
     })
   })
 
@@ -88,6 +95,7 @@ describe('per-route validateSearch — schemaVersion + unknown-field drop', () =
       schemaVersion: 1,
       time_from: undefined,
       time_to: undefined,
+      compare_panels: undefined,
     })
   })
 
@@ -125,13 +133,14 @@ describe('/sessions/compare validateSearch (append-only invariant)', () => {
   it('preserves a + b when both are valid UUIDs', () => {
     // Phase 26 / TIME-01 — append-only extension adds time_from + time_to to
     // /sessions/compare's return shape; existing UUID coercion of a/b is
-    // unchanged.
+    // unchanged. Phase 26 / TIME-04 (Plan 07) further adds compare_panels.
     expect(validateCompare({ a: VALID_UUID, b: VALID_UUID_2 })).toEqual({
       schemaVersion: 1,
       a: VALID_UUID,
       b: VALID_UUID_2,
       time_from: undefined,
       time_to: undefined,
+      compare_panels: undefined,
     })
   })
 
@@ -142,6 +151,7 @@ describe('/sessions/compare validateSearch (append-only invariant)', () => {
       b: undefined,
       time_from: undefined,
       time_to: undefined,
+      compare_panels: undefined,
     })
   })
 
@@ -152,6 +162,7 @@ describe('/sessions/compare validateSearch (append-only invariant)', () => {
       b: undefined,
       time_from: undefined,
       time_to: undefined,
+      compare_panels: undefined,
     })
   })
 
@@ -162,6 +173,7 @@ describe('/sessions/compare validateSearch (append-only invariant)', () => {
       b: undefined,
       time_from: undefined,
       time_to: undefined,
+      compare_panels: undefined,
     })
   })
 
@@ -172,6 +184,7 @@ describe('/sessions/compare validateSearch (append-only invariant)', () => {
       b: undefined,
       time_from: undefined,
       time_to: undefined,
+      compare_panels: undefined,
     })
   })
 })
@@ -252,6 +265,7 @@ describe('Phase 26 route validators accept time_from + time_to (TIME-01)', () =>
       schemaVersion: 1,
       time_from: 'now-24h',
       time_to: 'now',
+      compare_panels: undefined,
     })
   })
 
@@ -260,6 +274,7 @@ describe('Phase 26 route validators accept time_from + time_to (TIME-01)', () =>
       schemaVersion: 1,
       time_from: undefined,
       time_to: undefined,
+      compare_panels: undefined,
     })
   })
 
@@ -270,6 +285,7 @@ describe('Phase 26 route validators accept time_from + time_to (TIME-01)', () =>
       schemaVersion: 1,
       time_from: 'now-1h',
       time_to: 'now',
+      compare_panels: undefined,
     })
   })
 
@@ -278,6 +294,7 @@ describe('Phase 26 route validators accept time_from + time_to (TIME-01)', () =>
       schemaVersion: 1,
       time_from: undefined,
       time_to: undefined,
+      compare_panels: undefined,
     })
   })
 
@@ -291,6 +308,7 @@ describe('Phase 26 route validators accept time_from + time_to (TIME-01)', () =>
       schemaVersion: 1,
       time_from: '2026-05-12T00:00:00Z',
       time_to: '2026-05-12T23:59:59Z',
+      compare_panels: undefined,
     })
   })
 
@@ -310,6 +328,101 @@ describe('Phase 26 route validators accept time_from + time_to (TIME-01)', () =>
       b: VALID_UUID_2,
       time_from: 'now-7d',
       time_to: 'now',
+      compare_panels: undefined,
+    })
+  })
+})
+
+describe('asComparePanels (Phase 26 / TIME-04, Plan 07)', () => {
+  // Shape: lowercase alphanumeric + `_` and `-`, separated by commas. No
+  // spaces. No trailing/leading commas. Empty string treated as absent.
+  // Returns verbatim on match; undefined on rejection. Defense-in-depth:
+  // saved-view state_json hydration + clipboard paste + manual URL edits
+  // all funnel through this seam.
+
+  it('accepts a single panel id', () => {
+    expect(asComparePanels('token-usage')).toBe('token-usage')
+  })
+
+  it('accepts a comma-list of panel ids', () => {
+    expect(asComparePanels('token-usage,session-outcomes')).toBe(
+      'token-usage,session-outcomes',
+    )
+  })
+
+  it('accepts panel ids containing underscores', () => {
+    expect(asComparePanels('cache_efficiency')).toBe('cache_efficiency')
+  })
+
+  it('rejects a trailing comma (malformed CSV)', () => {
+    expect(asComparePanels('token-usage,')).toBeUndefined()
+  })
+
+  it('rejects a leading comma (malformed CSV)', () => {
+    expect(asComparePanels(',token-usage')).toBeUndefined()
+  })
+
+  it('rejects strings with spaces', () => {
+    expect(asComparePanels(' token-usage')).toBeUndefined()
+    expect(asComparePanels('token-usage, session-outcomes')).toBeUndefined()
+  })
+
+  it('rejects empty strings', () => {
+    expect(asComparePanels('')).toBeUndefined()
+  })
+
+  it('rejects uppercase letters (lowercase-only invariant)', () => {
+    expect(asComparePanels('BadCase')).toBeUndefined()
+    expect(asComparePanels('token-usage,Session-Outcomes')).toBeUndefined()
+  })
+
+  it('rejects non-strings', () => {
+    expect(asComparePanels(undefined)).toBeUndefined()
+    expect(asComparePanels(null)).toBeUndefined()
+    expect(asComparePanels(123)).toBeUndefined()
+    expect(asComparePanels(['token-usage'])).toBeUndefined()
+  })
+})
+
+describe('Phase 26 route validators accept compare_panels (TIME-04, Plan 07)', () => {
+  it('/ (index) round-trips compare_panels verbatim', () => {
+    expect(
+      validateIndex({ compare_panels: 'token-usage,session-outcomes' }),
+    ).toEqual({
+      schemaVersion: 1,
+      time_from: undefined,
+      time_to: undefined,
+      compare_panels: 'token-usage,session-outcomes',
+    })
+  })
+
+  it('/activity strips malformed compare_panels to undefined', () => {
+    expect(validateActivity({ compare_panels: 'BadCase,' })).toEqual({
+      schemaVersion: 1,
+      time_from: undefined,
+      time_to: undefined,
+      compare_panels: undefined,
+    })
+  })
+
+  it('/sessions/compare round-trips compare_panels alongside a/b/time', () => {
+    const VALID_UUID = '12345678-1234-1234-1234-123456789012'
+    const VALID_UUID_2 = 'abcdef01-2345-6789-abcd-ef0123456789'
+    expect(
+      validateCompare({
+        a: VALID_UUID,
+        b: VALID_UUID_2,
+        time_from: 'now-7d',
+        time_to: 'now',
+        compare_panels: 'token-usage',
+      }),
+    ).toEqual({
+      schemaVersion: 1,
+      a: VALID_UUID,
+      b: VALID_UUID_2,
+      time_from: 'now-7d',
+      time_to: 'now',
+      compare_panels: 'token-usage',
     })
   })
 })

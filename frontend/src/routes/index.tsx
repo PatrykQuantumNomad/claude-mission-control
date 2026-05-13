@@ -30,6 +30,7 @@ import {
 } from '../components/panels'
 import {
   SCHEMA_VERSION,
+  asComparePanels,
   asTimeToken,
   coerceSchemaVersion,
 } from '../lib/searchSchemas'
@@ -46,10 +47,17 @@ import {
 // per-route 24h fallback is applied AT THE PANEL READ SITE (Wave 3 plans),
 // NOT in the validator. Defaulting here would defeat DefaultViewLoader's
 // bare-URL gate (RESEARCH Pitfall 13).
+//
+// Phase 26 / TIME-04 (Plan 07). Append-only extension: ACCEPT `compare_panels?`
+// as a CSV list of panel ids (e.g. `token-usage,session-outcomes`). Shape is
+// validated by `asComparePanels` — malformed blobs drop silently to undefined.
+// SCHEMA_VERSION stays at 1 (append-only + undefined-default invariant —
+// Pitfall 2 + 13).
 export type IndexSearch = {
   schemaVersion?: typeof SCHEMA_VERSION
   time_from?: string | undefined
   time_to?: string | undefined
+  compare_panels?: string | undefined
 }
 
 export function validateSearch(raw: Record<string, unknown>): IndexSearch {
@@ -57,12 +65,13 @@ export function validateSearch(raw: Record<string, unknown>): IndexSearch {
     schemaVersion: coerceSchemaVersion(raw),
     time_from: asTimeToken(raw.time_from),
     time_to: asTimeToken(raw.time_to),
+    compare_panels: asComparePanels(raw.compare_panels),
   }
 }
 
 function CommandPage() {
   return (
-    <section className="cmc-page" aria-labelledby="cmd-heading">
+    <section className="cmc-page cmc-page--bounded" aria-labelledby="cmd-heading">
       <header className="cmc-page__header">
         <span className="cmc-label" style={{ color: 'var(--cmc-text-subtle)' }}>
           Mission Control

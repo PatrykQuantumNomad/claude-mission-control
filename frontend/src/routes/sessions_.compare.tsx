@@ -25,6 +25,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { SessionCompareView } from '../components/panels/SessionCompareView'
 import {
   SCHEMA_VERSION,
+  asComparePanels,
   asTimeToken,
   coerceSchemaVersion,
 } from '../lib/searchSchemas'
@@ -41,6 +42,10 @@ import {
 // `undefined` — the per-route 7d fallback is applied AT THE PANEL READ SITE
 // (Wave 3 plans), NOT in the validator. Defaulting here would defeat
 // DefaultViewLoader's bare-URL gate (RESEARCH Pitfall 13).
+//
+// Phase 26 / TIME-04 (Plan 07). Append-only extension: ACCEPT `compare_panels?`
+// as a CSV list of panel ids — same shape + validator as `/` and `/activity`.
+// Existing UUID coercion of a/b is unchanged. SCHEMA_VERSION stays at 1.
 export type CompareSearch = {
   // OPTIONAL on input — existing `<Link to="/sessions/compare" search={{ a, b }}>`
   // and `navigate({ to: '/sessions/compare', search: { a, b } })` call sites
@@ -50,6 +55,7 @@ export type CompareSearch = {
   b?: string
   time_from?: string | undefined
   time_to?: string | undefined
+  compare_panels?: string | undefined
 }
 
 const UUID_RE =
@@ -66,13 +72,14 @@ export function validateSearch(raw: Record<string, unknown>): CompareSearch {
     b,
     time_from: asTimeToken(raw.time_from),
     time_to: asTimeToken(raw.time_to),
+    compare_panels: asComparePanels(raw.compare_panels),
   }
 }
 
 function SessionComparePage() {
   const { a, b } = Route.useSearch()
   return (
-    <section className="cmc-page" aria-labelledby="session-compare-heading">
+    <section className="cmc-page cmc-page--bounded" aria-labelledby="session-compare-heading">
       <header className="cmc-page__header">
         <Link
           to="/activity"

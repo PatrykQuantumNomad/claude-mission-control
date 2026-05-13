@@ -74,3 +74,26 @@ export function asTimeToken(v: unknown): string | undefined {
   if (typeof v !== 'string') return undefined
   return GRAFANA_REL.test(v) || ISO_ABS.test(v) ? v : undefined
 }
+
+/**
+ * Validate a raw search value as a comma-separated list of panel ids.
+ * Returns the value verbatim if shape-valid, else `undefined`.
+ *
+ * Phase 26 / TIME-04. Per-panel compare-overlay state is persisted via a
+ * single URL CSV param `compare_panels` (RESEARCH Open Q #2 recommendation
+ * — single param is easier to validate, easier to fork-save into a saved
+ * view's state_json, lower URL noise than one-key-per-panel proliferation).
+ *
+ * Shape: lowercase alphanumeric panel ids (plus `_` and `-`) separated by
+ * commas. No spaces. No trailing commas. Empty string is treated as absent
+ * (returned as undefined). Defense in depth: clipboard paste pipelines and
+ * saved-view state_json hydration re-validate through this helper, so a
+ * malformed blob from a forward-version saved view drops silently instead
+ * of crashing the page load (mirrors RESEARCH Pitfall 6).
+ */
+const COMPARE_PANELS_RE = /^[a-z0-9_-]+(?:,[a-z0-9_-]+)*$/
+
+export function asComparePanels(v: unknown): string | undefined {
+  if (typeof v !== 'string' || v === '') return undefined
+  return COMPARE_PANELS_RE.test(v) ? v : undefined
+}
