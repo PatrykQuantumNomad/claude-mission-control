@@ -1,4 +1,4 @@
-// CostByProjectCard — ANLY-07 (Phase 20 Plan 03).
+// CostByProjectCard — ANLY-07 (Phase 20 Plan 03) + SC#2 (Phase 27 Plan 05).
 //
 // Locks the user-visible behavior of the per-project cost panel:
 //   1. happy path — sortable rows render with project_key as 12-char hex
@@ -7,15 +7,18 @@
 //      filesystem-path-shape regex. Mirrors the Phase 19 SKLP-08 dual-guard
 //      structural assertion (the backend SQL refactor in Plan 20-01 is the
 //      schema half; this is the runtime-DOM half).
-//   3. RangeToggle 7d/30d invalidates cache — clicking '30d' fires a fetch
-//      for /api/cost/breakdown?dim=project&range=30d (cache-key discipline:
+//   3. Phase 27 / SC#2 — URL drives range. `?time_from=now-30d&time_to=now`
+//      snaps via `snapToCostRange` to '30d' and fires a fetch for
+//      /api/cost/breakdown?dim=project&range=30d (cache-key discipline:
 //      qk.costBreakdown('project', '7d') !== qk.costBreakdown('project', '30d')).
-//   4. empty-state — rows: [] surfaces PanelCard's "Nothing to show yet" copy.
+//   4. Phase 27 / SC#2 — localStorage `cost-by-project` is NOT consulted.
+//      Pre-seeded value MUST be ignored; the default '7d' fires regardless.
+//   5. empty-state — rows: [] surfaces PanelCard's "Nothing to show yet" copy.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, userEvent } from '../../../test/utils'
+import { render, screen } from '../../../test/utils'
 import { CostByProjectCard } from '../CostByProjectCard'
 import { qk } from '../../../lib/queries'
 import type {
@@ -23,6 +26,19 @@ import type {
   CostBreakdownRow,
   CostRange,
 } from '../../../lib/api'
+
+// Phase 27 / SC#2 — URL-driven range via useRouteRangeVocab. Tests drive the
+// URL state by mutating `mockSearch` before render; mirror of the Phase 26
+// Plan 08 + Plan 27-04 mock pattern (vi.mock at module scope, closure over
+// mutable state, no per-test re-mock).
+let mockSearch: Record<string, unknown> = {}
+function setSearch(next: Record<string, unknown>) {
+  mockSearch = next
+}
+vi.mock('@tanstack/react-router', () => ({
+  useRouterState: ({ select }: { select: (s: unknown) => unknown }) =>
+    select({ location: { pathname: '/cost', search: mockSearch } }),
+}))
 
 function makeClient() {
   return new QueryClient({
@@ -71,8 +87,9 @@ function makeBreakdown(
 // Mirrors Phase 19 SkillProjectsTable.test.tsx adversarial guard.
 const PATH_REGEX = /\/[A-Za-z][\w/.-]+/
 
-describe('CostByProjectCard (ANLY-07)', () => {
+describe('CostByProjectCard (ANLY-07 + SC#2)', () => {
   beforeEach(() => {
+    setSearch({})
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response('{}', {
         status: 200,
@@ -99,7 +116,8 @@ describe('CostByProjectCard (ANLY-07)', () => {
       </Wrap>,
     )
 
-    // 12-char hex project_keys
+    // 12-char hex project_keys (TruncatedCell wraps in <code> + inner <span>,
+    // but the textContent is identical so findByText still resolves).
     expect(await screen.findByText('a1b2c3d4e5f6')).toBeInTheDocument()
     expect(screen.getByText('fedcba987654')).toBeInTheDocument()
     // 4-decimal cost format (mirror SkillProjectsTable fmtCost)
@@ -137,7 +155,8 @@ describe('CostByProjectCard (ANLY-07)', () => {
     expect(text).not.toMatch(PATH_REGEX)
   })
 
-  it('toggling 30d invalidates the cache and fires a fetch for the 30d slice', async () => {
+  it('SC#2: ?time_from=now-30d&time_to=now snaps to range="30d" and fires the 30d fetch', async () => {
+    setSearch({ time_from: 'now-30d', time_to: 'now' })
     const fetchSpy = vi
       .spyOn(globalThis, 'fetch')
       .mockImplementation(async (input): Promise<Response> => {
@@ -170,20 +189,55 @@ describe('CostByProjectCard (ANLY-07)', () => {
       </Wrap>,
     )
 
-    // Initial 7d render
-    expect(await screen.findByText('sevenday_xxx')).toBeInTheDocument()
-
-    // Click 30d toggle (RangeToggle exposes options as <button>s with the
-    // option label as their accessible name).
-    const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: /^30d$/i }))
-
-    // A new fetch fires for range=30d, and its data renders.
+    // URL-driven range='30d' (snapToCostRange on 720h window) drives the
+    // initial fetch.
     expect(await screen.findByText('thirty_day_x')).toBeInTheDocument()
     const calls30d = fetchSpy.mock.calls.filter(([url]) =>
       String(url).includes('range=30d'),
     )
     expect(calls30d.length).toBeGreaterThan(0)
+  })
+
+  it('SC#2: localStorage `cost-by-project` is NOT the source of truth — URL default `7d` wins', async () => {
+    // Pre-seed localStorage with a stale v1.2-era selection. Phase 27 SC#2
+    // drops the RangeToggle persistKey — the panel must ignore this value.
+    localStorage.setItem('cost-by-project', '1d')
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input): Promise<Response> => {
+        const url = String(input)
+        const responseRange: CostRange = url.includes('range=1d')
+          ? '1d'
+          : '7d'
+        return new Response(
+          JSON.stringify(
+            makeBreakdown(
+              [
+                makeRow({
+                  key: responseRange === '1d' ? 'oneday_xxxx_' : 'sevenday_xxx',
+                  cost_usd: '0.10',
+                }),
+              ],
+              responseRange,
+            ),
+          ),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      })
+    const client = makeClient()
+    render(
+      <Wrap client={client}>
+        <CostByProjectCard />
+      </Wrap>,
+    )
+
+    // The 7d default wins (URL is empty), NOT the 1d localStorage value.
+    expect(await screen.findByText('sevenday_xxx')).toBeInTheDocument()
+    const calls1d = fetchSpy.mock.calls.filter(([url]) =>
+      String(url).includes('range=1d'),
+    )
+    expect(calls1d.length).toBe(0)
+    localStorage.removeItem('cost-by-project')
   })
 
   it('renders the PanelCard empty branch when rows is []', async () => {

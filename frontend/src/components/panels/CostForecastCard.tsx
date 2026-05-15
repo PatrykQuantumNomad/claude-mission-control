@@ -22,6 +22,15 @@
 // data-testid lives on the wrapping <section> (Phase 19 SkillProjectsTable
 // lesson — section-level testid survives all PanelCard branches: loading,
 // error, empty, data).
+//
+// Phase 27 Plan 05 (SC#2 adoption sweep):
+//   - PanelCard opts into `bounded` (CONT-04) so the forecast tile pins to
+//     the .cmc-page--bounded viewport flex ladder on /cost.
+//   - TIME-04 OPT-OUT: this panel does NOT mount a CompareToggle. The
+//     forecast is a single-point MTD projection — there is no historical
+//     timeline against which a "compare to previous period" overlay would
+//     be meaningful. The forecast already encodes its own confidence via
+//     the partial_month_bias banner.
 
 import { KpiTile, PanelCard } from '../ui'
 import { useCostForecast } from '../../lib/queries'
@@ -39,6 +48,7 @@ export function CostForecastCard() {
         reqId="ANLY-06"
         title="Cost Forecast"
         query={query}
+        bounded
         empty={{
           // The forecast endpoint always returns a body — empty branch only
           // fires if `data` is nullish (network-stub path). The actual
