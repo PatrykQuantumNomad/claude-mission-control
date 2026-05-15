@@ -31,13 +31,21 @@ import type {
 // URL state by mutating `mockSearch` before render; mirror of the Phase 26
 // Plan 08 + Plan 27-04 mock pattern (vi.mock at module scope, closure over
 // mutable state, no per-test re-mock).
+//
+// The CompareToggle component (mounted unconditionally in the panel chrome
+// per Plan 05 Task 2) also calls `useRouterState` AND `useNavigate`. The
+// mock provides both — useNavigate is a no-op spy here because the existing
+// suite only renders the toggle, not clicks it (the compareOverlay.test.tsx
+// sibling file owns the round-trip assertions with a full router).
 let mockSearch: Record<string, unknown> = {}
 function setSearch(next: Record<string, unknown>) {
   mockSearch = next
 }
+const navigateSpy = vi.fn()
 vi.mock('@tanstack/react-router', () => ({
   useRouterState: ({ select }: { select: (s: unknown) => unknown }) =>
     select({ location: { pathname: '/cost', search: mockSearch } }),
+  useNavigate: () => navigateSpy,
 }))
 
 function makeClient() {

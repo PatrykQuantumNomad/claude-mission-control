@@ -32,8 +32,29 @@
 //     long values from a future schema change (or a sentinel-overflow
 //     branch) collapse with tooltip-on-hover instead of overflowing the
 //     table cell. ZERO chart added — Phase 24 ResponsiveContainer lock
-//     preserved (DeltaPill column wiring lands in Plan 05 Task 2; this
-//     module never imports recharts).
+//     preserved.
+//
+// Phase 27 Plan 05 Task 2 — TIME-04 compare-overlay (URL-round-trip only):
+//   <CompareToggle panelId="cost-by-project" /> mounts in the PanelCard's
+//   trailing chrome slot. It reads/writes the shared `compare_panels` CSV
+//   URL param via Phase 26 Plan 07's contract — clicking toggles the
+//   panel id in/out of the CSV, reload preserves the state, saved-view
+//   fork-save round-trips.
+//
+//   ACCEPTED EXCEPTION (escape path (i) from the plan): the prior-period
+//   DeltaPill column is NOT rendered. `useCostBreakdown` returns rolled-up
+//   per-project totals (CostBreakdownResponse.rows: CostBreakdownRow[]
+//   where each row has only `key` + `tokens_*` + `cost_usd` — there is no
+//   per-day axis). Computing the prior-period delta client-side requires
+//   a time-bucketed response (mirror TokenUsageCard's `useTokens` which
+//   returns `items: [{day, ...}]`); since the cost endpoint doesn't expose
+//   bucketing, client-side slicing is impossible. The toggle's URL-write
+//   contract still lands so the surface is forward-compatible: when the
+//   backend gains a window-shift or bucketed cost-by-project endpoint, the
+//   column rendering can be added without breaking the toggle's URL state.
+//   Phase 24 ResponsiveContainer lock preserved (Pitfall 8 LOCK: DeltaPill
+//   would have been HTML — not a chart — anyway, but neither lands here
+//   because the data shape doesn't support prior-period computation).
 
 import { useState } from 'react'
 import { DataTable, PanelCard, TruncatedCell } from '../ui'
@@ -43,10 +64,13 @@ import {
   snapToCostRange,
   useRouteRangeVocab,
 } from '../../lib/time/useRouteRangeVocab'
+import { CompareToggle } from '../time/CompareToggle'
 import type {
   CostBreakdownResponse,
   CostBreakdownRow,
 } from '../../lib/api'
+
+const PANEL_ID = 'cost-by-project'
 
 const nf = new Intl.NumberFormat('en')
 
@@ -137,6 +161,7 @@ export function CostByProjectCard() {
           dataNoun: 'project cost data',
           when: (d) => !d.rows || d.rows.length === 0,
         }}
+        trailing={<CompareToggle panelId={PANEL_ID} />}
       >
         {(data) => (
           <div data-testid="cost-by-project-card-table">
