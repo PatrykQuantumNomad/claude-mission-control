@@ -1,13 +1,19 @@
-// AlertEventsList — ALRT-10 (Phase 15 Plan 05).
+// AlertEventsList — ALRT-10 (Phase 15 Plan 05) + Phase 27 Plan 06.
 //
 // Renders firing history (events) from useAlertEvents(range). Each row is one
 // decision WHERE dedup_key LIKE 'alert:%' (backend AlertEventsResponse — see
 // lib/api.ts:566). Columns: fired_at (RelativeTime) / rule_name / scope_key /
 // status (StatePill) / last_value.
 //
-// 4-tier RangeToggle (1d / 7d / 14d / 30d) per Plan 04 D-01 — alerts events
-// have no <14d noisy-data constraint (unlike skills analytics which is 14d|30d).
-// persistKey='alert-events-range' round-trips through lib/storage.
+// Phase 27 Plan 06 migration: the v1.2 `useState<AlertRange>('7d')` +
+// per-panel RangeToggle (localStorage-backed) has been REPLACED with
+// `useRouteRangeVocab('7d', snapToAlertRange)` from Phase 27 Plan 01. The URL
+// is now the canonical persistence layer — the global TimePicker writes
+// ?time_from + ?time_to, this panel re-queries automatically because the
+// query key changes with `range`. Pre-existing entries under the legacy
+// localStorage key become dead values (matches Plan 27-05's stance for
+// `cost-by-project`). The 4-tier vocab is preserved via snapToAlertRange's
+// 48h/192h/504h boundaries (identical to CostRange).
 //
 // StatePill mapping per <interfaces> behavior:
 //   status='pending'  → variant='pending' (warning amber) label='Firing'
@@ -18,20 +24,16 @@
 // Cadence is locked at 30_000ms in lib/queries.ts (useAlertEvents) — this
 // panel does NOT inline refetchInterval (project convention).
 
-import { useState } from 'react'
-import { DataTable, PanelCard, RangeToggle, RelativeTime, StatePill } from '../ui'
-import type { DataTableColumn, RangeOption } from '../ui'
+import { DataTable, PanelCard, RelativeTime, StatePill } from '../ui'
+import type { DataTableColumn } from '../ui'
 import { useAlertEvents } from '../../lib/queries'
+import {
+  snapToAlertRange,
+  useRouteRangeVocab,
+} from '../../lib/time/useRouteRangeVocab'
 import type { AlertEvent, AlertEventsResponse, AlertRange } from '../../lib/api'
 
 const EM_DASH = '—'
-
-const RANGE_OPTIONS: RangeOption<AlertRange>[] = [
-  { value: '1d', label: '1d' },
-  { value: '7d', label: '7d' },
-  { value: '14d', label: '14d' },
-  { value: '30d', label: '30d' },
-]
 
 function formatLastValue(v: number | null): string {
   if (v === null) return EM_DASH
@@ -77,7 +79,14 @@ const COLUMNS: DataTableColumn<AlertEvent>[] = [
 ]
 
 export function AlertEventsList() {
-  const [range, setRange] = useState<AlertRange>('7d')
+  // Phase 27 Plan 06: URL-driven range via useRouteRangeVocab.
+  // Returns '7d' when the URL has no time picker (matches the v1.2
+  // useState<AlertRange>('7d') initial value); otherwise snaps the URL
+  // window hours to the AlertRange Literal '1d' | '7d' | '14d' | '30d'
+  // via snapToAlertRange's 48h/192h/504h boundaries. The global TimePicker
+  // writes time_from/time_to; this panel re-queries automatically because
+  // the query key changes with `range`.
+  const range = useRouteRangeVocab<AlertRange>('7d', snapToAlertRange)
   const query = useAlertEvents(range)
 
   return (
@@ -86,19 +95,11 @@ export function AlertEventsList() {
       title="Alert History"
       description="Recent firing events. Pending rows are still active; cleared rows resolved themselves."
       query={query}
+      bounded
       empty={{
         dataNoun: 'alert firings',
         when: (d) => !d.items || d.items.length === 0,
       }}
-      trailing={
-        <RangeToggle<AlertRange>
-          value={range}
-          onChange={setRange}
-          options={RANGE_OPTIONS}
-          persistKey="alert-events-range"
-          ariaLabel="Alert events range"
-        />
-      }
     >
       {(data) => (
         <DataTable<AlertEvent>
