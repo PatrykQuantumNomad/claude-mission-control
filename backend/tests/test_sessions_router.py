@@ -1195,3 +1195,148 @@ async def test_previous_session_empty_project_key_returns_404_no_previous_sessio
     r = await client.get(f"/api/sessions/{sid_curr}/previous")
     assert r.status_code == 404
     assert r.json()["error"] == "no previous session"
+
+
+# ---------- Phase 27 (TDBT-01): project_key surfaces on list + compare ----------
+#
+# These three cases lock in the wire-shape promise made by Plan 27-02:
+# `project_key` is an authoritative, additive `str` field on the response
+# row for both GET /api/sessions and GET /api/sessions/compare. Plan 27-03
+# (frontend half) depends on this being present so ComparePicker can stop
+# using cwd-string-equality as a project-equality proxy (which silently
+# diverges when realpath collapses symlinked paths to a canonical target).
+
+
+@pytest.mark.asyncio
+async def test_list_sessions_includes_project_key(client) -> None:
+    """TDBT-01: GET /api/sessions exposes authoritative project_key (sha1[:12]).
+
+    Seeds one session row with an explicit non-empty project_key (`make_session_row`
+    predates the Phase 19 project_key column and does not populate it, so existing
+    tests append `| {"project_key": ...}` to set it — mirror that idiom).
+    """
+    from cmc.core.project_key import compute_project_key
+
+    now = datetime.now(UTC)
+    cwd = "/Users/test/proj"
+    pk = compute_project_key(cwd)
+    sid = _new_uuid()
+    await _seed(client, [
+        (SessionModel, make_session_row(
+            session_id=sid,
+            started_at=now - timedelta(minutes=5),
+            ended_at=now - timedelta(minutes=4),
+            cwd=cwd,
+        ) | {"project_key": pk}),
+    ])
+
+    r = await client.get("/api/sessions")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["total"] >= 1
+    matching = [item for item in body["items"] if item["session_id"] == sid]
+    assert len(matching) == 1, f"seeded session {sid} not in response items"
+    item = matching[0]
+    assert "project_key" in item, f"missing project_key on {item.get('session_id')}"
+    assert isinstance(item["project_key"], str)
+    assert item["project_key"] == pk, (
+        f"wire project_key {item['project_key']!r} != expected {pk!r}"
+    )
+    assert len(item["project_key"]) == 12, (
+        f"expected 12-char hex, got {len(item['project_key'])}"
+    )
+    assert all(c in "0123456789abcdef" for c in item["project_key"]), (
+        f"non-hex chars in {item['project_key']!r}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_compare_sessions_includes_project_key(client) -> None:
+    """TDBT-01: GET /api/sessions/compare exposes project_key on both sides.
+
+    SessionCompareSide is a BaseModel (NOT ORMBase) so the handler must
+    populate `project_key` explicitly. This test guards against accidental
+    removal of `project_key=sess.project_key` in `_build_compare_side`.
+    """
+    from cmc.core.project_key import compute_project_key
+
+    now = datetime.now(UTC)
+    cwd_a = "/Users/test/proj-a"
+    cwd_b = "/Users/test/proj-b"
+    pk_a = compute_project_key(cwd_a)
+    pk_b = compute_project_key(cwd_b)
+    sid_a = _new_uuid()
+    sid_b = _new_uuid()
+    await _seed(client, [
+        (SessionModel, make_session_row(
+            session_id=sid_a,
+            started_at=now - timedelta(minutes=10),
+            ended_at=now - timedelta(minutes=8),
+            cwd=cwd_a,
+        ) | {"project_key": pk_a}),
+        (SessionModel, make_session_row(
+            session_id=sid_b,
+            started_at=now - timedelta(minutes=20),
+            ended_at=now - timedelta(minutes=15),
+            cwd=cwd_b,
+        ) | {"project_key": pk_b}),
+    ])
+
+    r = await client.get(f"/api/sessions/compare?a={sid_a}&b={sid_b}")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert "a" in body and "b" in body
+    # Side a
+    assert "project_key" in body["a"], "missing project_key on side a"
+    assert body["a"]["project_key"] == pk_a
+    assert len(body["a"]["project_key"]) == 12
+    assert all(c in "0123456789abcdef" for c in body["a"]["project_key"])
+    # Side b
+    assert "project_key" in body["b"], "missing project_key on side b"
+    assert body["b"]["project_key"] == pk_b
+    assert len(body["b"]["project_key"]) == 12
+    assert all(c in "0123456789abcdef" for c in body["b"]["project_key"])
+
+
+@pytest.mark.asyncio
+async def test_project_key_matches_compute_helper(client) -> None:
+    """TDBT-01: wire project_key equals the canonical compute_project_key(cwd).
+
+    Belt-and-suspenders cross-check: even if the handler accidentally pulled
+    from a stale column or applied a different hash, this catches it by
+    re-running the canonical helper against the cwd that came back on the
+    same response.
+    """
+    from cmc.core.project_key import compute_project_key
+
+    now = datetime.now(UTC)
+    cwd = "/Users/test/canon-cwd"
+    pk = compute_project_key(cwd)
+    sid = _new_uuid()
+    await _seed(client, [
+        (SessionModel, make_session_row(
+            session_id=sid,
+            started_at=now - timedelta(minutes=5),
+            ended_at=now - timedelta(minutes=4),
+            cwd=cwd,
+        ) | {"project_key": pk}),
+    ])
+
+    r = await client.get("/api/sessions")
+    assert r.status_code == 200, r.text
+    items = r.json()["items"]
+    # Verify the cross-check for EVERY item that has a cwd (defensive — the
+    # response may include other test-fixture sessions if they share the
+    # database, but they will all satisfy the invariant).
+    found_seeded = False
+    for item in items:
+        if item["session_id"] == sid:
+            found_seeded = True
+        if item.get("cwd"):
+            expected = compute_project_key(item["cwd"])
+            assert item["project_key"] == expected, (
+                f"wire project_key {item['project_key']!r} != "
+                f"compute_project_key({item['cwd']!r}) = {expected!r} "
+                f"for session {item['session_id']}"
+            )
+    assert found_seeded, f"seeded session {sid} not found in response"
