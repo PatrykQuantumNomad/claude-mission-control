@@ -237,6 +237,10 @@ async def _build_compare_side(
         ended_at=sess.ended_at,
         duration_ms=duration_ms,
         cwd=sess.cwd,
+        # Phase 27 TDBT-01: surface authoritative project identity on the
+        # wire so frontend ComparePicker can filter by canonical key
+        # instead of cwd-string-equality (which fails for symlinked paths).
+        project_key=sess.project_key,
         model=sess.model,
         source=sess.source,
         outcome=outcome,

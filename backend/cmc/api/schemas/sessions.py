@@ -24,6 +24,14 @@ class SessionListItem(ORMBase):
     started_at: UTCDatetime
     ended_at: UTCDatetime | None = None
     cwd: str | None = None
+    # Phase 27 TDBT-01: authoritative project identity (sha1[:12] of
+    # realpath(cwd.rstrip('/')) per cmc.core.project_key.compute_project_key).
+    # Required str — DB column is non-nullable (default=""; backfilled by
+    # Phase 19 migration 0003). Empty string means the source session had
+    # no cwd recorded; consumers (e.g. ComparePicker scope filter) MUST
+    # prefer this over `cwd` for project-equality checks because realpath
+    # collapses symlinked paths to a canonical key.
+    project_key: str
     model: str | None = None
     source: str | None = None
     outcome: str | None = None
@@ -140,6 +148,10 @@ class SessionCompareSide(BaseModel):
     ended_at: UTCDatetime | None = None
     duration_ms: int | None = None
     cwd: str | None = None
+    # Phase 27 TDBT-01: authoritative project identity. Required str —
+    # the compare handler MUST populate this explicitly (BaseModel, not
+    # ORMBase, so no auto-mapping). Source: Session.project_key DB column.
+    project_key: str
     model: str | None = None
     source: str | None = None
     outcome: str | None = None  # read-time classified: errored/rate_limited/truncated/unfinished/ok
