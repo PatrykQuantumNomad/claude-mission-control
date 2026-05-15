@@ -142,7 +142,16 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
   3. User opens the compare picker on `/sessions/compare` and the picker uses authoritative `project_key` (additive on `SessionListItemFull` and `SessionCompareSide` wire shapes) instead of cwd-as-proxy — edge cases with cwd realpath differences without sha1 collision now resolve correctly (TDBT-01)
   4. User opens `AlertRuleForm` on `/alerts` and the metric vocabulary loads exclusively from `useAlertMetrics` hook — `KNOWN_METRICS` frontend fallback constant is fully removed; cross-language drift guard `test_alerts_metrics_sync.py` still passes (TDBT-02)
   5. User triggers the NL alert composer on `/alerts` while Anthropic credentials are missing or unreachable, the 503 collapse surfaces a graceful retry / queue UX with honest "credentials missing — retry" affordance instead of silent error (TDBT-03)
-**Plans**: TBD
+**Plans**: 9 plans
+- [x] 27-01-PLAN.md — Wave 1 foundation: useRouteRangeVocab<V> generic URL→Vocab bridge hook + snapToSkillRange/snapToCostRange/snapToAlertRange snappers (foundation; unblocks 27-04 / 27-05 / 27-06) ✅ 2026-05-15 — 1 commit (ed96343 feat: new file frontend/src/lib/time/useRouteRangeVocab.ts 73 LOC + frontend/src/lib/time/__tests__/useRouteRangeVocab.test.ts 211 LOC with 31 vitest cases). Generic `useRouteRangeVocab<V extends string>(routeDefault, snap)` reads `time_from`/`time_to` from URL search via TanStack Router's `useRouterState`, coerces via Phase 26's `coerceToAbsolute`, falls back to `routeDefault` on missing/unparseable/inverted input. Pre-baked snappers: snapToSkillRange (2-tier '14d'|'30d' boundary at 21d), snapToCostRange (4-tier '1d'|'7d'|'14d'|'30d' at 48h/192h/504h), snapToAlertRange (identical bands to CostRange), snapToRange (Phase 26 vocab mirror). **ZERO-REFACTOR INVARIANT PRESERVED**: `git diff --stat frontend/src/lib/time/useRouteRange.ts` empty (Phase 26 file byte-identical; 9 prior call sites unaffected). Frontend vitest +31; pnpm tsc + lint clean; no new runtime deps. Zero deviations. Ran parallel with Plan 27-02 sibling (backend Python only) — zero file overlap.
+- [ ] 27-02-PLAN.md — (in progress in parallel agent — backend cwd-realpath dedupe for sessions comparison wire shapes, foundational for TDBT-01)
+- [ ] 27-03-PLAN.md — TBD
+- [ ] 27-04-PLAN.md — TBD (consumes useRouteRangeVocab('14d', snapToSkillRange) for /skills + /skills/$name panels)
+- [ ] 27-05-PLAN.md — TBD (consumes useRouteRangeVocab('7d', snapToCostRange) for CostByProjectCard)
+- [ ] 27-06-PLAN.md — TBD (consumes useRouteRangeVocab('7d', snapToAlertRange) for AlertEventsList)
+- [ ] 27-07-PLAN.md — TBD
+- [ ] 27-08-PLAN.md — TBD
+- [ ] 27-09-PLAN.md — TBD (phase close gate)
 **UI hint**: yes
 
 ### Phase 28: Layout Customization
@@ -190,10 +199,10 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 | 24. Shell + Density + Containment Primitives | v1.3 | 7/7 | Complete | 2026-05-12 |
 | 25. Saved Views (Backend + Frontend) | v1.3 | 11/11 | Complete | 2026-05-12 |
 | 26. Per-Route Adoption I + Time + Cmd+K | v1.3 | 9/9 | Complete | 2026-05-13 |
-| 27. Per-Route Adoption II + Tech Debt | v1.3 | 0/0 | Not started | — |
+| 27. Per-Route Adoption II + Tech Debt | v1.3 | 1/9 | In progress | — |
 | 28. Layout Customization | v1.3 | 0/0 | Not started | — |
 
 **v1.0 milestone shipped: 47/47 plans, 11/11 phases verified (9 base + 2 audit gap-closure).**
 **v1.1 milestone shipped: 28/28 plans, 6/6 phases verified, 41/41 requirements satisfied.**
 **v1.2 milestone shipped: 22/22 plans, 6/6 phases verified, 12/12 active requirements satisfied + 1 honestly deferred (SKLP-11 → v1.3).**
-**v1.3 milestone in progress: 3/5 phases complete, 38/45 active requirements satisfied. Phase 26 closed 2026-05-13 (operator verdict PASS, 9/9 plans, SHEL-05 + TIME-01..05 + CMDK-02..04 satisfied). Phase 25 closed 2026-05-12 (operator verdict PASS, 11/11 plans, VIEW-01..09 + CMDK-01 + SHEL-06 satisfied). Phase 24 closed 2026-05-12 (operator verdict PASS, 7/7 plans, CONT-01..05 + SHEL-01..04 + DENS-01..03 + POLI-09..14 satisfied). Plans authored per-phase via `/gsd:plan-phase {N}`.**
+**v1.3 milestone in progress: 3/5 phases complete + Phase 27 in progress (1/9 plans), 38/45 active requirements satisfied. Phase 27 Plan 01 shipped 2026-05-15 (foundation: useRouteRangeVocab generic bridge hook + 3 vocab snappers; satisfies no requirement directly — foundational for SC#1 + SC#2). Phase 26 closed 2026-05-13 (operator verdict PASS, 9/9 plans, SHEL-05 + TIME-01..05 + CMDK-02..04 satisfied). Phase 25 closed 2026-05-12 (operator verdict PASS, 11/11 plans, VIEW-01..09 + CMDK-01 + SHEL-06 satisfied). Phase 24 closed 2026-05-12 (operator verdict PASS, 7/7 plans, CONT-01..05 + SHEL-01..04 + DENS-01..03 + POLI-09..14 satisfied). Plans authored per-phase via `/gsd:plan-phase {N}`.**

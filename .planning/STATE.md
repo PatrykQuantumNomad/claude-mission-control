@@ -2,15 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Surface Redesign
-status: completed
-last_updated: "2026-05-13T16:00:00.000Z"
-last_activity: "2026-05-13 — Phase 26 close-gate verdict signed PASS by Patryk Golabek. 9/9 mapped requirements (SHEL-05, TIME-01..05, CMDK-02..04) functionally verified. v1.3 milestone advances 2/5 → 3/5 phases complete."
+status: in_progress
+last_updated: "2026-05-15T19:34:27Z"
+last_activity: "2026-05-15 — Phase 27 Plan 01 shipped: useRouteRangeVocab generic URL→Vocab bridge hook + snapToSkillRange/snapToCostRange/snapToAlertRange snappers (ed96343). Zero-refactor invariant on Phase 26's useRouteRange.ts preserved (empty git diff --stat). Unblocks 27-04 / 27-05 / 27-06 panel adoptions."
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 36
-  completed_plans: 36
-  percent: 100
+  in_progress_phases: 1
+  total_plans: 45
+  completed_plans: 37
+  percent: 82
 ---
 
 # Project State
@@ -25,15 +26,15 @@ See: .planning/PROJECT.md (updated 2026-05-10 after v1.3 milestone start)
 
 ## Current Position
 
-Phase: 26 — Per-Route Adoption I (Command/Activity/Sessions + Time + Cmd+K) ✅ complete (9/9 plans, 2026-05-13 — operator verdict PASS signed by Patryk Golabek)
-Plan: Phase 26 plans 01..09 ✅ all complete. Plan 09 (close gate, 3/3 tasks): v13-time-picker.spec.ts authored with 19 NEW tests covering TIME-01..05 + CMDK-02..04 + SHEL-05 (fff215d) + 5 existing v13-* spec families extended (v13-a11y +5 chrome scans / v13-portal-containment +3 chrome walks / v13-saved-views +3 Phase 26 round-trip tests / v13-sidebar +3 SHEL-05 tests / command-palette +3 Phase 26 tests) + 30 NEW visual-capture PNGs (e26be3b) + TIME-04 CompareToggle click hit-test patch (e838135) + 26-VISUAL-CHECK.md scaffold (09ec3c7) + operator verdict PASS signed by Patryk Golabek on 2026-05-13 (a6ee566). 5 atomic plan-09 commits before close metadata commit.
-Status: Phase 26 closed cleanly. Operator verdict PASS via live Chrome DevTools MCP verification against http://localhost:5173 with backend on :8001 — all 5 ROADMAP success criteria PASS + 9/9 mapped requirements (SHEL-05, TIME-01..05, CMDK-02..04) functionally verified + TIME-04 compare-overlay round-trip PASS + Cmd+K 6-group order verified (Recents → Saved Views → Pages → Time range → Density → Actions per Pitfall 10 lock) + Sidebar Recently Visited correctly filters current pathname per Pitfall 8 option b + URL-as-broadcast-bus pattern verified end-to-end (ResetZoomButton + Paused refresh + TimePicker absolute label all fire from single URL write). Backend pytest 686/0/0 preserved (zero backend changes Phase 26). Frontend vitest 452 → 610/0/0 (+158 across Plans 01-08; Plan 09 ships zero vitest specs by design). Playwright e2e 141 → 207 (203 pass + 4 forward-compat skip; +66 tests). Lighthouse 9/9 PASS at median. Axe 39/39 PASS (30-run base matrix + 4 Phase 25 chrome scans + 5 NEW Phase 26 chrome scans; PHASE_26_NET_CLASS_MARKERS inversion filter additive). Portal containment 6/6 PASS (3 Phase 24 carry-forward + 3 NEW Phase 26 chrome walks). URL contract 2/2 PASS preserved. ResponsiveContainer count = 26 (Phase 24 lock preserved). 96 total visual capture PNGs (36 Phase 24 + 30 Phase 25 + 30 NEW Phase 26). Zero NEW Accepted Exceptions discovered — every close-gate-discovered surface inline-patchable. 1 Rule-1 deviation (TIME-04 click hit-test resilience via scrollIntoView + dispatchEvent shim).
-Last activity: 2026-05-13 — Phase 26 close-out commit. 9/9 mapped requirements complete; v1.3 milestone advances 2/5 → 3/5 phases.
+Phase: 27 — Per-Route Adoption II (Skills/Cost/Alerts) + Tech Debt 🟡 in progress (1/9 plans complete as of 2026-05-15)
+Plan: Phase 27 Plan 01 ✅ complete (2026-05-15). Plan 01 (foundation, 1/1 task): useRouteRangeVocab<V> generic URL→Vocab bridge hook + snapToSkillRange/snapToCostRange/snapToAlertRange pre-baked vocab snappers + snapToRange Phase 26 vocab mirror in the generic form (ed96343 feat). Single atomic commit. 31 vitest cases pass (>= 18 required); pnpm tsc --noEmit clean; pnpm lint --max-warnings 0 clean.
+Status: Phase 27 Plan 01 ships clean. Unblocks Plans 27-04 (`/skills` + `/skills/$name` panel global-picker adoption consumes useRouteRangeVocab('14d', snapToSkillRange)), 27-05 (CostByProjectCard consumes useRouteRangeVocab('7d', snapToCostRange)), 27-06 (AlertEventsList consumes useRouteRangeVocab('7d', snapToAlertRange)). ZERO-REFACTOR INVARIANT preserved — Phase 26's `frontend/src/lib/time/useRouteRange.ts` is byte-identical (empty `git diff --stat`); the 9 Phase 26 panel call sites on `/` and `/activity` continue to consume the narrow Range vocab verbatim. No new runtime deps. Plan 27-02 (backend cwd-realpath dedupe for sessions comparison) running concurrently in sibling agent — zero file overlap (Plan 27-01 frontend TypeScript only; Plan 27-02 backend Python only). Pre-commit hooks confirmed clean for both sides.
+Last activity: 2026-05-15 — Phase 27 Plan 01 SUMMARY committed; STATE.md + ROADMAP.md updated.
 
-(Previous Phase 25 close: 2026-05-12 — operator verdict PASS signed by Patryk Golabek. Phase 25 closes 11/11 plans complete. Backend pytest 686/0/0; frontend vitest 452/0/0; Playwright 141 tests (137 pass + 4 forward-compat skip); Lighthouse 9/9 PASS; axe 34/34 PASS; URL contract 2/2 PASS. 3 Accepted Exceptions operator-approved.)
+(Previous Phase 26 close: 2026-05-13 — operator verdict PASS signed by Patryk Golabek. 9/9 plans, SHEL-05 + TIME-01..05 + CMDK-02..04 satisfied. Backend pytest 686/0/0; frontend vitest 452 → 610/0/0; Playwright 141 → 207; Lighthouse 9/9 PASS at median; axe 39/39 PASS; portal containment 6/6 PASS; ResponsiveContainer count = 26; 96 total visual capture PNGs.)
 
-Progress (Phase 26 plans): [██████████] 100% (9/9 plans complete — Plans 01-09 all shipped)
-Progress (v1.3 milestone): [██████░░░░] 60% (3/5 phases complete — Phases 24+25+26 closed; Phases 27+28 pending)
+Progress (Phase 27 plans): [█░░░░░░░░░] 11% (1/9 plans complete — Plan 01 shipped 2026-05-15; Plans 02-09 pending)
+Progress (v1.3 milestone): [██████░░░░] 60% (3/5 phases complete — Phases 24+25+26 closed; Phase 27 in progress; Phase 28 pending)
 
 ## Performance Metrics
 
@@ -460,6 +461,18 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 - **Parallel execution with Plan 08 sibling agent (significant — TokenUsageCard.tsx shared write).** Plan 08 (per-route adoption sweep on /, /activity, /sessions/compare + 16 panel files) was running concurrently. Plan 08 sibling agent had ALREADY edited `frontend/src/components/panels/TokenUsageCard.tsx` (added `useRouteRange` + `bounded` prop) when my Plan 07 task 2 read the file. My Edit's old_string didn't match. Resolution: issued a full `Write` of TokenUsageCard.tsx capturing BOTH Plan 08's TIME-02 bridge AND my Plan 07 compare-overlay code. The combined file is committed in `d800500` (my Plan 07 task-2 commit). Plan 08's eventual commit will NOT need to re-touch TokenUsageCard.tsx (already on main); Plan 08 still owns its other ~15 panel files. **Locked pattern for parallel waves with a shared write file: when sibling-agent edits are already in the working tree at the moment your task reads the file, issue a full Write capturing both sets; document the overlap in the commit message + SUMMARY; sibling will simply skip the file in its own commit.**
 - **Sibling-agent JSX shell changes on routes/{index,activity,sessions_.compare}.tsx (parallel-safe).** Plan 08 added `cmc-page--bounded` to the `<section className="cmc-page">` JSX in all three route files. My Plan 07 edits are on the `validateSearch` / `IndexSearch|ActivitySearch|CompareSearch` type at the TOP of the same files. DIFFERENT REGIONS — zero conflict. My commit `4f61507` staged ONLY the top-of-file regions (validator imports + type + function); Plan 08 will commit its JSX-region edits independently. Locked pattern for parallel writes on the same file: edit different REGIONS and stage ONLY your region (`git diff --cached <file>` to confirm).
 
+**v1.3 Phase 27 plan-01 execution decisions (Foundation Wave 1):**
+
+- **ZERO-REFACTOR INVARIANT on Phase 26's useRouteRange.ts.** Phase 27 Plan 01 ships a NEW file (`lib/time/useRouteRangeVocab.ts`), not a refactor of `useRouteRange.ts`. The 9 Phase 26 panel call sites on `/` and `/activity` already type-check against the narrow `Range = 'today' | '7d' | '30d'`. Generic-izing the existing hook would have rippled type errors through 9 sites for zero gain. Invariant verified via `git diff --stat frontend/src/lib/time/useRouteRange.ts` returning empty after the plan-01 commit. Locked: any future Phase 27+ plan that needs additional vocab variants adds another snap helper to `useRouteRangeVocab.ts`; never edits Phase 26's `useRouteRange.ts` or `rangeToVocab.ts`.
+- **Snappers co-located with hook in one module.** All 4 snap helpers (snapToSkillRange, snapToCostRange, snapToAlertRange, snapToRange) live in `useRouteRangeVocab.ts` rather than split into separate `snapToCostRange.ts` etc. Adoption plans (27-04 / 27-05 / 27-06) consume `{useRouteRangeVocab, snapToXxxRange}` from one import. Mirrors Phase 26's `useRouteRange` next to `rangeToVocab` ergonomic.
+- **Asymmetric URL coverage contract: missing OR unparseable EITHER side → routeDefault.** No silent partial-window fallback. If `time_from='now-7d'` but `time_to='bogus'`, the panel falls back to its per-route default (typically '14d' for skills/cost/alerts) instead of computing a degraded window. Locked: every future vocab-bridge variant must honor this contract.
+- **Inverted/zero-window guard added beyond plan spec.** `if (windowHours <= 0) return routeDefault` defends against clipboard-paste edge cases the `validateSearch` coercer might let through (e.g. user pastes `time_from=now&time_to=now-1h`). Test case added. Pure correctness addition; no scope creep.
+- **Pure-snapper boundary coverage via (h, h+1) pairs.** Tests assert the value at the band-edge AND the first value of the next band. Proves edge inclusivity without ambiguity (a single value test can't distinguish `<=` from `<`). Locked test pattern for any future snap helper.
+
+**v1.3 Phase 27 plan-01 execution coordination notes:**
+
+- **Parallel execution with Plan 27-02 sibling agent (zero file overlap).** Plan 27-02 was running concurrently in a sibling agent on backend Python files only (`backend/cmc/api/schemas/sessions.py`, `backend/cmc/api/routes/sessions.py`, `backend/tests/test_sessions_router.py`). Plan 27-01 touched only frontend TypeScript (`frontend/src/lib/time/useRouteRangeVocab.ts` + `__tests__/useRouteRangeVocab.test.ts`). Pre-commit hooks confirmed clean separation: my commit `ed96343` reported `backend typecheck (pyright)..(no files to check) Skipped` + `backend lint (ruff)..(no files to check) Skipped` + `frontend typecheck (tsc)..Passed`. Locked pattern for cross-stack parallel waves: when one plan is pure-frontend and another is pure-backend, no coordination is required — pre-commit hooks naturally segment by file extension.
+
 (Cleared at milestone close — see `.planning/milestones/v1.2-MILESTONE-AUDIT.md` for the full v1.2 issues-resolved log.)
 
 - [Phase ?]: Phase 26 Plan 06 CMDK-04 in-scope routes for getAllRecentStates aggregation: mirror RecentRoutesTracker IN_SCOPE_ROUTES set verbatim — three lists now must stay in sync (RecentStateTracker, RecentRoutesTracker, CommandPalette RECENTS_IN_SCOPE_ROUTES); breadcrumb comments added. Future phase may unify into lib/routes.ts.
@@ -506,6 +519,12 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 10. ⏳ Phase 27 → 28 execution (TDBT bundled with /skills/$name + /cost + /alerts per-route adoption + Layout Customization last)
 11. v1.3 milestone audit + close
 
+**Phase 27 plan execution log:**
+
+| Plan | Status | Commits | Notes |
+|---|---|---|---|
+| 01 — Foundation Wave 1: useRouteRangeVocab<V> generic URL→Vocab bridge hook + snapToSkillRange/snapToCostRange/snapToAlertRange snappers (foundation for SC#1 + SC#2; unblocks 27-04 / 27-05 / 27-06) | ✅ Complete (2026-05-15) | ed96343 | Single atomic commit. New file frontend/src/lib/time/useRouteRangeVocab.ts (73 LOC): generic hook `useRouteRangeVocab<V extends string>(routeDefault, snap)` reading `time_from`/`time_to` from URL search via TanStack Router's `useRouterState`, coercing both sides via Phase 26's `coerceToAbsolute`, falling back to `routeDefault` on missing/unparseable/inverted input + 4 pre-baked snappers: snapToSkillRange (2-tier '14d'|'30d' boundary at 21d), snapToCostRange (4-tier '1d'|'7d'|'14d'|'30d' at 48h/192h/504h), snapToAlertRange (identical bands to CostRange), snapToRange (Phase 26 vocab mirror — additive re-export). New file frontend/src/lib/time/__tests__/useRouteRangeVocab.test.ts (211 LOC): 31 vitest cases — 5 snapToRange + 7 snapToCostRange + 7 snapToAlertRange + 3 snapToSkillRange (band-edge inclusivity proved via (h, h+1) pairs) + 9 hook contract (empty search, parseable both sides, asymmetric bogus from-side, asymmetric bogus to-side, missing to, missing from, inverted window, alt-vocab snapToCostRange, alt-vocab snapToAlertRange). Module-level `vi.mock('@tanstack/react-router', ...)` closure over mutable `mockSearch` drives all hook scenarios via `beforeEach setSearch(...)`. **ZERO-REFACTOR INVARIANT PRESERVED**: `git diff --stat frontend/src/lib/time/useRouteRange.ts` returns empty (Phase 26 file byte-identical; 9 prior call sites unaffected). Verifications: `pnpm test --run src/lib/time/__tests__/useRouteRangeVocab.test.ts` 31/31 pass; `pnpm tsc --noEmit` clean; `pnpm lint --max-warnings 0` exit 0; pre-commit hooks (frontend typecheck tsc) Passed. No new runtime deps. Zero deviations from plan. Plan 27-02 ran concurrently in sibling agent (backend Python only — schemas/sessions.py + routes/sessions.py + tests) — zero file overlap; pre-commit hooks confirmed clean separation. Wall-clock duration: 1 min (116s). Unblocks Plans 27-04 (skills panels consume `useRouteRangeVocab('14d', snapToSkillRange)`), 27-05 (CostByProjectCard consumes `useRouteRangeVocab('7d', snapToCostRange)`), 27-06 (AlertEventsList consumes `useRouteRangeVocab('7d', snapToAlertRange)`). |
+
 **Phase 26 plan execution log:**
 
 | Plan | Status | Commits | Notes |
@@ -550,11 +569,11 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 
 ## Next Step
 
-**Phase 26 COMPLETE — 2026-05-13.** 9/9 Phase 26 plans shipped. Operator verdict PASS signed by Patryk Golabek via live Chrome DevTools MCP verification against http://localhost:5173. All 5 ROADMAP success criteria PASS + 9/9 mapped requirements (SHEL-05, TIME-01..05, CMDK-02..04) functionally verified. Backend pytest 686/0/0 preserved (zero backend changes). Frontend vitest 452 → 610/0/0 (+158). Playwright e2e 141 → 207 (203 pass + 4 forward-compat skip; +66). Lighthouse 9/9 PASS at median. Axe 39/39 PASS. Portal containment 6/6 PASS. URL contract 2/2 PASS. 96 total visual capture PNGs (36 Phase 24 + 30 Phase 25 + 30 NEW Phase 26). ResponsiveContainer count = 26 (Phase 24 lock preserved). 1 Rule-1 deviation in Plan 09 (TIME-04 click hit-test resilience). ZERO NEW Accepted Exceptions discovered. URL-as-broadcast-bus pattern verified end-to-end.
+**Phase 27 Plan 01 COMPLETE — 2026-05-15.** 1/9 Phase 27 plans shipped. Foundation Wave 1 ships `useRouteRangeVocab<V>` generic URL→Vocab bridge hook + three pre-baked snappers (snapToSkillRange / snapToCostRange / snapToAlertRange) at `frontend/src/lib/time/useRouteRangeVocab.ts` (73 LOC) with 31 vitest cases (`frontend/src/lib/time/__tests__/useRouteRangeVocab.test.ts`, 211 LOC) — band-edge inclusivity proved via (h, h+1) pairs + asymmetric URL coverage contract verified. **ZERO-REFACTOR INVARIANT PRESERVED**: `git diff --stat frontend/src/lib/time/useRouteRange.ts` returns empty after `ed96343`; the 9 Phase 26 panel call sites on `/` and `/activity` continue to consume the narrow Range vocab verbatim. Pre-commit hooks Passed (frontend typecheck tsc). `pnpm tsc --noEmit` + `pnpm lint --max-warnings 0` both clean. No new runtime deps. Zero deviations from plan. Plan 27-02 ran concurrently in sibling agent (backend Python only) with zero file overlap. Wall-clock duration: 1 min.
 
-**Recommended next step:** `/gsd:discuss-phase 27` (or `/gsd:plan-phase 27` if discussion already happened in the v1.3 roadmap-time conversation). Phase 27 (Per-Route Adoption II — Skills/Cost/Alerts + Tech Debt) is unblocked: time picker contract proven, BoundedPanelCard adoption pattern proven on 21 panels (Plan 08), useRouteRange URL→Range bridge proven, TruncatedCell+CopyIconButton first-consumer pattern proven, TIME-04 CompareToggle pattern proven, TDBT-01..03 carry-over Phase 21/23 debts queued.
+**Recommended next step:** Continue with `/gsd:execute-phase 27` to run the remaining 8 plans (27-02 may already be complete in parallel by the time this resumes). Plan 27-01 unblocks Plans 27-04 (`/skills` + `/skills/$name` panel global-picker adoption consumes `useRouteRangeVocab('14d', snapToSkillRange)`), 27-05 (CostByProjectCard consumes `useRouteRangeVocab('7d', snapToCostRange)`), and 27-06 (AlertEventsList consumes `useRouteRangeVocab('7d', snapToAlertRange)`).
 
-**v1.3 milestone status after this commit:** 3/5 phases complete (Phase 24 ✓ 2026-05-12, Phase 25 ✓ 2026-05-12, Phase 26 ✓ 2026-05-13). Phases 27 + 28 pending. 38/45 active requirements satisfied (18 from Phase 24 + 11 from Phase 25 + 9 from Phase 26).
+**v1.3 milestone status after this commit:** 3/5 phases complete + Phase 27 in progress (1/9 plans). Phase 24 ✓ 2026-05-12, Phase 25 ✓ 2026-05-12, Phase 26 ✓ 2026-05-13. Phase 27 🟡 in progress; Phase 28 pending. 38/45 active requirements satisfied (18 from Phase 24 + 11 from Phase 25 + 9 from Phase 26 — Phase 27 Plan 01 is foundational, satisfies no requirement directly).
 
 Locked invariants now established (cumulative through Phase 25 close):
 
