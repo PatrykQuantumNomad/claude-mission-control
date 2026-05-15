@@ -88,7 +88,7 @@ Categorized by surface area. Each maps to exactly one phase in `ROADMAP.md` once
 
 ### Tech Debt Closure (TDBT) — Phase 27 bundles
 
-- [ ] **TDBT-01**: Expose `project_key` on `SessionListItemFull` and `SessionCompareSide` wire shapes (additive). Frontend compare picker switches from cwd-as-proxy to authoritative `project_key` (per Phase 23 carried debt).
+- [x] **TDBT-01**: Expose `project_key` on `SessionListItemFull` and `SessionCompareSide` wire shapes (additive). Frontend compare picker switches from cwd-as-proxy to authoritative `project_key` (per Phase 23 carried debt). ✅ 2026-05-15 (Plans 27-02 backend + 27-03 frontend)
 - [ ] **TDBT-02**: Remove `KNOWN_METRICS` frontend fallback constant. Rely solely on `useAlertMetrics` hook (per Phase 21 carried debt). `test_alerts_metrics_sync.py` cross-language drift guard remains.
 - [ ] **TDBT-03**: Add retry/queue UX to `POST /api/alerts/parse-nl` 503 collapse. Surface honest "credentials missing — retry" affordance instead of silent error (per Phase 21 carried debt).
 
@@ -222,7 +222,7 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 | POLI-12 | Phase 24 | ✅ Complete (plan 06, 2026-05-11) |
 | POLI-13 | Phase 24 | ✅ Complete (plans 05+06, 2026-05-11) |
 | POLI-14 | Phase 24 | ✅ Complete (plan 06, 2026-05-11) |
-| TDBT-01 | Phase 27 | 🟡 In progress — backend half complete (plan 02, 2026-05-15: project_key on /sessions list + /sessions/compare); frontend ComparePicker switch lands in plan 03 |
+| TDBT-01 | Phase 27 | ✅ Complete 2026-05-15 — backend half (plan 02: project_key on /sessions list + /sessions/compare wire shapes; 3 round-trip pytest cases lock the wire-shape promise) + frontend half (plan 03: SessionListItemFull + SessionCompareSide TS mirror; ComparePicker filter switched from row.cwd === scopeCwd to row.project_key === scopeProjectKey; 2 vitest cases lock symlink-collapse + byte-equal-cwd edge cases + copy-no-hex-leak invariant) |
 | TDBT-02 | Phase 27 | Pending |
 | TDBT-03 | Phase 27 | Pending |
 

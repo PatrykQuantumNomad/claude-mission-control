@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Surface Redesign
-status: "Phase 27 Plans 01 + 02 ship clean. Plan 02 unblocks Plan 27-03 (ComparePicker frontend half — can now switch filter from `c.cwd === scopeCwd` to `c.project_key === scopeProjectKey`, fixing symlink/realpath divergence per TDBT-01 RESEARCH). Plan 01 unblocks 27-04 (/skills + /skills/$name global-picker adoption consumes useRouteRangeVocab('14d', snapToSkillRange)), 27-05 (CostByProjectCard consumes useRouteRangeVocab('7d', snapToCostRange)), 27-06 (AlertEventsList consumes useRouteRangeVocab('7d', snapToAlertRange)). Backend pytest 686 → 689 / 0 / 0 (zero regressions across full suite, 214s). Live smoke check confirmed: curl http://localhost:8001/api/sessions returns project_key='9719f89c22b4' for /Users/patrykattc/work/git/claude-mission-control; compare endpoint returns project_key on both .a and .b. ZERO-REFACTOR INVARIANT preserved on Phase 26's useRouteRange.ts (Plan 01). No file overlap between Plans 01 and 02 (frontend TypeScript vs backend Python). Pre-commit hooks (pyright + ruff for backend; tsc for frontend) clean on all 3 task commits."
-last_updated: "2026-05-15T19:49:32.624Z"
-last_activity: 2026-05-15 — Phase 27 Plan 02 SUMMARY committed (27-02-SUMMARY.md); STATE.md updated with TDBT-01 backend-half close.
+status: "Phase 27 Plans 01 + 02 + 03 ship clean. Plan 03 closes TDBT-01 frontend half (REQ-ID TDBT-01 = 27-02 backend + 27-03 frontend = CLOSED): SessionListItemFull + SessionCompareSide TS interfaces in frontend/src/lib/api.ts mirror the new required `project_key: string` wire field; ComparePicker filter switched from `row.cwd === scopeCwd` to `row.project_key === scopeProjectKey` (authoritative project identity — symlink-collapse + byte-equal-cwd edge cases now resolve correctly); 5 vitest fixture factories updated with new required field; 2 new TDBT-01 vitest cases lock filter behavior + copy-no-hex-leak invariant. Plan 01 unblocks 27-04 (/skills + /skills/$name global-picker adoption consumes useRouteRangeVocab('14d', snapToSkillRange)), 27-05 (CostByProjectCard consumes useRouteRangeVocab('7d', snapToCostRange)), 27-06 (AlertEventsList consumes useRouteRangeVocab('7d', snapToAlertRange)). Frontend vitest 325 → 327 in panels+ui sweep (327/0/0 across 70 files). pnpm tsc + lint --max-warnings 0 clean. Success-criteria greps: scopeCwd=0, row.cwd === scopeCwd=0, scopeProjectKey=12. ZERO-REFACTOR INVARIANT preserved on Phase 26's useRouteRange.ts. No file overlap with sibling Wave 2 Plan 27-04 (which targets SkillRunsTable.test.tsx top-of-file mock area; this plan only changed makeFullSession factory body). Pre-commit hooks (frontend tsc) clean on both Plan 03 task commits."
+last_updated: "2026-05-15T20:00:00.000Z"
+last_activity: 2026-05-15 — Phase 27 Plan 03 SUMMARY committed (27-03-SUMMARY.md); STATE.md + ROADMAP.md updated with TDBT-01 frontend-half close (REQ-ID TDBT-01 closed).
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 36
-  completed_plans: 29
-  percent: 81
+  completed_plans: 30
+  percent: 83
 ---
 
 # Project State
@@ -25,14 +25,14 @@ See: .planning/PROJECT.md (updated 2026-05-10 after v1.3 milestone start)
 
 ## Current Position
 
-Phase: 27 — Per-Route Adoption II (Skills/Cost/Alerts) + Tech Debt 🟡 in progress (2/9 plans complete as of 2026-05-15)
-Plan: Phase 27 Plans 01 + 02 ✅ complete (2026-05-15, parallel Wave 1). Plan 01 (foundation, 1/1 task): useRouteRangeVocab<V> generic URL→Vocab bridge hook + snapToSkillRange/snapToCostRange/snapToAlertRange pre-baked vocab snappers (ed96343). Plan 02 (TDBT-01 backend half, 2/2 tasks): SessionListItem.project_key + SessionCompareSide.project_key additive required str fields on GET /api/sessions and GET /api/sessions/compare responses (f1ad119 feat + 81b4c43 test). 3 round-trip pytest cases lock the wire-shape promise (test_list_sessions_includes_project_key, test_compare_sessions_includes_project_key, test_project_key_matches_compute_helper).
-Status: Phase 27 Plans 01 + 02 ship clean. Plan 02 unblocks Plan 27-03 (ComparePicker frontend half — can now switch filter from `c.cwd === scopeCwd` to `c.project_key === scopeProjectKey`, fixing symlink/realpath divergence per TDBT-01 RESEARCH). Plan 01 unblocks 27-04 (/skills + /skills/$name global-picker adoption consumes useRouteRangeVocab('14d', snapToSkillRange)), 27-05 (CostByProjectCard consumes useRouteRangeVocab('7d', snapToCostRange)), 27-06 (AlertEventsList consumes useRouteRangeVocab('7d', snapToAlertRange)). Backend pytest 686 → 689 / 0 / 0 (zero regressions across full suite, 214s). Live smoke check confirmed: curl http://localhost:8001/api/sessions returns project_key='9719f89c22b4' for /Users/patrykattc/work/git/claude-mission-control; compare endpoint returns project_key on both .a and .b. ZERO-REFACTOR INVARIANT preserved on Phase 26's useRouteRange.ts (Plan 01). No file overlap between Plans 01 and 02 (frontend TypeScript vs backend Python). Pre-commit hooks (pyright + ruff for backend; tsc for frontend) clean on all 3 task commits.
-Last activity: 2026-05-15 — Phase 27 Plan 02 SUMMARY committed (27-02-SUMMARY.md); STATE.md updated with TDBT-01 backend-half close.
+Phase: 27 — Per-Route Adoption II (Skills/Cost/Alerts) + Tech Debt 🟡 in progress (3/9 plans complete as of 2026-05-15)
+Plan: Phase 27 Plans 01 + 02 + 03 ✅ complete (2026-05-15). Plan 03 (TDBT-01 frontend half, 2/2 tasks): SessionListItemFull + SessionCompareSide TS interfaces in frontend/src/lib/api.ts mirror the new required `project_key: string` wire field (32763bd feat); ComparePicker filter switched from `row.cwd === scopeCwd` to `row.project_key === scopeProjectKey` (0b052b1 feat). 2 new TDBT-01 vitest cases lock both halves of the new contract (filter inclusion/exclusion across symlink-collapse + byte-equal-cwd edge cases; description copy never leaks the 12-char hex). 5 vitest fixture factories updated with the new required field (Pitfall 5 honored — required-field TS contract means tsc fails until every mock supplies the sentinel). Row display label preserved as {row.cwd ?? '—'} (load-bearing precedence: filter switched, display preserved). Plan 01 (ed96343) + Plan 02 (f1ad119, 81b4c43) recap above remains unchanged.
+Status: Phase 27 Plans 01 + 02 + 03 ship clean. **REQ-ID TDBT-01 = Plan 27-02 backend + Plan 27-03 frontend = CLOSED.** Plan 03 unblocks 27-04 sequencing (which adds vi.mock('@tanstack/react-router') at the top of SkillRunsTable.test.tsx — zero conflict with my factory-body fixture update). Plan 01 unblocks 27-04 / 27-05 / 27-06 (useRouteRangeVocab snappers). Frontend vitest 325 → 327 in panels+ui sweep (327/0/0 across 70 files; broader suite delta will be measured at 27-09 close). pnpm tsc --noEmit clean. pnpm lint --max-warnings 0 clean. Success-criteria greps: `scopeCwd`=0, `row.cwd === scopeCwd`=0, `scopeProjectKey`=12 in CommandPalette.tsx. SC#3 ('compare picker uses authoritative project_key instead of cwd-as-proxy') FULLY SATISFIED. Pre-commit hooks (frontend tsc) clean on both Plan 03 commits. Zero deviations across all 3 of Plan 03's tasks.
+Last activity: 2026-05-15 — Phase 27 Plan 03 SUMMARY committed (27-03-SUMMARY.md); STATE.md + ROADMAP.md updated with TDBT-01 frontend-half close (REQ-ID TDBT-01 closed).
 
 (Previous Phase 26 close: 2026-05-13 — operator verdict PASS signed by Patryk Golabek. 9/9 plans, SHEL-05 + TIME-01..05 + CMDK-02..04 satisfied. Backend pytest 686/0/0; frontend vitest 452 → 610/0/0; Playwright 141 → 207; Lighthouse 9/9 PASS at median; axe 39/39 PASS; portal containment 6/6 PASS; ResponsiveContainer count = 26; 96 total visual capture PNGs.)
 
-Progress (Phase 27 plans): [██░░░░░░░░] 22% (2/9 plans complete — Plans 01 + 02 shipped 2026-05-15; Plans 03-09 pending)
+Progress (Phase 27 plans): [███░░░░░░░] 33% (3/9 plans complete — Plans 01 + 02 + 03 shipped 2026-05-15; Plans 04-09 pending)
 Progress (v1.3 milestone): [██████░░░░] 60% (3/5 phases complete — Phases 24+25+26 closed; Phase 27 in progress; Phase 28 pending)
 
 ## Performance Metrics
@@ -481,6 +481,14 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 - [Phase ?]: Phase 27 Plan 02: SessionCompareSide stays BaseModel (NOT promoted to ORMBase) — explicit project_key=sess.project_key in _build_compare_side preserves the Decimal cost wire-shape lock
 - [Phase ?]: Phase 27 Plan 02: belt-and-suspenders cross-check test recomputes compute_project_key(item.cwd) from the response — locks the canonical-identity invariant against future stale-column / wrong-hash / cwd-normalization regressions
 
+**v1.3 Phase 27 plan-03 execution decisions (TDBT-01 frontend half):**
+
+- **Row display label preserved as `{row.cwd ?? '—'}`; filter switched to `row.project_key === scopeProjectKey`.** Load-bearing precedence: the 12-char hex project_key is the canonical machine identity, but it is NOT user-readable. Users still need a human-readable identity per row, and `cwd` is the only such field on `SessionListItemFull`. The filter (machine-comparable) and the display label (human-readable) were always conceptually orthogonal — pre-Plan 27-03 code happened to align them because cwd was the only project-shaped field on the wire. Locked pattern for any future canonical-id rollout where a hash-shaped value lands on the wire: switch the FILTER to the canonical id; preserve the human-readable proxy on the DISPLAY.
+- **Description copy switched to project-shape-honest English (`'Showing sessions in the same project.'`).** Prior copy `'Showing sessions from ${scopeCwd} only.'` interpolated the cwd into a UI label; switching to project_key would have surfaced the 12-char hex (worse UX); switching to project_key AND keeping interpolation would have been worse still. The right answer was to switch the COPY to a project-shape-honest English phrasing that matches the new canonical filter semantics. Bonus: more privacy-respecting (does not surface filesystem paths in palette UI text). Pattern: when migrating a filter from a human-readable proxy to a hash-shaped canonical id, the UI COPY migrates to category-level English ('the same project') NOT to the canonical hash.
+- **Optional 3rd param on test factory `makeSessionRow(session_id, cwd, project_key = '0123456789ab')`.** Adding a required 3rd param would have forced every legacy 2-arg call site to opt in (4 existing tests). An optional param with a sensible default satisfies BOTH requirements: legacy tests compile unchanged, new TDBT-01 filter tests opt in to distinct values per row. Locked pattern for any future required-field rollout where some tests need DISTINCT values: optional param + default sentinel.
+- **Compare-cache pre-seed via `setQueryData(qk.sessionCompare(UUID_A, ''), fixture)`.** The new TDBT-01 tests need `aProjectKey` to resolve to a non-null value WITHOUT both `a` + `b` in the URL (which would change the palette item label and complicate the test flow). Reading `queries.ts:402` revealed `useSessionCompare(a, undefined)` coerces the cache key to `['session-compare', a, '']` via `qk.sessionCompare(a ?? '', b ?? '')`. Seeding that exact slot activates scope without altering the URL. Three-line helper (`seedCompareCacheForA`) documents this cache-key coercion idiom for future tests.
+- **Two new tests, not one.** Separate the FILTER invariant (symlink + byte-equal cwd edge cases) from the COPY invariant (no hex leakage). Each test has one assertion target so a future regression in either dimension fails the right test by name. Cost: ~30 LOC of duplicated fixture seeding; benefit: precise diagnosis. Favored precision.
+
 ### Open Blockers / Carried Items
 
 **Operational (non-blocking, one-time apply on next `cmc start`):**
@@ -489,7 +497,7 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 
 **Tech debt (mapped into v1.3 Phase 27 as TDBT-01..03):**
 
-- TDBT-01: Wire APIs (`SessionListItemFull`, `SessionCompareSide`) don't expose `project_key` — Phase 23 frontend compare picker uses `cwd` as proxy. Phase 27 exposes `project_key` on those wire shapes for picker correctness in edge cases.
+- TDBT-01: ~~Wire APIs (`SessionListItemFull`, `SessionCompareSide`) don't expose `project_key` — Phase 23 frontend compare picker uses `cwd` as proxy.~~ **CLOSED 2026-05-15 via Plans 27-02 (backend `project_key` on wire) + 27-03 (frontend filter switch from `row.cwd === scopeCwd` to `row.project_key === scopeProjectKey` + 2 TDBT-01 vitest cases locking symlink/byte-equal edge cases).**
 - TDBT-02: KNOWN_METRICS frontend constant still exists as fallback path despite `useAlertMetrics` hook + `test_alerts_metrics_sync.py` regex guard. Phase 27 finishes removing the constant entirely.
 - TDBT-03: Phase 21-03 frontend NL input couples to a 503 collapse on `POST /api/alerts/parse-nl` (no graceful retry/queue UX). Phase 27 surfaces honest "credentials missing — retry" affordance.
 
