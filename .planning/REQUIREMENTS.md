@@ -222,7 +222,7 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 | POLI-12 | Phase 24 | ✅ Complete (plan 06, 2026-05-11) |
 | POLI-13 | Phase 24 | ✅ Complete (plans 05+06, 2026-05-11) |
 | POLI-14 | Phase 24 | ✅ Complete (plan 06, 2026-05-11) |
-| TDBT-01 | Phase 27 | Pending |
+| TDBT-01 | Phase 27 | 🟡 In progress — backend half complete (plan 02, 2026-05-15: project_key on /sessions list + /sessions/compare); frontend ComparePicker switch lands in plan 03 |
 | TDBT-02 | Phase 27 | Pending |
 | TDBT-03 | Phase 27 | Pending |
 

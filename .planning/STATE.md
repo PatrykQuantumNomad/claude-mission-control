@@ -2,16 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Surface Redesign
-status: in_progress
-last_updated: "2026-05-15T19:34:27Z"
-last_activity: "2026-05-15 — Phase 27 Plan 01 shipped: useRouteRangeVocab generic URL→Vocab bridge hook + snapToSkillRange/snapToCostRange/snapToAlertRange snappers (ed96343). Zero-refactor invariant on Phase 26's useRouteRange.ts preserved (empty git diff --stat). Unblocks 27-04 / 27-05 / 27-06 panel adoptions."
+status: "Phase 27 Plans 01 + 02 ship clean. Plan 02 unblocks Plan 27-03 (ComparePicker frontend half — can now switch filter from `c.cwd === scopeCwd` to `c.project_key === scopeProjectKey`, fixing symlink/realpath divergence per TDBT-01 RESEARCH). Plan 01 unblocks 27-04 (/skills + /skills/$name global-picker adoption consumes useRouteRangeVocab('14d', snapToSkillRange)), 27-05 (CostByProjectCard consumes useRouteRangeVocab('7d', snapToCostRange)), 27-06 (AlertEventsList consumes useRouteRangeVocab('7d', snapToAlertRange)). Backend pytest 686 → 689 / 0 / 0 (zero regressions across full suite, 214s). Live smoke check confirmed: curl http://localhost:8001/api/sessions returns project_key='9719f89c22b4' for /Users/patrykattc/work/git/claude-mission-control; compare endpoint returns project_key on both .a and .b. ZERO-REFACTOR INVARIANT preserved on Phase 26's useRouteRange.ts (Plan 01). No file overlap between Plans 01 and 02 (frontend TypeScript vs backend Python). Pre-commit hooks (pyright + ruff for backend; tsc for frontend) clean on all 3 task commits."
+last_updated: "2026-05-15T19:49:32.624Z"
+last_activity: 2026-05-15 — Phase 27 Plan 02 SUMMARY committed (27-02-SUMMARY.md); STATE.md updated with TDBT-01 backend-half close.
 progress:
   total_phases: 5
   completed_phases: 3
-  in_progress_phases: 1
-  total_plans: 45
-  completed_plans: 37
-  percent: 82
+  total_plans: 36
+  completed_plans: 29
+  percent: 81
 ---
 
 # Project State
@@ -26,14 +25,14 @@ See: .planning/PROJECT.md (updated 2026-05-10 after v1.3 milestone start)
 
 ## Current Position
 
-Phase: 27 — Per-Route Adoption II (Skills/Cost/Alerts) + Tech Debt 🟡 in progress (1/9 plans complete as of 2026-05-15)
-Plan: Phase 27 Plan 01 ✅ complete (2026-05-15). Plan 01 (foundation, 1/1 task): useRouteRangeVocab<V> generic URL→Vocab bridge hook + snapToSkillRange/snapToCostRange/snapToAlertRange pre-baked vocab snappers + snapToRange Phase 26 vocab mirror in the generic form (ed96343 feat). Single atomic commit. 31 vitest cases pass (>= 18 required); pnpm tsc --noEmit clean; pnpm lint --max-warnings 0 clean.
-Status: Phase 27 Plan 01 ships clean. Unblocks Plans 27-04 (`/skills` + `/skills/$name` panel global-picker adoption consumes useRouteRangeVocab('14d', snapToSkillRange)), 27-05 (CostByProjectCard consumes useRouteRangeVocab('7d', snapToCostRange)), 27-06 (AlertEventsList consumes useRouteRangeVocab('7d', snapToAlertRange)). ZERO-REFACTOR INVARIANT preserved — Phase 26's `frontend/src/lib/time/useRouteRange.ts` is byte-identical (empty `git diff --stat`); the 9 Phase 26 panel call sites on `/` and `/activity` continue to consume the narrow Range vocab verbatim. No new runtime deps. Plan 27-02 (backend cwd-realpath dedupe for sessions comparison) running concurrently in sibling agent — zero file overlap (Plan 27-01 frontend TypeScript only; Plan 27-02 backend Python only). Pre-commit hooks confirmed clean for both sides.
-Last activity: 2026-05-15 — Phase 27 Plan 01 SUMMARY committed; STATE.md + ROADMAP.md updated.
+Phase: 27 — Per-Route Adoption II (Skills/Cost/Alerts) + Tech Debt 🟡 in progress (2/9 plans complete as of 2026-05-15)
+Plan: Phase 27 Plans 01 + 02 ✅ complete (2026-05-15, parallel Wave 1). Plan 01 (foundation, 1/1 task): useRouteRangeVocab<V> generic URL→Vocab bridge hook + snapToSkillRange/snapToCostRange/snapToAlertRange pre-baked vocab snappers (ed96343). Plan 02 (TDBT-01 backend half, 2/2 tasks): SessionListItem.project_key + SessionCompareSide.project_key additive required str fields on GET /api/sessions and GET /api/sessions/compare responses (f1ad119 feat + 81b4c43 test). 3 round-trip pytest cases lock the wire-shape promise (test_list_sessions_includes_project_key, test_compare_sessions_includes_project_key, test_project_key_matches_compute_helper).
+Status: Phase 27 Plans 01 + 02 ship clean. Plan 02 unblocks Plan 27-03 (ComparePicker frontend half — can now switch filter from `c.cwd === scopeCwd` to `c.project_key === scopeProjectKey`, fixing symlink/realpath divergence per TDBT-01 RESEARCH). Plan 01 unblocks 27-04 (/skills + /skills/$name global-picker adoption consumes useRouteRangeVocab('14d', snapToSkillRange)), 27-05 (CostByProjectCard consumes useRouteRangeVocab('7d', snapToCostRange)), 27-06 (AlertEventsList consumes useRouteRangeVocab('7d', snapToAlertRange)). Backend pytest 686 → 689 / 0 / 0 (zero regressions across full suite, 214s). Live smoke check confirmed: curl http://localhost:8001/api/sessions returns project_key='9719f89c22b4' for /Users/patrykattc/work/git/claude-mission-control; compare endpoint returns project_key on both .a and .b. ZERO-REFACTOR INVARIANT preserved on Phase 26's useRouteRange.ts (Plan 01). No file overlap between Plans 01 and 02 (frontend TypeScript vs backend Python). Pre-commit hooks (pyright + ruff for backend; tsc for frontend) clean on all 3 task commits.
+Last activity: 2026-05-15 — Phase 27 Plan 02 SUMMARY committed (27-02-SUMMARY.md); STATE.md updated with TDBT-01 backend-half close.
 
 (Previous Phase 26 close: 2026-05-13 — operator verdict PASS signed by Patryk Golabek. 9/9 plans, SHEL-05 + TIME-01..05 + CMDK-02..04 satisfied. Backend pytest 686/0/0; frontend vitest 452 → 610/0/0; Playwright 141 → 207; Lighthouse 9/9 PASS at median; axe 39/39 PASS; portal containment 6/6 PASS; ResponsiveContainer count = 26; 96 total visual capture PNGs.)
 
-Progress (Phase 27 plans): [█░░░░░░░░░] 11% (1/9 plans complete — Plan 01 shipped 2026-05-15; Plans 02-09 pending)
+Progress (Phase 27 plans): [██░░░░░░░░] 22% (2/9 plans complete — Plans 01 + 02 shipped 2026-05-15; Plans 03-09 pending)
 Progress (v1.3 milestone): [██████░░░░] 60% (3/5 phases complete — Phases 24+25+26 closed; Phase 27 in progress; Phase 28 pending)
 
 ## Performance Metrics
@@ -117,6 +116,7 @@ Progress (v1.3 milestone): [██████░░░░] 60% (3/5 phases comp
 | Portal containment (CONT-02) | 3/3 PASS | 6/6 PASS | +3 | 3 Phase 24 carry-forward (DropdownMenu / cmdk / btn-hover) + 3 NEW Phase 26 chrome walks (TimePicker popover, RefreshDropdown menu, sonner Toaster) |
 | URL contract pytest (POLI-13) | 2/2 PASS | 2/2 PASS | 0 | No URL renames Phase 26; validateSearch adoptions append-only — Pitfall 2/13 lock honored |
 | ResponsiveContainer count | 26 | 26 | 0 | Phase 26 added zero charts; only `<CompareToggle>` chrome + `<Bar dataKey="prior_total">` overlay onto existing TokenUsageCard ResponsiveContainer |
+| Phase 27 P02 | ~6 min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -477,6 +477,9 @@ Cumulative decision log lives in `.planning/PROJECT.md` Key Decisions table. v1.
 
 - [Phase ?]: Phase 26 Plan 06 CMDK-04 in-scope routes for getAllRecentStates aggregation: mirror RecentRoutesTracker IN_SCOPE_ROUTES set verbatim — three lists now must stay in sync (RecentStateTracker, RecentRoutesTracker, CommandPalette RECENTS_IN_SCOPE_ROUTES); breadcrumb comments added. Future phase may unify into lib/routes.ts.
 - [Phase ?]: Phase 26 Plan 06 vitest clipboard ordering invariant: navigator.clipboard override MUST run AFTER userEvent.setup() — user-event installs a getter-based clipboard stub via attachClipboardStubToView that clobbers any prior defineProperty. Documented inline in CommandPalette.timeRange.test.tsx.
+- [Phase ?]: Phase 27 Plan 02: project_key is required str (not str | None) — Phase 19 migration 0003 backfilled all historical rows; empty string is the valid no-cwd sentinel
+- [Phase ?]: Phase 27 Plan 02: SessionCompareSide stays BaseModel (NOT promoted to ORMBase) — explicit project_key=sess.project_key in _build_compare_side preserves the Decimal cost wire-shape lock
+- [Phase ?]: Phase 27 Plan 02: belt-and-suspenders cross-check test recomputes compute_project_key(item.cwd) from the response — locks the canonical-identity invariant against future stale-column / wrong-hash / cwd-normalization regressions
 
 ### Open Blockers / Carried Items
 
