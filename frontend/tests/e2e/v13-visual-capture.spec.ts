@@ -529,3 +529,128 @@ test.describe('Phase 26 Plan 09 — Phase 26 chrome visual capture', () => {
     }
   }
 })
+
+// ────────────────────────────────────────────────────────────────────────
+// Phase 27 Plan 09 extension: 4 NEW tail-end-route surfaces × 3 densities
+// × 2 themes = 24 NEW PNGs into the Phase 27 visual-check directory.
+//   1. skills-index-bounded — /skills with cmc-page--bounded + adopted
+//      panels bounded
+//   2. skills-detail-bounded — /skills/$name (longest skill name available)
+//      with 4-panel bounded set + TruncatedCell on header
+//   3. cost-bounded — /cost with both panels bounded + project column
+//      truncation visible
+//   4. alerts-bounded — /alerts with all 3 panels bounded + AlertRuleForm
+//      cmc-card--bounded modifier
+// Output dir: `.planning/phases/27-per-route-adoption-ii-skills-cost-alerts-tech-debt/visual-check/`
+// ────────────────────────────────────────────────────────────────────────
+
+const PHASE_27_DIR = path.resolve(
+  __dirname,
+  '../../../.planning/phases/27-per-route-adoption-ii-skills-cost-alerts-tech-debt/visual-check',
+)
+
+test.beforeAll(() => {
+  fs.mkdirSync(PHASE_27_DIR, { recursive: true })
+})
+
+test.describe('Phase 27 Plan 09 — tail-route bounded chrome visual capture', () => {
+  for (const density of DENSITIES) {
+    for (const theme of THEMES) {
+      // Surface 1: /skills bounded chrome.
+      test(`skills-index-bounded d=${density} t=${theme}`, async ({ page }) => {
+        await page.addInitScript(
+          ([d, t]) => {
+            window.localStorage.setItem('cmc.density', d as string)
+            window.localStorage.setItem('cmc.theme', t as string)
+          },
+          [density, theme],
+        )
+        await page.goto('/skills')
+        await page.waitForLoadState('domcontentloaded')
+        await page.waitForTimeout(1500)
+        await page.screenshot({
+          path: path.join(
+            PHASE_27_DIR,
+            `skills-index-bounded__${density}__${theme}.png`,
+          ),
+          fullPage: true,
+        })
+      })
+
+      // Surface 2: /skills/$name bounded chrome (longest available name).
+      test(`skills-detail-bounded d=${density} t=${theme}`, async ({
+        page,
+      }) => {
+        await page.addInitScript(
+          ([d, t]) => {
+            window.localStorage.setItem('cmc.density', d as string)
+            window.localStorage.setItem('cmc.theme', t as string)
+          },
+          [density, theme],
+        )
+        // Pick the longest available skill name; fall back to /skills if
+        // the dev DB has zero skills (the empty registry state).
+        const sRes = await page.request.get(`${BACKEND}/api/skills`)
+        const sBody = await sRes.json()
+        const items = (sBody.items ?? []) as Array<{ name: string }>
+        if (items.length === 0) {
+          await page.goto('/skills')
+        } else {
+          items.sort((a, b) => b.name.length - a.name.length)
+          await page.goto(`/skills/${encodeURIComponent(items[0].name)}`)
+        }
+        await page.waitForLoadState('domcontentloaded')
+        await page.waitForTimeout(1500)
+        await page.screenshot({
+          path: path.join(
+            PHASE_27_DIR,
+            `skills-detail-bounded__${density}__${theme}.png`,
+          ),
+          fullPage: true,
+        })
+      })
+
+      // Surface 3: /cost bounded chrome.
+      test(`cost-bounded d=${density} t=${theme}`, async ({ page }) => {
+        await page.addInitScript(
+          ([d, t]) => {
+            window.localStorage.setItem('cmc.density', d as string)
+            window.localStorage.setItem('cmc.theme', t as string)
+          },
+          [density, theme],
+        )
+        await page.goto('/cost')
+        await page.waitForLoadState('domcontentloaded')
+        await page.waitForTimeout(1500)
+        await page.screenshot({
+          path: path.join(
+            PHASE_27_DIR,
+            `cost-bounded__${density}__${theme}.png`,
+          ),
+          fullPage: true,
+        })
+      })
+
+      // Surface 4: /alerts bounded chrome.
+      test(`alerts-bounded d=${density} t=${theme}`, async ({ page }) => {
+        await page.addInitScript(
+          ([d, t]) => {
+            window.localStorage.setItem('cmc.density', d as string)
+            window.localStorage.setItem('cmc.theme', t as string)
+          },
+          [density, theme],
+        )
+        await page.goto('/alerts')
+        await page.waitForLoadState('domcontentloaded')
+        await page.waitForTimeout(1500)
+        await page.screenshot({
+          path: path.join(
+            PHASE_27_DIR,
+            `alerts-bounded__${density}__${theme}.png`,
+          ),
+          fullPage: true,
+        })
+      })
+    }
+  }
+})
