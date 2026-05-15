@@ -86,4 +86,51 @@ test.describe('SKLP-08/09/10: /skills/<name> detail panels', () => {
       await expect(costDelta.first()).toBeVisible()
     }
   })
+
+  // ────────────────────────────────────────────────────────────────────
+  // Phase 27 Plan 09 extension: /skills/$name bounded shell + global
+  // picker re-anchor.
+  // ────────────────────────────────────────────────────────────────────
+
+  test('Phase 27 / /skills/$name adopts cmc-page--bounded shell + ≥4 panels bounded', async ({
+    page,
+    request,
+  }) => {
+    const sRes = await request.get(`${API}/api/skills`)
+    const sBody = await sRes.json()
+    const items = (sBody.items ?? []) as Array<{ name: string }>
+    test.skip(items.length === 0, 'Phase 27 /skills/$name bounded: requires ≥1 skill.')
+    const skillName = items[0].name
+    await page.goto(`/skills/${encodeURIComponent(skillName)}`)
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(1500)
+    const bounded = await page.evaluate(
+      () => !!document.querySelector('section.cmc-page--bounded'),
+    )
+    expect(bounded).toBe(true)
+    const boundedCards = await page.evaluate(
+      () => document.querySelectorAll('.cmc-card--bounded').length,
+    )
+    expect(boundedCards).toBeGreaterThanOrEqual(4)
+  })
+
+  test('Phase 27 / /skills/$name global TimePicker re-anchors (preset writes URL alongside route-local ?range=)', async ({
+    page,
+    request,
+  }) => {
+    const sRes = await request.get(`${API}/api/skills`)
+    const sBody = await sRes.json()
+    const items = (sBody.items ?? []) as Array<{ name: string }>
+    test.skip(items.length === 0, 'Phase 27 /skills/$name picker: requires ≥1 skill.')
+    const skillName = items[0].name
+    await page.goto(`/skills/${encodeURIComponent(skillName)}?range=30d`)
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(800)
+    await expect(page).toHaveURL(/range=30d/)
+    await page.getByTestId('time-picker-trigger').click()
+    await page.getByTestId('time-picker-preset-last-7-days').click()
+    // Append-only: both must coexist (Pitfall 2 LOCK).
+    await expect(page).toHaveURL(/time_from=now-7d/)
+    await expect(page).toHaveURL(/range=30d/)
+  })
 })

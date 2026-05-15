@@ -114,3 +114,41 @@ test('TEST-05a: /alerts lifecycle — create rule → fire → ack', async ({ pa
   // ISO-8601 format check (loose — value is "now + 1h").
   expect(ackBody.acked_until).toMatch(/^\d{4}-\d{2}-\d{2}T/)
 })
+
+// ────────────────────────────────────────────────────────────────────────
+// Phase 27 Plan 09 extension: /alerts bounded shell + global picker re-
+// anchor. AlertRuleForm bespoke-card cmc-card--bounded touch from Plan 27-06.
+// ────────────────────────────────────────────────────────────────────────
+
+test.describe('Phase 27 / /alerts bounded chrome + picker re-anchor', () => {
+  test('Phase 27 / /alerts adopts cmc-page--bounded shell + ≥3 panels bounded', async ({
+    page,
+  }) => {
+    await page.goto('/alerts')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(1200)
+    const bounded = await page.evaluate(
+      () => !!document.querySelector('section.cmc-page--bounded'),
+    )
+    expect(bounded).toBe(true)
+    // AlertRuleForm bespoke-card touch — cmc-card--bounded on the form
+    // <article>.
+    const formBounded = await page.evaluate(() => {
+      const form = document.querySelector('.cmc-alert-rule-form')
+      return form?.classList.contains('cmc-card--bounded') ?? false
+    })
+    expect(formBounded).toBe(true)
+  })
+
+  test('Phase 27 / /alerts global TimePicker re-anchors (preset writes URL)', async ({
+    page,
+  }) => {
+    await page.goto('/alerts')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(1000)
+    await page.getByTestId('time-picker-trigger').click()
+    await page.getByTestId('time-picker-preset-last-7-days').click()
+    await expect(page).toHaveURL(/time_from=now-7d/)
+    await expect(page).toHaveURL(/time_to=now/)
+  })
+})

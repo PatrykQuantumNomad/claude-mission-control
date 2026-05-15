@@ -245,3 +245,38 @@ test.describe('CONT-02 portal containment — Phase 26 chrome (TimePicker / Refr
     await assertNoTransformAncestor(toaster)
   })
 })
+
+// ────────────────────────────────────────────────────────────────────────
+// Phase 27 Plan 09 extension: confirm Phase 27 introduced no new portal-
+// mounting surfaces. CompareToggle is a plain button (not a portal); the
+// AlertNlInput 503 error block + Retry button are inline DOM (not a
+// portal). Verify by asserting NO unexpected new portal wrappers appear
+// on the 4 tail-end routes at idle (CompareToggle + AlertRuleForm are the
+// only Phase 27 chrome surfaces and neither uses Radix Portal).
+// ────────────────────────────────────────────────────────────────────────
+
+test.describe('CONT-02 portal containment — Phase 27 sentinel (no new portals)', () => {
+  test('Phase 27: /skills /cost /alerts have no new Phase-27-attributable portal-content surfaces at idle', async ({
+    page,
+  }) => {
+    // The contract: Phase 27 shipped no Radix Portal / DropdownMenu /
+    // Popover / Sheet new mounts. CompareToggle on /cost is a button
+    // (verified by reading frontend/src/components/ui/CompareToggle.tsx
+    // at planning time — it renders <button aria-pressed=…>).
+    // AlertRuleForm's NL error block + Retry is inline <div role="alert">
+    // (not a portal). Validate the negative invariant by walking the
+    // existing radix-popper / radix-dialog set at idle on each route
+    // and confirming the count matches the Phase 26 baseline (chrome-only).
+    for (const route of ['/skills', '/cost', '/alerts']) {
+      await page.goto(route)
+      await page.waitForLoadState('domcontentloaded')
+      await page.waitForTimeout(1200)
+      const idleRadixCount = await page.evaluate(() =>
+        document.querySelectorAll('[data-radix-popper-content-wrapper]').length,
+      )
+      // At idle, no Radix Popper popovers are open (the global TimePicker +
+      // RefreshDropdown only mount on click). Phase 27 should not change this.
+      expect(idleRadixCount).toBe(0)
+    }
+  })
+})

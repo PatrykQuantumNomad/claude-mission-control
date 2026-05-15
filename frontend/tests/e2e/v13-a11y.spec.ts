@@ -180,6 +180,22 @@ const PHASE_26_NET_CLASS_MARKERS = [
   'compare-overlay-toggle',
 ]
 
+// Phase 27 NET class markers — same inversion pattern, extended for Phase
+// 27's chrome surface. Phase 27 Plan 09 scans below gate on this list so
+// a Phase-27-attributable violation FAILS while a pre-existing v1.2/Phase-
+// 06 carry-over flows through unflagged.
+//
+// Phase 27 introduced minimal new chrome (Plan 27-08's .cmc-alert-nl__error
+// + .cmc-alert-nl__error-actions for the NL composer 503 error block,
+// plus the cmc-card--bounded modifier on AlertRuleForm from Plan 27-06).
+// The bounded modifier is Phase 24 token-set surface but its application
+// on AlertRuleForm is Phase-27-attributable, so we list both.
+const PHASE_27_NET_CLASS_MARKERS = [
+  'cmc-alert-nl__error',
+  'cmc-alert-nl__error-actions',
+  'cmc-alert-rule-form', // re-listed: Phase 27 added cmc-card--bounded modifier
+]
+
 function violationTouchesPhase25(violation: {
   nodes: { html: string }[]
 }): boolean {
@@ -193,6 +209,14 @@ function violationTouchesPhase26(violation: {
 }): boolean {
   return violation.nodes.some((n) =>
     PHASE_26_NET_CLASS_MARKERS.some((m) => n.html.includes(m)),
+  )
+}
+
+function violationTouchesPhase27(violation: {
+  nodes: { html: string }[]
+}): boolean {
+  return violation.nodes.some((n) =>
+    PHASE_27_NET_CLASS_MARKERS.some((m) => n.html.includes(m)),
   )
 }
 
@@ -210,16 +234,17 @@ function isPreExistingViolation(violation: {
   ) {
     return true
   }
-  // Inversion: if the violation has no node touching Phase 25's OR Phase
-  // 26's net class set, treat as pre-existing. This catches contrast
-  // violations surfaced by dev-DB-seeded data that don't appear in the
-  // explicit PRE_EXISTING_CONTRAST_SELECTORS catalogue. Phase 26 Plan 09
-  // extends the inversion to honor both phases — a Phase-25 surface
-  // violation still fails (preserves Phase 25's regression net) AND a
-  // Phase-26 surface violation also fails. Anything else is presumed
-  // pre-existing v1.2 baseline (Pitfall 7 rebalance window deferred to
-  // Phase 27).
-  return !violationTouchesPhase25(violation) && !violationTouchesPhase26(violation)
+  // Inversion: if the violation has no node touching Phase 25's, Phase
+  // 26's, OR Phase 27's net class set, treat as pre-existing. Phase 27
+  // Plan 09 extends the inversion to honor all three phases — any
+  // Phase-25/26/27 surface violation fails; anything else is presumed
+  // pre-existing v1.2 baseline (Pitfall 7 rebalance window now flagged
+  // as a Phase 28+ candidate after Phase 27 close).
+  return (
+    !violationTouchesPhase25(violation) &&
+    !violationTouchesPhase26(violation) &&
+    !violationTouchesPhase27(violation)
+  )
 }
 
 test.describe('POLI-10 a11y — serious + critical violations block', () => {
@@ -623,6 +648,137 @@ test.describe('Phase 26 axe a11y — TimePicker / RefreshDropdown / CompareToggl
     await expect(
       page.getByTestId('sidebar-section-recently-visited'),
     ).toBeVisible()
+
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze()
+    const blocking = results.violations.filter(
+      (v) => (v.impact === 'serious' || v.impact === 'critical') &&
+        !isPreExistingViolation(v),
+    )
+    expect(
+      blocking,
+      JSON.stringify(blocking.map((v) => ({ id: v.id, help: v.help })), null, 2),
+    ).toEqual([])
+  })
+})
+
+// ────────────────────────────────────────────────────────────────────────
+// Phase 27 Plan 09 extension: tail-route axe scans + AlertNlInput 503
+// mocked-error state scan. Same inversion pattern with
+// PHASE_27_NET_CLASS_MARKERS so pre-existing v1.2 carry-overs flow through.
+// ────────────────────────────────────────────────────────────────────────
+
+test.describe('Phase 27 axe a11y — tail routes (skills / skills detail / cost / alerts) + AlertNlInput 503', () => {
+  test('/skills bounded chrome: no Phase-27-attributable blocking violations', async ({
+    page,
+  }) => {
+    await page.goto('/skills')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(1500)
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze()
+    const blocking = results.violations.filter(
+      (v) => (v.impact === 'serious' || v.impact === 'critical') &&
+        !isPreExistingViolation(v),
+    )
+    expect(
+      blocking,
+      JSON.stringify(blocking.map((v) => ({ id: v.id, help: v.help })), null, 2),
+    ).toEqual([])
+  })
+
+  test('/skills/$name bounded chrome: no Phase-27-attributable blocking violations', async ({
+    page,
+  }) => {
+    const sRes = await page.request.get(`${BACKEND}/api/skills`)
+    const sBody = await sRes.json()
+    const items = (sBody.items ?? []) as Array<{ name: string }>
+    test.skip(
+      items.length === 0,
+      'Phase 27 a11y /skills/$name: requires ≥1 skill in the dev DB.',
+    )
+    const skillName = items[0].name
+    await page.goto(`/skills/${encodeURIComponent(skillName)}`)
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(1500)
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze()
+    const blocking = results.violations.filter(
+      (v) => (v.impact === 'serious' || v.impact === 'critical') &&
+        !isPreExistingViolation(v),
+    )
+    expect(
+      blocking,
+      JSON.stringify(blocking.map((v) => ({ id: v.id, help: v.help })), null, 2),
+    ).toEqual([])
+  })
+
+  test('/cost bounded chrome: no Phase-27-attributable blocking violations', async ({
+    page,
+  }) => {
+    await page.goto('/cost')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(1500)
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze()
+    const blocking = results.violations.filter(
+      (v) => (v.impact === 'serious' || v.impact === 'critical') &&
+        !isPreExistingViolation(v),
+    )
+    expect(
+      blocking,
+      JSON.stringify(blocking.map((v) => ({ id: v.id, help: v.help })), null, 2),
+    ).toEqual([])
+  })
+
+  test('/alerts bounded chrome: no Phase-27-attributable blocking violations', async ({
+    page,
+  }) => {
+    await page.goto('/alerts')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(1500)
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze()
+    const blocking = results.violations.filter(
+      (v) => (v.impact === 'serious' || v.impact === 'critical') &&
+        !isPreExistingViolation(v),
+    )
+    expect(
+      blocking,
+      JSON.stringify(blocking.map((v) => ({ id: v.id, help: v.help })), null, 2),
+    ).toEqual([])
+  })
+
+  test('AlertNlInput 503 mocked error state: no Phase-27-attributable blocking violations', async ({
+    page,
+  }) => {
+    // Mock parse-nl to return 503 so the .cmc-alert-nl__error block is
+    // present in the DOM during the axe scan.
+    await page.route('**/api/alerts/parse-nl', async (route) => {
+      await route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({ detail: 'unavailable' }),
+      })
+    })
+    await page.goto('/alerts')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(1200)
+    const textarea = page.locator(
+      'input[placeholder*="alert me when haiku"]',
+    )
+    await textarea.fill('alert me when something breaks')
+    await page
+      .getByRole('button', { name: /^Parse$/ })
+      .first()
+      .click()
+    await page.waitForTimeout(500)
+    await expect(page.getByTestId('alert-nl-retry')).toBeVisible()
 
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])

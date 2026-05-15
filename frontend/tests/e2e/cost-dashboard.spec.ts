@@ -117,15 +117,18 @@ test.describe('ANLY-06/07: /cost dashboard panels', () => {
     expect(text.length).toBeGreaterThan(0)
   })
 
-  test('7d→30d toggle fires a /api/cost/breakdown?range=30d request', async ({
+  test('Phase 27 / global TimePicker preset triggers /api/cost/breakdown?range=30d request', async ({
     page,
     request,
   }) => {
-    // Same preflight as the path-leakage test: the RangeToggle's trailing
-    // slot only renders when PanelCard is in the data branch. If the 7d
-    // breakdown is empty there's no toggle to click and no refetch to
-    // observe. Skip with a documented reason rather than asserting
-    // against an unstable empty-state branch.
+    // Phase 27 Plan 27-05 DROPPED the panel-internal RangeToggle in
+    // CostByProjectCard — the URL is now the canonical persistence layer
+    // and the global TimePicker is the universal control surface. This
+    // test verifies the equivalent re-query path: TimePicker → URL →
+    // useRouteRangeVocab → snapToCostRange → fetch range=30d.
+    //
+    // Skip when the dev DB has no project_key rows for the 7d window
+    // (PanelCard renders the empty branch and no breakdown fetch fires).
     const bRes = await request.get(
       `${API}/api/cost/breakdown?dim=project&range=7d`,
     )
@@ -134,32 +137,83 @@ test.describe('ANLY-06/07: /cost dashboard panels', () => {
     const rowCount = (bBody.rows ?? []).length
     test.skip(
       rowCount === 0,
-      'ANLY-07: RangeToggle trailing slot only renders in PanelCard data ' +
-        'branch; dev DB has no project_key rows for the 7d window.',
+      'ANLY-07: dev DB has no project_key rows for the 7d window; ' +
+        'CostByProjectCard renders empty branch.',
     )
 
     await page.goto('/cost')
     await expect(page.getByTestId('cost-by-project-card')).toBeVisible()
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(1000)
 
-    // The RangeToggle uses { value: '30d', label: '30d' } per
-    // CostByProjectCard's RANGE_OPTIONS. The toggle is implemented as a
-    // group of toggle-buttons; getByRole('button', { name: '30d' }) is
-    // exact-match.
-    const thirtyDayButton = page.getByRole('button', { name: '30d' })
-    await expect(thirtyDayButton).toBeVisible()
-
-    // Arm the request matcher BEFORE the click — Playwright will reject
-    // a waitForRequest registered after the network call already fired.
+    // Arm the request matcher BEFORE the click. The TimePicker "Last 30
+    // days" preset writes ?time_from=now-30d&time_to=now → snapToCostRange
+    // returns '30d' → CostByProjectCard refetches with range=30d.
     const req30dPromise = page.waitForRequest(
       (req) =>
         /\/api\/cost\/breakdown\b/.test(req.url()) &&
         /[?&]range=30d\b/.test(req.url()) &&
         /[?&]dim=project\b/.test(req.url()),
-      { timeout: 5_000 },
+      { timeout: 10_000 },
     )
-    await thirtyDayButton.click()
+    await page.getByTestId('time-picker-trigger').click()
+    await page.getByTestId('time-picker-preset-last-30-days').click()
     const req30d = await req30dPromise
     expect(req30d.url()).toMatch(/dim=project/)
     expect(req30d.url()).toMatch(/range=30d/)
+  })
+
+  // ────────────────────────────────────────────────────────────────────
+  // Phase 27 Plan 09 extension: /cost bounded shell + global picker re-
+  // anchor + CompareToggle round-trip.
+  // ────────────────────────────────────────────────────────────────────
+
+  test('Phase 27 / /cost adopts cmc-page--bounded shell + both panels mount bounded', async ({
+    page,
+  }) => {
+    await page.goto('/cost')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(1000)
+    const bounded = await page.evaluate(
+      () => !!document.querySelector('section.cmc-page--bounded'),
+    )
+    expect(bounded).toBe(true)
+    const boundedCards = await page.evaluate(
+      () => document.querySelectorAll('.cmc-card--bounded').length,
+    )
+    expect(boundedCards).toBeGreaterThanOrEqual(2)
+  })
+
+  test('Phase 27 / /cost global TimePicker re-anchors panels (preset writes URL)', async ({
+    page,
+  }) => {
+    await page.goto('/cost')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(1000)
+    await page.getByTestId('time-picker-trigger').click()
+    await page.getByTestId('time-picker-preset-last-30-days').click()
+    await expect(page).toHaveURL(/time_from=now-30d/)
+    await expect(page).toHaveURL(/time_to=now/)
+  })
+
+  test('Phase 27 / /cost CompareToggle round-trip (URL parity with TokenUsageCard contract)', async ({
+    page,
+    request,
+  }) => {
+    const bRes = await request.get(
+      `${API}/api/cost/breakdown?dim=project&range=7d`,
+    )
+    const bBody = await bRes.json()
+    const rowCount = (bBody.rows ?? []).length
+    test.skip(
+      rowCount === 0,
+      'Phase 27 CompareToggle: requires ≥1 project_key row in 7d window.',
+    )
+    await page.goto('/cost?compare_panels=cost-by-project')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(1200)
+    const toggle = page.getByTestId('compare-overlay-toggle-cost-by-project')
+    await expect(toggle).toBeVisible()
+    expect(await toggle.getAttribute('aria-pressed')).toBe('true')
   })
 })

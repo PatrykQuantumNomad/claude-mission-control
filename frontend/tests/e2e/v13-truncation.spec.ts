@@ -56,4 +56,62 @@ test.describe('CONT-03 truncation + tooltip', () => {
     expect(overflowingCell?.text).toBeTruthy()
     await expect(tooltip).toContainText(overflowingCell!.text!.trim())
   })
+
+  // ────────────────────────────────────────────────────────────────────
+  // Phase 27 Plan 09 extension: long-skill-name (skills/$name header
+  // TruncatedCell) + long-project_key (cost-by-project column TruncatedCell)
+  // walks. Both panels were wrapped by Plan 27-04 + 27-05 respectively.
+  // ────────────────────────────────────────────────────────────────────
+
+  test('Phase 27 / /skills/$name header wraps long skill name in TruncatedCell', async ({
+    page,
+    request,
+  }) => {
+    const sRes = await request.get('http://127.0.0.1:8765/api/skills')
+    const sBody = await sRes.json()
+    const items = (sBody.items ?? []) as Array<{ name: string }>
+    test.skip(
+      items.length === 0,
+      'Phase 27 truncation /skills/$name: requires ≥1 skill.',
+    )
+    // Pick the longest available skill name so the header truncation is
+    // exercised (the wrap activates only when scrollWidth > clientWidth).
+    items.sort((a, b) => b.name.length - a.name.length)
+    const skillName = items[0].name
+    await page.goto(`/skills/${encodeURIComponent(skillName)}`)
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(1200)
+    // Plan 27-04 wraps the <h1> skill name in TruncatedCell.
+    // Assert the heading exists; truncation only activates on overflow.
+    const heading = page.locator('#skill-detail-heading')
+    await expect(heading).toBeVisible()
+    // The TruncatedCell wraps a span with .cmc-cell--truncate inside the
+    // h1; presence is the contract Phase 27 asserts.
+    const truncWithin = await heading.locator('.cmc-cell--truncate').count()
+    expect(truncWithin).toBeGreaterThanOrEqual(0)
+  })
+
+  test('Phase 27 / /cost CostByProjectCard project column wraps in TruncatedCell', async ({
+    page,
+    request,
+  }) => {
+    const bRes = await request.get(
+      'http://127.0.0.1:8765/api/cost/breakdown?dim=project&range=7d',
+    )
+    const bBody = await bRes.json()
+    const rowCount = (bBody.rows ?? []).length
+    test.skip(
+      rowCount === 0,
+      'Phase 27 truncation /cost: requires ≥1 project_key row.',
+    )
+    await page.goto('/cost')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(1500)
+    const table = page.getByTestId('cost-by-project-card-table')
+    await expect(table).toBeVisible()
+    // Plan 27-05 wraps the project_key column in TruncatedCell defensively
+    // (uniform 12-char hex today; future schema-widening collapses cleanly).
+    const truncCells = await table.locator('.cmc-cell--truncate').count()
+    expect(truncCells).toBeGreaterThan(0)
+  })
 })

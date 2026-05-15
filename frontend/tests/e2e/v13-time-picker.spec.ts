@@ -493,4 +493,46 @@ test.describe('Phase 26 — TimePicker (TIME-01..05) + Cmd+K (CMDK-02..04) + Sid
     const expected = ['Recents', 'Saved Views', 'Pages', 'Time range', 'Density', 'Actions']
     expect(headings).toEqual(expected)
   })
+
+  // ────────────────────────────────────────────────────────────────────
+  // Phase 27 Plan 09 extension: TimePicker re-anchor probes on the 4
+  // tail-end routes. Mirror the Phase 26 Plan 09 pattern that probed
+  // / + /activity + /sessions/compare.
+  // ────────────────────────────────────────────────────────────────────
+
+  test('Phase 27 / /skills: TimePicker preset writes time_from/time_to to URL', async ({
+    page,
+  }) => {
+    await page.goto('/skills')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(800)
+    await page.getByTestId('time-picker-trigger').click()
+    await page.getByTestId('time-picker-preset-last-7-days').click()
+    await expect(page).toHaveURL(/time_from=now-7d/)
+    await expect(page).toHaveURL(/time_to=now/)
+  })
+
+  test('Phase 27 / /cost: TimePicker preset writes time_from/time_to to URL (panels re-query)', async ({
+    page,
+  }) => {
+    await page.goto('/cost')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(800)
+    await page.getByTestId('time-picker-trigger').click()
+    await page.getByTestId('time-picker-preset-last-30-days').click()
+    await expect(page).toHaveURL(/time_from=now-30d/)
+    await expect(page).toHaveURL(/time_to=now/)
+  })
+
+  test('Phase 27 / /alerts: TimePicker preset writes time_from/time_to to URL', async ({
+    page,
+  }) => {
+    await page.goto('/alerts')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(800)
+    await page.getByTestId('time-picker-trigger').click()
+    await page.getByTestId('time-picker-preset-last-7-days').click()
+    await expect(page).toHaveURL(/time_from=now-7d/)
+    await expect(page).toHaveURL(/time_to=now/)
+  })
 })
