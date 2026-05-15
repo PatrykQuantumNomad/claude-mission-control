@@ -102,6 +102,7 @@ export function DecisionsCard() {
   const query = useDecisions()
   return (
     <PanelCard<DecisionListResponse>
+      bounded
       reqId="HPNL-01"
       title="Decisions"
       description="Pending agent decisions awaiting your answer"

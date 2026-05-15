@@ -29,6 +29,10 @@ import type {
   SkillRange,
   SkillUsageResponse,
 } from '../../lib/api'
+import {
+  snapToSkillRange,
+  useRouteRangeVocab,
+} from '../../lib/time/useRouteRangeVocab'
 
 const RANGE_OPTIONS = [
   { value: '14d' as const, label: '14d' },
@@ -112,7 +116,16 @@ const COLUMNS: DataTableColumn<Row>[] = [
 ]
 
 export function SkillLatencyTable() {
-  const [range, setRange] = useState<SkillRange>('14d')
+  // Phase 27 / SC#1 — was useState<SkillRange>('14d') with persistKey-backed
+  // local toggle. Now the URL's time_from/time_to → vocab bridge is the
+  // SOURCE OF TRUTH. The RangeToggle still renders so a user can scope the
+  // table without touching the global picker; its onChange writes to local
+  // state which takes precedence when set (global picker wins by default
+  // when the local override is null).
+  const globalRange = useRouteRangeVocab<SkillRange>('14d', snapToSkillRange)
+  const [localOverride, setLocalOverride] = useState<SkillRange | null>(null)
+  const range = localOverride ?? globalRange
+  const setRange = (next: SkillRange) => setLocalOverride(next)
   const [sort, setSort] = useState<DataTableSort>({ col: 'p95_ms', dir: 'desc' })
   const usageQuery = useSkillUsage(range, 20)
 
@@ -156,6 +169,7 @@ export function SkillLatencyTable() {
 
   return (
     <PanelCard<SkillUsageResponse>
+      bounded
       reqId="SKLP-05"
       title="Skill Latency"
       query={usageQuery}

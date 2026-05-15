@@ -43,29 +43,58 @@ import {
 } from '../components/panels'
 import { useSkillUsage } from '../lib/queries'
 import { PanelCard } from '../components/ui'
-import { SCHEMA_VERSION, coerceSchemaVersion } from '../lib/searchSchemas'
+import {
+  SCHEMA_VERSION,
+  asComparePanels,
+  asTimeToken,
+  coerceSchemaVersion,
+} from '../lib/searchSchemas'
+import {
+  snapToSkillRange,
+  useRouteRangeVocab,
+} from '../lib/time/useRouteRangeVocab'
 
-// Phase 25 / VIEW-01. The `/skills` route lands NO new filters in Phase 25 —
-// only the `schemaVersion` field so future saved views can hydrate against a
-// typed shape. The `/skills/$name` route (Plan 04) is the one that gets a real
-// `range` filter hoisted from localStorage into the URL.
+// Phase 25 / VIEW-01. `schemaVersion` is OPTIONAL on input (so existing
+// `<Link to="/skills">` sites stay untouched) but always populated on output
+// by `validateSearch`.
+//
+// Phase 27 / SC#1 (Plan 04). Append-only extension: ACCEPT `time_from?` +
+// `time_to?` Grafana-style tokens + `compare_panels?` CSV on `/skills`. All
+// three default to `undefined` — the per-route 14d fallback is applied AT
+// THE PANEL READ SITE via useRouteRangeVocab('14d', snapToSkillRange), NOT
+// in the validator (Pitfall 13: defaulting here would defeat
+// DefaultViewLoader's bare-URL gate). SCHEMA_VERSION stays at 1.
 export type SkillsSearch = {
-  // OPTIONAL on input — existing `<Link to="/skills">` sites stay untouched;
-  // the validator always populates the field on output.
   schemaVersion?: typeof SCHEMA_VERSION
+  time_from?: string | undefined
+  time_to?: string | undefined
+  compare_panels?: string | undefined
 }
 
 export function validateSearch(raw: Record<string, unknown>): SkillsSearch {
-  return { schemaVersion: coerceSchemaVersion(raw) }
+  return {
+    schemaVersion: coerceSchemaVersion(raw),
+    time_from: asTimeToken(raw.time_from),
+    time_to: asTimeToken(raw.time_to),
+    compare_panels: asComparePanels(raw.compare_panels),
+  }
 }
 
+// SKLP-02 wrapper. Phase 27 / SC#1 — was useSkillUsage('14d', 1) with a
+// hard-coded '14d'; now consumes useRouteRangeVocab('14d', snapToSkillRange)
+// so the global time picker re-anchors the top-skill resolver. The snap
+// helper collapses any URL window ≤21 days → '14d', >21 days → '30d'
+// (backend SkillRange Literal). Default '14d' preserved when URL lacks
+// time_from/time_to (bare-URL parity with pre-Phase-27 behavior).
 function SkillCostCardForTopSkill() {
-  const usage = useSkillUsage('14d', 1)
+  const range = useRouteRangeVocab('14d', snapToSkillRange)
+  const usage = useSkillUsage(range, 1)
   const topName = usage.data?.rows?.[0]?.skill_name
 
   if (!topName) {
     return (
       <PanelCard
+        bounded
         reqId="SKLP-02"
         title="Skill Cost"
         query={usage}
@@ -80,7 +109,7 @@ function SkillCostCardForTopSkill() {
 
 function SkillsPage() {
   return (
-    <section className="cmc-page" aria-labelledby="skills-heading">
+    <section className="cmc-page cmc-page--bounded" aria-labelledby="skills-heading">
       <header className="cmc-page__header">
         <span className="cmc-label" style={{ color: 'var(--cmc-text-subtle)' }}>
           Mission Control
@@ -106,7 +135,7 @@ function SkillsPage() {
         <McpPanel reqId="SKLP-01" />
         <SkillCostCardForTopSkill />
         <SkillLatencyTable />
-        <SkillTimeline />
+        <SkillTimeline bounded />
         <ContextHealthCard />
       </div>
     </section>

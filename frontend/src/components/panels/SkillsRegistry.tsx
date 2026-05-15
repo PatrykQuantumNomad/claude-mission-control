@@ -107,6 +107,7 @@ export function SkillsRegistry() {
 
   return (
     <PanelCard<SkillListResponse>
+      bounded
       reqId="SKLP-04"
       title="Skills Registry"
       description="Catalog of detected skills with autonomy controls"

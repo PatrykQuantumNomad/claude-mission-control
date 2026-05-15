@@ -10,8 +10,8 @@ Established: Phase 24 (POLI-13). Locked invariant from REQUIREMENTS.md milestone
 |---------------------|----------------------------------|----------------------------------------|----------------------|
 | `/`                 | `routes/index.tsx`               | Mission Control / Home                 | Phase 26 / TIME-01: `time_from` + `time_to` PRESENT (both Grafana-style tokens via shared `asTimeToken`; default `undefined` per Pitfall 13) |
 | `/activity`         | `routes/activity.tsx`            | Activity heatmap + sessions list       | Phase 26 / TIME-01: `time_from` + `time_to` PRESENT (both Grafana-style tokens via shared `asTimeToken`; default `undefined` per Pitfall 13) |
-| `/skills`           | `routes/skills.tsx`              | Skills registry                        | none in v1.2 |
-| `/skills/$name`     | `routes/skills_.$name.tsx`       | Skill detail (per-skill panels)        | none in v1.2 |
+| `/skills`           | `routes/skills.tsx`              | Skills registry                        | Phase 27 / SC#1: `time_from` + `time_to` PRESENT (both Grafana-style tokens via shared `asTimeToken`; default `undefined` per Pitfall 13) + `compare_panels` PRESENT (CSV via shared `asComparePanels`; default `undefined`) |
+| `/skills/$name`     | `routes/skills_.$name.tsx`       | Skill detail (per-skill panels)        | Phase 25 / VIEW-01: `range` PRESERVED (one of `7d`/`14d`/`30d`; defaults to `14d`). Phase 27 / SC#1 APPENDS `time_from` + `time_to` PRESENT (both Grafana-style tokens via shared `asTimeToken`; default `undefined` per Pitfall 13) + `compare_panels` PRESENT (CSV via shared `asComparePanels`; default `undefined`) |
 | `/sessions/compare` | `routes/sessions_.compare.tsx`   | Session compare (TWO-arg required)     | `{ a: string, b: string }` (validated; v1.2 baseline). Phase 26 / TIME-01 adds `time_from` + `time_to` PRESENT (both Grafana-style tokens via shared `asTimeToken`; default `undefined`) |
 | `/cost`             | `routes/cost.tsx`                | Cost analytics                         | none in v1.2 |
 | `/alerts`           | `routes/alerts.tsx`              | Alert rules + events                   | none in v1.2 |
@@ -27,6 +27,11 @@ Established: Phase 24 (POLI-13). Locked invariant from REQUIREMENTS.md milestone
 
 - No new routes added; no `validateSearch` shapes changed. Phase 24 is shell + primitives + quality gates only.
 - The `cmc.density`, `cmc.theme`, `cmc.sidebar.collapsed` keys are localStorage-only — they intentionally do NOT enter the URL.
+
+## Phase 27 effects on URL contract
+
+- **Append-only extension on `/skills`:** ACCEPTS `?time_from` + `?time_to` (Grafana-style tokens via shared `asTimeToken`) + `?compare_panels` (CSV via shared `asComparePanels`). Validator returns `undefined` for missing/invalid values (Pitfall 13 — per-route panel default `'14d'` is applied AT THE PANEL READ SITE via `useRouteRangeVocab('14d', snapToSkillRange)`, NOT in the validator). SCHEMA_VERSION stays at 1. No route rename.
+- **Append-only extension on `/skills/$name` (LOAD-BEARING: Pitfall 2 LOCK):** The existing Phase 25 `?range=` first-class filter is PRESERVED (default `'14d'`, accepts `7d`/`14d`/`30d`). Phase 27 APPENDS `?time_from` + `?time_to` + `?compare_panels` as additional optional fields. Operator-locked precedence: when both `time_from` + `time_to` are present, the global picker WINS over the route-local `?range=`; when absent, the route-local `?range=` is used; final fallback is `'14d'`. Defense in depth: removing `?range=` from the validator is a regression (`test_url_contract.py` continues to enforce by-route documentation).
 
 ## Phase 26 effects on URL contract
 

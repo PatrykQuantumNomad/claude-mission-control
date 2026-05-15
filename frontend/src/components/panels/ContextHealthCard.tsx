@@ -20,6 +20,7 @@ export function ContextHealthCard() {
   const query = useContextHealth()
   return (
     <PanelCard<ContextHealthResponse>
+      bounded
       reqId="SKLP-03"
       title="Context Health"
       description="~/.claude/settings.json + CLAUDE.md snapshot"

@@ -125,6 +125,7 @@ export function InboxCard() {
   const query = useInbox()
   return (
     <PanelCard<InboxListResponse>
+      bounded
       reqId="HPNL-02"
       title="Inbox"
       description="Unread messages from agents"

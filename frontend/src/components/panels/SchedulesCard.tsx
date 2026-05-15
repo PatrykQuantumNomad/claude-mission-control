@@ -46,6 +46,7 @@ export function SchedulesCard() {
   return (
     <>
       <PanelCard<ScheduleListResponse>
+        bounded
         reqId="TPNL-03"
         title="Schedules"
         description="Cron-driven recurring tasks"

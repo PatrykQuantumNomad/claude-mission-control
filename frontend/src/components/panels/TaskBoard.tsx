@@ -68,6 +68,7 @@ export function TaskBoard() {
   const query = useTasks()
   return (
     <PanelCard<TaskListResponse>
+      bounded
       reqId="TPNL-01"
       title="Task Board"
       description="Pending, running, and completed tasks"

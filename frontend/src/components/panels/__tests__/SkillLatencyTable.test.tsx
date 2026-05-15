@@ -12,6 +12,22 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
+// Phase 27 / SC#1. SkillLatencyTable now reads URL time_from/time_to via
+// useRouteRangeVocab (which calls useRouterState). Mock the router with an
+// empty search so the hook hits its `routeDefault='14d'` branch — preserves
+// the test's pre-Phase-27 default-range expectation (Pitfall 13 invariant:
+// missing time_from/time_to → routeDefault, not a partial-window degradation).
+vi.mock('@tanstack/react-router', () => ({
+  useRouterState: ({
+    select,
+  }: {
+    select: (s: {
+      location: { pathname: string; search: Record<string, unknown> }
+    }) => unknown
+  }) => select({ location: { pathname: '/skills', search: {} } }),
+}))
+
 import { render, screen, userEvent, waitFor, within } from '../../../test/utils'
 import { SkillLatencyTable } from '../SkillLatencyTable'
 import { qk } from '../../../lib/queries'
