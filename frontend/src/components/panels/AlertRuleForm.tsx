@@ -6,12 +6,15 @@
 // threshold_fire / threshold_clear because anomaly interprets z-scores
 // while threshold interprets raw metric values.
 //
-// KNOWN_METRICS sync (Phase 21 ALRT-14): runtime via useAlertMetrics() at
-// component mount (staleTime: Infinity, vocabulary changes only on backend
-// deploys). The FALLBACK_KNOWN_METRICS constant below is the loading-window
-// fallback before the first response lands. The backend pytest
-// test_alerts_metrics_sync.py guards drift between this constant and
-// _SCOPE_EXTRACTORS — fails fast on cross-language drift.
+// Metric vocabulary (Phase 27 TDBT-02 — supersedes Phase 21 ALRT-14):
+// runtime via useAlertMetrics() is the SOLE source (staleTime: Infinity,
+// vocabulary changes only on backend deploys). The in-file fallback
+// constant was removed in Phase 27 Plan 07; the brief loading window is
+// covered by a disabled <select> with a "Loading metric vocabulary…"
+// placeholder option (typically 1-2 frames on cold load). The drift guard
+// moved from build-time grep (test_alerts_metrics_sync.py — DELETED) to
+// runtime API contract (test_alerts_metrics_contract.py — asserts
+// sorted(_SCOPE_EXTRACTORS.keys()) == GET /api/alerts/metrics → metrics).
 //
 // useCreateAlertRule is NOT optimistic (server may 422 on threshold_clear
 // >= threshold_fire / unknown metric / spec_version mismatch). On error we
@@ -47,17 +50,8 @@ import {
 } from '../../lib/queries'
 import type { AlertKind, AlertRuleCreate } from '../../lib/api'
 
-// Mirrors backend cmc/alerts/scopes.py::_SCOPE_EXTRACTORS keys (Plan 01 D-01).
-// Used as the loading-window fallback before useAlertMetrics() resolves.
-// The backend pytest test_alerts_metrics_sync.py regex-extracts the `value`
-// strings from this constant and asserts equality with
-// sorted(_SCOPE_EXTRACTORS.keys()) — drift in either direction fails the
-// test. DO NOT rename this constant without updating the regex in that test.
-const FALLBACK_KNOWN_METRICS: ReadonlyArray<{ value: string; label: string }> = [
-  { value: 'cost_usd_24h', label: 'Cost (USD, 24h)' },
-  { value: 'skill_p95_latency_ms', label: 'Skill p95 latency (ms)' },
-  { value: 'dispatcher_failed_tasks_5m', label: 'Failed tasks (5m)' },
-] as const
+// Phase 27 TDBT-02: in-file metric-vocabulary fallback constant removed —
+// useAlertMetrics is the SOLE source. See file header for rationale.
 
 interface ThresholdDraft {
   kind: 'threshold'
@@ -89,7 +83,10 @@ function defaultThresholdDraft(): ThresholdDraft {
   return {
     kind: 'threshold',
     name: '',
-    metric: FALLBACK_KNOWN_METRICS[0].value,
+    // Phase 27 TDBT-02: empty-string sentinel — the disabled <select>
+    // placeholder reads as "Select a metric…" once useAlertMetrics resolves;
+    // buildBody() rejects an empty metric inline (Pitfall 2 typed-form pattern).
+    metric: '',
     enabled: true,
     threshold_fire: '',
     threshold_clear: '',
@@ -102,7 +99,8 @@ function defaultAnomalyDraft(): AnomalyDraft {
   return {
     kind: 'anomaly',
     name: '',
-    metric: FALLBACK_KNOWN_METRICS[0].value,
+    // Phase 27 TDBT-02: empty-string sentinel (see defaultThresholdDraft).
+    metric: '',
     enabled: true,
     threshold_fire: '3.0',
     threshold_clear: '1.5',
@@ -124,6 +122,11 @@ function buildBody(draft: Draft): AlertRuleCreate | { error: string } {
   const name = draft.name.trim()
   if (!name) return { error: 'Name is required.' }
   if (name.length > 120) return { error: 'Name must be 120 chars or fewer.' }
+
+  // Phase 27 TDBT-02: empty-metric sentinel guard. Default drafts initialize
+  // metric='' (the <select> renders a disabled "Select a metric…" placeholder
+  // until useAlertMetrics resolves AND the user picks one). Pitfall 2 pattern.
+  if (!draft.metric) return { error: 'Metric is required.' }
 
   if (draft.kind === 'threshold') {
     const fire = parseNumberOrNull(draft.threshold_fire)
@@ -243,18 +246,15 @@ export function AlertRuleForm() {
   const m = useCreateAlertRule()
   const metricsQuery = useAlertMetrics()
 
-  // Source the metric options at runtime from the backend canonical
-  // vocabulary; fall back to the static constant during the loading window.
-  // Preserve labels from the fallback when a key matches; for any new metric
-  // the backend exposes ahead of the frontend, surface the raw key as label.
-  const knownMetrics = useMemo(() => {
-    const keys = metricsQuery.data?.metrics
-    if (!keys || keys.length === 0) return FALLBACK_KNOWN_METRICS
-    const labelByKey = new Map(
-      FALLBACK_KNOWN_METRICS.map((opt) => [opt.value, opt.label]),
-    )
-    return keys.map((k) => ({ value: k, label: labelByKey.get(k) ?? k }))
-  }, [metricsQuery.data])
+  // Phase 27 TDBT-02: single source of truth — useAlertMetrics. The backend
+  // response shape (AlertMetricsResponse.metrics: list[str]) returns raw
+  // metric keys; surface each as both value and label. If the backend ever
+  // grows a label channel, this is the single touch point.
+  const knownMetrics = useMemo(
+    () =>
+      (metricsQuery.data?.metrics ?? []).map((key) => ({ value: key, label: key })),
+    [metricsQuery.data],
+  )
 
   const previewOpen = parsedRule !== null
   // Manual fields disabled while: (a) the create mutation is in flight, OR
@@ -372,13 +372,32 @@ export function AlertRuleForm() {
             className="cmc-input"
             value={draft.metric}
             onChange={(e) => update('metric', e.target.value)}
-            disabled={manualDisabled}
+            disabled={manualDisabled || metricsQuery.isLoading || knownMetrics.length === 0}
           >
-            {knownMetrics.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
+            {/* Phase 27 TDBT-02: loading window placeholder. useAlertMetrics
+                has staleTime: Infinity so on cold load this is typically 1-2
+                frames; disabled state prevents the user from submitting a
+                form with metric='' before the vocabulary lands. */}
+            {metricsQuery.isLoading ? (
+              <option value="" disabled>
+                Loading metric vocabulary…
               </option>
-            ))}
+            ) : knownMetrics.length === 0 ? (
+              <option value="" disabled>
+                No metrics available
+              </option>
+            ) : (
+              <>
+                <option value="" disabled>
+                  Select a metric…
+                </option>
+                {knownMetrics.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </>
+            )}
           </select>
         </label>
 

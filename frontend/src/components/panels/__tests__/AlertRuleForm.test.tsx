@@ -118,6 +118,20 @@ describe('AlertRuleForm', () => {
             headers: { 'Content-Type': 'application/json' },
           })
         }
+        if (method === 'GET' && url.endsWith('/api/alerts/metrics')) {
+          // Phase 27 TDBT-02: useAlertMetrics is the SOLE source — the form
+          // can't submit until the vocab resolves and the user picks a metric.
+          return new Response(
+            JSON.stringify({
+              metrics: [
+                'cost_usd_24h',
+                'dispatcher_failed_tasks_5m',
+                'skill_p95_latency_ms',
+              ],
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
         return new Response('{}', {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
@@ -131,6 +145,12 @@ describe('AlertRuleForm', () => {
     )
     const user = userEvent.setup()
     await user.type(screen.getByLabelText(/^Name/i), 'test-cost')
+    // Phase 27 TDBT-02: wait for useAlertMetrics to resolve, then select metric.
+    await waitFor(() => {
+      const select = screen.getByLabelText(/Metric/i) as HTMLSelectElement
+      expect(select.disabled).toBe(false)
+    })
+    await user.selectOptions(screen.getByLabelText(/Metric/i), 'cost_usd_24h')
     await user.type(screen.getByLabelText(/Threshold fire/i), '10')
     await user.click(screen.getByRole('button', { name: /Create rule/i }))
     await waitFor(() => {
@@ -149,11 +169,29 @@ describe('AlertRuleForm', () => {
 
   it('submitting threshold without threshold_fire shows client error and does NOT call mutation', async () => {
     const client = makeClient()
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response('{}', {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(
+      async (input: RequestInfo | URL): Promise<Response> => {
+        const url = String(input)
+        if (url.endsWith('/api/alerts/metrics')) {
+          // Phase 27 TDBT-02: route metrics so the user can pick a metric;
+          // we want the test to assert that threshold_fire — not metric — is
+          // the missing field that triggers the client error.
+          return new Response(
+            JSON.stringify({
+              metrics: [
+                'cost_usd_24h',
+                'dispatcher_failed_tasks_5m',
+                'skill_p95_latency_ms',
+              ],
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+        return new Response('{}', {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      },
     )
     render(
       <Wrap client={client}>
@@ -162,6 +200,12 @@ describe('AlertRuleForm', () => {
     )
     const user = userEvent.setup()
     await user.type(screen.getByLabelText(/^Name/i), 'no-fire')
+    // Phase 27 TDBT-02: wait for useAlertMetrics to resolve, then select metric.
+    await waitFor(() => {
+      const select = screen.getByLabelText(/Metric/i) as HTMLSelectElement
+      expect(select.disabled).toBe(false)
+    })
+    await user.selectOptions(screen.getByLabelText(/Metric/i), 'cost_usd_24h')
     // Leave threshold_fire blank.
     await user.click(screen.getByRole('button', { name: /Create rule/i }))
     await waitFor(() => {
@@ -191,6 +235,19 @@ describe('AlertRuleForm', () => {
             },
           )
         }
+        if (method === 'GET' && url.endsWith('/api/alerts/metrics')) {
+          // Phase 27 TDBT-02: route metrics so the form can be submitted.
+          return new Response(
+            JSON.stringify({
+              metrics: [
+                'cost_usd_24h',
+                'dispatcher_failed_tasks_5m',
+                'skill_p95_latency_ms',
+              ],
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
         return new Response('{}', {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
@@ -204,6 +261,12 @@ describe('AlertRuleForm', () => {
     )
     const user = userEvent.setup()
     await user.type(screen.getByLabelText(/^Name/i), 'invalid')
+    // Phase 27 TDBT-02: wait for useAlertMetrics to resolve, then select metric.
+    await waitFor(() => {
+      const select = screen.getByLabelText(/Metric/i) as HTMLSelectElement
+      expect(select.disabled).toBe(false)
+    })
+    await user.selectOptions(screen.getByLabelText(/Metric/i), 'cost_usd_24h')
     await user.type(screen.getByLabelText(/Threshold fire/i), '5')
     await user.click(screen.getByRole('button', { name: /Create rule/i }))
     // Server-side error renders via m.error.message inside a role=alert paragraph.
@@ -442,17 +505,236 @@ describe('AlertRuleForm — NL authoring (ALRT-14)', () => {
       </Wrap>,
     )
 
-    // useAlertMetrics resolves on mount; the select renders all three options
-    // by `value` (label may be the user-facing label OR the raw key for any
-    // future metric the backend exposes ahead of the frontend constant).
+    // Phase 27 TDBT-02: useAlertMetrics is the SOLE source. After it resolves
+    // the select contains a disabled "Select a metric…" placeholder option
+    // (value="") plus one option per backend-returned metric. Filter the
+    // placeholder out before comparing to the canonical vocabulary.
     await waitFor(() => {
       const select = screen.getByLabelText(/Metric/i) as HTMLSelectElement
-      const values = Array.from(select.options).map((o) => o.value).sort()
+      const values = Array.from(select.options)
+        .map((o) => o.value)
+        .filter((v) => v !== '')
+        .sort()
       expect(values).toEqual([
         'cost_usd_24h',
         'dispatcher_failed_tasks_5m',
         'skill_p95_latency_ms',
       ])
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Phase 27 Plan 07 (TDBT-02) — useAlertMetrics as SOLE metric vocabulary source.
+// ---------------------------------------------------------------------------
+
+/** Pending Promise that never resolves — used to pin useAlertMetrics in the
+ * loading state for the duration of a test. */
+function neverResolves<T>(): Promise<T> {
+  return new Promise<T>(() => {
+    /* intentional no-op — pin in flight */
+  })
+}
+
+describe('AlertRuleForm — TDBT-02 (Phase 27): useAlertMetrics is the SOLE source', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('TDBT-02: loading state renders "Loading metric vocabulary…" disabled placeholder', async () => {
+    // Pin useAlertMetrics in flight so the select renders its loading state.
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      async (input: RequestInfo | URL): Promise<Response> => {
+        const url = String(input)
+        if (url.endsWith('/api/alerts/metrics')) {
+          // Never resolves — keeps metricsQuery.isLoading === true.
+          return neverResolves<Response>()
+        }
+        return new Response('{}', {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      },
+    )
+
+    const client = makeClient()
+    render(
+      <Wrap client={client}>
+        <AlertRuleForm />
+      </Wrap>,
+    )
+
+    // Select is disabled while metricsQuery.isLoading.
+    const select = screen.getByLabelText(/Metric/i) as HTMLSelectElement
+    expect(select.disabled).toBe(true)
+    // Loading placeholder option is the sole entry.
+    const optionTexts = Array.from(select.options).map((o) => o.textContent ?? '')
+    expect(optionTexts.some((t) => /loading metric vocabulary/i.test(t))).toBe(true)
+  })
+
+  it('TDBT-02: loaded state renders metric options from useAlertMetrics response with "Select a metric…" placeholder', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      async (input: RequestInfo | URL): Promise<Response> => {
+        const url = String(input)
+        if (url.endsWith('/api/alerts/metrics')) {
+          return new Response(
+            JSON.stringify({ metrics: ['m_alpha', 'm_beta'] }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+        return new Response('{}', {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      },
+    )
+
+    const client = makeClient()
+    render(
+      <Wrap client={client}>
+        <AlertRuleForm />
+      </Wrap>,
+    )
+
+    // Wait for useAlertMetrics to resolve and the select to flip enabled.
+    await waitFor(() => {
+      const sel = screen.getByLabelText(/Metric/i) as HTMLSelectElement
+      expect(sel.disabled).toBe(false)
+    })
+
+    const select = screen.getByLabelText(/Metric/i) as HTMLSelectElement
+    // Two real options + the "Select a metric…" placeholder.
+    const optionTexts = Array.from(select.options).map((o) => o.textContent ?? '')
+    expect(optionTexts.some((t) => /select a metric/i.test(t))).toBe(true)
+    expect(optionTexts.some((t) => t === 'm_alpha')).toBe(true)
+    expect(optionTexts.some((t) => t === 'm_beta')).toBe(true)
+    // Critically: no leftover fallback metric like cost_usd_24h slipped in
+    // (would indicate the deleted FALLBACK constant is still being merged in).
+    expect(optionTexts.some((t) => t === 'cost_usd_24h')).toBe(false)
+  })
+
+  it('TDBT-02: empty server response renders "No metrics available" disabled state', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      async (input: RequestInfo | URL): Promise<Response> => {
+        const url = String(input)
+        if (url.endsWith('/api/alerts/metrics')) {
+          return new Response(JSON.stringify({ metrics: [] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        }
+        return new Response('{}', {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      },
+    )
+
+    const client = makeClient()
+    render(
+      <Wrap client={client}>
+        <AlertRuleForm />
+      </Wrap>,
+    )
+
+    // Wait for the loaded-but-empty branch to render.
+    await waitFor(() => {
+      const sel = screen.getByLabelText(/Metric/i) as HTMLSelectElement
+      // Disabled because knownMetrics.length === 0 AND not loading.
+      expect(sel.disabled).toBe(true)
+      const optionTexts = Array.from(sel.options).map((o) => o.textContent ?? '')
+      expect(optionTexts.some((t) => /no metrics available/i.test(t))).toBe(true)
+      // The loading placeholder must NOT be present anymore.
+      expect(optionTexts.some((t) => /loading metric vocabulary/i.test(t))).toBe(false)
+    })
+  })
+
+  it('TDBT-02: default draft initializers (threshold + anomaly) set metric to empty-string sentinel', async () => {
+    // No-op fetch mock; we exercise the default state purely via the rendered DOM.
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      async (input: RequestInfo | URL): Promise<Response> => {
+        const url = String(input)
+        if (url.endsWith('/api/alerts/metrics')) {
+          return neverResolves<Response>()
+        }
+        return new Response('{}', {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      },
+    )
+
+    const client = makeClient()
+    render(
+      <Wrap client={client}>
+        <AlertRuleForm />
+      </Wrap>,
+    )
+
+    // Default kind is threshold; metric must be '' (empty-string sentinel)
+    // — NOT a hard-coded vocabulary key like cost_usd_24h.
+    const select = screen.getByLabelText(/Metric/i) as HTMLSelectElement
+    expect(select.value).toBe('')
+
+    // Switch to anomaly; same contract holds.
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /^Anomaly$/ }))
+    const anomalySelect = screen.getByLabelText(/Metric/i) as HTMLSelectElement
+    expect(anomalySelect.value).toBe('')
+  })
+
+  it('TDBT-02: submit-side validator rejects empty metric (Pitfall 2 typed-form pattern)', async () => {
+    // Metrics endpoint returns a non-empty vocabulary so the select is
+    // enabled — but the user leaves the placeholder selected (metric='').
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(
+      async (input: RequestInfo | URL): Promise<Response> => {
+        const url = String(input)
+        if (url.endsWith('/api/alerts/metrics')) {
+          return new Response(
+            JSON.stringify({
+              metrics: [
+                'cost_usd_24h',
+                'dispatcher_failed_tasks_5m',
+                'skill_p95_latency_ms',
+              ],
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+        return new Response('{}', {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      },
+    )
+
+    const client = makeClient()
+    render(
+      <Wrap client={client}>
+        <AlertRuleForm />
+      </Wrap>,
+    )
+
+    // Wait for the select to flip enabled (loaded state).
+    await waitFor(() => {
+      const sel = screen.getByLabelText(/Metric/i) as HTMLSelectElement
+      expect(sel.disabled).toBe(false)
+    })
+
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText(/^Name/i), 'no-metric-picked')
+    await user.type(screen.getByLabelText(/Threshold fire/i), '10')
+    // Deliberately DO NOT call selectOptions — leave metric=''.
+    await user.click(screen.getByRole('button', { name: /Create rule/i }))
+
+    // Client-side error rendered inline (Pitfall 2 typed-form pattern —
+    // the form is preserved, no POST is fired).
+    await waitFor(() => {
+      expect(screen.getByText(/Metric is required/i)).toBeInTheDocument()
+    })
+    const postCalls = fetchMock.mock.calls.filter(
+      ([_input, init]) => (init as RequestInit | undefined)?.method === 'POST',
+    )
+    expect(postCalls.length).toBe(0)
   })
 })

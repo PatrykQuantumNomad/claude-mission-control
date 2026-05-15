@@ -258,10 +258,11 @@ export const useAlertEvents = (range: AlertRange = '7d') =>
     staleTime: 20_000,
   })
 
-// Phase 21 (ALRT-14) — canonical metric vocabulary. staleTime: Infinity
-// because the vocabulary changes only on backend deploys; the AlertRuleForm
-// loading-window fallback (FALLBACK_KNOWN_METRICS) covers the brief window
-// before the first response lands.
+// Phase 21 (ALRT-14) / Phase 27 (TDBT-02) — canonical metric vocabulary.
+// staleTime: Infinity because the vocabulary changes only on backend deploys.
+// Phase 27 TDBT-02 removed the in-file fallback metric-vocabulary constant
+// from AlertRuleForm.tsx; the brief loading window is covered by a disabled
+// <select> with a "Loading metric vocabulary…" placeholder option.
 export const useAlertMetrics = () =>
   useQuery<AlertMetricsResponse>({
     queryKey: qk.alertMetrics(),
