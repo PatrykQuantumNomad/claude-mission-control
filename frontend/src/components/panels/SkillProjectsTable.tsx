@@ -23,6 +23,7 @@
 // project first) per RESEARCH §UX-projects.
 
 import { useState } from 'react'
+import { useRouterState } from '@tanstack/react-router'
 import { DataTable, PanelCard } from '../ui'
 import type { DataTableColumn, DataTableSort } from '../ui'
 import { useSkillProjects } from '../../lib/queries'
@@ -31,9 +32,18 @@ import type {
   SkillProjectsResponse,
   SkillRange,
 } from '../../lib/api'
+import {
+  snapToSkillRange,
+  useRouteRangeVocab,
+} from '../../lib/time/useRouteRangeVocab'
 
 interface SkillProjectsTableProps {
   name: string
+  // Phase 27 / SC#1: caller-supplied route-local default (narrowed from
+  // SkillsDetailRange). The panel internally overrides this with the global
+  // picker WHEN PRESENT (hasGlobalPicker flag below); the prop continues to
+  // act as the FALLBACK when no global picker is set — preserves Phase 19
+  // call-shape (callers pass narrowed `range` from URL search state).
   range: SkillRange
 }
 
@@ -91,7 +101,22 @@ const COLUMNS: DataTableColumn<SkillProjectRow>[] = [
 ]
 
 export function SkillProjectsTable({ name, range }: SkillProjectsTableProps) {
-  const query = useSkillProjects(name, range)
+  // Phase 27 / SC#1 — global picker WINS over route-local ?range= when
+  // both time_from and time_to are present (LOCKED OPERATOR DECISION 2).
+  // useRouteRangeVocab is called UNCONDITIONALLY (rules-of-hooks safe);
+  // the explicit hasGlobalPicker presence flag picks between globalRange
+  // and the prop-supplied route-local range. The hook's return value can
+  // NOT be used as a presence proxy because it returns routeDefault='14d'
+  // for BOTH the "missing" and "valid default match" cases.
+  const globalRange = useRouteRangeVocab<SkillRange>('14d', snapToSkillRange)
+  const search = useRouterState({ select: (s) => s.location.search }) as Record<
+    string,
+    unknown
+  >
+  const hasGlobalPicker =
+    typeof search.time_from === 'string' && typeof search.time_to === 'string'
+  const effectiveRange = hasGlobalPicker ? globalRange : range
+  const query = useSkillProjects(name, effectiveRange)
   // Initial sort: count desc (most-active project first).
   const [sort, setSort] = useState<DataTableSort>({ col: 'count', dir: 'desc' })
 
@@ -101,6 +126,7 @@ export function SkillProjectsTable({ name, range }: SkillProjectsTableProps) {
       data-testid="skills-detail-projects-table"
     >
       <PanelCard<SkillProjectsResponse>
+        bounded
         reqId="SKLP-08"
         title="Per-project breakdown"
         description="Runs / latency / cost grouped by project_key (12-char hex; never a filesystem path)."

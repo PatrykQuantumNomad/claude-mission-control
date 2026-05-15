@@ -21,6 +21,7 @@
 // skill via useSkillUsage('14d', 1) and forwards its name (D-07).
 
 import { useState } from 'react'
+import { useRouterState } from '@tanstack/react-router'
 import {
   Line,
   LineChart,
@@ -32,6 +33,20 @@ import {
 import { DeltaPill, KpiTile, PanelCard, RangeToggle } from '../ui'
 import { useSkillCost } from '../../lib/queries'
 import type { SkillCostResponse, SkillRange } from '../../lib/api'
+import {
+  snapToSkillRange,
+  useRouteRangeVocab,
+} from '../../lib/time/useRouteRangeVocab'
+
+// Phase 27 / SC#1 — global picker precedence helper. SkillsDetailRange is
+// the URL's wider vocab ('7d'|'14d'|'30d'); the backend SkillRange is
+// '14d'|'30d'. The detail route's route-local `?range=` survives '7d' for
+// deep-link parity, but the data layer needs the narrower vocab — local
+// helper at the panel narrows.
+type SkillsDetailRange = '7d' | '14d' | '30d'
+function narrowToSkillRange(r: SkillsDetailRange): SkillRange {
+  return r === '7d' ? '14d' : r
+}
 
 const RANGE_OPTIONS = [
   { value: '14d' as const, label: '14d' },
@@ -41,11 +56,40 @@ const RANGE_OPTIONS = [
 const nf = new Intl.NumberFormat('en')
 
 export function SkillCostCard({ name }: { name: string }) {
-  const [range, setRange] = useState<SkillRange>('14d')
+  // Phase 27 / SC#1 — global picker WINS over route-local ?range= when both
+  // time_from and time_to are present (LOCKED OPERATOR DECISION 2). Three
+  // independent sources fold into a single effectiveRange:
+  //   1. globalRange — useRouteRangeVocab unconditional call (rules-of-hooks
+  //      safe; returns routeDefault='14d' when URL has no picker).
+  //   2. routeLocalRange — Phase 25 ?range=7d|14d|30d (narrowed to backend
+  //      vocab here at consumption time).
+  //   3. localOverride — user clicks the internal RangeToggle (precedence
+  //      below global to satisfy the operator decision; RangeToggle's
+  //      onChange still works as a per-panel scope-down).
+  // Selection rule: localOverride > hasGlobalPicker ? globalRange :
+  //                  routeLocalRange ?? '14d'. The explicit hasGlobalPicker
+  //  flag is REQUIRED because useRouteRangeVocab returns '14d' for both
+  //  "missing" and "valid default match" cases — the hook's return value
+  //  cannot be used as a presence proxy.
+  const globalRange = useRouteRangeVocab<SkillRange>('14d', snapToSkillRange)
+  const search = useRouterState({ select: (s) => s.location.search }) as Record<
+    string,
+    unknown
+  >
+  const hasGlobalPicker =
+    typeof search.time_from === 'string' && typeof search.time_to === 'string'
+  const routeLocalRange =
+    typeof search.range === 'string'
+      ? narrowToSkillRange(search.range as SkillsDetailRange)
+      : '14d'
+  const [localOverride, setLocalOverride] = useState<SkillRange | null>(null)
+  const range = localOverride ?? (hasGlobalPicker ? globalRange : routeLocalRange)
+  const setRange = (next: SkillRange) => setLocalOverride(next)
   const query = useSkillCost(name, range)
 
   return (
     <PanelCard<SkillCostResponse>
+      bounded
       reqId="SKLP-02"
       title={`Skill Cost — ${name}`}
       query={query}

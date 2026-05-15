@@ -226,6 +226,7 @@ export function SkillRunsTable({ name }: { name: string }) {
   return (
     <>
       <PanelCard<SkillRunsResponse>
+        bounded
         reqId="SKIL-07"
         title="Recent Runs"
         query={query}

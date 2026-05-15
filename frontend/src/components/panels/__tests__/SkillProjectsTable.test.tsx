@@ -11,6 +11,23 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
+// Phase 27 / SC#1. SkillProjectsTable now reads URL time_from/time_to via
+// useRouteRangeVocab + useRouterState (LOCKED OPERATOR DECISION 2 — global
+// picker WINS over route-local ?range= when present). Empty search →
+// hasGlobalPicker=false → falls through to the caller-supplied `range`
+// prop, preserving the test's pre-Phase-27 cache key matching against
+// qk.skillProjects(name, range).
+vi.mock('@tanstack/react-router', () => ({
+  useRouterState: ({
+    select,
+  }: {
+    select: (s: {
+      location: { pathname: string; search: Record<string, unknown> }
+    }) => unknown
+  }) => select({ location: { pathname: '/skills/$name', search: {} } }),
+}))
+
 import { render, screen, waitFor } from '../../../test/utils'
 import { SkillProjectsTable } from '../SkillProjectsTable'
 import { qk } from '../../../lib/queries'
