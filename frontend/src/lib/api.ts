@@ -105,6 +105,17 @@ export interface SessionListItemFull {
   started_at: string
   ended_at: string | null
   cwd: string | null
+  // Phase 27 TDBT-01 — authoritative project identity. 12-char hex
+  // (sha1[:12] of realpath(cwd.rstrip('/'))) computed server-side by
+  // cmc.core.project_key.compute_project_key and backfilled by Phase 19
+  // migration 0003. Required str (NOT str | null) — DB column is non-
+  // nullable with default='' (empty string means "no cwd recorded", a
+  // valid sentinel). Use this — NOT cwd — whenever you need to compare
+  // two sessions for "same project" identity (symlink-collapsed realpath
+  // groups and byte-equal cwds with distinct realpaths both diverge
+  // from cwd-string equality). Mirrors backend SessionListItem
+  // (cmc/api/schemas/sessions.py, Plan 27-02).
+  project_key: string
   model: string | null
   source: string | null
   outcome: string | null
@@ -163,6 +174,12 @@ export interface SessionCompareSide {
   ended_at: string | null
   duration_ms: number | null
   cwd: string | null
+  // Phase 27 TDBT-01 — authoritative project identity (sha1[:12] of
+  // realpath(cwd)). Mirrors SessionListItemFull.project_key above;
+  // populated explicitly in _build_compare_side (BaseModel, no
+  // ORMBase auto-map). Use this — NOT cwd — for "same project"
+  // equality in the ComparePicker scoping filter.
+  project_key: string
   model: string | null
   source: string | null
   outcome: string | null

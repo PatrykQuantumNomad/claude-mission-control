@@ -101,6 +101,10 @@ function makeRow(i: number, overrides: Partial<SessionListItemFull> = {}): Sessi
     started_at: '2026-04-27T08:00:00Z',
     ended_at: null,
     cwd: `/work/proj-${i}`,
+    // Phase 27 TDBT-01 — distinct 12-char hex sentinel per row so any
+    // future test that exercises project_key-based filtering can rely
+    // on per-row uniqueness without modifying this factory.
+    project_key: `pk${String(i).padStart(10, '0')}`,
     model: 'sonnet',
     source: 'claude_code',
     outcome: null,

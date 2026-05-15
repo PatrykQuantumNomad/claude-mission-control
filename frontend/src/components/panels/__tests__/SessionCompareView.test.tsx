@@ -95,6 +95,11 @@ function makeSide(overrides: Partial<SessionCompareSide> = {}): SessionCompareSi
     ended_at: '2026-05-04T10:15:00Z',
     duration_ms: 15 * 60 * 1000,
     cwd: '/repo/proj-a',
+    // Phase 27 TDBT-01 — 12-char hex sentinel mirroring backend
+    // SessionCompareSide.project_key. Default value matches the cwd
+    // /repo/proj-a above (same fixture identity); override per-side
+    // in makeFixture to simulate cross-project compares.
+    project_key: '0123456789ab',
     model: 'claude-sonnet-4-5',
     source: 'claude-code',
     outcome: 'ok',

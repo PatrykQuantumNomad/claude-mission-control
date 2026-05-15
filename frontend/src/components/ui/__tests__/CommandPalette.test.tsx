@@ -172,13 +172,20 @@ function makeRouter(opts: RouterOpts = {}) {
 
 function makeSessionRow(
   session_id: string,
-  cwd = '/work/proj',
+  cwd: string | null = '/work/proj',
+  // Phase 27 TDBT-01 — optional 12-char hex sentinel for project_key.
+  // Defaults to the "primary" sentinel so existing tests that don't
+  // exercise the ComparePicker's project_key filter compile without
+  // change. Tests for the new filter behavior pass a distinct value
+  // (e.g. 'ffeeddccbbaa') on rows that should be excluded by scope.
+  project_key = '0123456789ab',
 ): SessionListItemFull {
   return {
     session_id,
     started_at: '2026-04-27T08:00:00Z',
     ended_at: null,
     cwd,
+    project_key,
     model: 'sonnet',
     source: 'claude_code',
     outcome: null,

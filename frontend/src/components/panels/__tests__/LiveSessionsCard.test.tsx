@@ -47,6 +47,9 @@ function makeFullSession(overrides: Partial<SessionListItemFull> = {}): SessionL
     started_at: liveItems[0].started_at,
     ended_at: null,
     cwd: '/tmp/proj',
+    // Phase 27 TDBT-01 — 12-char hex sentinel mirroring backend
+    // SessionListItem.project_key. Required field.
+    project_key: '0123456789ab',
     model: 'claude-3-5-sonnet',
     source: 'claude_code',
     outcome: null,

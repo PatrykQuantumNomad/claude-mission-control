@@ -36,6 +36,12 @@ function makeFullSession(sid: string): SessionListItemFull {
     started_at: new Date(Date.now() - 60_000).toISOString(),
     ended_at: null,
     cwd: '/Users/me/work/proj-a',
+    // Phase 27 TDBT-01 — 12-char hex sentinel mirroring backend
+    // SessionListItem.project_key. Required field; mock receives a
+    // single fixed value since these tests don't exercise the
+    // ComparePicker's project_key filter (covered separately in
+    // CommandPalette.test.tsx).
+    project_key: '0123456789ab',
     model: 'claude-3-5-sonnet',
     source: 'claude_code',
     outcome: null,
