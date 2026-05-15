@@ -89,7 +89,7 @@ Categorized by surface area. Each maps to exactly one phase in `ROADMAP.md` once
 ### Tech Debt Closure (TDBT) — Phase 27 bundles
 
 - [x] **TDBT-01**: Expose `project_key` on `SessionListItemFull` and `SessionCompareSide` wire shapes (additive). Frontend compare picker switches from cwd-as-proxy to authoritative `project_key` (per Phase 23 carried debt). ✅ 2026-05-15 (Plans 27-02 backend + 27-03 frontend)
-- [ ] **TDBT-02**: Remove `KNOWN_METRICS` frontend fallback constant. Rely solely on `useAlertMetrics` hook (per Phase 21 carried debt). `test_alerts_metrics_sync.py` cross-language drift guard remains.
+- [x] **TDBT-02**: Remove `KNOWN_METRICS` frontend fallback constant. Rely solely on `useAlertMetrics` hook (per Phase 21 carried debt). Cross-language drift guard rewritten from build-time grep (`test_alerts_metrics_sync.py` — DELETED) to runtime API-contract assertion (`test_alerts_metrics_contract.py` — CREATED, asserts `sorted(_SCOPE_EXTRACTORS.keys()) == sorted(GET /api/alerts/metrics → metrics)`) per LOCKED OPERATOR DECISION 2 "Replace with contract test". ✅ 2026-05-15 (Plan 27-07; commits 38424a1 feat — frontend SOLE-SOURCE + c611da3 test — backend contract guard)
 - [ ] **TDBT-03**: Add retry/queue UX to `POST /api/alerts/parse-nl` 503 collapse. Surface honest "credentials missing — retry" affordance instead of silent error (per Phase 21 carried debt).
 
 **Total v1.3 active requirements: 45**
@@ -223,7 +223,7 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 | POLI-13 | Phase 24 | ✅ Complete (plans 05+06, 2026-05-11) |
 | POLI-14 | Phase 24 | ✅ Complete (plan 06, 2026-05-11) |
 | TDBT-01 | Phase 27 | ✅ Complete 2026-05-15 — backend half (plan 02: project_key on /sessions list + /sessions/compare wire shapes; 3 round-trip pytest cases lock the wire-shape promise) + frontend half (plan 03: SessionListItemFull + SessionCompareSide TS mirror; ComparePicker filter switched from row.cwd === scopeCwd to row.project_key === scopeProjectKey; 2 vitest cases lock symlink-collapse + byte-equal-cwd edge cases + copy-no-hex-leak invariant) |
-| TDBT-02 | Phase 27 | Pending |
+| TDBT-02 | Phase 27 | ✅ Complete 2026-05-15 — Plan 27-07: FALLBACK_KNOWN_METRICS constant deleted from AlertRuleForm.tsx; useAlertMetrics is the SOLE frontend metric-vocabulary source; disabled <select> 3-branch state covers the brief loading window ("Loading metric vocabulary…" / "No metrics available" / "Select a metric…"); empty-string sentinel + buildBody empty-metric guard; drift guard rewritten from build-time grep test_alerts_metrics_sync.py (DELETED) to runtime API-contract test_alerts_metrics_contract.py (CREATED — 2 async tests asserting sorted(_SCOPE_EXTRACTORS.keys()) == sorted(GET /api/alerts/metrics → metrics)) per LOCKED OPERATOR DECISION 2 "Replace with contract test"; commits 38424a1 + c611da3 |
 | TDBT-03 | Phase 27 | Pending |
 
 **Coverage:**
