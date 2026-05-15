@@ -1917,6 +1917,23 @@ body {
   margin: 0;
 }
 
+/* Phase 27 Plan 27-08 (TDBT-03): AlertNlInput 503 error block — honest
+ * non-specific copy + Retry button. Density-aware via --cmc-space-*
+ * tokens (Phase 24 DENS-01). The container is role="alert" so screen
+ * readers announce both the message and the actionable Retry button as
+ * one unit on appearance. */
+.cmc-alert-nl__error {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cmc-space-sm);
+  margin-top: var(--cmc-space-sm);
+}
+
+.cmc-alert-nl__error-actions {
+  display: flex;
+  gap: var(--cmc-space-sm);
+}
+
 .cmc-composer__actions {
   display: flex;
   justify-content: flex-end;

@@ -441,11 +441,14 @@ describe('AlertRuleForm — NL authoring (ALRT-14)', () => {
     )
     await user.click(screen.getByRole('button', { name: /^Parse$/ }))
 
-    // Inline role="alert" "Could not parse — please rephrase" message.
+    // Phase 27 Plan 27-08 (TDBT-03) updated copy — honest non-specific
+    // message replaces the Phase 21 "Could not parse" silent inline error.
+    // The wrapper now carries role="alert" + the new locked copy + a Retry
+    // button. The "no auto-save" invariant below is unchanged.
     await waitFor(() => {
       const alerts = screen.getAllByRole('alert')
       const text = alerts.map((el) => el.textContent ?? '').join(' ')
-      expect(text).toMatch(/could not parse/i)
+      expect(text).toMatch(/Couldn.t parse this description/i)
     })
     // Modal must NOT be in the DOM.
     expect(screen.queryByRole('alertdialog')).toBeNull()
@@ -736,5 +739,322 @@ describe('AlertRuleForm — TDBT-02 (Phase 27): useAlertMetrics is the SOLE sour
       ([_input, init]) => (init as RequestInit | undefined)?.method === 'POST',
     )
     expect(postCalls.length).toBe(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Phase 27 Plan 27-08 (TDBT-03) — AlertNlInput 503 retry UX.
+// ---------------------------------------------------------------------------
+//
+// LOCKED OPERATOR DECISION 3 / V11 collapsed-failure-mode lock: the 503
+// body cannot distinguish missing API key from Haiku rejecting output, so
+// the frontend copy is intentionally NON-SPECIFIC. The retry button re-fires
+// useParseAlertNl with the same payload as the Parse button. Backend route
+// `backend/cmc/api/routes/alerts.py` is UNCHANGED — no discriminator field
+// added to the 503 body. The 5 cases below lock the contract.
+
+describe('AlertRuleForm — TDBT-03 (Phase 27 Plan 27-08): AlertNlInput 503 retry UX', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  /** Helper: install a fetch mock where /api/alerts/parse-nl always 503s.
+   * Counts the number of POSTs so tests can assert "Retry re-fired".
+   * Routes /api/alerts/metrics with the canonical vocab so the panel doesn't
+   * crash on collateral queries. */
+  function install503ParseNl() {
+    const calls: { parseNl: number; rules: number } = { parseNl: 0, rules: 0 }
+    const lastParseBody: { body: string | null } = { body: null }
+    const spy = vi.spyOn(globalThis, 'fetch').mockImplementation(
+      async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+        const url = String(input)
+        const method = init?.method ?? 'GET'
+        if (method === 'POST' && url.endsWith('/api/alerts/parse-nl')) {
+          calls.parseNl += 1
+          lastParseBody.body = init?.body ? String(init.body) : null
+          return new Response(
+            JSON.stringify({ error: 'natural-language alerts unavailable' }),
+            { status: 503, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+        if (method === 'GET' && url.endsWith('/api/alerts/metrics')) {
+          return new Response(
+            JSON.stringify({
+              metrics: [
+                'cost_usd_24h',
+                'dispatcher_failed_tasks_5m',
+                'skill_p95_latency_ms',
+              ],
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+        if (method === 'POST' && url.endsWith('/api/alerts/rules')) {
+          calls.rules += 1
+        }
+        return new Response('{}', {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      },
+    )
+    return { spy, calls, lastParseBody }
+  }
+
+  it('TDBT-03: renders honest copy + Retry button on 503 (replaces silent <p>)', async () => {
+    install503ParseNl()
+
+    const client = makeClient()
+    render(
+      <Wrap client={client}>
+        <AlertRuleForm />
+      </Wrap>,
+    )
+    const user = userEvent.setup()
+
+    await user.type(
+      screen.getByLabelText(/describe in natural language/i),
+      'alert me when haiku skill p95 exceeds 5s for 10 minutes',
+    )
+    await user.click(screen.getByRole('button', { name: /^Parse$/ }))
+
+    // Honest LOCKED OPERATOR DECISION 3 copy — both halves of the sentence
+    // must render so the user sees the full non-specific message. Use a
+    // regex that ignores apostrophe encoding (the JSX uses &apos; → "'").
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Couldn.t parse this description/i),
+      ).toBeInTheDocument()
+    })
+    expect(
+      screen.getByText(/natural-language service is temporarily unavailable/i),
+    ).toBeInTheDocument()
+
+    // Retry button rendered with the registered testid (exact-match).
+    const retry = screen.getByTestId('alert-nl-retry')
+    expect(retry).toBeInTheDocument()
+    expect(retry).toHaveTextContent(/^Retry$/)
+    // The Phase 21 silent <p> ("Could not parse — please rephrase") must NOT
+    // be in the DOM anymore; the honest block replaces it.
+    expect(screen.queryByText(/Could not parse — please rephrase/i)).toBeNull()
+    // role="alert" is preserved on the wrapper for a11y (screen readers
+    // announce both the message and the Retry control as one unit).
+    const alerts = screen.getAllByRole('alert')
+    expect(
+      alerts.some((el) =>
+        (el.textContent ?? '').includes("Couldn"),
+      ),
+    ).toBe(true)
+  })
+
+  it('TDBT-03: Retry button re-fires useParseAlertNl with the same payload', async () => {
+    const { calls, lastParseBody } = install503ParseNl()
+
+    const client = makeClient()
+    render(
+      <Wrap client={client}>
+        <AlertRuleForm />
+      </Wrap>,
+    )
+    const user = userEvent.setup()
+
+    const description = 'alert me when cost_usd_24h exceeds 5'
+    await user.type(
+      screen.getByLabelText(/describe in natural language/i),
+      description,
+    )
+    // First Parse → 503.
+    await user.click(screen.getByRole('button', { name: /^Parse$/ }))
+    await waitFor(() => {
+      expect(screen.getByTestId('alert-nl-retry')).toBeInTheDocument()
+    })
+    expect(calls.parseNl).toBe(1)
+    const firstBody = lastParseBody.body
+    expect(firstBody).not.toBeNull()
+    expect(JSON.parse(firstBody as string)).toEqual({ description })
+
+    // Click Retry → second POST with SAME body (no re-typing required).
+    await user.click(screen.getByTestId('alert-nl-retry'))
+    await waitFor(() => {
+      expect(calls.parseNl).toBe(2)
+    })
+    const secondBody = lastParseBody.body
+    expect(secondBody).not.toBeNull()
+    expect(JSON.parse(secondBody as string)).toEqual({ description })
+    // Same payload pattern as Parse button — Pitfall 5 / LOCKED OPERATOR
+    // DECISION 3 lock: Retry never mutates the payload.
+    expect(secondBody).toBe(firstBody)
+
+    // Retry must NOT auto-save (no /api/alerts/rules POST while still in
+    // 503 — PITFALLS lockout from Phase 21).
+    expect(calls.rules).toBe(0)
+  })
+
+  it('TDBT-03: Retry button is disabled while m.isPending (DoS guard)', async () => {
+    // Hold the second /api/alerts/parse-nl call open so the mutation stays
+    // in flight after the user clicks Retry. The first call resolves
+    // synchronously to 503 so the error block + Retry button render; the
+    // second call (after Retry) hangs, pinning m.isPending=true so we can
+    // assert the disabled state + "Retrying…" label.
+    //
+    // Use a "next response" register that flips after the first call lands
+    // — more robust than incrementing-counter-with-conditional because the
+    // counter strategy ran afoul of intermediate microtask scheduling in
+    // testing-library/userEvent during initial implementation (the first
+    // call's response was getting eaten by an early-rendered click handler
+    // that fired Parse before the user-event sequence finished).
+    type Pending = {
+      resolve: (r: Response) => void
+      promise: Promise<Response>
+    }
+    function makePending(): Pending {
+      let resolve!: (r: Response) => void
+      const promise = new Promise<Response>((r) => {
+        resolve = r
+      })
+      return { resolve, promise }
+    }
+    const heldSecond = makePending()
+    let parseNlCallCount = 0
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+        const url = String(input)
+        const method = init?.method ?? 'GET'
+        if (method === 'POST' && url.endsWith('/api/alerts/parse-nl')) {
+          parseNlCallCount += 1
+          if (parseNlCallCount === 1) {
+            // First call — return 503 immediately so the Retry button mounts.
+            return new Response(
+              JSON.stringify({ error: 'natural-language alerts unavailable' }),
+              { status: 503, headers: { 'Content-Type': 'application/json' } },
+            )
+          }
+          // Second call (Retry) — hang so m.isPending stays true.
+          return heldSecond.promise
+        }
+        if (method === 'GET' && url.endsWith('/api/alerts/metrics')) {
+          return new Response(
+            JSON.stringify({
+              metrics: [
+                'cost_usd_24h',
+                'dispatcher_failed_tasks_5m',
+                'skill_p95_latency_ms',
+              ],
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+        return new Response('{}', {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      },
+    )
+
+    const client = makeClient()
+    render(
+      <Wrap client={client}>
+        <AlertRuleForm />
+      </Wrap>,
+    )
+    const user = userEvent.setup()
+
+    await user.type(
+      screen.getByLabelText(/describe in natural language/i),
+      'alert me when cost is too high',
+    )
+    await user.click(screen.getByRole('button', { name: /^Parse$/ }))
+    // Wait for the first 503 → m.isError to render the Retry button. The
+    // default findByTestId timeout (1000ms) is plenty for a synchronously-
+    // resolved 503 + a React-Query state flip.
+    const retry = await screen.findByTestId('alert-nl-retry')
+    expect(retry).not.toBeDisabled()
+    expect(retry).toHaveTextContent(/^Retry$/)
+
+    // Click Retry — second call is held open, m.isPending flips to true.
+    await user.click(retry)
+
+    // Retry is now disabled + label switches to "Retrying…".
+    await waitFor(() => {
+      expect(screen.getByTestId('alert-nl-retry')).toBeDisabled()
+    })
+    expect(screen.getByTestId('alert-nl-retry')).toHaveTextContent(/Retrying/)
+
+    // Release the hold so the test doesn't leak the promise (defensive
+    // cleanup; vi.restoreAllMocks in afterEach also covers this).
+    heldSecond.resolve(
+      new Response(
+        JSON.stringify({ error: 'natural-language alerts unavailable' }),
+        { status: 503, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+  })
+
+  it('TDBT-03: non-specific copy invariant — NO "credentials missing" / "Anthropic" / "API key" strings', async () => {
+    // This is the documentation test that locks the V11 collapsed-failure-
+    // mode invariant. The backend's 503 body cannot distinguish missing API
+    // key from Haiku rejecting output (see backend/cmc/api/routes/alerts.py
+    // + 21-RESEARCH.md PITFALLS). Adding specific strings would be dishonest.
+    install503ParseNl()
+
+    const client = makeClient()
+    render(
+      <Wrap client={client}>
+        <AlertRuleForm />
+      </Wrap>,
+    )
+    const user = userEvent.setup()
+
+    await user.type(
+      screen.getByLabelText(/describe in natural language/i),
+      'alert me when haiku skill p95 spikes',
+    )
+    await user.click(screen.getByRole('button', { name: /^Parse$/ }))
+    const retry = await screen.findByTestId('alert-nl-retry')
+    expect(retry).toBeInTheDocument()
+
+    // Scope to the alert wrapper so we don't false-match on copy elsewhere
+    // in the form (the registry doc would never render in the panel, but
+    // belt-and-braces).
+    const alertWrappers = screen.getAllByRole('alert')
+    const honestWrapper = alertWrappers.find((el) =>
+      (el.textContent ?? '').includes("Couldn"),
+    )
+    expect(honestWrapper).toBeDefined()
+    const text = honestWrapper!.textContent ?? ''
+    expect(text).not.toMatch(/credentials missing/i)
+    expect(text).not.toMatch(/Anthropic/i)
+    expect(text).not.toMatch(/API key/i)
+  })
+
+  it('TDBT-03: manual ThresholdForm fields remain usable below AlertNlInput after 503 (Phase 21 Pitfall 5 invariant)', async () => {
+    install503ParseNl()
+
+    const client = makeClient()
+    render(
+      <Wrap client={client}>
+        <AlertRuleForm />
+      </Wrap>,
+    )
+    const user = userEvent.setup()
+
+    await user.type(
+      screen.getByLabelText(/describe in natural language/i),
+      'asdf qwerty nonsense',
+    )
+    await user.click(screen.getByRole('button', { name: /^Parse$/ }))
+    await screen.findByTestId('alert-nl-retry')
+
+    // Manual form below AlertNlInput stays enabled — 503 in the composer
+    // never blocks the manual draft (Phase 21 Pitfall 5 invariant).
+    expect(screen.getByLabelText(/^Name/i)).not.toBeDisabled()
+    expect(screen.getByLabelText(/Threshold fire/i)).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: /^Threshold$/ })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: /^Anomaly$/ })).not.toBeDisabled()
+
+    // The user can type into the manual form even with the 503 visible.
+    await user.type(screen.getByLabelText(/^Name/i), 'manual-fallback')
+    expect(screen.getByLabelText(/^Name/i)).toHaveValue('manual-fallback')
   })
 })

@@ -22,16 +22,24 @@
 // ScheduleComposer) — server error message is rendered inline in a
 // role="alert" paragraph.
 //
-// NL authoring (ALRT-14, Phase 21 Plan 21-03):
+// NL authoring (ALRT-14, Phase 21 Plan 21-03 — retry UX added Phase 27 Plan 27-08 TDBT-03):
 //   - "Or describe in natural language" input + Parse button — mirrors
 //     ScheduleComposer.tsx::NLCronInput at :452-498.
 //   - Parse success → AlertDialog preview modal shows parsed AlertRuleCreate
 //     read-only; Save fires useCreateAlertRule with the parsed rule directly
 //     (NOT merged with the manual draft — Pitfall 5 single-source-of-truth).
 //   - Parse failure (503 collapsed-failure-mode) → inline role="alert"
-//     "Could not parse — please rephrase" message; NO auto-save, NO fallback
-//     rule (PITFALLS lockout per 21-RESEARCH.md).
+//     block with honest non-specific copy + Retry button (Plan 27-08 TDBT-03,
+//     LOCKED OPERATOR DECISION 3 / V11 collapsed-failure-mode lock). Retry
+//     re-fires useParseAlertNl with the same payload; disabled while
+//     m.isPending (DoS guard). NO auto-save, NO fallback rule (PITFALLS
+//     lockout per 21-RESEARCH.md). Copy is intentionally non-specific
+//     because the backend 503 body cannot distinguish missing credentials
+//     from Haiku rejecting output (V11 lock — see backend/cmc/api/routes/alerts.py).
 //   - Manual fields disabled while parsing OR preview modal open (Pitfall 5).
+//     Manual ThresholdForm / AnomalyForm BELOW AlertNlInput stays usable
+//     even on 503 (Phase 21 Pitfall 5 invariant — composer never blocks
+//     the manual draft).
 //
 // Layout: This panel is NOT a Sheet (unlike ScheduleComposer / TaskComposer
 // which open via "+ New" buttons). It's a ROOT-LEVEL composer rendered
@@ -40,7 +48,7 @@
 // PanelCard requires a UseQueryResult; this is a write-side form, not a
 // read-side panel.
 
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Button } from '../ui'
 import { AlertDialog } from '../ui/AlertDialog'
 import {
@@ -193,6 +201,22 @@ function AlertNlInput({
 }) {
   const [text, setText] = useState('')
   const m = useParseAlertNl()
+  // Phase 27 Plan 27-08 (TDBT-03): latched-error state. React Query resets
+  // `isError` to `false` the moment a new mutate() call fires (Retry click),
+  // which would unmount the error block (and the Retry button inside it)
+  // mid-click — losing both the honest copy and the "Retrying…" affordance.
+  // Latch the error so the block stays mounted across the retry's pending
+  // window. Clears on success (parsed rule handed to onParsed → block
+  // unmounts naturally) and on idle/text edits below.
+  const [hadError, setHadError] = useState(false)
+  useEffect(() => {
+    if (m.isError) setHadError(true)
+    else if (m.isSuccess) setHadError(false)
+  }, [m.isError, m.isSuccess])
+  // Show the error block while the latest mutation is errored OR while a
+  // retry is in flight after a prior error (so the "Retrying…" disabled
+  // button remains visible — the DoS guard's visual affordance).
+  const showError = m.isError || (hadError && m.isPending)
   return (
     <div className="cmc-nl-alert">
       <label className="cmc-label" htmlFor="cmc-nl-alert-input">
@@ -225,14 +249,52 @@ function AlertNlInput({
       >
         {m.isPending ? 'Parsing…' : 'Parse'}
       </Button>
-      {m.isError ? (
-        <p className="cmc-text-subtle" role="alert">
-          {/* Actionable message — does NOT echo the raw 503 body literal
-              ("natural-language alerts unavailable") because UX needs the
-              user to know what to do, not what HTTP status they hit. The
-              503 contract stays at the network layer. */}
-          Could not parse — please rephrase or use the manual form below.
-        </p>
+      {showError ? (
+        // Phase 27 TDBT-03 (Plan 27-08): honest non-specific copy + Retry
+        // button. The Phase 21 V11 collapsed-failure-mode lock keeps the
+        // backend 503 body literal collapsed — see
+        // backend/cmc/api/routes/alerts.py and 21-RESEARCH.md PITFALLS for
+        // the two upstream conditions the route maps to a single response.
+        // Frontend therefore CANNOT discriminate failure modes; the copy
+        // is intentionally non-specific. Specific upstream-mode wording
+        // would be dishonest (the backend cannot tell us which failure
+        // mode occurred — see LOCKED OPERATOR DECISION 3 in 27-08-PLAN.md
+        // for the full rationale). Retry re-fires the same mutation with
+        // the same payload — useful when an upstream issue clears between
+        // Parse and Retry. disabled={m.isPending} is the DoS guard
+        // mirroring the Parse button's pattern (RESEARCH Security Domain).
+        // Container is a <div role="alert"> so screen readers announce
+        // both the message and the actionable Retry control as one unit.
+        // Visibility uses the `showError` latch (m.isError || (hadError &&
+        // m.isPending)) so the block stays mounted across the retry's
+        // pending window — otherwise React Query resets isError -> false
+        // on the next mutate() call and the Retry button vanishes mid-click,
+        // breaking the DoS-guard visual affordance.
+        <div className="cmc-alert-nl__error" role="alert">
+          <p className="cmc-text-subtle">
+            Couldn&apos;t parse this description. The phrasing didn&apos;t match a known
+            pattern, or the natural-language service is temporarily unavailable.
+          </p>
+          <div className="cmc-alert-nl__error-actions">
+            <button
+              type="button"
+              className="cmc-btn cmc-btn--sm"
+              data-testid="alert-nl-retry"
+              disabled={m.isPending}
+              onClick={() => {
+                if (text.trim().length === 0) return
+                m.mutate(
+                  { description: text },
+                  {
+                    onSuccess: (r) => onParsed(r.rule, r.description),
+                  },
+                )
+              }}
+            >
+              {m.isPending ? 'Retrying…' : 'Retry'}
+            </button>
+          </div>
+        </div>
       ) : null}
     </div>
   )

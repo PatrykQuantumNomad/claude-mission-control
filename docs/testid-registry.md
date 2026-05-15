@@ -89,6 +89,9 @@ Established: Phase 24 (POLI-14). Skip count locked at the v1.2 baseline of 2 kno
 - `cmc-cron-preview-error` — `frontend/src/components/panels/ScheduleComposer.tsx`
 - `schedule-composer-name` — ScheduleComposer name input
 
+### Alerts route (Phase 27 Plan 27-08 — TDBT-03)
+- `alert-nl-retry` — `frontend/src/components/panels/AlertRuleForm.tsx` (AlertNlInput's 503 retry button. Replaces the Phase 21 silent inline `<p>` error. Click re-fires `useParseAlertNl.mutate({ description: text })` with the same payload; button is `disabled={m.isPending}` (DoS guard mirroring the Parse button) and the label toggles between "Retry" and "Retrying…". Container is `<div role="alert" class="cmc-alert-nl__error">` so screen readers announce the honest non-specific copy + Retry control as one unit. LOCKED OPERATOR DECISION 3 / V11 collapsed-failure-mode lock: the copy is intentionally non-specific because the backend 503 body cannot distinguish missing API key from Haiku rejecting output — adding "credentials missing" / "Anthropic" / "API key" would be dishonest. Backend route `backend/cmc/api/routes/alerts.py` remains UNCHANGED — no discriminator field added to the 503 body. Exact-match testid because there is only one Retry button per AlertNlInput instance.)
+
 ### Generic UI test fixtures (v1.2 baseline — vitest-only, used in `src/components/**/__tests__/*.test.tsx`)
 - `sheet-body` — Sheet body test marker
 - `page` — generic page-body marker in AppShell test
