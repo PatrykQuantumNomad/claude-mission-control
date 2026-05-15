@@ -15,6 +15,8 @@ import { ActiveSessionProvider, useActiveSession } from '../../shell/ActiveSessi
 import { LoadedViewProvider } from '../../savedviews/LoadedViewContext'
 import { qk } from '../../../lib/queries'
 import type {
+  SessionCompareResponse,
+  SessionCompareSide,
   SessionListItemFull,
   SessionListResponse,
   SessionPreviousResponse,
@@ -535,5 +537,179 @@ describe('CommandPalette', () => {
     })
     // Palette should close after navigation.
     expect(screen.queryByPlaceholderText(/search pages/i)).toBeNull()
+  })
+
+  // ─── Phase 27 Plan 03 (TDBT-01) — ComparePicker filter by project_key ────
+  //
+  // The picker filter switched from `row.cwd === scopeCwd` (string-equality
+  // proxy) to `row.project_key === scopeProjectKey` (authoritative project
+  // identity). These cases lock the two edge-case behaviors the cwd proxy
+  // got wrong:
+  //   1. Symlink-collapsed cwds — two sessions launched from different
+  //      symlinked entry paths whose realpaths converge → same project_key,
+  //      different cwd strings. MUST be included by the scoped picker.
+  //   2. Byte-equal cwds with distinct realpaths — same cwd string,
+  //      different project_key. MUST be excluded by the scoped picker.
+  // The compare cache is pre-seeded at qk.sessionCompare(UUID_A, '') because
+  // useSessionCompare(currentA, currentB) coerces undefined → '' in the key
+  // (queries.ts:402 — qk.sessionCompare(a ?? '', b ?? '')). Seeding that
+  // key lets the picker derive aProjectKey without needing a `b` in the URL.
+
+  const SCOPE_PROJECT_KEY = 'aaaaaaaaaaaa'
+  const OTHER_PROJECT_KEY = 'ffeeddccbbaa'
+
+  function makeCompareSide(
+    overrides: Partial<SessionCompareSide> = {},
+  ): SessionCompareSide {
+    return {
+      session_id: UUID_A,
+      started_at: '2026-05-04T10:00:00Z',
+      ended_at: null,
+      duration_ms: null,
+      cwd: '/home/u/proj-a',
+      project_key: SCOPE_PROJECT_KEY,
+      model: 'sonnet',
+      source: 'claude_code',
+      outcome: 'ok',
+      tokens_input: 100,
+      tokens_output: 200,
+      tokens_cache_read: 0,
+      tokens_cache_create_5m: 0,
+      tokens_cache_create_1h: 0,
+      tool_call_count: 5,
+      message_count: 7,
+      cost_usd: '0.01',
+      skills_used: [],
+      skill_latencies: {},
+      over_cap: false,
+      tool_counts: {},
+      ...overrides,
+    }
+  }
+
+  function seedCompareCacheForA(client: QueryClient): void {
+    // useSessionCompare(UUID_A, undefined) computes the cache key as
+    // qk.sessionCompare(UUID_A, '') — see queries.ts:402. Pre-seed that
+    // slot so the ComparePicker's aProjectKey derivation resolves
+    // without the hook firing a real fetch (enabled=false when b is
+    // undefined, so setQueryData is the only way to populate it).
+    const fixture: SessionCompareResponse = {
+      a: makeCompareSide({
+        session_id: UUID_A,
+        cwd: '/home/u/proj-a',
+        project_key: SCOPE_PROJECT_KEY,
+      }),
+      // `b` side is unused by the picker scope derivation (it matches by
+      // session_id === currentA); shape-complete so the type validates.
+      b: makeCompareSide({
+        session_id: UUID_OTHER,
+        cwd: '/home/u/proj-b',
+        project_key: 'cccccccccccc',
+      }),
+      skill_diff: { shared: [], only_a: [], only_b: [] },
+      rates_as_of: null,
+      over_cap: false,
+      cap: 500,
+      low_sample_a: false,
+      low_sample_b: false,
+    }
+    client.setQueryData(qk.sessionCompare(UUID_A, ''), fixture)
+  }
+
+  it('TDBT-01: ComparePicker filters candidates by project_key, not cwd (symlink + byte-equal edge cases)', async () => {
+    // Three rows construct the two edge cases that motivated the switch:
+    //   - sess-a: cwd '/home/u/proj-a', project_key MATCHES → visible.
+    //   - sess-b: cwd '/home/u/proj-a' (BYTE-EQUAL to sess-a's cwd) but
+    //     project_key DOES NOT match → must be EXCLUDED (cwd proxy would
+    //     wrongly include this).
+    //   - sess-c: cwd '/home/u/proj-c' (DIFFERENT cwd, e.g. symlink-collapsed
+    //     realpath) but project_key MATCHES → must be VISIBLE (cwd proxy
+    //     would wrongly exclude this).
+    const SID_A = '44444444-4444-4444-8444-444444444444'
+    const SID_B = '55555555-5555-4555-8555-555555555555'
+    const SID_C = '66666666-6666-4666-8666-666666666666'
+
+    const client = makeQueryClient()
+    seedCompareCacheForA(client)
+    const seeded: SessionListResponse = {
+      items: [
+        makeSessionRow(SID_A, '/home/u/proj-a', SCOPE_PROJECT_KEY),
+        makeSessionRow(SID_B, '/home/u/proj-a', OTHER_PROJECT_KEY),
+        makeSessionRow(SID_C, '/home/u/proj-c', SCOPE_PROJECT_KEY),
+      ],
+      total: 3,
+      offset: 0,
+      limit: 50,
+    }
+    client.setQueryData(qk.sessionsList({ range: '7d', limit: 50 }), seeded)
+    const { router } = makeRouter({
+      client,
+      initialEntries: [`/sessions/compare?a=${UUID_A}`],
+    })
+    await router.load()
+    const user = userEvent.setup()
+    render(<RouterProvider router={router} />)
+    await user.keyboard('{Meta>}k{/Meta}')
+    await user.click(await screen.findByText('Compare with…'))
+    // Picker Sheet should mount. Wait for the title.
+    await waitFor(() => {
+      expect(
+        screen.getByText('Pick a session to compare'),
+      ).toBeInTheDocument()
+    })
+    // Symlink-collapsed match (different cwd, same project_key) MUST appear.
+    expect(
+      screen.getByRole('button', { name: `Compare with session ${SID_C}` }),
+    ).toBeInTheDocument()
+    // Same-cwd row with the matching project_key also visible.
+    expect(
+      screen.getByRole('button', { name: `Compare with session ${SID_A}` }),
+    ).toBeInTheDocument()
+    // Byte-equal-cwd row with a DIFFERENT project_key MUST be filtered out.
+    expect(
+      screen.queryByRole('button', {
+        name: `Compare with session ${SID_B}`,
+      }),
+    ).toBeNull()
+  })
+
+  it('TDBT-01: ComparePicker description copy does not leak the 12-char project_key hex', async () => {
+    // When the picker scope is active, the description copy must say
+    // "the same project" — NOT the raw 12-char hex (which is not user-
+    // readable and would expose an internal canonical identifier).
+    const SID_A = '77777777-7777-4777-8777-777777777777'
+    const client = makeQueryClient()
+    seedCompareCacheForA(client)
+    const seeded: SessionListResponse = {
+      items: [makeSessionRow(SID_A, '/home/u/proj-a', SCOPE_PROJECT_KEY)],
+      total: 1,
+      offset: 0,
+      limit: 50,
+    }
+    client.setQueryData(qk.sessionsList({ range: '7d', limit: 50 }), seeded)
+    const { router } = makeRouter({
+      client,
+      initialEntries: [`/sessions/compare?a=${UUID_A}`],
+    })
+    await router.load()
+    const user = userEvent.setup()
+    render(<RouterProvider router={router} />)
+    await user.keyboard('{Meta>}k{/Meta}')
+    await user.click(await screen.findByText('Compare with…'))
+    // Wait for the Sheet to mount.
+    await waitFor(() => {
+      expect(
+        screen.getByText('Pick a session to compare'),
+      ).toBeInTheDocument()
+    })
+    // Description copy matches the project-shape-honest phrasing.
+    expect(
+      screen.getByText(/showing sessions in the same project/i),
+    ).toBeInTheDocument()
+    // And does NOT contain the raw 12-char hex anywhere on screen.
+    expect(screen.queryByText(/aaaaaaaaaaaa/)).toBeNull()
+    // The human-readable cwd label IS still rendered on the row (load-
+    // bearing precedence: filter switched, display preserved).
+    expect(screen.getByText('/home/u/proj-a')).toBeInTheDocument()
   })
 })

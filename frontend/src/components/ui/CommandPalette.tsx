@@ -62,12 +62,18 @@
 //     b: previous } }). On the compare route, also clear stale `b` so the
 //     new pair lands cleanly even if the user previously had a `b` set.
 //   - Picker scoping (D-11..D-13): when the compare picker opens with side
-//     A known, scope candidates to A's PROJECT IDENTITY. The wire APIs
-//     (sessions list + sessionCompare) do NOT expose `project_key` directly
-//     today — the only project-shaped field on those rows is `cwd`. So
-//     we use `cwd` equality as the project-identity proxy: rows whose
-//     `cwd` matches A's cwd remain visible; others are filtered out. If
-//     A has no cwd (null/empty), do NOT filter (D-13 fallback to global).
+//     A known, scope candidates to A's PROJECT IDENTITY. Phase 27 TDBT-01
+//     (Plan 27-02 backend + Plan 27-03 frontend) closed the long-standing
+//     gap: the wire APIs now expose `project_key` (sha1[:12] of
+//     realpath(cwd)) on both sessions-list and compare endpoints, so the
+//     filter switches from row-cwd / scope-cwd string-equality (the prior
+//     proxy) to `row.project_key === scopeProjectKey` (authoritative project
+//     identity). This resolves the symlink-collapsed-realpath and byte-
+//     equal-cwd-distinct-realpath edge cases the cwd proxy got wrong.
+//     The picker row DISPLAY keeps `row.cwd` as the human-readable label
+//     (a 12-char hex is not user-facing); only the FILTER predicate
+//     switches. If A has no project_key (empty string sentinel), do NOT
+//     filter (D-13 fallback to global).
 
 import { Command } from 'cmdk'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -339,34 +345,39 @@ export function CommandPalette() {
     [navigate, setLoadedView, close, location.pathname],
   )
 
-  // Picker scoping (D-11..D-13): when side A is known, fetch its compare-side
-  // payload to read `cwd` (the project-identity proxy — see header note).
-  // The compare hook is enabled-gated by Boolean(a && b), so passing a single
-  // id with `b=undefined` keeps it idle. We only need `a`'s cwd, so we read
-  // from the compare cache opportunistically: if the user has already
-  // visited /sessions/compare?a=X&b=Y the cwd is already cached. Otherwise
-  // we still attempt a single-side resolution via a no-op b — but to keep
-  // this surgical (and avoid a fresh API surface for "session by id metadata"),
-  // we fall back to NOT scoping when no cached compare-side is available.
-  // This honours D-13's spirit (no scope when project identity is unknown)
-  // without inventing a new endpoint.
+  // Picker scoping (D-11..D-13 — Phase 27 TDBT-01 closure): when side A is
+  // known, fetch its compare-side payload to read `project_key` (the
+  // authoritative project identity — sha1[:12] of realpath(cwd), landed on
+  // the wire in Plan 27-02). The compare hook is enabled-gated by
+  // Boolean(a && b), so passing a single id with `b=undefined` keeps it idle.
+  // We only need `a`'s project_key, so we read from the compare cache
+  // opportunistically: if the user has already visited /sessions/compare?a=X&b=Y
+  // the project_key is already cached. Otherwise we fall back to NOT scoping
+  // (D-13 spirit — no scope when project identity is unknown). SessionListItemFull
+  // also exposes project_key today, so picker filtering uses the picker's OWN
+  // row data: filter by (row.project_key === aProjectKey). That's the path
+  // taken below — see ComparePicker.
   //
-  // Future improvement: if SessionListItem grew a `cwd` projection that the
-  // picker could read directly, we could scope without consulting the
-  // compare cache. SessionListItemFull DOES expose cwd today (per api.ts),
-  // so picker filtering can also use the picker's OWN row data: filter by
-  // (row.cwd === aCwd). That's the path we take below — see ComparePicker.
+  // Why project_key instead of cwd (the pre-Plan 27-03 approach): two
+  // edge cases the cwd-string-equality filter got wrong, both verified in
+  // 27-RESEARCH.md TDBT-01 §136-138:
+  //   1. Symlink-collapsed cwds — two sessions launched from different
+  //      symlinked entry paths whose realpaths converge → same project_key,
+  //      different cwd strings. cwd filter excluded these wrongly.
+  //   2. Byte-equal cwds with distinct realpaths — rare but possible when
+  //      a path has been re-symlinked between sessions → same cwd string,
+  //      different project_key. cwd filter included these wrongly.
   //
-  // Pass currentA's cwd lookup down to the picker. The picker will perform
-  // the actual filter on its row dataset (which already has cwd).
+  // Pass currentA's project_key lookup down to the picker. The picker will
+  // perform the actual filter on its row dataset (which already has project_key).
   const aCompareQuery = useSessionCompare(currentA, currentB)
-  const aCwd: string | null = useMemo(() => {
+  const aProjectKey: string | null = useMemo(() => {
     if (!currentA) return null
     const data = aCompareQuery.data
     if (!data) return null
     // `a` may be either side depending on URL ordering. Match by session_id.
-    if (data.a.session_id === currentA) return data.a.cwd ?? null
-    if (data.b.session_id === currentA) return data.b.cwd ?? null
+    if (data.a.session_id === currentA) return data.a.project_key || null
+    if (data.b.session_id === currentA) return data.b.project_key || null
     return null
   }, [currentA, aCompareQuery.data])
 
@@ -707,7 +718,7 @@ export function CommandPalette() {
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         currentA={currentA}
-        scopeCwd={aCwd}
+        scopeProjectKey={aProjectKey}
         onSelect={onPickerSelect}
       />
     </>
@@ -719,12 +730,16 @@ interface ComparePickerProps {
   onOpenChange: (open: boolean) => void
   currentA: string | undefined
   /**
-   * Phase 23 Plan 02 (CMPR-07 D-11..D-13): when non-null, the picker scopes
-   * its candidate list to rows whose `cwd` equals `scopeCwd` (project-
-   * identity proxy — see CommandPalette header comment for the full
-   * rationale). When null, no scoping is applied (D-13 fallback to global).
+   * Phase 23 Plan 02 (CMPR-07 D-11..D-13) — Phase 27 TDBT-01 closure:
+   * when non-null+non-empty, the picker scopes its candidate list to rows
+   * whose `project_key` equals `scopeProjectKey` (authoritative project
+   * identity — sha1[:12] of realpath(cwd), landed on the wire in Plan 27-02).
+   * When null or empty, no scoping is applied (D-13 fallback to global).
+   * Replaces the prior cwd-string-equality scope filter — see
+   * CommandPalette header comment for the symlink/realpath edge-case
+   * rationale.
    */
-  scopeCwd: string | null
+  scopeProjectKey: string | null
   onSelect: (sid: string) => void
 }
 
@@ -732,7 +747,7 @@ function ComparePicker({
   open,
   onOpenChange,
   currentA,
-  scopeCwd,
+  scopeProjectKey,
   onSelect,
 }: ComparePickerProps) {
   // Reuse the existing list hook (lib/queries.ts:188) so we get the same
@@ -742,12 +757,13 @@ function ComparePicker({
   // Sheet opens) — `open` only gates the visual render.
   const query = useSessionsList({ range: '7d', limit: 50 })
   const allItems = query.data?.items ?? []
-  // D-11..D-13: filter by cwd when scopeCwd is non-null+non-empty. D-13:
-  // when scopeCwd is null OR an empty string, do not filter.
+  // D-11..D-13 (Phase 27 TDBT-01): filter by project_key when
+  // scopeProjectKey is non-null+non-empty. D-13 fallback: when
+  // scopeProjectKey is null OR an empty string, do not filter.
   const items = useMemo(() => {
-    if (!scopeCwd) return allItems
-    return allItems.filter((row) => row.cwd === scopeCwd)
-  }, [allItems, scopeCwd])
+    if (!scopeProjectKey) return allItems
+    return allItems.filter((row) => row.project_key === scopeProjectKey)
+  }, [allItems, scopeProjectKey])
 
   return (
     <Sheet
@@ -755,8 +771,11 @@ function ComparePicker({
       onOpenChange={onOpenChange}
       title="Pick a session to compare"
       description={
-        scopeCwd
-          ? `Showing sessions from ${scopeCwd} only.`
+        // Phase 27 TDBT-01: copy is project-shape-honest. The 12-char hex
+        // project_key is not human-readable, so we say "the same project"
+        // (the row label below preserves cwd for human identification).
+        scopeProjectKey
+          ? 'Showing sessions in the same project.'
           : currentA
             ? 'Select a session to set as side B for the comparison.'
             : 'Select a session to start comparing.'
@@ -766,8 +785,8 @@ function ComparePicker({
         <p className="cmc-empty">Loading recent sessions…</p>
       ) : items.length === 0 ? (
         <p className="cmc-empty">
-          {scopeCwd
-            ? `No sessions in ${scopeCwd} in the last 7 days.`
+          {scopeProjectKey
+            ? 'No sessions in the same project in the last 7 days.'
             : 'No sessions in the last 7 days.'}
         </p>
       ) : (
