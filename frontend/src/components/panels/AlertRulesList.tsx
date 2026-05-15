@@ -140,6 +140,7 @@ export function AlertRulesList() {
       title="Alert Rules"
       description="Hysteresis-aware rules. Edit by deleting + recreating; toggle to disable temporarily."
       query={query}
+      bounded
       empty={{
         dataNoun: 'alert rules',
         when: (d) => !d.items || d.items.length === 0,

@@ -306,7 +306,7 @@ export function AlertRuleForm() {
   }
 
   return (
-    <article className="cmc-card cmc-alert-rule-form">
+    <article className="cmc-card cmc-card--bounded cmc-alert-rule-form">
       <header className="cmc-panel-card__header">
         <div>
           <p className="cmc-label" style={{ color: 'var(--cmc-text-subtle)', margin: 0 }}>
