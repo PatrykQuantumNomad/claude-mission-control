@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Surface Redesign
-status: "Phase 27 Plans 01 + 02 + 03 ship clean. Plan 03 closes TDBT-01 frontend half (REQ-ID TDBT-01 = 27-02 backend + 27-03 frontend = CLOSED): SessionListItemFull + SessionCompareSide TS interfaces in frontend/src/lib/api.ts mirror the new required `project_key: string` wire field; ComparePicker filter switched from `row.cwd === scopeCwd` to `row.project_key === scopeProjectKey` (authoritative project identity — symlink-collapse + byte-equal-cwd edge cases now resolve correctly); 5 vitest fixture factories updated with new required field; 2 new TDBT-01 vitest cases lock filter behavior + copy-no-hex-leak invariant. Plan 01 unblocks 27-04 (/skills + /skills/$name global-picker adoption consumes useRouteRangeVocab('14d', snapToSkillRange)), 27-05 (CostByProjectCard consumes useRouteRangeVocab('7d', snapToCostRange)), 27-06 (AlertEventsList consumes useRouteRangeVocab('7d', snapToAlertRange)). Frontend vitest 325 → 327 in panels+ui sweep (327/0/0 across 70 files). pnpm tsc + lint --max-warnings 0 clean. Success-criteria greps: scopeCwd=0, row.cwd === scopeCwd=0, scopeProjectKey=12. ZERO-REFACTOR INVARIANT preserved on Phase 26's useRouteRange.ts. No file overlap with sibling Wave 2 Plan 27-04 (which targets SkillRunsTable.test.tsx top-of-file mock area; this plan only changed makeFullSession factory body). Pre-commit hooks (frontend tsc) clean on both Plan 03 task commits."
-last_updated: "2026-05-15T20:00:00.000Z"
-last_activity: 2026-05-15 — Phase 27 Plan 03 SUMMARY committed (27-03-SUMMARY.md); STATE.md + ROADMAP.md updated with TDBT-01 frontend-half close (REQ-ID TDBT-01 closed).
+status: "Phase 27 Plans 01 + 02 + 03 + 04 ship clean. Plan 04 closes Phase 27 SC#1 surface: /skills + /skills/$name per-route adoption sweep — APPEND-ONLY validateSearch extension on both routes (time_from + time_to + compare_panels) with Pitfall 2 LOCK honored on /skills/$name (range PRESERVED); cmc-page--bounded modifier on both root sections; 12 panel files migrated to bounded (DecisionsCard + InboxCard + TaskBoard + SchedulesCard + SkillsRegistry + ContextHealthCard + SkillCostCard + SkillProjectsTable + SkillRunsTable + SkillLatencyTable + SkillsRegistry + SkillTimeline; McpPanel was already bounded); SkillTimeline gains optional skillName + bounded props for single-skill detail-route reuse; long skill names wrap in TruncatedCell on /skills/$name; 4 detail-route panels wire the LOCKED OPERATOR DECISION 2 hasGlobalPicker ternary (global picker WINS WHEN PRESENT, route-local ?range= is fallback when absent). 3 panel test files gain vi.mock('@tanstack/react-router') — empty search keeps existing route-local default cache-key contract preserved. Frontend vitest 643/0/0 (no regressions). pnpm tsc --noEmit clean. pnpm lint --max-warnings 0 clean. Backend pytest tests/test_url_contract.py 2/2 PASS. ResponsiveContainer count unchanged (no new charts; Phase 24 lock preserved). docs/url-contract.md /skills + /skills/$name rows updated + new Phase 27 effects section. Plan 01 (ed96343) + Plan 02 (f1ad119, 81b4c43) + Plan 03 (32763bd, 0b052b1) + Plan 04 (0a3265b, 7cc525f) recap above remains unchanged."
+last_updated: "2026-05-15T20:18:30.000Z"
+last_activity: 2026-05-15 — Phase 27 Plan 04 SUMMARY committed (27-04-SUMMARY.md); STATE.md + ROADMAP.md updated with SC#1 surface close.
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 36
-  completed_plans: 30
-  percent: 83
+  completed_plans: 31
+  percent: 86
 ---
 
 # Project State
@@ -25,14 +25,14 @@ See: .planning/PROJECT.md (updated 2026-05-10 after v1.3 milestone start)
 
 ## Current Position
 
-Phase: 27 — Per-Route Adoption II (Skills/Cost/Alerts) + Tech Debt 🟡 in progress (3/9 plans complete as of 2026-05-15)
-Plan: Phase 27 Plans 01 + 02 + 03 ✅ complete (2026-05-15). Plan 03 (TDBT-01 frontend half, 2/2 tasks): SessionListItemFull + SessionCompareSide TS interfaces in frontend/src/lib/api.ts mirror the new required `project_key: string` wire field (32763bd feat); ComparePicker filter switched from `row.cwd === scopeCwd` to `row.project_key === scopeProjectKey` (0b052b1 feat). 2 new TDBT-01 vitest cases lock both halves of the new contract (filter inclusion/exclusion across symlink-collapse + byte-equal-cwd edge cases; description copy never leaks the 12-char hex). 5 vitest fixture factories updated with the new required field (Pitfall 5 honored — required-field TS contract means tsc fails until every mock supplies the sentinel). Row display label preserved as {row.cwd ?? '—'} (load-bearing precedence: filter switched, display preserved). Plan 01 (ed96343) + Plan 02 (f1ad119, 81b4c43) recap above remains unchanged.
-Status: Phase 27 Plans 01 + 02 + 03 ship clean. **REQ-ID TDBT-01 = Plan 27-02 backend + Plan 27-03 frontend = CLOSED.** Plan 03 unblocks 27-04 sequencing (which adds vi.mock('@tanstack/react-router') at the top of SkillRunsTable.test.tsx — zero conflict with my factory-body fixture update). Plan 01 unblocks 27-04 / 27-05 / 27-06 (useRouteRangeVocab snappers). Frontend vitest 325 → 327 in panels+ui sweep (327/0/0 across 70 files; broader suite delta will be measured at 27-09 close). pnpm tsc --noEmit clean. pnpm lint --max-warnings 0 clean. Success-criteria greps: `scopeCwd`=0, `row.cwd === scopeCwd`=0, `scopeProjectKey`=12 in CommandPalette.tsx. SC#3 ('compare picker uses authoritative project_key instead of cwd-as-proxy') FULLY SATISFIED. Pre-commit hooks (frontend tsc) clean on both Plan 03 commits. Zero deviations across all 3 of Plan 03's tasks.
-Last activity: 2026-05-15 — Phase 27 Plan 03 SUMMARY committed (27-03-SUMMARY.md); STATE.md + ROADMAP.md updated with TDBT-01 frontend-half close (REQ-ID TDBT-01 closed).
+Phase: 27 — Per-Route Adoption II (Skills/Cost/Alerts) + Tech Debt 🟡 in progress (4/9 plans complete as of 2026-05-15)
+Plan: Phase 27 Plans 01 + 02 + 03 + 04 ✅ complete (2026-05-15). Plan 04 (SC#1 surface, 2/2 tasks): /skills route — APPEND-ONLY validateSearch extension with time_from + time_to + compare_panels (0a3265b feat); root <section> gains cmc-page--bounded; SkillCostCardForTopSkill wrapper switches hard-coded useSkillUsage('14d', 1) to useRouteRangeVocab('14d', snapToSkillRange); 8 panels rendered on /skills adopt bounded (McpPanel was already bounded). SkillTimeline component extended with optional skillName + bounded props for /skills/$name reuse. /skills/$name route — APPEND-ONLY validateSearch (range PRESERVED — Pitfall 2 LOCK) with time_from + time_to + compare_panels appended (7cc525f feat); cmc-page--bounded; long skill name wraps in TruncatedCell; SkillLatencySnapshot bespoke <section> gains cmc-card--bounded; SkillTimeline added as 5th detail-route panel (skillName={name} bounded); 4 panels (SkillCostCard + SkillProjectsTable + SkillLatencyTable + SkillTimeline-via-prop) wire the LOCKED OPERATOR DECISION 2 hasGlobalPicker ternary. 3 panel test files gain vi.mock('@tanstack/react-router'). docs/url-contract.md /skills + /skills/$name rows updated + new Phase 27 effects section authored. Plan 01 (ed96343) + Plan 02 (f1ad119, 81b4c43) + Plan 03 (32763bd, 0b052b1) recap above remains unchanged.
+Status: Phase 27 Plans 01 + 02 + 03 + 04 ship clean. **Phase 27 SC#1 surface FULLY SATISFIED** (long-name truncation + 4-panel-set internal scroll + density-token propagation + global picker re-anchor with global > route-local > default precedence). Plan 04 unblocks no downstream plan directly (Plans 27-05 + 27-06 already unblocked by Plan 27-01); the hasGlobalPicker ternary pattern is now locked for Plans 27-05 (CostByProjectCard) + 27-06 (AlertEventsList) to mirror verbatim. Frontend vitest 643/0/0 (no regressions). pnpm tsc --noEmit clean. pnpm lint --max-warnings 0 clean. Backend pytest tests/test_url_contract.py 2/2 PASS. Success-criteria greps: cmc-page--bounded hits /skills and /skills/$name; bounded on 6 Skill panels; ResponsiveContainer count unchanged. Pre-commit hooks (frontend tsc) clean on both Plan 04 commits. Zero deviations across both of Plan 04's tasks.
+Last activity: 2026-05-15 — Phase 27 Plan 04 SUMMARY committed (27-04-SUMMARY.md); STATE.md + ROADMAP.md updated with SC#1 surface close.
 
 (Previous Phase 26 close: 2026-05-13 — operator verdict PASS signed by Patryk Golabek. 9/9 plans, SHEL-05 + TIME-01..05 + CMDK-02..04 satisfied. Backend pytest 686/0/0; frontend vitest 452 → 610/0/0; Playwright 141 → 207; Lighthouse 9/9 PASS at median; axe 39/39 PASS; portal containment 6/6 PASS; ResponsiveContainer count = 26; 96 total visual capture PNGs.)
 
-Progress (Phase 27 plans): [███░░░░░░░] 33% (3/9 plans complete — Plans 01 + 02 + 03 shipped 2026-05-15; Plans 04-09 pending)
+Progress (Phase 27 plans): [████░░░░░░] 44% (4/9 plans complete — Plans 01 + 02 + 03 + 04 shipped 2026-05-15; Plans 05-09 pending)
 Progress (v1.3 milestone): [██████░░░░] 60% (3/5 phases complete — Phases 24+25+26 closed; Phase 27 in progress; Phase 28 pending)
 
 ## Performance Metrics
@@ -117,6 +117,7 @@ Progress (v1.3 milestone): [██████░░░░] 60% (3/5 phases comp
 | URL contract pytest (POLI-13) | 2/2 PASS | 2/2 PASS | 0 | No URL renames Phase 26; validateSearch adoptions append-only — Pitfall 2/13 lock honored |
 | ResponsiveContainer count | 26 | 26 | 0 | Phase 26 added zero charts; only `<CompareToggle>` chrome + `<Bar dataKey="prior_total">` overlay onto existing TokenUsageCard ResponsiveContainer |
 | Phase 27 P02 | ~6 min | 2 tasks | 3 files |
+| Phase 27 P04 | 9 min | 2 tasks | 17 files (2 routes + 11 panels + 3 tests + 1 docs) |
 
 ## Accumulated Context
 
