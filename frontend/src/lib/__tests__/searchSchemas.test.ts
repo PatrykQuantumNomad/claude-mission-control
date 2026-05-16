@@ -426,3 +426,43 @@ describe('Phase 26 route validators accept compare_panels (TIME-04, Plan 07)', (
     })
   })
 })
+
+// ───────────────────────────────────────────────────────────────────
+// Phase 28 layout validators — SKELETON (Plan 28-01, Wave 0).
+//
+// Wave 1 (Plan 28-02) ships the three new validators in
+// `frontend/src/lib/searchSchemas.ts`:
+//   - asHiddenPanels  → CSV regex `^[a-z0-9_-]+(?:,[a-z0-9_-]+)*$`
+//   - asPanelOrder    → CSV groups `groupId:panelId,panelId;groupId2:...`
+//   - asSplitSizes    → CSV groups of 0-100 percentages
+//
+// All three return `undefined` for empty-string OR malformed input
+// (RESEARCH §5 + Pitfall 2 — DefaultViewLoader bare-URL gate). The
+// validators MUST never emit a default value; per-panel/per-route
+// fallbacks live at the read site (mirrors the Phase 26/27 time_from
+// / time_to / compare_panels pattern locked above).
+//
+// These `it.todo` placeholders keep the file green at Wave 0 commit
+// time. Wave 1 flips them into real assertions importing the new
+// validators from `../searchSchemas`.
+// ───────────────────────────────────────────────────────────────────
+
+describe('Phase 28 layout validators (Plan 28-02 — LAYO-01/02/03)', () => {
+  describe('asHiddenPanels', () => {
+    it.todo('accepts valid CSV input (e.g. "system-pressure,token-usage")')
+    it.todo('returns undefined for empty-string input (Pitfall 2 — bare-URL gate)')
+    it.todo('returns undefined for malformed input (uppercase, bad chars, trailing comma)')
+  })
+
+  describe('asPanelOrder', () => {
+    it.todo('accepts valid CSV groups (e.g. "col-a:p1,p2;col-b:p3,p4")')
+    it.todo('returns undefined for empty-string input (Pitfall 2 — bare-URL gate)')
+    it.todo('returns undefined for malformed input (missing group key, bad chars)')
+  })
+
+  describe('asSplitSizes', () => {
+    it.todo('accepts valid CSV groups of percentages (e.g. "compare:60,40")')
+    it.todo('returns undefined for empty-string input (Pitfall 2 — bare-URL gate)')
+    it.todo('returns undefined for malformed input (percentages >100, non-digits)')
+  })
+})
