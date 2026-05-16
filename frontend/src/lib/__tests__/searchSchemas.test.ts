@@ -21,6 +21,9 @@ import { describe, expect, it } from 'vitest'
 import {
   SCHEMA_VERSION,
   asComparePanels,
+  asHiddenPanels,
+  asPanelOrder,
+  asSplitSizes,
   asTimeToken,
   coerceSchemaVersion,
 } from '../searchSchemas'
@@ -449,20 +452,94 @@ describe('Phase 26 route validators accept compare_panels (TIME-04, Plan 07)', (
 
 describe('Phase 28 layout validators (Plan 28-02 — LAYO-01/02/03)', () => {
   describe('asHiddenPanels', () => {
-    it.todo('accepts valid CSV input (e.g. "system-pressure,token-usage")')
-    it.todo('returns undefined for empty-string input (Pitfall 2 — bare-URL gate)')
-    it.todo('returns undefined for malformed input (uppercase, bad chars, trailing comma)')
+    it('accepts valid CSV input (e.g. "system-pressure,token-usage")', () => {
+      expect(asHiddenPanels('token-usage,attention-bar')).toBe(
+        'token-usage,attention-bar',
+      )
+      expect(asHiddenPanels('system-pressure')).toBe('system-pressure')
+    })
+
+    it('returns undefined for empty-string input (Pitfall 2 — bare-URL gate)', () => {
+      expect(asHiddenPanels('')).toBeUndefined()
+    })
+
+    it('returns undefined for malformed input (uppercase, bad chars, trailing comma)', () => {
+      expect(asHiddenPanels('TOKEN_USAGE')).toBeUndefined()
+      expect(asHiddenPanels('token-usage,')).toBeUndefined()
+      expect(asHiddenPanels(',token-usage')).toBeUndefined()
+      expect(asHiddenPanels('token usage')).toBeUndefined()
+      expect(asHiddenPanels('token.usage')).toBeUndefined()
+    })
+
+    it('returns undefined for non-string input', () => {
+      expect(asHiddenPanels(undefined)).toBeUndefined()
+      expect(asHiddenPanels(null)).toBeUndefined()
+      expect(asHiddenPanels(123)).toBeUndefined()
+      expect(asHiddenPanels(['token-usage'])).toBeUndefined()
+    })
   })
 
   describe('asPanelOrder', () => {
-    it.todo('accepts valid CSV groups (e.g. "col-a:p1,p2;col-b:p3,p4")')
-    it.todo('returns undefined for empty-string input (Pitfall 2 — bare-URL gate)')
-    it.todo('returns undefined for malformed input (missing group key, bad chars)')
+    it('accepts valid CSV groups (e.g. "col-a:p1,p2;col-b:p3,p4")', () => {
+      expect(asPanelOrder('main:p1,p2;top:p3')).toBe('main:p1,p2;top:p3')
+      expect(asPanelOrder('main:token-usage,cache-efficiency')).toBe(
+        'main:token-usage,cache-efficiency',
+      )
+      // Single panel per group also valid (CSV regex allows 1+ panels — single-
+      // panel groups are degenerate but legal so callers can write an order
+      // even when only one panel exists for a column).
+      expect(asPanelOrder('main:p1')).toBe('main:p1')
+    })
+
+    it('returns undefined for empty-string input (Pitfall 2 — bare-URL gate)', () => {
+      expect(asPanelOrder('')).toBeUndefined()
+    })
+
+    it('returns undefined for malformed input (missing group key, bad chars)', () => {
+      expect(asPanelOrder('main')).toBeUndefined() // missing colon
+      expect(asPanelOrder(';;')).toBeUndefined()
+      expect(asPanelOrder(':p1,p2')).toBeUndefined() // missing column id
+      expect(asPanelOrder('Main:P1,P2')).toBeUndefined() // uppercase
+      expect(asPanelOrder('main:p1;')).toBeUndefined() // trailing semicolon
+    })
+
+    it('returns undefined for non-string input', () => {
+      expect(asPanelOrder(undefined)).toBeUndefined()
+      expect(asPanelOrder(null)).toBeUndefined()
+      expect(asPanelOrder(123)).toBeUndefined()
+    })
   })
 
   describe('asSplitSizes', () => {
-    it.todo('accepts valid CSV groups of percentages (e.g. "compare:60,40")')
-    it.todo('returns undefined for empty-string input (Pitfall 2 — bare-URL gate)')
-    it.todo('returns undefined for malformed input (percentages >100, non-digits)')
+    it('accepts valid CSV groups of percentages (e.g. "compare:60,40")', () => {
+      expect(asSplitSizes('compare:55,45')).toBe('compare:55,45')
+      expect(asSplitSizes('compare:60,40')).toBe('compare:60,40')
+      expect(asSplitSizes('compare:55,45;main:30,70')).toBe(
+        'compare:55,45;main:30,70',
+      )
+    })
+
+    it('returns the string when percentages would sum outside 100 (sum-clamp lives client-side)', () => {
+      // Validator only matches shape; sum-clamping is the client's job.
+      expect(asSplitSizes('compare:200,0')).toBe('compare:200,0')
+    })
+
+    it('returns undefined for empty-string input (Pitfall 2 — bare-URL gate)', () => {
+      expect(asSplitSizes('')).toBeUndefined()
+    })
+
+    it('returns undefined for malformed input (single-value group, non-digits, bad shape)', () => {
+      expect(asSplitSizes('compare:55')).toBeUndefined() // single value (must ≥2)
+      expect(asSplitSizes('compare:abc,def')).toBeUndefined()
+      expect(asSplitSizes('compare:1234,5')).toBeUndefined() // 4-digit value rejected by \d{1,3}
+      expect(asSplitSizes('compare')).toBeUndefined() // missing colon
+      expect(asSplitSizes(':55,45')).toBeUndefined() // missing group id
+    })
+
+    it('returns undefined for non-string input', () => {
+      expect(asSplitSizes(undefined)).toBeUndefined()
+      expect(asSplitSizes(null)).toBeUndefined()
+      expect(asSplitSizes(123)).toBeUndefined()
+    })
   })
 })

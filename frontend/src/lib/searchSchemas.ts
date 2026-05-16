@@ -97,3 +97,69 @@ export function asComparePanels(v: unknown): string | undefined {
   if (typeof v !== 'string' || v === '') return undefined
   return COMPARE_PANELS_RE.test(v) ? v : undefined
 }
+
+/**
+ * Validate a raw search value as a comma-separated list of hidden panel ids.
+ * Returns the value verbatim if shape-valid, else `undefined`.
+ *
+ * Phase 28 / LAYO-01. Same CSV vocabulary as `asComparePanels` (lowercase
+ * alphanumeric + `_`/`-` ids joined by `,`). Each id MUST match a panel
+ * registered in `frontend/src/lib/layout/panelRegistry.ts` for that route —
+ * `useLayoutState` filters unknown ids at the read site via PANEL_REGISTRY
+ * membership (Pitfall 7 defense in depth; stale saved views with deleted
+ * panel ids still load, but the dropped id is silently ignored).
+ *
+ * NEVER returns an empty string (Pitfall 2 — DefaultViewLoader's bare-URL
+ * gate must continue firing when the URL has no layout overrides). Empty
+ * string + malformed input + non-string input all coerce to `undefined`.
+ */
+const CSV_ID_RE = /^[a-z0-9_-]+(?:,[a-z0-9_-]+)*$/
+
+export function asHiddenPanels(v: unknown): string | undefined {
+  if (typeof v !== 'string' || v === '') return undefined
+  return CSV_ID_RE.test(v) ? v : undefined
+}
+
+/**
+ * Validate a raw search value as a CSV of `<columnId>:<panelId1>,<panelId2>`
+ * groups, joined by `;`. e.g. `main:token-usage,cache-efficiency;top:kpi-row`.
+ * Returns the value verbatim if shape-valid, else `undefined`.
+ *
+ * Phase 28 / LAYO-02. The serialization shape encodes per-column panel order
+ * for routes with multiple panel grids (e.g. `/` has `top` and `main` columns;
+ * `/cost` has only `main`). Order within the CSV is the render order; panels
+ * present in the registry but absent from the URL are appended in registry
+ * order at the read site (Pitfall 7 graceful drift).
+ *
+ * NEVER returns an empty string (Pitfall 2 — bare-URL gate). Empty string +
+ * malformed input + non-string input all coerce to `undefined`.
+ */
+const PANEL_ORDER_RE =
+  /^[a-z0-9_-]+:[a-z0-9_-]+(?:,[a-z0-9_-]+)*(?:;[a-z0-9_-]+:[a-z0-9_-]+(?:,[a-z0-9_-]+)*)*$/
+
+export function asPanelOrder(v: unknown): string | undefined {
+  if (typeof v !== 'string' || v === '') return undefined
+  return PANEL_ORDER_RE.test(v) ? v : undefined
+}
+
+/**
+ * Validate a raw search value as a CSV of `<groupId>:<int1>,<int2>,…` groups
+ * (percentages 0-999, sum-clamped client-side), joined by `;`.
+ * e.g. `compare:55,45`.
+ * Returns the value verbatim if shape-valid, else `undefined`.
+ *
+ * Phase 28 / LAYO-03. The validator only enforces shape — sum-to-100
+ * normalization happens client-side at the read site (react-resizable-panels'
+ * internal clamping). Each group MUST have ≥2 panel sizes (single-value
+ * groups are meaningless for split-pane).
+ *
+ * NEVER returns an empty string (Pitfall 2 — bare-URL gate). Empty string +
+ * malformed input + non-string input all coerce to `undefined`.
+ */
+const SPLIT_SIZES_RE =
+  /^[a-z0-9_-]+:\d{1,3}(?:,\d{1,3})+(?:;[a-z0-9_-]+:\d{1,3}(?:,\d{1,3})+)*$/
+
+export function asSplitSizes(v: unknown): string | undefined {
+  if (typeof v !== 'string' || v === '') return undefined
+  return SPLIT_SIZES_RE.test(v) ? v : undefined
+}
