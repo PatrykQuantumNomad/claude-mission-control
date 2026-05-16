@@ -19,19 +19,32 @@
 //     bespoke (non-PanelCard) panel; its <article> root emits data-panel-id
 //     and renders headerMenu in its header chrome.
 //   - Render-time filter via useLayoutState.isHidden.
+//
+// Phase 28 Plan 04 (LAYO-02 drag-reorder):
+//   - validateSearch APPEND-ONLY extended with `panel_order?: string`.
+//   - PANEL_REGISTRY['/alerts'] re-grouped: alert-rules-list +
+//     alert-rule-form share columnId='main' (reorder-eligible);
+//     alert-events-list is columnId='below' (NOT reorder-eligible —
+//     full-width firing history table that sits underneath the two-panel
+//     composer grid).
+//   - Main-column panels wrapped in DraggablePanelWrap with the standard
+//     drop-target attributes.
 
+import { useMemo } from 'react'
 import { createFileRoute, useRouterState } from '@tanstack/react-router'
 import {
   AlertEventsList,
   AlertRuleForm,
   AlertRulesList,
 } from '../components/panels'
-import { PanelHeaderMenu } from '../components/ui'
+import { DraggablePanelWrap, PanelHeaderMenu } from '../components/ui'
 import { useLayoutState } from '../lib/layout/useLayoutState'
+import { getPanelLabel } from '../lib/layout/panelRegistry'
 import {
   SCHEMA_VERSION,
   asComparePanels,
   asHiddenPanels,
+  asPanelOrder,
   asTimeToken,
   coerceSchemaVersion,
 } from '../lib/searchSchemas'
@@ -53,6 +66,8 @@ import {
 //
 // Phase 28 / LAYO-01: APPEND `hidden_panels?` via `asHiddenPanels` — defaults
 // to `undefined` (Pitfall 2 lock preserved).
+//
+// Phase 28 / LAYO-02 (Plan 04): APPEND `panel_order?` via `asPanelOrder`.
 export type AlertsSearch = {
   // OPTIONAL on input — existing `<Link to="/alerts">` sites stay untouched;
   // the validator always populates the field on output.
@@ -61,6 +76,7 @@ export type AlertsSearch = {
   time_to?: string | undefined
   compare_panels?: string | undefined
   hidden_panels?: string | undefined
+  panel_order?: string | undefined
 }
 
 export function validateSearch(raw: Record<string, unknown>): AlertsSearch {
@@ -70,13 +86,16 @@ export function validateSearch(raw: Record<string, unknown>): AlertsSearch {
     time_to: asTimeToken(raw.time_to),
     compare_panels: asComparePanels(raw.compare_panels),
     hidden_panels: asHiddenPanels(raw.hidden_panels),
+    panel_order: asPanelOrder(raw.panel_order),
   }
 }
+
+const MAIN_COLUMN = 'main'
 
 type PanelEntry = {
   panelId: string
   label: string
-  group: 'top' | 'main'
+  group: 'main' | 'below'
   render: (props: { panelId: string; headerMenu: React.ReactNode }) => React.ReactNode
 }
 
@@ -84,28 +103,49 @@ const PANELS: PanelEntry[] = [
   {
     panelId: 'alert-rules-list',
     label: 'Alert rules',
-    group: 'top',
+    group: 'main',
     render: (p) => <AlertRulesList {...p} />,
   },
   {
     panelId: 'alert-rule-form',
     label: 'New alert rule',
-    group: 'top',
+    group: 'main',
     render: (p) => <AlertRuleForm {...p} />,
   },
   {
     panelId: 'alert-events-list',
     label: 'Firing history',
-    group: 'main',
+    group: 'below',
     render: (p) => <AlertEventsList {...p} />,
   },
 ]
 
 function AlertsPage() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
-  const { isHidden } = useLayoutState(pathname)
+  const { isHidden, orderedPanels, setOrder } = useLayoutState(pathname)
 
-  const renderPanel = (entry: PanelEntry) => {
+  // Main-column panel id → render thunk map.
+  const mainPanelMap = useMemo(() => {
+    const map: Record<
+      string,
+      (props: { panelId: string; headerMenu: React.ReactNode }) => React.ReactNode
+    > = {}
+    for (const entry of PANELS) {
+      if (entry.group !== 'main') continue
+      map[entry.panelId] = entry.render
+    }
+    return map
+  }, [])
+
+  const visibleMainPanels = useMemo(() => {
+    return orderedPanels(MAIN_COLUMN).filter(
+      (id) => !isHidden(id) && id in mainPanelMap,
+    )
+  }, [isHidden, orderedPanels, mainPanelMap])
+  const total = visibleMainPanels.length
+
+  // Below-grid panels (alert-events-list) stay static — NOT reorder-eligible.
+  const renderBelowPanel = (entry: PanelEntry) => {
     if (isHidden(entry.panelId)) return null
     return (
       <span key={entry.panelId} style={{ display: 'contents' }}>
@@ -118,9 +158,7 @@ function AlertsPage() {
       </span>
     )
   }
-
-  const topPanels = PANELS.filter((p) => p.group === 'top')
-  const mainPanels = PANELS.filter((p) => p.group === 'main')
+  const belowPanels = PANELS.filter((p) => p.group === 'below')
 
   return (
     <section className="cmc-page cmc-page--bounded" aria-labelledby="alerts-heading">
@@ -138,8 +176,41 @@ function AlertsPage() {
           Hysteresis-aware alert rules and firing history.
         </p>
       </header>
-      <div className="cmc-card-grid">{topPanels.map(renderPanel)}</div>
-      <div className="cmc-card-grid">{mainPanels.map(renderPanel)}</div>
+      <div
+        className="cmc-card-grid"
+        data-column-id={MAIN_COLUMN}
+        data-testid={`panel-grid-${MAIN_COLUMN}`}
+      >
+        {visibleMainPanels.map((id, idx) => {
+          const label = getPanelLabel(pathname, id)
+          return (
+            <DraggablePanelWrap
+              key={id}
+              panelId={id}
+              columnId={MAIN_COLUMN}
+              label={label}
+              index={idx}
+              total={total}
+              onReorder={(fromId, toIndex) => {
+                const next = [...visibleMainPanels]
+                const from = next.indexOf(fromId)
+                if (from === -1 || from === toIndex) return
+                const [moved] = next.splice(from, 1)
+                next.splice(toIndex, 0, moved)
+                setOrder(MAIN_COLUMN, next)
+              }}
+            >
+              {mainPanelMap[id]({
+                panelId: id,
+                headerMenu: (
+                  <PanelHeaderMenu panelId={id} label={label} />
+                ),
+              })}
+            </DraggablePanelWrap>
+          )
+        })}
+      </div>
+      <div className="cmc-card-grid">{belowPanels.map(renderBelowPanel)}</div>
     </section>
   )
 }

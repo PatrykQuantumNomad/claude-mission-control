@@ -18,7 +18,17 @@
 //     lands in each panel's chrome (PanelCard slot for PanelCard-based
 //     panels; explicit slot for the bespoke OtelPanel).
 //   - Render-time filter via useLayoutState.isHidden.
+//
+// Phase 28 Plan 04 (LAYO-02 drag-reorder):
+//   - validateSearch APPEND-ONLY extended with `panel_order?: string`.
+//   - 'main' column render-order driven by useLayoutState.orderedPanels('main')
+//     instead of static PANELS array order. 'top' + 'footer' groups stay
+//     in static order (not reorder-eligible).
+//   - Every main-column panel mount wrapped in DraggablePanelWrap.
+//   - .cmc-card-grid container exposes data-column-id="main" and
+//     data-testid="panel-grid-main" for the drop-target contract.
 
+import { useMemo } from 'react'
 import { createFileRoute, useRouterState } from '@tanstack/react-router'
 import {
   ActivityHeatmap,
@@ -28,12 +38,14 @@ import {
   TopSkills,
   UnifiedFailures,
 } from '../components/panels'
-import { PanelHeaderMenu } from '../components/ui'
+import { DraggablePanelWrap, PanelHeaderMenu } from '../components/ui'
 import { useLayoutState } from '../lib/layout/useLayoutState'
+import { getPanelLabel } from '../lib/layout/panelRegistry'
 import {
   SCHEMA_VERSION,
   asComparePanels,
   asHiddenPanels,
+  asPanelOrder,
   asTimeToken,
   coerceSchemaVersion,
 } from '../lib/searchSchemas'
@@ -56,6 +68,8 @@ import {
 //
 // Phase 28 / LAYO-01: APPEND `hidden_panels?` via `asHiddenPanels` — defaults
 // to `undefined` (Pitfall 2 lock preserved).
+//
+// Phase 28 / LAYO-02 (Plan 04): APPEND `panel_order?` via `asPanelOrder`.
 export type ActivitySearch = {
   // OPTIONAL on input — existing `<Link to="/activity">` sites stay untouched;
   // the validator always populates the field on output.
@@ -64,6 +78,7 @@ export type ActivitySearch = {
   time_to?: string | undefined
   compare_panels?: string | undefined
   hidden_panels?: string | undefined
+  panel_order?: string | undefined
 }
 
 export function validateSearch(raw: Record<string, unknown>): ActivitySearch {
@@ -73,11 +88,14 @@ export function validateSearch(raw: Record<string, unknown>): ActivitySearch {
     time_to: asTimeToken(raw.time_to),
     compare_panels: asComparePanels(raw.compare_panels),
     hidden_panels: asHiddenPanels(raw.hidden_panels),
+    panel_order: asPanelOrder(raw.panel_order),
   }
 }
 
 // Same render-array pattern Task 2a established on /, /cost — copied here
 // verbatim for Phase-28 consistency.
+const MAIN_COLUMN = 'main'
+
 type PanelEntry = {
   panelId: string
   label: string
@@ -126,9 +144,31 @@ const PANELS: PanelEntry[] = [
 
 function ActivityPage() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
-  const { isHidden } = useLayoutState(pathname)
+  const { isHidden, orderedPanels, setOrder } = useLayoutState(pathname)
 
-  const renderPanel = (entry: PanelEntry) => {
+  // Main-column panel id → render thunk map. Built once per mount; the
+  // orderedPanels(MAIN_COLUMN) call drives iteration order.
+  const mainPanelMap = useMemo(() => {
+    const map: Record<
+      string,
+      (props: { panelId: string; headerMenu: React.ReactNode }) => React.ReactNode
+    > = {}
+    for (const entry of PANELS) {
+      if (entry.group !== 'main') continue
+      map[entry.panelId] = entry.render
+    }
+    return map
+  }, [])
+
+  const visibleMainPanels = useMemo(() => {
+    return orderedPanels(MAIN_COLUMN).filter(
+      (id) => !isHidden(id) && id in mainPanelMap,
+    )
+  }, [isHidden, orderedPanels, mainPanelMap])
+  const total = visibleMainPanels.length
+
+  // Top + footer panels stay in static render order — not reorder-eligible.
+  const renderStaticPanel = (entry: PanelEntry) => {
     if (isHidden(entry.panelId)) return null
     return (
       <span key={entry.panelId} style={{ display: 'contents' }}>
@@ -141,9 +181,7 @@ function ActivityPage() {
       </span>
     )
   }
-
   const topPanels = PANELS.filter((p) => p.group === 'top')
-  const mainPanels = PANELS.filter((p) => p.group === 'main')
   const footerPanels = PANELS.filter((p) => p.group === 'footer')
 
   return (
@@ -162,9 +200,42 @@ function ActivityPage() {
           Historical view: heatmaps, OTEL firehose, sessions table.
         </p>
       </header>
-      {topPanels.map(renderPanel)}
-      <div className="cmc-card-grid">{mainPanels.map(renderPanel)}</div>
-      {footerPanels.map(renderPanel)}
+      {topPanels.map(renderStaticPanel)}
+      <div
+        className="cmc-card-grid"
+        data-column-id={MAIN_COLUMN}
+        data-testid={`panel-grid-${MAIN_COLUMN}`}
+      >
+        {visibleMainPanels.map((id, idx) => {
+          const label = getPanelLabel(pathname, id)
+          return (
+            <DraggablePanelWrap
+              key={id}
+              panelId={id}
+              columnId={MAIN_COLUMN}
+              label={label}
+              index={idx}
+              total={total}
+              onReorder={(fromId, toIndex) => {
+                const next = [...visibleMainPanels]
+                const from = next.indexOf(fromId)
+                if (from === -1 || from === toIndex) return
+                const [moved] = next.splice(from, 1)
+                next.splice(toIndex, 0, moved)
+                setOrder(MAIN_COLUMN, next)
+              }}
+            >
+              {mainPanelMap[id]({
+                panelId: id,
+                headerMenu: (
+                  <PanelHeaderMenu panelId={id} label={label} />
+                ),
+              })}
+            </DraggablePanelWrap>
+          )
+        })}
+      </div>
+      {footerPanels.map(renderStaticPanel)}
     </section>
   )
 }

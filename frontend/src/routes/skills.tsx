@@ -36,7 +36,16 @@
 //     OR to the SkillCostCard for the resolved top skill name (the data
 //     branch — SkillCostCard already takes panelId/headerMenu via the
 //     LayoutCustomizableProps shape lifted by Plan 28-03).
+//
+// Phase 28 Plan 04 (LAYO-02 drag-reorder):
+//   - validateSearch APPEND-ONLY extended with `panel_order?: string`.
+//   - Main-column render-order driven by useLayoutState.orderedPanels.
+//   - Top-strip panels (decisions, inbox) stay static — not reorder-
+//     eligible.
+//   - .cmc-card-grid container exposes data-column-id="main" and
+//     data-testid="panel-grid-main".
 
+import { useMemo } from 'react'
 import { createFileRoute, useRouterState } from '@tanstack/react-router'
 import {
   ContextHealthCard,
@@ -52,15 +61,18 @@ import {
 } from '../components/panels'
 import { useSkillUsage } from '../lib/queries'
 import {
+  DraggablePanelWrap,
   PanelCard,
   PanelHeaderMenu,
   type LayoutCustomizableProps,
 } from '../components/ui'
 import { useLayoutState } from '../lib/layout/useLayoutState'
+import { getPanelLabel } from '../lib/layout/panelRegistry'
 import {
   SCHEMA_VERSION,
   asComparePanels,
   asHiddenPanels,
+  asPanelOrder,
   asTimeToken,
   coerceSchemaVersion,
 } from '../lib/searchSchemas'
@@ -82,12 +94,15 @@ import {
 //
 // Phase 28 / LAYO-01: APPEND `hidden_panels?` via `asHiddenPanels` — defaults
 // to `undefined` (Pitfall 2 lock preserved).
+//
+// Phase 28 / LAYO-02 (Plan 04): APPEND `panel_order?` via `asPanelOrder`.
 export type SkillsSearch = {
   schemaVersion?: typeof SCHEMA_VERSION
   time_from?: string | undefined
   time_to?: string | undefined
   compare_panels?: string | undefined
   hidden_panels?: string | undefined
+  panel_order?: string | undefined
 }
 
 export function validateSearch(raw: Record<string, unknown>): SkillsSearch {
@@ -97,6 +112,7 @@ export function validateSearch(raw: Record<string, unknown>): SkillsSearch {
     time_to: asTimeToken(raw.time_to),
     compare_panels: asComparePanels(raw.compare_panels),
     hidden_panels: asHiddenPanels(raw.hidden_panels),
+    panel_order: asPanelOrder(raw.panel_order),
   }
 }
 
@@ -133,6 +149,8 @@ function SkillCostCardForTopSkill({ panelId, headerMenu }: LayoutCustomizablePro
   }
   return <SkillCostCard name={topName} panelId={panelId} headerMenu={headerMenu} />
 }
+
+const MAIN_COLUMN = 'main'
 
 type PanelEntry = {
   panelId: string
@@ -206,9 +224,29 @@ const PANELS: PanelEntry[] = [
 
 function SkillsPage() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
-  const { isHidden } = useLayoutState(pathname)
+  const { isHidden, orderedPanels, setOrder } = useLayoutState(pathname)
 
-  const renderPanel = (entry: PanelEntry) => {
+  // Main-column panel id → render thunk map.
+  const mainPanelMap = useMemo(() => {
+    const map: Record<
+      string,
+      (props: { panelId: string; headerMenu: React.ReactNode }) => React.ReactNode
+    > = {}
+    for (const entry of PANELS) {
+      if (entry.group !== 'main') continue
+      map[entry.panelId] = entry.render
+    }
+    return map
+  }, [])
+
+  const visibleMainPanels = useMemo(() => {
+    return orderedPanels(MAIN_COLUMN).filter(
+      (id) => !isHidden(id) && id in mainPanelMap,
+    )
+  }, [isHidden, orderedPanels, mainPanelMap])
+  const total = visibleMainPanels.length
+
+  const renderTopPanel = (entry: PanelEntry) => {
     if (isHidden(entry.panelId)) return null
     return (
       <span key={entry.panelId} style={{ display: 'contents' }}>
@@ -221,9 +259,7 @@ function SkillsPage() {
       </span>
     )
   }
-
   const topPanels = PANELS.filter((p) => p.group === 'top')
-  const mainPanels = PANELS.filter((p) => p.group === 'main')
 
   return (
     <section className="cmc-page cmc-page--bounded" aria-labelledby="skills-heading">
@@ -242,9 +278,42 @@ function SkillsPage() {
         </p>
       </header>
       {/* Full-width above-grid panels (LiveSessionsCard pattern — design notes). */}
-      {topPanels.map(renderPanel)}
+      {topPanels.map(renderTopPanel)}
       {/* Live grid for tasks, schedules, and the SKLP-* family + ContextHealthCard. */}
-      <div className="cmc-card-grid">{mainPanels.map(renderPanel)}</div>
+      <div
+        className="cmc-card-grid"
+        data-column-id={MAIN_COLUMN}
+        data-testid={`panel-grid-${MAIN_COLUMN}`}
+      >
+        {visibleMainPanels.map((id, idx) => {
+          const label = getPanelLabel(pathname, id)
+          return (
+            <DraggablePanelWrap
+              key={id}
+              panelId={id}
+              columnId={MAIN_COLUMN}
+              label={label}
+              index={idx}
+              total={total}
+              onReorder={(fromId, toIndex) => {
+                const next = [...visibleMainPanels]
+                const from = next.indexOf(fromId)
+                if (from === -1 || from === toIndex) return
+                const [moved] = next.splice(from, 1)
+                next.splice(toIndex, 0, moved)
+                setOrder(MAIN_COLUMN, next)
+              }}
+            >
+              {mainPanelMap[id]({
+                panelId: id,
+                headerMenu: (
+                  <PanelHeaderMenu panelId={id} label={label} />
+                ),
+              })}
+            </DraggablePanelWrap>
+          )
+        })}
+      </div>
     </section>
   )
 }

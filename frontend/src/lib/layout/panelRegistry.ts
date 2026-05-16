@@ -116,13 +116,16 @@ export const PANEL_REGISTRY: Record<string, PanelDescriptor[]> = {
     { panelId: 'skill-timeline', columnId: 'main', label: 'Skill timeline', defaultVisible: true },
     { panelId: 'context-health', columnId: 'main', label: 'Context health', defaultVisible: true },
   ],
-  // routes/alerts.tsx — AlertRulesList + AlertRuleForm in one .cmc-card-grid;
-  // AlertEventsList in a second full-width .cmc-card-grid below. All three
-  // share `main` since they all live inside grid containers.
+  // routes/alerts.tsx — AlertRulesList + AlertRuleForm in the reorder-
+  // eligible `main` grid. AlertEventsList sits in a SEPARATE full-width
+  // grid below — column id `below` — NOT reorder-eligible (Plan 28-04
+  // alerts-list layout). Phase 28 Plan 04 split out the `below` column id
+  // from the legacy single-main grouping so DraggablePanelWrap mounts
+  // only on the two reorder-eligible panels.
   '/alerts': [
     { panelId: 'alert-rules-list', columnId: 'main', label: 'Alert rules', defaultVisible: true },
     { panelId: 'alert-rule-form', columnId: 'main', label: 'New alert rule', defaultVisible: true },
-    { panelId: 'alert-events-list', columnId: 'main', label: 'Firing history', defaultVisible: true },
+    { panelId: 'alert-events-list', columnId: 'below', label: 'Firing history', defaultVisible: true },
   ],
   // routes/sessions_.compare.tsx — single PanelCard descendant containing the
   // ResizablePanelGroup with `groupId="compare"`. The split-pane lives INSIDE

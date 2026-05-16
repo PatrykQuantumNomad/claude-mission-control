@@ -196,6 +196,21 @@ const PHASE_27_NET_CLASS_MARKERS = [
   'cmc-alert-rule-form', // re-listed: Phase 27 added cmc-card--bounded modifier
 ]
 
+// Phase 28 NET class markers — same inversion pattern. Plan 28-03 introduced
+// PanelHeaderMenu (cmc-dropdown chrome on every panel header). Plan 28-04
+// added DraggablePanelWrap (cmc-draggable-wrap + cmc-panel-grip). Both
+// must surface their own violations without piggybacking on the
+// pre-existing v1.2 baseline.
+const PHASE_28_NET_CLASS_MARKERS = [
+  'cmc-draggable-wrap',
+  'cmc-panel-grip',
+  'panel-drag-grip',
+  'panel-header-menu',
+  'panel-hide-',
+  'panel-reset-layout-',
+  'panel-grid-',
+]
+
 function violationTouchesPhase25(violation: {
   nodes: { html: string }[]
 }): boolean {
@@ -220,6 +235,14 @@ function violationTouchesPhase27(violation: {
   )
 }
 
+function violationTouchesPhase28(violation: {
+  nodes: { html: string }[]
+}): boolean {
+  return violation.nodes.some((n) =>
+    PHASE_28_NET_CLASS_MARKERS.some((m) => n.html.includes(m)),
+  )
+}
+
 function isPreExistingViolation(violation: {
   id: string
   nodes: { target: unknown[]; html: string }[]
@@ -235,15 +258,15 @@ function isPreExistingViolation(violation: {
     return true
   }
   // Inversion: if the violation has no node touching Phase 25's, Phase
-  // 26's, OR Phase 27's net class set, treat as pre-existing. Phase 27
-  // Plan 09 extends the inversion to honor all three phases — any
-  // Phase-25/26/27 surface violation fails; anything else is presumed
-  // pre-existing v1.2 baseline (Pitfall 7 rebalance window now flagged
-  // as a Phase 28+ candidate after Phase 27 close).
+  // 26's, Phase 27's, OR Phase 28's net class set, treat as pre-existing.
+  // Phase 28 Plan 04 extends the inversion to honor all four phases —
+  // any Phase-25/26/27/28 surface violation fails; anything else is
+  // presumed pre-existing v1.2 baseline (Pitfall 7 rebalance window).
   return (
     !violationTouchesPhase25(violation) &&
     !violationTouchesPhase26(violation) &&
-    !violationTouchesPhase27(violation)
+    !violationTouchesPhase27(violation) &&
+    !violationTouchesPhase28(violation)
   )
 }
 
@@ -792,4 +815,50 @@ test.describe('Phase 27 axe a11y — tail routes (skills / skills detail / cost 
       JSON.stringify(blocking.map((v) => ({ id: v.id, help: v.help })), null, 2),
     ).toEqual([])
   })
+})
+
+// ───────────────────────────────────────────────────────────────────────
+// Phase 28 axe a11y — DraggablePanelWrap drag-grip surface (LAYO-02).
+//
+// One scan per in-scope route — checks that the drag grip
+// (`<button class="cmc-panel-grip" aria-label="Reorder X" aria-pressed=...>`)
+// + the per-grip aria-live region (`<div role="status" aria-live="polite"
+// class="cmc-sr-only">`) introduce no `serious`/`critical` axe violations.
+// The keyboard reorder path (Space/Arrow/Enter/Esc) is validated by the
+// Playwright LAYO-02 test family in `v13-layout.spec.ts`; this file only
+// checks the static-DOM a11y surface so axe-core can run without
+// triggering drag side-effects.
+//
+// Scans run at default density + dark theme (the Phase 25/26/27 chrome
+// scan pattern — the base 30-run matrix already covers density/theme
+// cross-product for the panel-card surfaces underneath).
+// ───────────────────────────────────────────────────────────────────────
+test.describe('Phase 28 axe a11y — DraggablePanelWrap drag grip + aria-live', () => {
+  // The 5 in-scope routes each have a 'main' column hosting at least one
+  // DraggablePanelWrap. The scan runs against a bare URL — proves the
+  // default-state DOM (no panel_order, no hidden_panels) stays a11y-clean.
+  for (const route of ['/', '/activity', '/cost', '/skills', '/alerts'] as const) {
+    test(`${route}: drag grip surface has no Phase-28-attributable blocking violations`, async ({
+      page,
+    }) => {
+      await page.goto(route)
+      await page.waitForLoadState('domcontentloaded')
+      await page.waitForTimeout(1500)
+      // Pre-condition: at least one drag grip is mounted on this route's
+      // 'main' column. If the grip is missing the scan would silently
+      // succeed against zero relevant DOM — assert presence first.
+      await expect(page.locator('.cmc-panel-grip').first()).toBeVisible()
+      const results = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+        .analyze()
+      const blocking = results.violations.filter(
+        (v) => (v.impact === 'serious' || v.impact === 'critical') &&
+          !isPreExistingViolation(v),
+      )
+      expect(
+        blocking,
+        JSON.stringify(blocking.map((v) => ({ id: v.id, help: v.help })), null, 2),
+      ).toEqual([])
+    })
+  }
 })
