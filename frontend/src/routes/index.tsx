@@ -23,7 +23,19 @@
 //     drives the gate. Round-trip with saved views is automatic — the
 //     SaveViewDialog captures the URL search blob verbatim into state_json
 //     (Phase 25 invariant; no SaveViewDialog edits needed in this plan).
+//
+// Phase 28 Plan 04 (LAYO-02 drag-reorder):
+//   - validateSearch APPEND-ONLY extended with `panel_order?: string`.
+//   - 'main' column render-order driven by useLayoutState.orderedPanels('main')
+//     instead of the static PANELS array order. Top-strip panels keep static
+//     order (not reorder-eligible — the chrome row is fixed).
+//   - Every main-column panel mount wrapped in DraggablePanelWrap. Top-strip
+//     panels stay plain (no drag grip).
+//   - .cmc-card-grid container exposes data-column-id="main" and
+//     data-testid="panel-grid-main" for DraggablePanelWrap's drop-target
+//     contract + Playwright scoping.
 
+import { useMemo } from 'react'
 import { createFileRoute, useRouterState } from '@tanstack/react-router'
 import {
   AgentFanoutCard,
@@ -42,12 +54,14 @@ import {
   TokenUsageCard,
   ToolLatencyCard,
 } from '../components/panels'
-import { PanelHeaderMenu } from '../components/ui'
+import { DraggablePanelWrap, PanelHeaderMenu } from '../components/ui'
 import { useLayoutState } from '../lib/layout/useLayoutState'
+import { getPanelLabel } from '../lib/layout/panelRegistry'
 import {
   SCHEMA_VERSION,
   asComparePanels,
   asHiddenPanels,
+  asPanelOrder,
   asTimeToken,
   coerceSchemaVersion,
 } from '../lib/searchSchemas'
@@ -74,12 +88,17 @@ import {
 // Phase 28 / LAYO-01 (Plan 03). Append-only extension: ACCEPT `hidden_panels?`
 // as a CSV list of panel ids via `asHiddenPanels`. Defaults to `undefined`
 // (Pitfall 2 — empty string would defeat DefaultViewLoader's bare-URL gate).
+//
+// Phase 28 / LAYO-02 (Plan 04). Append-only extension: ACCEPT `panel_order?`
+// as a CSV of `<columnId>:<id1>,<id2>;…` groups via `asPanelOrder`. Same
+// undefined-default Pitfall 2 lock.
 export type IndexSearch = {
   schemaVersion?: typeof SCHEMA_VERSION
   time_from?: string | undefined
   time_to?: string | undefined
   compare_panels?: string | undefined
   hidden_panels?: string | undefined
+  panel_order?: string | undefined
 }
 
 export function validateSearch(raw: Record<string, unknown>): IndexSearch {
@@ -89,6 +108,7 @@ export function validateSearch(raw: Record<string, unknown>): IndexSearch {
     time_to: asTimeToken(raw.time_to),
     compare_panels: asComparePanels(raw.compare_panels),
     hidden_panels: asHiddenPanels(raw.hidden_panels),
+    panel_order: asPanelOrder(raw.panel_order),
   }
 }
 
@@ -98,6 +118,8 @@ export function validateSearch(raw: Record<string, unknown>): IndexSearch {
 // receives the headerMenu chrome to forward to the panel's PanelCard. The
 // route filters by !isHidden(panelId), then renders each group's panels in
 // the original render order.
+const MAIN_COLUMN = 'main'
+
 type PanelEntry = {
   panelId: string
   label: string
@@ -200,9 +222,35 @@ const PANELS: PanelEntry[] = [
 
 function CommandPage() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
-  const { isHidden } = useLayoutState(pathname)
+  const { isHidden, orderedPanels, setOrder } = useLayoutState(pathname)
 
-  const renderPanel = (entry: PanelEntry) => {
+  // Build the JSX map for main-column panels keyed by panelId. The map
+  // entries are stable across renders (closed over the PANELS literal);
+  // visibleMainPanels is the URL-driven render-order array, recomputed
+  // when isHidden / orderedPanels return value changes.
+  const mainPanelMap = useMemo(() => {
+    const map: Record<
+      string,
+      (props: { panelId: string; headerMenu: React.ReactNode }) => React.ReactNode
+    > = {}
+    for (const entry of PANELS) {
+      if (entry.group !== 'main') continue
+      map[entry.panelId] = entry.render
+    }
+    return map
+  }, [])
+
+  const visibleMainPanels = useMemo(() => {
+    return orderedPanels(MAIN_COLUMN).filter(
+      (id) => !isHidden(id) && id in mainPanelMap,
+    )
+  }, [isHidden, orderedPanels, mainPanelMap])
+  const total = visibleMainPanels.length
+
+  // Top-strip panels stay in static order — they are NOT reorder-eligible
+  // (the chrome row is fixed). They still get PanelHeaderMenu (Hide / Reset
+  // Layout) from Plan 28-03.
+  const renderTopPanel = (entry: PanelEntry) => {
     if (isHidden(entry.panelId)) return null
     return (
       <span key={entry.panelId} style={{ display: 'contents' }}>
@@ -215,9 +263,7 @@ function CommandPage() {
       </span>
     )
   }
-
   const topPanels = PANELS.filter((p) => p.group === 'top')
-  const mainPanels = PANELS.filter((p) => p.group === 'main')
 
   return (
     <section className="cmc-page cmc-page--bounded" aria-labelledby="cmd-heading">
@@ -235,8 +281,41 @@ function CommandPage() {
           Live view of every Claude Code agent session, token spend, and tool latency.
         </p>
       </header>
-      {topPanels.map(renderPanel)}
-      <div className="cmc-card-grid">{mainPanels.map(renderPanel)}</div>
+      {topPanels.map(renderTopPanel)}
+      <div
+        className="cmc-card-grid"
+        data-column-id={MAIN_COLUMN}
+        data-testid={`panel-grid-${MAIN_COLUMN}`}
+      >
+        {visibleMainPanels.map((id, idx) => {
+          const label = getPanelLabel(pathname, id)
+          return (
+            <DraggablePanelWrap
+              key={id}
+              panelId={id}
+              columnId={MAIN_COLUMN}
+              label={label}
+              index={idx}
+              total={total}
+              onReorder={(fromId, toIndex) => {
+                const next = [...visibleMainPanels]
+                const from = next.indexOf(fromId)
+                if (from === -1 || from === toIndex) return
+                const [moved] = next.splice(from, 1)
+                next.splice(toIndex, 0, moved)
+                setOrder(MAIN_COLUMN, next)
+              }}
+            >
+              {mainPanelMap[id]({
+                panelId: id,
+                headerMenu: (
+                  <PanelHeaderMenu panelId={id} label={label} />
+                ),
+              })}
+            </DraggablePanelWrap>
+          )
+        })}
+      </div>
     </section>
   )
 }

@@ -194,12 +194,20 @@ export function DraggablePanelWrap({
     .filter(Boolean)
     .join(' ')
 
+  // Render shape (`cmc-draggable-wrap` block):
+  //   - The wrapper is a real grid-cell-owning <div> (NO `display: contents`)
+  //     so the .cmc-card-grid parent treats each draggable as one cell.
+  //   - The grip + sr-only region are absolutely positioned over the
+  //     PanelCard's top-left corner. The PanelCard itself spans the cell.
+  //   - We do NOT emit `data-panel-id` here — the inner PanelCard already
+  //     emits it (Plan 28-03). Duplicating would break strict-locator
+  //     queries in Playwright. We emit `data-drag-wrap-id` instead for
+  //     internal test queries.
   return (
     <div
       className={wrapClass}
-      data-panel-id={panelId}
       data-column-id={columnId}
-      style={{ display: 'contents' }}
+      data-drag-wrap-id={panelId}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >

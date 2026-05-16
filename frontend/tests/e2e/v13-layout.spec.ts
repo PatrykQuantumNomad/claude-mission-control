@@ -186,35 +186,123 @@ test.describe('Phase 28 — Layout Customization (LAYO-01..04)', () => {
   // 2 mouse-drag + 2 keyboard reorder = 4 skipped tests.
   // ───────────────────────────────────────────────────────────────────
   test.describe('LAYO-02 reorder', () => {
-    test.skip('/cost: mouse drag moves CostByProjectCard before CostForecastCard within column-a', async ({ page }) => {
-      // TODO Wave 2 / Plan 28-04 — unskip and implement.
-      // Selectors: panel-drag-grip-cost-by-project, panel-grid-column-a.
-      // Expected URL after drop: ?panel_order=column-a:cost-by-project,cost-forecast,...
+    test('/cost: mouse drag moves cost-by-project before cost-forecast (panel_order URL)', async ({
+      page,
+    }) => {
+      // Plan 28-04 / LAYO-02: mouse-drag reorder via Playwright's high-level
+      // dragTo API. /cost is the simplest route — single 'main' column with
+      // two panels. After dragging the cost-by-project grip onto the
+      // cost-forecast wrapper, the URL must gain
+      // ?panel_order=main:cost-by-project,cost-forecast (the dropped panel
+      // takes the target's slot; the original head shifts down).
       await page.goto('/cost')
-      expect(true).toBe(true)
+      await page.waitForLoadState('domcontentloaded')
+
+      // Pre-condition: both panels mounted in default order.
+      await expect(
+        page.locator('[data-panel-id="cost-forecast"]'),
+      ).toBeVisible()
+      await expect(
+        page.locator('[data-panel-id="cost-by-project"]'),
+      ).toBeVisible()
+
+      // Drag the cost-by-project grip onto the cost-forecast wrapper.
+      // The wrapper lives at [data-panel-id=...] (not the grip itself).
+      await page
+        .locator('[data-testid="panel-drag-grip-cost-by-project"]')
+        .dragTo(page.locator('[data-panel-id="cost-forecast"]'))
+
+      // URL gains panel_order=main:cost-by-project,cost-forecast
+      await expect(page).toHaveURL(/panel_order=main%3Acost-by-project%2Ccost-forecast|panel_order=main:cost-by-project,cost-forecast/)
     })
 
-    test.skip('/cost: mouse drop across columns is ignored (column-a → column-b rejected)', async ({ page }) => {
-      // TODO Wave 2 / Plan 28-04 — unskip and implement.
-      // Selectors: panel-drag-grip-cost-by-project, panel-grid-column-b.
-      // Expected: URL unchanged after a cross-column drop attempt.
-      await page.goto('/cost')
-      expect(true).toBe(true)
+    test('/: keyboard reorder writes panel_order on the larger route', async ({
+      page,
+    }) => {
+      // Plan 28-04 / LAYO-02 keyboard-path coverage on `/` (the larger
+      // route — main column has 11 panels). Mouse-drag on `/` is unreliable
+      // in Playwright because the SystemHealthStrip + KpiRow + AttentionBar +
+      // LiveSessionsCard top-strip pushes the main grid below the fold
+      // (and the `.cmc-main` scroll container intercepts pointer events
+      // mid-drag, same flake Plan 28-03 SUMMARY documented on /skills).
+      // Keyboard reorder is deterministic — focus the first main-column
+      // grip + Space + ArrowDown + Enter, regardless of scroll position.
+      await page.goto('/')
+      await page.waitForLoadState('domcontentloaded')
+
+      const grip = page.locator(
+        '[data-testid="panel-drag-grip-token-usage"]',
+      )
+      await grip.focus()
+      await page.keyboard.press(' ')
+      await expect(grip).toHaveAttribute('aria-pressed', 'true')
+      await page.keyboard.press('ArrowDown')
+      // URL gains panel_order=main:...
+      await expect(page).toHaveURL(/panel_order=main/)
+      await page.keyboard.press('Enter')
+      await expect(grip).toHaveAttribute('aria-pressed', 'false')
     })
 
-    test.skip('/cost: keyboard reorder via Tab → Space → ArrowDown → Enter writes panel_order', async ({ page }) => {
-      // TODO Wave 2 / Plan 28-04 — unskip and implement.
-      // Sequence: Tab to focus panel-drag-grip-cost-by-project → Space (grab) →
-      //          ArrowDown (move +1) → Enter (commit).
-      // Expected URL: ?panel_order=column-a:...
+    test('/cost: keyboard reorder via Space → ArrowDown → Enter writes panel_order', async ({
+      page,
+    }) => {
+      // Plan 28-04 / LAYO-02 keyboard-path: Tab is unreliable in Playwright
+      // (focus order depends on the entire tree). Use the grip's testid +
+      // .focus() to land deterministically on the grip, then press Space
+      // (grab), ArrowDown (move +1), Enter (commit).
       await page.goto('/cost')
-      expect(true).toBe(true)
+      await page.waitForLoadState('domcontentloaded')
+
+      const grip = page.locator(
+        '[data-testid="panel-drag-grip-cost-forecast"]',
+      )
+      await grip.focus()
+      await expect(grip).toHaveAttribute('aria-pressed', 'false')
+
+      // Grab mode on.
+      await page.keyboard.press(' ')
+      await expect(grip).toHaveAttribute('aria-pressed', 'true')
+
+      // aria-live region announces the grab.
+      await expect(page.getByRole('status').first()).toContainText(
+        /Cost forecast grabbed.*Position 1 of 2/i,
+      )
+
+      // ArrowDown moves cost-forecast from index 0 → 1.
+      await page.keyboard.press('ArrowDown')
+
+      // URL must now have panel_order=main:cost-by-project,cost-forecast.
+      await expect(page).toHaveURL(
+        /panel_order=main%3Acost-by-project%2Ccost-forecast|panel_order=main:cost-by-project,cost-forecast/,
+      )
+
+      // Enter commits: aria-pressed flips back to false.
+      await page.keyboard.press('Enter')
+      await expect(grip).toHaveAttribute('aria-pressed', 'false')
     })
 
-    test.skip('/cost: keyboard Esc cancels grab-mode without writing URL', async ({ page }) => {
-      // TODO Wave 2 / Plan 28-04 — unskip and implement.
+    test('/cost: keyboard Escape cancels grab-mode without writing URL', async ({
+      page,
+    }) => {
+      // Plan 28-04 / LAYO-02 keyboard-cancel: focus the grip, press Space
+      // (grab), press Escape (cancel). aria-pressed must flip back to
+      // false AND the URL must NOT gain panel_order.
       await page.goto('/cost')
-      expect(true).toBe(true)
+      await page.waitForLoadState('domcontentloaded')
+
+      const grip = page.locator(
+        '[data-testid="panel-drag-grip-cost-forecast"]',
+      )
+      await grip.focus()
+      await page.keyboard.press(' ')
+      await expect(grip).toHaveAttribute('aria-pressed', 'true')
+
+      await page.keyboard.press('Escape')
+      await expect(grip).toHaveAttribute('aria-pressed', 'false')
+      await expect(page).not.toHaveURL(/panel_order=/)
+      await expect(page.getByRole('status').first()).toContainText(
+        /cancelled/i,
+      )
     })
   })
 

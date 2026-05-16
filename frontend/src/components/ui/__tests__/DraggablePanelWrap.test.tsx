@@ -137,7 +137,11 @@ describe('DraggablePanelWrap (Phase 28 Plan 28-04 — LAYO-02)', () => {
       expect(grip.getAttribute('draggable')).toBe('true')
     })
 
-    it('wrapper exposes data-panel-id and data-column-id', () => {
+    it('wrapper exposes data-drag-wrap-id and data-column-id', () => {
+      // The wrapper does NOT emit data-panel-id because the inner PanelCard
+      // already does — duplicating would break strict-locator queries in
+      // Playwright. We emit data-drag-wrap-id instead so the wrapper is
+      // queryable from inside tests without disturbing the legacy attribute.
       const { container } = render(
         <DraggablePanelWrap
           panelId="b"
@@ -150,9 +154,10 @@ describe('DraggablePanelWrap (Phase 28 Plan 28-04 — LAYO-02)', () => {
           <div>child</div>
         </DraggablePanelWrap>,
       )
-      const wrap = container.querySelector('[data-panel-id="b"]')
+      const wrap = container.querySelector('[data-drag-wrap-id="b"]')
       expect(wrap).not.toBeNull()
       expect(wrap?.getAttribute('data-column-id')).toBe('main')
+      expect(wrap?.getAttribute('data-panel-id')).toBeNull()
     })
 
     it('aria-live region (role=status, aria-live=polite) is in the DOM', () => {
@@ -220,7 +225,7 @@ describe('DraggablePanelWrap (Phase 28 Plan 28-04 — LAYO-02)', () => {
         </DraggablePanelWrap>,
       )
       const wrap = container.querySelector(
-        '[data-panel-id="b"]',
+        '[data-drag-wrap-id="b"]',
       ) as HTMLElement
       const { dataTransfer } = createMockDataTransfer()
       // Source (panel 'a') was dragged from columnId='main' (same column).
@@ -247,7 +252,7 @@ describe('DraggablePanelWrap (Phase 28 Plan 28-04 — LAYO-02)', () => {
         </DraggablePanelWrap>,
       )
       const wrap = container.querySelector(
-        '[data-panel-id="b"]',
+        '[data-drag-wrap-id="b"]',
       ) as HTMLElement
       const { dataTransfer } = createMockDataTransfer()
       // Source dragged from 'top' — different column. Drop must be no-op.
@@ -276,7 +281,7 @@ describe('DraggablePanelWrap (Phase 28 Plan 28-04 — LAYO-02)', () => {
       fireEvent.dragStart(grip, { dataTransfer })
       // Class only appears for the duration of the drag; dragEnd removes it.
       fireEvent.dragEnd(grip)
-      const wrap = grip.closest('[data-panel-id="b"]') as HTMLElement
+      const wrap = grip.closest('[data-drag-wrap-id="b"]') as HTMLElement
       expect(wrap.className).not.toMatch(/cmc-panel--dragging/)
     })
   })

@@ -2660,6 +2660,21 @@ body {
 /* so the browser composites the drag handle without forcing a  */
 /* re-layout of the containing PanelCard's contain: layout box. */
 /* ─────────────────────────────────────────────────────────── */
+.cmc-draggable-wrap {
+  /* Wrapper IS the grid cell — the parent .cmc-card-grid lays this out
+   * exactly like a bare PanelCard mount. Inside the wrapper, the PanelCard
+   * is the only flow-positioned child; the grip + sr-only region overlay
+   * absolutely. No transform here (Phase 24 Pitfall 2). */
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+.cmc-draggable-wrap > .cmc-panel-grip {
+  position: absolute;
+  top: var(--space-xs);
+  left: var(--space-xs);
+  z-index: 1;
+}
 .cmc-panel-grip {
   display: inline-flex;
   align-items: center;

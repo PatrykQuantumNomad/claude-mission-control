@@ -20,18 +20,31 @@
 //   - Each PanelCard mount carries `panelId={...}` from PANEL_REGISTRY['/cost']
 //     (2 entries) + `headerMenu={<PanelHeaderMenu ... />}`.
 //   - Render-time filtering via useLayoutState.isHidden.
+//
+// Phase 28 Plan 04 (LAYO-02 drag-reorder):
+//   - validateSearch APPEND-ONLY extended with `panel_order?: string`.
+//   - Render-order driven by useLayoutState.orderedPanels('main') instead of
+//     the static PANELS array order.
+//   - Every main-column panel mount wrapped in DraggablePanelWrap so the
+//     drag grip + keyboard reorder + aria-live region are available.
+//   - The .cmc-card-grid container carries data-column-id="main" and
+//     data-testid="panel-grid-main" so DraggablePanelWrap's drop-target
+//     handler can identify its column (Major #6 — Task 2a/2b contract).
 
+import { useMemo } from 'react'
 import { createFileRoute, useRouterState } from '@tanstack/react-router'
 import {
   CostByProjectCard,
   CostForecastCard,
 } from '../components/panels'
-import { PanelHeaderMenu } from '../components/ui'
+import { DraggablePanelWrap, PanelHeaderMenu } from '../components/ui'
 import { useLayoutState } from '../lib/layout/useLayoutState'
+import { getPanelLabel } from '../lib/layout/panelRegistry'
 import {
   SCHEMA_VERSION,
   asComparePanels,
   asHiddenPanels,
+  asPanelOrder,
   asTimeToken,
   coerceSchemaVersion,
 } from '../lib/searchSchemas'
@@ -50,6 +63,9 @@ import {
 //
 // Phase 28 / LAYO-01: APPEND `hidden_panels?` via `asHiddenPanels` — defaults
 // to `undefined` (Pitfall 2 lock preserved).
+//
+// Phase 28 / LAYO-02 (Plan 04): APPEND `panel_order?` via `asPanelOrder` —
+// same Pitfall 2 lock (undefined-default, never empty string).
 export type CostSearch = {
   // OPTIONAL on input — existing `<Link to="/cost">` sites stay untouched;
   // the validator always populates the field on output.
@@ -58,6 +74,7 @@ export type CostSearch = {
   time_to?: string | undefined
   compare_panels?: string | undefined
   hidden_panels?: string | undefined
+  panel_order?: string | undefined
 }
 
 export function validateSearch(raw: Record<string, unknown>): CostSearch {
@@ -67,45 +84,38 @@ export function validateSearch(raw: Record<string, unknown>): CostSearch {
     time_to: asTimeToken(raw.time_to),
     compare_panels: asComparePanels(raw.compare_panels),
     hidden_panels: asHiddenPanels(raw.hidden_panels),
+    panel_order: asPanelOrder(raw.panel_order),
   }
 }
 
-type PanelEntry = {
-  panelId: string
-  label: string
-  render: (props: { panelId: string; headerMenu: React.ReactNode }) => React.ReactNode
-}
+// Phase 28 Plan 04 — Map of panelId → render thunk. The map is the single
+// source of truth for which JSX to render; the orderedPanels(columnId) call
+// drives the iteration order (URL-overridden first, registry-trailing
+// appended in default order). Build the map ONCE per render — the entries
+// only change when component-identity changes, which would already trigger
+// a full re-render.
+type RenderProps = { panelId: string; headerMenu: React.ReactNode }
 
-const PANELS: PanelEntry[] = [
-  {
-    panelId: 'cost-forecast',
-    label: 'Cost forecast',
-    render: (p) => <CostForecastCard {...p} />,
-  },
-  {
-    panelId: 'cost-by-project',
-    label: 'Cost by project',
-    render: (p) => <CostByProjectCard {...p} />,
-  },
-]
+const MAIN_COLUMN = 'main'
+
+const MAIN_PANELS: Record<string, (props: RenderProps) => React.ReactNode> = {
+  'cost-forecast': (p) => <CostForecastCard {...p} />,
+  'cost-by-project': (p) => <CostByProjectCard {...p} />,
+}
 
 function CostPage() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
-  const { isHidden } = useLayoutState(pathname)
+  const { isHidden, orderedPanels, setOrder } = useLayoutState(pathname)
 
-  const renderPanel = (entry: PanelEntry) => {
-    if (isHidden(entry.panelId)) return null
-    return (
-      <span key={entry.panelId} style={{ display: 'contents' }}>
-        {entry.render({
-          panelId: entry.panelId,
-          headerMenu: (
-            <PanelHeaderMenu panelId={entry.panelId} label={entry.label} />
-          ),
-        })}
-      </span>
+  // Visible main-column panel ids in the URL-driven render order. The
+  // .filter(id => id in MAIN_PANELS) gate is Pitfall 7 defense in depth
+  // (a saved view referencing a removed panel id is silently dropped).
+  const visibleMainPanels = useMemo(() => {
+    return orderedPanels(MAIN_COLUMN).filter(
+      (id) => !isHidden(id) && id in MAIN_PANELS,
     )
-  }
+  }, [isHidden, orderedPanels])
+  const total = visibleMainPanels.length
 
   return (
     <section className="cmc-page cmc-page--bounded" aria-labelledby="cost-heading">
@@ -123,7 +133,40 @@ function CostPage() {
           Monthly forecast and per-project cost breakdown.
         </p>
       </header>
-      <div className="cmc-card-grid">{PANELS.map(renderPanel)}</div>
+      <div
+        className="cmc-card-grid"
+        data-column-id={MAIN_COLUMN}
+        data-testid={`panel-grid-${MAIN_COLUMN}`}
+      >
+        {visibleMainPanels.map((id, idx) => {
+          const label = getPanelLabel(pathname, id)
+          return (
+            <DraggablePanelWrap
+              key={id}
+              panelId={id}
+              columnId={MAIN_COLUMN}
+              label={label}
+              index={idx}
+              total={total}
+              onReorder={(fromId, toIndex) => {
+                const next = [...visibleMainPanels]
+                const from = next.indexOf(fromId)
+                if (from === -1 || from === toIndex) return
+                const [moved] = next.splice(from, 1)
+                next.splice(toIndex, 0, moved)
+                setOrder(MAIN_COLUMN, next)
+              }}
+            >
+              {MAIN_PANELS[id]({
+                panelId: id,
+                headerMenu: (
+                  <PanelHeaderMenu panelId={id} label={label} />
+                ),
+              })}
+            </DraggablePanelWrap>
+          )
+        })}
+      </div>
     </section>
   )
 }
