@@ -49,7 +49,7 @@
 // read-side panel.
 
 import { FormEvent, useEffect, useMemo, useState } from 'react'
-import { Button } from '../ui'
+import { Button, type LayoutCustomizableProps } from '../ui'
 import { AlertDialog } from '../ui/AlertDialog'
 import {
   useAlertMetrics,
@@ -300,7 +300,7 @@ function AlertNlInput({
   )
 }
 
-export function AlertRuleForm() {
+export function AlertRuleForm({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   const [draft, setDraft] = useState<Draft>(() => defaultThresholdDraft())
   const [clientError, setClientError] = useState<string | null>(null)
   const [parsedRule, setParsedRule] = useState<AlertRuleCreate | null>(null)
@@ -368,7 +368,7 @@ export function AlertRuleForm() {
   }
 
   return (
-    <article className="cmc-card cmc-card--bounded cmc-alert-rule-form">
+    <article className="cmc-card cmc-card--bounded cmc-alert-rule-form" data-panel-id={panelId}>
       <header className="cmc-panel-card__header">
         <div>
           <p className="cmc-label" style={{ color: 'var(--cmc-text-subtle)', margin: 0 }}>
@@ -382,6 +382,7 @@ export function AlertRuleForm() {
             z-score exceeds the bound.
           </p>
         </div>
+        {headerMenu ? <div className="cmc-alert-rule-form__chrome">{headerMenu}</div> : null}
       </header>
       <AlertNlInput
         onParsed={(rule, desc) => {

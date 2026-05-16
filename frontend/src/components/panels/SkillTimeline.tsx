@@ -38,10 +38,11 @@ import {
   CardTitle,
   StatePill,
   RelativeTime,
+  type LayoutCustomizableProps,
 } from '../ui'
 import { useFirehose } from '../../lib/useFirehose'
 
-interface SkillTimelineProps {
+interface SkillTimelineProps extends LayoutCustomizableProps {
   /**
    * Phase 27 / SC#1. Pre-filter the firehose to a single skill name so
    * /skills/$name can render this panel filtered to the current skill. The
@@ -57,7 +58,7 @@ interface SkillTimelineProps {
   bounded?: boolean
 }
 
-export function SkillTimeline({ skillName, bounded }: SkillTimelineProps = {}) {
+export function SkillTimeline({ skillName, bounded, panelId, headerMenu }: SkillTimelineProps = {}) {
   const [paused, setPaused] = useState(false)
   const [skillFilter, setSkillFilter] = useState('')
 
@@ -82,7 +83,7 @@ export function SkillTimeline({ skillName, bounded }: SkillTimelineProps = {}) {
     status === 'open' ? 'ok' : status === 'connecting' ? 'pending' : 'stale'
 
   return (
-    <Card className={bounded ? 'cmc-card--bounded' : ''}>
+    <Card className={bounded ? 'cmc-card--bounded' : ''} data-panel-id={panelId}>
       <CardHeader>
         <div className="cmc-panel-card__header">
           <div>
@@ -110,6 +111,7 @@ export function SkillTimeline({ skillName, bounded }: SkillTimelineProps = {}) {
               {paused ? 'Resume' : 'Pause'}
             </button>
             <StatePill state={pillState} label={status} />
+            {headerMenu}
           </div>
         </div>
       </CardHeader>

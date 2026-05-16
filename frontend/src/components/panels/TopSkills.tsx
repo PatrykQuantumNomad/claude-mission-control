@@ -16,7 +16,7 @@ import { useMemo, useState, type ReactElement, type ReactNode } from 'react'
 import { Line, LineChart, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from 'recharts'
 import { Link } from '@tanstack/react-router'
 import { Badge, DataTable, DeltaPill, PanelCard, RangeToggle } from '../ui'
-import type { DataTableColumn, RangeOption } from '../ui'
+import type { DataTableColumn, LayoutCustomizableProps, RangeOption } from '../ui'
 import { useSkillUsage } from '../../lib/queries'
 import type { SkillRange, SkillUsageResponse, SkillUsageRow } from '../../lib/api'
 
@@ -122,7 +122,7 @@ function buildAggregate(rows: SkillUsageRow[]): Array<{ day: string; invocations
     .map(([day, invocations]) => ({ day, invocations }))
 }
 
-export function TopSkills() {
+export function TopSkills({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   const [range, setRange] = useState<SkillRange>('14d')
   const query = useSkillUsage(range, 10)
 
@@ -138,6 +138,8 @@ export function TopSkills() {
       title="Top Skills"
       query={query}
       bounded
+      panelId={panelId}
+      headerMenu={headerMenu}
       empty={{
         dataNoun: 'skill activity',
         // Defensive: guard against malformed/empty server payloads (e.g. `{}`)

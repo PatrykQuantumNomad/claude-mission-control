@@ -15,7 +15,7 @@
 // endpoint doesn't expose.
 
 import { Badge, DataTable, PanelCard } from '../ui'
-import type { DataTableColumn } from '../ui'
+import type { DataTableColumn, LayoutCustomizableProps } from '../ui'
 import {
   usePatchSkillAutonomy,
   useSkills,
@@ -34,7 +34,7 @@ const AUTONOMY_OPTIONS: SkillAutonomyRequest['autonomy'][] = [
   'manual',
 ]
 
-export function SkillsRegistry() {
+export function SkillsRegistry({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   const query = useSkills()
   const mutation = usePatchSkillAutonomy()
   // SKLP-10 — use the same 14d usage feed TopSkills uses so the new/dormant
@@ -112,6 +112,8 @@ export function SkillsRegistry() {
       title="Skills Registry"
       description="Catalog of detected skills with autonomy controls"
       query={query}
+      panelId={panelId}
+      headerMenu={headerMenu}
       empty={{
         dataNoun: 'skill registry entries',
         when: (d) => d.items.length === 0,

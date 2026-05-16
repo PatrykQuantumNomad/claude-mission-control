@@ -25,7 +25,7 @@
 // panel does NOT inline refetchInterval (project convention).
 
 import { DataTable, PanelCard, RelativeTime, StatePill } from '../ui'
-import type { DataTableColumn } from '../ui'
+import type { DataTableColumn, LayoutCustomizableProps } from '../ui'
 import { useAlertEvents } from '../../lib/queries'
 import {
   snapToAlertRange,
@@ -78,7 +78,7 @@ const COLUMNS: DataTableColumn<AlertEvent>[] = [
   },
 ]
 
-export function AlertEventsList() {
+export function AlertEventsList({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   // Phase 27 Plan 06: URL-driven range via useRouteRangeVocab.
   // Returns '7d' when the URL has no time picker (matches the v1.2
   // useState<AlertRange>('7d') initial value); otherwise snaps the URL
@@ -96,6 +96,8 @@ export function AlertEventsList() {
       description="Recent firing events. Pending rows are still active; cleared rows resolved themselves."
       query={query}
       bounded
+      panelId={panelId}
+      headerMenu={headerMenu}
       empty={{
         dataNoun: 'alert firings',
         when: (d) => !d.items || d.items.length === 0,

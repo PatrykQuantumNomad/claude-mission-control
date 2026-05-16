@@ -30,10 +30,11 @@ import {
   CardTitle,
   StatePill,
   RelativeTime,
+  type LayoutCustomizableProps,
 } from '../ui'
 import { useFirehose } from '../../lib/useFirehose'
 
-export function OtelPanel() {
+export function OtelPanel({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   const [filter, setFilter] = useState('')
   const { events, status } = useFirehose({ bufferSize: 500 })
 
@@ -51,7 +52,7 @@ export function OtelPanel() {
   // to the .cmc-page--bounded flex ladder's height and the .cmc-otel-feed
   // scroll container caps internally (long sessions don't grow the page).
   return (
-    <Card className="cmc-card--bounded">
+    <Card className="cmc-card--bounded" data-panel-id={panelId}>
       <CardHeader>
         <div className="cmc-panel-card__header">
           <div>
@@ -71,6 +72,7 @@ export function OtelPanel() {
               aria-label="Filter event name"
             />
             <StatePill state={pillState} label={status} />
+            {headerMenu}
           </div>
         </div>
       </CardHeader>

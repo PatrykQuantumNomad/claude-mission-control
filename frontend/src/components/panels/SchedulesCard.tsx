@@ -26,6 +26,7 @@ import {
   DataTable,
   PanelCard,
   RelativeTime,
+  type LayoutCustomizableProps,
 } from '../ui'
 import {
   usePatchSchedule,
@@ -40,7 +41,7 @@ import type {
   TaskListItem,
 } from '../../lib/api'
 
-export function SchedulesCard() {
+export function SchedulesCard({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   const query = useSchedules()
   const [composerOpen, setComposerOpen] = useState(false)
   return (
@@ -50,6 +51,8 @@ export function SchedulesCard() {
         reqId="TPNL-03"
         title="Schedules"
         description="Cron-driven recurring tasks"
+        panelId={panelId}
+        headerMenu={headerMenu}
         trailing={
           <Button
             type="button"

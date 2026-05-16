@@ -10,7 +10,7 @@
 // does NOT inline refetchInterval.
 
 import { useState, FormEvent } from 'react'
-import { Button, PanelCard, RelativeTime } from '../ui'
+import { Button, PanelCard, RelativeTime, type LayoutCustomizableProps } from '../ui'
 import { useAnswerDecision, useDecisions } from '../../lib/queries'
 import type { DecisionListItem, DecisionListResponse } from '../../lib/api'
 
@@ -98,7 +98,7 @@ function DecisionRow({ decision }: { decision: DecisionListItem }) {
   )
 }
 
-export function DecisionsCard() {
+export function DecisionsCard({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   const query = useDecisions()
   return (
     <PanelCard<DecisionListResponse>
@@ -107,6 +107,8 @@ export function DecisionsCard() {
       title="Decisions"
       description="Pending agent decisions awaiting your answer"
       query={query}
+      panelId={panelId}
+      headerMenu={headerMenu}
       empty={{ dataNoun: 'pending decisions' }}
     >
       {(data) => (

@@ -26,7 +26,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { PanelCard } from '../ui'
+import { PanelCard, type LayoutCustomizableProps } from '../ui'
 import { ResetZoomButton } from '../ui/ResetZoomButton'
 import { useChartBrush } from '../time/ChartBrushController'
 import { useTokens } from '../../lib/queries'
@@ -104,7 +104,7 @@ function ChartsStripBody({ data }: { data: TokenUsageResponse }) {
   )
 }
 
-export function ChartsStrip() {
+export function ChartsStrip({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   // /api/usage/tokens does not accept '14d' (Literal closed in observability.py);
   // we overfetch 30d and slice client-side per design notes.
   //
@@ -121,6 +121,8 @@ export function ChartsStrip() {
       title="14-Day Token Trend"
       query={query}
       bounded
+      panelId={panelId}
+      headerMenu={headerMenu}
       empty={{
         dataNoun: '14 days of token usage',
         when: (d) => d.items.length === 0,

@@ -11,7 +11,7 @@
 // 30s polling cadence (locked in lib/queries.ts useFailures) keeps the list
 // fresh without inlining refetchInterval here.
 
-import { Badge, PanelCard, RelativeTime } from '../ui'
+import { Badge, PanelCard, RelativeTime, type LayoutCustomizableProps } from '../ui'
 import { useFailures } from '../../lib/queries'
 import type { FailuresResponse, FailureRow } from '../../lib/api'
 import { useRouteRange } from '../../lib/time/useRouteRange'
@@ -22,7 +22,7 @@ function outcomeVariant(outcome: string): 'danger' | 'warning' | 'neutral' {
   return 'neutral'
 }
 
-export function UnifiedFailures() {
+export function UnifiedFailures({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   // Phase 26 TIME-02 bridge: URL → vocab; per-route default 'today' on
   // /activity. RESEARCH §"Default range" recommends 1h precision for
   // /activity, but the backend vocab tightest bucket is 'today'; that is the
@@ -36,6 +36,8 @@ export function UnifiedFailures() {
       title="Recent Failures"
       query={query}
       bounded
+      panelId={panelId}
+      headerMenu={headerMenu}
       empty={{
         dataNoun: 'failed sessions',
         when: (d) => d.items.length === 0,

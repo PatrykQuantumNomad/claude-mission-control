@@ -21,7 +21,7 @@
 import { useMemo, useState } from 'react'
 import { useQueries } from '@tanstack/react-query'
 import { Badge, DataTable, PanelCard, RangeToggle } from '../ui'
-import type { DataTableColumn, DataTableSort } from '../ui'
+import type { DataTableColumn, DataTableSort, LayoutCustomizableProps } from '../ui'
 import { useSkillUsage, qk } from '../../lib/queries'
 import { fetchSkillLatency } from '../../lib/api'
 import type {
@@ -115,7 +115,7 @@ const COLUMNS: DataTableColumn<Row>[] = [
   },
 ]
 
-export function SkillLatencyTable() {
+export function SkillLatencyTable({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   // Phase 27 / SC#1 — was useState<SkillRange>('14d') with persistKey-backed
   // local toggle. Now the URL's time_from/time_to → vocab bridge is the
   // SOURCE OF TRUTH. The RangeToggle still renders so a user can scope the
@@ -173,6 +173,8 @@ export function SkillLatencyTable() {
       reqId="SKLP-05"
       title="Skill Latency"
       query={usageQuery}
+      panelId={panelId}
+      headerMenu={headerMenu}
       empty={{ dataNoun: 'skill latency data', when: (d) => !d.rows || d.rows.length === 0 }}
       trailing={
         <RangeToggle<SkillRange>

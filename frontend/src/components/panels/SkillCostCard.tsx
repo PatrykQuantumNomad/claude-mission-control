@@ -30,7 +30,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { DeltaPill, KpiTile, PanelCard, RangeToggle } from '../ui'
+import { DeltaPill, KpiTile, PanelCard, RangeToggle, type LayoutCustomizableProps } from '../ui'
 import { useSkillCost } from '../../lib/queries'
 import type { SkillCostResponse, SkillRange } from '../../lib/api'
 import {
@@ -55,7 +55,7 @@ const RANGE_OPTIONS = [
 
 const nf = new Intl.NumberFormat('en')
 
-export function SkillCostCard({ name }: { name: string }) {
+export function SkillCostCard({ name, panelId, headerMenu }: { name: string } & LayoutCustomizableProps) {
   // Phase 27 / SC#1 — global picker WINS over route-local ?range= when both
   // time_from and time_to are present (LOCKED OPERATOR DECISION 2). Three
   // independent sources fold into a single effectiveRange:
@@ -93,6 +93,8 @@ export function SkillCostCard({ name }: { name: string }) {
       reqId="SKLP-02"
       title={`Skill Cost — ${name}`}
       query={query}
+      panelId={panelId}
+      headerMenu={headerMenu}
       empty={{ dataNoun: 'skill cost data', when: (d) => !d.trend || d.trend.length === 0 }}
       trailing={
         <RangeToggle<SkillRange>

@@ -34,7 +34,7 @@ import {
   RelativeTime,
   TruncatedCell,
 } from '../ui'
-import type { DataTableColumn } from '../ui'
+import type { DataTableColumn, LayoutCustomizableProps } from '../ui'
 import { useSessionsList } from '../../lib/queries'
 import type { Range, SessionListItemFull, SessionListResponse } from '../../lib/api'
 import { useRouteRange } from '../../lib/time/useRouteRange'
@@ -47,7 +47,7 @@ const RANGE_OPTIONS: ReadonlyArray<{ value: Range; label: string }> = [
 
 const PAGE_SIZE = 50
 
-interface SessionsTableProps {
+interface SessionsTableProps extends LayoutCustomizableProps {
   /**
    * Optional override for the per-row Compare button click handler. When
    * provided, the button calls `onCompareClick(row.session_id)` instead of
@@ -60,7 +60,7 @@ interface SessionsTableProps {
   onCompareClick?: (session_id: string) => void
 }
 
-export function SessionsTable({ onCompareClick }: SessionsTableProps = {}) {
+export function SessionsTable({ onCompareClick, panelId, headerMenu }: SessionsTableProps = {}) {
   const navigate = useNavigate()
   // Phase 26 TIME-02 bridge: URL → vocab; per-route default 'today' on
   // /activity (where SessionsTable mounts). Local select-toggle clicks
@@ -239,6 +239,8 @@ export function SessionsTable({ onCompareClick }: SessionsTableProps = {}) {
       title="Sessions"
       query={query}
       bounded
+      panelId={panelId}
+      headerMenu={headerMenu}
       trailing={trailing}
       empty={{
         dataNoun: 'session history',

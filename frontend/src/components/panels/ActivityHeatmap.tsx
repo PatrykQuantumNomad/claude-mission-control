@@ -10,7 +10,7 @@
 //   - Renders the <HeatmapGrid> primitive for the cell layout
 //   - Imports useHeatmap from lib/queries (refetchInterval lives there)
 
-import { PanelCard, HeatmapGrid } from '../ui'
+import { PanelCard, HeatmapGrid, type LayoutCustomizableProps } from '../ui'
 import { useHeatmap } from '../../lib/queries'
 import type { HeatmapDayRow, HeatmapResponse } from '../../lib/api'
 import { heatmapColorScale } from './ActivityHeatmap.utils'
@@ -19,7 +19,7 @@ function formatTooltip(row: HeatmapDayRow): string {
   return `${row.day}: ${row.sessions} sessions, ${row.tokens_effective.toLocaleString()} tokens`
 }
 
-export function ActivityHeatmap() {
+export function ActivityHeatmap({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   // Phase 26 Plan 08: the heatmap is INTRINSICALLY a 30-day surface (visual
   // grid is 30 cells). No URL bridge here — the surface is fixed at '30d'
   // regardless of global time picker; the TimePicker effectively zooms the
@@ -33,6 +33,8 @@ export function ActivityHeatmap() {
       title="30-Day Activity"
       query={query}
       bounded
+      panelId={panelId}
+      headerMenu={headerMenu}
       empty={{
         dataNoun: '30 days of session activity',
         when: (d) => d.items.length === 0,

@@ -12,11 +12,11 @@
 // Polling cadence is locked at 60_000ms in lib/queries.ts (useContextHealth) —
 // this panel does NOT inline refetchInterval.
 
-import { Badge, PanelCard, StatList } from '../ui'
+import { Badge, PanelCard, StatList, type LayoutCustomizableProps } from '../ui'
 import { useContextHealth } from '../../lib/queries'
 import type { ContextHealthResponse } from '../../lib/api'
 
-export function ContextHealthCard() {
+export function ContextHealthCard({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   const query = useContextHealth()
   return (
     <PanelCard<ContextHealthResponse>
@@ -25,6 +25,8 @@ export function ContextHealthCard() {
       title="Context Health"
       description="~/.claude/settings.json + CLAUDE.md snapshot"
       query={query}
+      panelId={panelId}
+      headerMenu={headerMenu}
       empty={{
         dataNoun: 'context configuration data',
         when: (d) => !d.settings_exists && !d.claude_md_exists,

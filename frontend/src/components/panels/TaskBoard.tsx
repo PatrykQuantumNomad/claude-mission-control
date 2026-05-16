@@ -28,6 +28,7 @@ import {
   CardHeader,
   CardTitle,
   PanelCard,
+  type LayoutCustomizableProps,
 } from '../ui'
 import {
   useApproveTask,
@@ -64,7 +65,7 @@ function groupByStatus(items: TaskListItem[]): Grouped {
   return out
 }
 
-export function TaskBoard() {
+export function TaskBoard({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   const query = useTasks()
   return (
     <PanelCard<TaskListResponse>
@@ -73,6 +74,8 @@ export function TaskBoard() {
       title="Task Board"
       description="Pending, running, and completed tasks"
       query={query}
+      panelId={panelId}
+      headerMenu={headerMenu}
       empty={{ dataNoun: 'task data' }}
     >
       {(data) => <TaskBoardBody items={data.items} />}

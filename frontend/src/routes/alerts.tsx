@@ -11,16 +11,27 @@
 // /alerts is a top-level page (sibling of /skills, /activity) — NO parent
 // layout nesting required. createFileRoute('/alerts') auto-registers via
 // @tanstack/router-plugin/vite on `pnpm build`.
+//
+// Phase 28 Plan 03 (LAYO-01 + LAYO-04 per-panel half):
+//   - validateSearch APPEND-ONLY extended with `hidden_panels?: string`.
+//   - 3 panel mounts each carry panelId from PANEL_REGISTRY['/alerts'] +
+//     headerMenu={<PanelHeaderMenu ... />}. AlertRuleForm is the only
+//     bespoke (non-PanelCard) panel; its <article> root emits data-panel-id
+//     and renders headerMenu in its header chrome.
+//   - Render-time filter via useLayoutState.isHidden.
 
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useRouterState } from '@tanstack/react-router'
 import {
   AlertEventsList,
   AlertRuleForm,
   AlertRulesList,
 } from '../components/panels'
+import { PanelHeaderMenu } from '../components/ui'
+import { useLayoutState } from '../lib/layout/useLayoutState'
 import {
   SCHEMA_VERSION,
   asComparePanels,
+  asHiddenPanels,
   asTimeToken,
   coerceSchemaVersion,
 } from '../lib/searchSchemas'
@@ -39,6 +50,9 @@ import {
 // persistKey='alert-events-range'` localStorage round-trip is REPLACED by URL
 // state at the AlertEventsList read site — pre-existing localStorage entries
 // under `alert-events-range` become dead values (matches Plan 27-05 stance).
+//
+// Phase 28 / LAYO-01: APPEND `hidden_panels?` via `asHiddenPanels` — defaults
+// to `undefined` (Pitfall 2 lock preserved).
 export type AlertsSearch = {
   // OPTIONAL on input — existing `<Link to="/alerts">` sites stay untouched;
   // the validator always populates the field on output.
@@ -46,6 +60,7 @@ export type AlertsSearch = {
   time_from?: string | undefined
   time_to?: string | undefined
   compare_panels?: string | undefined
+  hidden_panels?: string | undefined
 }
 
 export function validateSearch(raw: Record<string, unknown>): AlertsSearch {
@@ -54,10 +69,59 @@ export function validateSearch(raw: Record<string, unknown>): AlertsSearch {
     time_from: asTimeToken(raw.time_from),
     time_to: asTimeToken(raw.time_to),
     compare_panels: asComparePanels(raw.compare_panels),
+    hidden_panels: asHiddenPanels(raw.hidden_panels),
   }
 }
 
+type PanelEntry = {
+  panelId: string
+  label: string
+  group: 'top' | 'main'
+  render: (props: { panelId: string; headerMenu: React.ReactNode }) => React.ReactNode
+}
+
+const PANELS: PanelEntry[] = [
+  {
+    panelId: 'alert-rules-list',
+    label: 'Alert rules',
+    group: 'top',
+    render: (p) => <AlertRulesList {...p} />,
+  },
+  {
+    panelId: 'alert-rule-form',
+    label: 'New alert rule',
+    group: 'top',
+    render: (p) => <AlertRuleForm {...p} />,
+  },
+  {
+    panelId: 'alert-events-list',
+    label: 'Firing history',
+    group: 'main',
+    render: (p) => <AlertEventsList {...p} />,
+  },
+]
+
 function AlertsPage() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const { isHidden } = useLayoutState(pathname)
+
+  const renderPanel = (entry: PanelEntry) => {
+    if (isHidden(entry.panelId)) return null
+    return (
+      <span key={entry.panelId} style={{ display: 'contents' }}>
+        {entry.render({
+          panelId: entry.panelId,
+          headerMenu: (
+            <PanelHeaderMenu panelId={entry.panelId} label={entry.label} />
+          ),
+        })}
+      </span>
+    )
+  }
+
+  const topPanels = PANELS.filter((p) => p.group === 'top')
+  const mainPanels = PANELS.filter((p) => p.group === 'main')
+
   return (
     <section className="cmc-page cmc-page--bounded" aria-labelledby="alerts-heading">
       <header className="cmc-page__header">
@@ -74,13 +138,8 @@ function AlertsPage() {
           Hysteresis-aware alert rules and firing history.
         </p>
       </header>
-      <div className="cmc-card-grid">
-        <AlertRulesList />
-        <AlertRuleForm />
-      </div>
-      <div className="cmc-card-grid">
-        <AlertEventsList />
-      </div>
+      <div className="cmc-card-grid">{topPanels.map(renderPanel)}</div>
+      <div className="cmc-card-grid">{mainPanels.map(renderPanel)}</div>
     </section>
   )
 }

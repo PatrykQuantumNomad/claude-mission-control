@@ -11,7 +11,7 @@
 // does NOT inline refetchInterval.
 
 import { useState, FormEvent } from 'react'
-import { Button, PanelCard, RelativeTime } from '../ui'
+import { Button, PanelCard, RelativeTime, type LayoutCustomizableProps } from '../ui'
 import {
   useInbox,
   useReadInbox,
@@ -121,7 +121,7 @@ function InboxRow({ message }: { message: InboxListItem }) {
   )
 }
 
-export function InboxCard() {
+export function InboxCard({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   const query = useInbox()
   return (
     <PanelCard<InboxListResponse>
@@ -130,6 +130,8 @@ export function InboxCard() {
       title="Inbox"
       description="Unread messages from agents"
       query={query}
+      panelId={panelId}
+      headerMenu={headerMenu}
       empty={{ dataNoun: 'agent-to-user messages' }}
     >
       {(data) => (

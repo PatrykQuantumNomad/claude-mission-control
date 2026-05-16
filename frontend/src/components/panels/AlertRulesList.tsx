@@ -17,7 +17,7 @@
 // (toggle) / actions (Delete).
 
 import { Badge, DataTable, PanelCard } from '../ui'
-import type { DataTableColumn } from '../ui'
+import type { DataTableColumn, LayoutCustomizableProps } from '../ui'
 import { useAlertRules, useDeleteAlertRule, usePatchAlertRule } from '../../lib/queries'
 import type { AlertRule, AlertRuleListResponse } from '../../lib/api'
 
@@ -132,7 +132,7 @@ const COLUMNS: DataTableColumn<AlertRule>[] = [
   },
 ]
 
-export function AlertRulesList() {
+export function AlertRulesList({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   const query = useAlertRules()
   return (
     <PanelCard<AlertRuleListResponse>
@@ -141,6 +141,8 @@ export function AlertRulesList() {
       description="Hysteresis-aware rules. Edit by deleting + recreating; toggle to disable temporarily."
       query={query}
       bounded
+      panelId={panelId}
+      headerMenu={headerMenu}
       empty={{
         dataNoun: 'alert rules',
         when: (d) => !d.items || d.items.length === 0,

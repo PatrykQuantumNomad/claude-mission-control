@@ -27,8 +27,17 @@
 // the per-name SkillCostCard signature stays clean for /skills/$name (Plan 05).
 // SKLP-02 traceability runs through BOTH SkillCostCard.tsx (the panel) and
 // this wrapper (the page-level resolver).
+//
+// Phase 28 Plan 03 (LAYO-01 + LAYO-04 per-panel half):
+//   - validateSearch APPEND-ONLY extended with `hidden_panels?: string`.
+//   - 10 panel mounts each carry panelId from PANEL_REGISTRY['/skills'] +
+//     headerMenu={<PanelHeaderMenu ... />}. SkillCostCardForTopSkill
+//     forwards both to its internal PanelCard (the empty/loading branch)
+//     OR to the SkillCostCard for the resolved top skill name (the data
+//     branch — SkillCostCard already takes panelId/headerMenu via the
+//     LayoutCustomizableProps shape lifted by Plan 28-03).
 
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useRouterState } from '@tanstack/react-router'
 import {
   ContextHealthCard,
   DecisionsCard,
@@ -42,10 +51,16 @@ import {
   TaskBoard,
 } from '../components/panels'
 import { useSkillUsage } from '../lib/queries'
-import { PanelCard } from '../components/ui'
+import {
+  PanelCard,
+  PanelHeaderMenu,
+  type LayoutCustomizableProps,
+} from '../components/ui'
+import { useLayoutState } from '../lib/layout/useLayoutState'
 import {
   SCHEMA_VERSION,
   asComparePanels,
+  asHiddenPanels,
   asTimeToken,
   coerceSchemaVersion,
 } from '../lib/searchSchemas'
@@ -64,11 +79,15 @@ import {
 // THE PANEL READ SITE via useRouteRangeVocab('14d', snapToSkillRange), NOT
 // in the validator (Pitfall 13: defaulting here would defeat
 // DefaultViewLoader's bare-URL gate). SCHEMA_VERSION stays at 1.
+//
+// Phase 28 / LAYO-01: APPEND `hidden_panels?` via `asHiddenPanels` — defaults
+// to `undefined` (Pitfall 2 lock preserved).
 export type SkillsSearch = {
   schemaVersion?: typeof SCHEMA_VERSION
   time_from?: string | undefined
   time_to?: string | undefined
   compare_panels?: string | undefined
+  hidden_panels?: string | undefined
 }
 
 export function validateSearch(raw: Record<string, unknown>): SkillsSearch {
@@ -77,6 +96,7 @@ export function validateSearch(raw: Record<string, unknown>): SkillsSearch {
     time_from: asTimeToken(raw.time_from),
     time_to: asTimeToken(raw.time_to),
     compare_panels: asComparePanels(raw.compare_panels),
+    hidden_panels: asHiddenPanels(raw.hidden_panels),
   }
 }
 
@@ -86,7 +106,12 @@ export function validateSearch(raw: Record<string, unknown>): SkillsSearch {
 // helper collapses any URL window ≤21 days → '14d', >21 days → '30d'
 // (backend SkillRange Literal). Default '14d' preserved when URL lacks
 // time_from/time_to (bare-URL parity with pre-Phase-27 behavior).
-function SkillCostCardForTopSkill() {
+//
+// Phase 28 / LAYO-01: takes LayoutCustomizableProps so the route can mount
+// it with panelId="skill-cost" and the headerMenu chrome. Forwards both
+// to either the empty/loading PanelCard branch OR the SkillCostCard for
+// the resolved top-1 name.
+function SkillCostCardForTopSkill({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   const range = useRouteRangeVocab('14d', snapToSkillRange)
   const usage = useSkillUsage(range, 1)
   const topName = usage.data?.rows?.[0]?.skill_name
@@ -98,16 +123,108 @@ function SkillCostCardForTopSkill() {
         reqId="SKLP-02"
         title="Skill Cost"
         query={usage}
+        panelId={panelId}
+        headerMenu={headerMenu}
         empty={{ dataNoun: 'skill cost data', when: () => true }}
       >
         {() => null}
       </PanelCard>
     )
   }
-  return <SkillCostCard name={topName} />
+  return <SkillCostCard name={topName} panelId={panelId} headerMenu={headerMenu} />
 }
 
+type PanelEntry = {
+  panelId: string
+  label: string
+  group: 'top' | 'main'
+  render: (props: { panelId: string; headerMenu: React.ReactNode }) => React.ReactNode
+}
+
+const PANELS: PanelEntry[] = [
+  {
+    panelId: 'decisions',
+    label: 'Decisions',
+    group: 'top',
+    render: (p) => <DecisionsCard {...p} />,
+  },
+  {
+    panelId: 'inbox',
+    label: 'Inbox',
+    group: 'top',
+    render: (p) => <InboxCard {...p} />,
+  },
+  {
+    panelId: 'task-board',
+    label: 'Task board',
+    group: 'main',
+    render: (p) => <TaskBoard {...p} />,
+  },
+  {
+    panelId: 'schedules',
+    label: 'Schedules',
+    group: 'main',
+    render: (p) => <SchedulesCard {...p} />,
+  },
+  {
+    panelId: 'skills-registry',
+    label: 'Skills registry',
+    group: 'main',
+    render: (p) => <SkillsRegistry {...p} />,
+  },
+  {
+    panelId: 'mcp-servers',
+    label: 'MCP servers',
+    group: 'main',
+    render: (p) => <McpPanel reqId="SKLP-01" {...p} />,
+  },
+  {
+    panelId: 'skill-cost',
+    label: 'Skill cost',
+    group: 'main',
+    render: (p) => <SkillCostCardForTopSkill {...p} />,
+  },
+  {
+    panelId: 'skill-latency',
+    label: 'Skill latency',
+    group: 'main',
+    render: (p) => <SkillLatencyTable {...p} />,
+  },
+  {
+    panelId: 'skill-timeline',
+    label: 'Skill timeline',
+    group: 'main',
+    render: (p) => <SkillTimeline bounded {...p} />,
+  },
+  {
+    panelId: 'context-health',
+    label: 'Context health',
+    group: 'main',
+    render: (p) => <ContextHealthCard {...p} />,
+  },
+]
+
 function SkillsPage() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const { isHidden } = useLayoutState(pathname)
+
+  const renderPanel = (entry: PanelEntry) => {
+    if (isHidden(entry.panelId)) return null
+    return (
+      <span key={entry.panelId} style={{ display: 'contents' }}>
+        {entry.render({
+          panelId: entry.panelId,
+          headerMenu: (
+            <PanelHeaderMenu panelId={entry.panelId} label={entry.label} />
+          ),
+        })}
+      </span>
+    )
+  }
+
+  const topPanels = PANELS.filter((p) => p.group === 'top')
+  const mainPanels = PANELS.filter((p) => p.group === 'main')
+
   return (
     <section className="cmc-page cmc-page--bounded" aria-labelledby="skills-heading">
       <header className="cmc-page__header">
@@ -125,19 +242,9 @@ function SkillsPage() {
         </p>
       </header>
       {/* Full-width above-grid panels (LiveSessionsCard pattern — design notes). */}
-      <DecisionsCard />
-      <InboxCard />
+      {topPanels.map(renderPanel)}
       {/* Live grid for tasks, schedules, and the SKLP-* family + ContextHealthCard. */}
-      <div className="cmc-card-grid">
-        <TaskBoard />
-        <SchedulesCard />
-        <SkillsRegistry />
-        <McpPanel reqId="SKLP-01" />
-        <SkillCostCardForTopSkill />
-        <SkillLatencyTable />
-        <SkillTimeline bounded />
-        <ContextHealthCard />
-      </div>
+      <div className="cmc-card-grid">{mainPanels.map(renderPanel)}</div>
     </section>
   )
 }
