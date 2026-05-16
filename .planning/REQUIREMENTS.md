@@ -65,10 +65,10 @@ Categorized by surface area. Each maps to exactly one phase in `ROADMAP.md` once
 
 ### Layout Customization (LAYO) — show/hide + reorder + split-pane resize
 
-- [ ] **LAYO-01**: Per-route panel show/hide menu accessible via DropdownMenu in panel header (or page chrome). Hidden state persists into saved view's `state_json` (additive, opaque).
+- [x] **LAYO-01**: Per-route panel show/hide menu accessible via DropdownMenu in panel header (or page chrome). Hidden state persists into saved view's `state_json` (additive, opaque). ✅ 2026-05-16 (Phase 28 Plan 03 — PanelHeaderMenu component NEW with Radix DropdownMenu Settings-icon trigger + Hide + Reset Layout items mounted in PanelCard.headerMenu chrome slot from Plan 28-02; commits e669258 + eccb5a7 + 45ab4c7; APPEND-ONLY hidden_panels validateSearch on / + /activity + /cost + /skills + /alerts via asHiddenPanels validator from Plan 28-02 (Pitfall 2 undefined-default lock); render-time filter via useLayoutState.isHidden across all 5 routes with per-route PANELS render-array pattern (36 panel mounts total); LayoutCustomizableProps forwarding-prop shape exported from components/ui/index.ts so 35 panel components share a single convention; AlertRuleForm bespoke <article> root emits data-panel-id explicitly; SaveViewDialog UNTOUCHED — round-trip Playwright verifies hidden_panels persists into saved view's state_json via existing Phase 25 auto-capture pipeline (Pitfall 3 lock honored); Playwright 7/7 PASS on hide-and-persist + round-trip)
+- [x] **LAYO-04**: Reset-to-default affordance on every layout-customizable surface — "Reset layout" button in DropdownMenu clears `state_json` layout overrides. Prevents corrupt-state lock-in. ✅ 2026-05-16 (Phase 28 Plan 02 ships chrome-level half: SavedViewMenu Reset Layout DropdownMenu.Item with panel-reset-layout-{route} testid + sonner toast.success('Layout reset') — RotateCcw icon + aria-label "Reset layout to default" — escape hatch for "all panels hidden" corrupt-state-lock-in per RESEARCH §7 + A2; safeRouteSlug() try/catch wraps normalizeRouteId so SavedViewMenu mounts on out-of-scope routes (/skills/foo) without crashing — Reset Layout simply does not render there; commit e042402. Phase 28 Plan 03 ships per-panel half: PanelHeaderMenu Reset Layout item with panel-reset-layout-{route} testid + sonner toast.success('Layout reset') in every panel's chrome on the 5 in-scope routes; Playwright LAYO-04 per-panel reset on /cost asserts the three layout keys (hidden_panels/panel_order/split_sizes) drop while time_from/time_to/compare_panels/range/a/b/schemaVersion survive verbatim (LAYO-04 SC#3 + Pitfall 11 destructuring-delete lock validated end-to-end). Two-surface coverage: operator can always escape regardless of whether any panels remain visible. commits e669258 + 45ab4c7)
 - [ ] **LAYO-02**: 1D drag-reorder of panels within columns (single-column reorder; no cross-column movement). Persists into saved view's `state_json`.
 - [ ] **LAYO-03**: Split-pane resize via `react-resizable-panels@4.11.0` on `/sessions/compare` (left/right resize) and per-route shells where useful. Single new dep covers this. Drag handle + double-click to reset.
-- [ ] **LAYO-04**: Reset-to-default affordance on every layout-customizable surface — "Reset layout" button in DropdownMenu clears `state_json` layout overrides. Prevents corrupt-state lock-in.
 
 ### Command Palette (CMDK) — additive Command.Group blocks
 
@@ -208,10 +208,10 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 | TIME-03 | Phase 26 | ✅ Complete (plan 03, 2026-05-13) |
 | TIME-04 | Phase 26 | ✅ Complete (plan 07 + plan 09 close gate, 2026-05-13) |
 | TIME-05 | Phase 26 | ✅ Complete (plan 05 + plan 09 close gate, 2026-05-13) |
-| LAYO-01 | Phase 28 | Pending |
+| LAYO-01 | Phase 28 | ✅ Complete (plan 03, 2026-05-16) |
 | LAYO-02 | Phase 28 | Pending |
 | LAYO-03 | Phase 28 | Pending |
-| LAYO-04 | Phase 28 | Pending |
+| LAYO-04 | Phase 28 | ✅ Complete (plans 02 + 03, 2026-05-16) |
 | CMDK-01 | Phase 25 | ✅ Complete (plan 08, 2026-05-12) |
 | CMDK-02 | Phase 26 | ✅ Complete (plan 06 Task 2, 2026-05-13) |
 | CMDK-03 | Phase 26 | ✅ Complete (plan 06 Task 1, 2026-05-13) |
@@ -237,8 +237,8 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 - ✅ Phase 25 closed (operator verdict PASS, 2026-05-12): 11/11 requirements complete — VIEW-01..09, CMDK-01, SHEL-06
 - ✅ Phase 26 closed (operator verdict PASS, 2026-05-13): 9/9 requirements complete — SHEL-05, TIME-01..05, CMDK-02..04
 - ✅ Phase 27 closed (operator verdict PASS via live Chrome DevTools MCP walkthrough, 2026-05-16): 3/3 requirements complete — TDBT-01, TDBT-02, TDBT-03
-- ⏳ Phase 28 pending: 4/45 requirements outstanding (LAYO-01..04)
-- Net v1.3 progress: 41/45 (91%)
+- ⏳ Phase 28 in progress: 2/4 requirements satisfied (LAYO-01 ✅ Plan 03, LAYO-04 ✅ Plans 02 + 03); 2 outstanding (LAYO-02 Plan 04, LAYO-03 Plan 05)
+- Net v1.3 progress: 43/45 (96%)
 
 **Per-phase rollup:**
 
