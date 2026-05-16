@@ -1223,32 +1223,29 @@ export function useLayoutState(route: string) {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> **Resolution status (planner-applied 2026-05-16):** Phase 28 has NO `28-CONTEXT.md` artifact (no `/gsd:discuss-phase` session occurred). Per planner policy, when discuss-phase is skipped, each recommendation below is adopted as the committed default for the planning artifacts. Each entry is rewritten with an explicit `**RESOLVED:**` marker. Plans 28-01..06 implement these resolutions verbatim.
 
 1. **Operator preference: confirm dialog on "Reset layout" or instant action?**
-   - What we know: §7 recommends instant (single-user local, low blast radius); REQUIREMENTS.md LAYO-04 says "Prevents corrupt-state lock-in" — implies the action is the escape hatch.
-   - What's unclear: whether the operator wants a soft "Are you sure?" given the action wipes 3 URL params silently.
-   - Recommendation: instant action + sonner toast "Layout reset" (toast is the affordance, not the confirm).
+   - What we knew: §7 recommends instant (single-user local, low blast radius); REQUIREMENTS.md LAYO-04 says "Prevents corrupt-state lock-in" — implies the action is the escape hatch.
+   - **RESOLVED:** Instant action + sonner `toast.success('Layout reset')` — NO confirm dialog. The toast is the affordance, not the confirm. Shipped by Plan 28-02 Task 3 (SavedViewMenu) + Plan 28-03 Task 1 (PanelHeaderMenu).
 
 2. **Operator preference: include `/skills/$name` in show/hide scope?**
-   - What we know: §5 defers it (single-column stack — marginal value); Phase 27 deliberately chose single-column stack for the detail page.
-   - What's unclear: whether the operator finds value in hiding individual sections (e.g., hide `SkillRunsTable` to see `SkillCostCard` + `SkillProjectsTable` only).
-   - Recommendation: discuss-phase confirms; v1 stays out of scope unless explicit request.
+   - What we knew: §5 defers it (single-column stack — marginal value); Phase 27 deliberately chose single-column stack for the detail page.
+   - **RESOLVED:** Deferred to v1.4 — OUT OF SCOPE for Phase 28. Single-column stack provides marginal value; no grid to reorder, no meaningful split-pane. Documented in `docs/url-contract.md` Phase 28 "Locked invariants" subsection by Plan 28-01 Task 2 and listed in `28-VISUAL-CHECK.md` §8 Accepted Exceptions by Plan 28-06 Task 3.
 
 3. **Panel-id locked-vocabulary enforcement: ESLint rule or pure documentation?**
-   - What we know: §Pitfall 9 + §Assumption A10 lock the invariant.
-   - What's unclear: whether to enforce via a new ESLint rule (parallels `cmc/testid-registry-only`, `cmc/no-raw-z-index`) or via PR review.
-   - Recommendation: documentation only for v1 — ESLint rule has marginal value pre-rename event. Promote to ESLint rule if a rename is ever proposed.
+   - What we knew: §Pitfall 9 + §Assumption A10 lock the invariant.
+   - **RESOLVED:** Documentation only for v1 — NO ESLint rule. ESLint rule has marginal value pre-rename event. Promote to ESLint rule only if a rename is ever proposed in v1.4+. Documented in `docs/url-contract.md` "Locked invariants (Phase 28)" subsection by Plan 28-01 Task 2.
 
-4. **Where does the "Show hidden panels" submenu live?**
-   - What we know: §LAYO-01 says "DropdownMenu in panel header" — but if all panels in a column are hidden, there's no header to attach to.
-   - What's unclear: whether to also expose the unhide action via the AppShellHeader's SavedViewMenu, or via a small "+ Show panels" affordance at the column top.
-   - Recommendation: discuss-phase decides; surface in SavedViewMenu as fallback (already a chrome surface) + add a column-header "+ Show panels" affordance only if visual checkpoint flags the empty-column state as confusing.
+4. **Where does the "Show hidden panels" / Reset Layout escape hatch live when all panels in a column are hidden?**
+   - What we knew: §LAYO-01 says "DropdownMenu in panel header" — but if all panels in a column are hidden, there's no header to attach to.
+   - **RESOLVED:** SavedViewMenu surfaces a "Reset Layout" item (the chrome surface that always survives — assumption A2 in §7). NO column-header "+ Show panels" affordance in v1; if the visual checkpoint flags the empty-column state as confusing, re-evaluate in v1.4. Shipped by Plan 28-02 Task 3.
 
 5. **`split_sizes` URL param shape (CSV groups vs single-group):**
-   - What we know: §2 Pattern 2 proposes `<groupId>:<n1>,<n2>;<groupId>:...` to support multiple groups per route.
-   - What's unclear: whether `/sessions/compare` will ever need more than one split group (currently no).
-   - Recommendation: ship the multi-group shape for forward-compat (string parsing handles single group as a special case); cost is ~5 LOC.
+   - What we knew: §2 Pattern 2 proposes `<groupId>:<n1>,<n2>;<groupId>:...` to support multiple groups per route.
+   - **RESOLVED:** Multi-group CSV shape (`split_sizes=compare:60,40;main:30,70`) for forward-compat. String parsing handles the single-group case (`compare:60,40`) as a special case. Cost ~5 LOC. Shipped via `asSplitSizes` validator regex in Plan 28-02 Task 1.
 
 ---
 
@@ -1330,9 +1327,16 @@ No `./CLAUDE.md` exists at the repo root (verified 2026-05-16 via `Read` tool �
 | Pitfalls | HIGH | 14 pitfalls cross-referenced from Phases 24/25/26/27 RESEARCH.md + VISUAL-CHECK.md |
 | Native HTML5 dnd a11y | MEDIUM | Pattern is documented but implementation density is high; planner should budget extra time |
 
-### Open Questions
+### Open Questions (RESOLVED)
 
-5 open questions enumerated above — all are operator-preference / scope-confirmation items for discuss-phase, none block the planner.
+All 5 open questions enumerated above are RESOLVED via planner-adopted defaults (no `28-CONTEXT.md` was produced):
+1. Reset layout UX → **RESOLVED:** instant + sonner toast (no confirm dialog).
+2. `/skills/$name` inclusion → **RESOLVED:** deferred to v1.4 (out of scope).
+3. Panel-id rename enforcement → **RESOLVED:** doc-only for v1 (no ESLint rule).
+4. All-hidden column fallback → **RESOLVED:** SavedViewMenu "Reset Layout" surface (escape hatch via Plan 28-02).
+5. `split_sizes` shape → **RESOLVED:** multi-group CSV (`split_sizes=compare:60,40;main:30,70`) for forward-compat.
+
+None block planning. Plans 28-01..06 implement these resolutions.
 
 ### Ready for Planning
 
