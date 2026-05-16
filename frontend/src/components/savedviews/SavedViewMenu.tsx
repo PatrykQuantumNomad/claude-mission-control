@@ -34,11 +34,17 @@ import {
   Pin,
   PinOff,
   Plus,
+  RotateCcw,
   Star,
   Trash2,
 } from 'lucide-react'
 import { useNavigate, useRouterState } from '@tanstack/react-router'
+import { toast } from 'sonner'
 import type { SavedView } from '../../lib/api'
+import {
+  normalizeRouteId as normalizeRouteSlug,
+} from '../../lib/layout/panelRegistry'
+import { useLayoutState } from '../../lib/layout/useLayoutState'
 import { useDeleteView, useSavedViews } from '../../lib/queries'
 import {
   getDefaultViewId,
@@ -58,10 +64,33 @@ import { useUrlDivergesFromLoadedView } from './UnsavedPip'
 // a churn-edit. The canonical home is `./routeNormalize.ts`.
 export { normalizeRouteId } from './routeNormalize'
 
+// Phase 28 / LAYO-04. Slug coercion for the `panel-reset-layout-{route}`
+// testid family. `normalizeRouteSlug` (from panelRegistry) throws for
+// pathnames not in the 6 Phase 28 in-scope routes — SavedViewMenu mounts on
+// EVERY route (including `/skills/$name` which is intentionally out of
+// scope), so this wrapper returns `null` for out-of-scope routes and the
+// Reset Layout item simply does not render. This is the LAYO-04 corrupt-
+// state-lock-in escape hatch — only meaningful for routes that have layout
+// state to reset.
+function safeRouteSlug(pathname: string): string | null {
+  try {
+    return normalizeRouteSlug(pathname)
+  } catch {
+    return null
+  }
+}
+
 export function SavedViewMenu() {
   const navigate = useNavigate()
   const location = useRouterState({ select: (s) => s.location })
   const currentRoute = normalizeRouteId(location.pathname)
+  const layoutRouteSlug = safeRouteSlug(location.pathname)
+  // Pass the raw pathname to useLayoutState — the hook's PANEL_REGISTRY
+  // lookup uses pathname-style keys (`/`, `/cost`, etc.), distinct from the
+  // testid slug vocabulary (`home`, `cost`, etc.). When the pathname is out
+  // of scope (e.g. `/skills/foo`), useLayoutState's orderedPanels returns
+  // empty arrays and reset() is a no-op — safe to invoke unconditionally.
+  const { reset: resetLayout } = useLayoutState(location.pathname)
   const { data, isLoading } = useSavedViews(currentRoute)
   const { loadedView, setLoadedView } = useLoadedView()
   const urlDiverges = useUrlDivergesFromLoadedView()
@@ -216,6 +245,33 @@ export function SavedViewMenu() {
                 </DropdownMenu.Portal>
               </DropdownMenu.Sub>
             ))}
+
+            {/*
+              Phase 28 / LAYO-04 escape hatch (RESEARCH §7 + A2).
+              When every panel on a route is hidden, the operator has no
+              per-panel menu to fall back to — SavedViewMenu is the chrome
+              surface that survives. Rendered only on Phase-28 in-scope
+              routes (layoutRouteSlug !== null guards out `/skills/$name`
+              and any other future out-of-scope route).
+              Plan 28-03 mounts the per-panel sibling Reset Layout item in
+              PanelHeaderMenu — two-surface coverage of LAYO-04.
+            */}
+            {layoutRouteSlug !== null && (
+              <>
+                <DropdownMenu.Separator className="cmc-dropdown__sep" />
+                <DropdownMenu.Item
+                  className="cmc-dropdown__item"
+                  data-testid={`panel-reset-layout-${layoutRouteSlug}`}
+                  aria-label="Reset layout to default"
+                  onSelect={() => {
+                    resetLayout()
+                    toast.success('Layout reset')
+                  }}
+                >
+                  <RotateCcw size={14} aria-hidden /> Reset layout
+                </DropdownMenu.Item>
+              </>
+            )}
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>

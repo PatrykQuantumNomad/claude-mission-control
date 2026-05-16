@@ -47,6 +47,32 @@ interface PanelCardProps<TData> {
    * Per-route adoption is Phase 26/27 (this plan only ships the primitive).
    */
   bounded?: boolean
+  /**
+   * Phase 28 / LAYO-01. When present, the panel participates in layout
+   * customization. Emits `data-panel-id={panelId}` on the root <Card> so
+   * Playwright + the show/hide pipeline can scope per-panel assertions and
+   * filtering. Plan 28-03 mounts `<PanelHeaderMenu panelId={panelId}
+   * label={title} />` into the `headerMenu` slot below; Plan 28-04 may wrap
+   * the rendered card in `<DraggablePanelWrap panelId={panelId} />`.
+   *
+   * APPEND-ONLY optional prop — existing PanelCard call sites (~48 in the
+   * codebase as of Phase 27 close) compile + render identically without
+   * setting this prop. Setting it does NOT change the rendered chrome by
+   * itself; the `data-panel-id` attribute is the only DOM effect today.
+   */
+  panelId?: string
+  /**
+   * Phase 28 / LAYO-01 (Plan 28-03 consumer). Optional trailing-chrome slot
+   * for `PanelHeaderMenu`. Renders to the right of `trailing` inside
+   * `cmc-panel-card__header`. APPEND-ONLY — existing call sites pass nothing
+   * and the slot is omitted from the DOM.
+   *
+   * Plan 28-03 passes `<PanelHeaderMenu panelId={panelId} label={title} />`
+   * here. Kept separate from `trailing` so per-panel chrome (RangeToggle,
+   * CompareToggle, etc.) and the layout-customization menu can coexist
+   * without one trampling the other.
+   */
+  headerMenu?: ReactNode
   children: (data: TData) => ReactNode
 }
 
@@ -74,6 +100,8 @@ export function PanelCard<T>({
   skeleton,
   hiddenWhenEmpty,
   bounded,
+  panelId,
+  headerMenu,
   children,
 }: PanelCardProps<T>) {
   // hiddenWhenEmpty: short-circuit to null (used by AttentionBar).
@@ -89,8 +117,16 @@ export function PanelCard<T>({
 
   // bounded omitted/false → className="" → Card emits "cmc-card" (byte-identical
   // to the legacy output). bounded=true → "cmc-card cmc-card--bounded".
+  //
+  // panelId omitted → data-panel-id attribute not emitted (byte-identical
+  // markup for the ~48 pre-Phase-28 call sites). panelId present → attribute
+  // emitted; Plan 28-03 PanelHeaderMenu / Plan 28-04 DraggablePanelWrap
+  // consume the attribute for cross-component DOM queries.
   return (
-    <Card className={bounded ? 'cmc-card--bounded' : ''}>
+    <Card
+      className={bounded ? 'cmc-card--bounded' : ''}
+      data-panel-id={panelId}
+    >
       <CardHeader>
         <div className="cmc-panel-card__header">
           <div>
@@ -98,7 +134,12 @@ export function PanelCard<T>({
             <CardTitle>{title}</CardTitle>
             {description ? <CardDescription>{description}</CardDescription> : null}
           </div>
-          {trailing ? <div>{trailing}</div> : null}
+          {trailing || headerMenu ? (
+            <div>
+              {trailing}
+              {headerMenu}
+            </div>
+          ) : null}
         </div>
       </CardHeader>
       <CardContent>

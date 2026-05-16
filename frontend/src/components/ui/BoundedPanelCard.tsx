@@ -22,6 +22,10 @@ interface BoundedPanelCardProps<TData> {
   empty: PanelCardEmpty<TData>
   skeleton?: ReactNode
   hiddenWhenEmpty?: boolean
+  /** Phase 28 / LAYO-01 — see PanelCard.panelId JSDoc. APPEND-ONLY optional. */
+  panelId?: string
+  /** Phase 28 / LAYO-01 — see PanelCard.headerMenu JSDoc. APPEND-ONLY optional. */
+  headerMenu?: ReactNode
   children: (data: TData) => ReactNode
 }
 
