@@ -174,7 +174,7 @@ function SkillLatencySnapshot({
   const data = query.data
   if (!data) return null
   return (
-    <section className="cmc-card" aria-label="Skill latency snapshot">
+    <section className="cmc-card cmc-card--bounded" aria-label="Skill latency snapshot">
       <header className="cmc-panel-card__header">
         <div>
           {renderedReqId}
