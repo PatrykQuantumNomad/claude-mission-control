@@ -8,7 +8,7 @@
 
 import { useState } from 'react'
 import { Badge, DataTable, PanelCard, RangeToggle } from '../ui'
-import type { DataTableColumn, DataTableSort } from '../ui'
+import type { DataTableColumn, DataTableSort, LayoutCustomizableProps } from '../ui'
 import { useLatency } from '../../lib/queries'
 import type { Range, ToolLatencyResponse, ToolLatencyRow } from '../../lib/api'
 import { useRouteRange } from '../../lib/time/useRouteRange'
@@ -108,7 +108,7 @@ const COLUMNS: DataTableColumn<ToolLatencyRow>[] = [
   },
 ]
 
-export function ToolLatencyCard() {
+export function ToolLatencyCard({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   // Phase 26 TIME-02 bridge: URL → vocab; per-route default 'today' on /.
   const globalRange = useRouteRange('today')
   const [localRange, setLocalRange] = useState<Range | null>(null)
@@ -121,6 +121,8 @@ export function ToolLatencyCard() {
       title="Tool Latency"
       query={query}
       bounded
+      panelId={panelId}
+      headerMenu={headerMenu}
       empty={{
         dataNoun: 'tool latency data',
         when: (d) => d.items.length === 0,

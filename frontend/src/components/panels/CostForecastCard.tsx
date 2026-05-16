@@ -32,11 +32,11 @@
 //     be meaningful. The forecast already encodes its own confidence via
 //     the partial_month_bias banner.
 
-import { KpiTile, PanelCard } from '../ui'
+import { KpiTile, PanelCard, type LayoutCustomizableProps } from '../ui'
 import { useCostForecast } from '../../lib/queries'
 import type { CostForecastResponse } from '../../lib/api'
 
-export function CostForecastCard() {
+export function CostForecastCard({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   const query = useCostForecast()
 
   return (
@@ -49,6 +49,8 @@ export function CostForecastCard() {
         title="Cost Forecast"
         query={query}
         bounded
+        panelId={panelId}
+        headerMenu={headerMenu}
         empty={{
           // The forecast endpoint always returns a body — empty branch only
           // fires if `data` is nullish (network-stub path). The actual

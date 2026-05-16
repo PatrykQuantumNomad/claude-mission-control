@@ -11,7 +11,7 @@
 //   3. Tool Calls — tool_call_count
 //   4. Errors    — error_count, with red emphasis when > 0
 
-import { KpiTile, PanelCard, RelativeTime } from '../ui'
+import { KpiTile, PanelCard, RelativeTime, type LayoutCustomizableProps } from '../ui'
 import { useSummary } from '../../lib/queries'
 import type { TodaySummaryResponse } from '../../lib/api'
 
@@ -26,7 +26,7 @@ function totalTokens(d: TodaySummaryResponse): number {
   )
 }
 
-export function KpiRow() {
+export function KpiRow({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   const query = useSummary()
   return (
     <PanelCard<TodaySummaryResponse>
@@ -35,6 +35,8 @@ export function KpiRow() {
       query={query}
       empty={{ dataNoun: 'today summary', when: () => false }}
       bounded
+      panelId={panelId}
+      headerMenu={headerMenu}
       trailing={
         query.data ? <RelativeTime value={query.data.date} absoluteTooltip={false} /> : null
       }

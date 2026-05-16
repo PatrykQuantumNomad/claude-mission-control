@@ -196,9 +196,11 @@ function McpServerRowItem({ server }: { server: McpServerRow }) {
 
 interface McpPanelProps {
   reqId?: string
+  panelId?: string
+  headerMenu?: import('react').ReactNode
 }
 
-export function McpPanel({ reqId = 'OPNL-15' }: McpPanelProps = {}) {
+export function McpPanel({ reqId = 'OPNL-15', panelId, headerMenu }: McpPanelProps = {}) {
   const query = useMcpServers()
   return (
     <PanelCard<McpServerListResponse>
@@ -206,6 +208,8 @@ export function McpPanel({ reqId = 'OPNL-15' }: McpPanelProps = {}) {
       title="MCP Servers"
       query={query}
       bounded
+      panelId={panelId}
+      headerMenu={headerMenu}
       empty={{
         dataNoun: 'MCP server data',
         when: (d) => d.items.length === 0,

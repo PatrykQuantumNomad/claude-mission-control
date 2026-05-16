@@ -6,7 +6,7 @@
 // useFanout(range).
 
 import { useState } from 'react'
-import { PanelCard, RangeToggle, RelativeTime } from '../ui'
+import { PanelCard, RangeToggle, RelativeTime, type LayoutCustomizableProps } from '../ui'
 import { useFanout } from '../../lib/queries'
 import type { AgentFanoutResponse, Range } from '../../lib/api'
 import { useRouteRange } from '../../lib/time/useRouteRange'
@@ -19,7 +19,7 @@ const RANGE_OPTIONS = [
 
 const nf = new Intl.NumberFormat('en')
 
-export function AgentFanoutCard() {
+export function AgentFanoutCard({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   // Phase 26 TIME-02 bridge: URL → vocab; per-route default 'today' on /.
   const globalRange = useRouteRange('today')
   const [localRange, setLocalRange] = useState<Range | null>(null)
@@ -31,6 +31,8 @@ export function AgentFanoutCard() {
       title="Agent Fanout"
       query={query}
       bounded
+      panelId={panelId}
+      headerMenu={headerMenu}
       empty={{
         dataNoun: 'agent invocations',
         when: (d) => d.items.length === 0,

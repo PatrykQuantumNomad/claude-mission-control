@@ -15,7 +15,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { PanelCard, RangeToggle } from '../ui'
+import { PanelCard, RangeToggle, type LayoutCustomizableProps } from '../ui'
 import { useHooks } from '../../lib/queries'
 import type { HookActivityResponse, Range } from '../../lib/api'
 import { useRouteRange } from '../../lib/time/useRouteRange'
@@ -27,7 +27,7 @@ const RANGE_OPTIONS = [
   { value: '30d' as const, label: '30d' },
 ]
 
-export function HookActivityCard() {
+export function HookActivityCard({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   // Phase 26 TIME-02 bridge: URL → vocab; per-route default 'today' on /.
   const globalRange = useRouteRange('today')
   const [localRange, setLocalRange] = useState<Range | null>(null)
@@ -39,6 +39,8 @@ export function HookActivityCard() {
       title="Hook Activity"
       query={query}
       bounded
+      panelId={panelId}
+      headerMenu={headerMenu}
       empty={{
         dataNoun: 'hook fires',
         when: (d) => d.total_fires === 0,

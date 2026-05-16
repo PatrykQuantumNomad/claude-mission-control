@@ -9,8 +9,22 @@
 //   6. .cmc-card-grid containing OPNL-05..15 live analytical panels
 //      (the placeholder helper is no longer used here — its last
 //       consumer for / was the OPNL-05..15 slot list, now superseded.)
+//
+// Phase 28 Plan 03 (LAYO-01 + LAYO-04 per-panel half):
+//   - validateSearch APPEND-ONLY extended with `hidden_panels?: string` —
+//     Pitfall 2 lock: defaults to `undefined`, NEVER an empty string. The
+//     bare-URL gate (DefaultViewLoader) stays intact.
+//   - Every PanelCard mount on this route now carries a `panelId={...}` from
+//     PANEL_REGISTRY['/'] (15 entries) AND a `headerMenu={<PanelHeaderMenu
+//     panelId={...} label={...} />}` so the Settings-icon dropdown lands in
+//     the PanelCard trailing chrome slot (Plan 28-02 contract).
+//   - Render-time filtering via useLayoutState.isHidden. Hidden panels are
+//     skipped from the rendered output entirely; URL `?hidden_panels=<id>`
+//     drives the gate. Round-trip with saved views is automatic — the
+//     SaveViewDialog captures the URL search blob verbatim into state_json
+//     (Phase 25 invariant; no SaveViewDialog edits needed in this plan).
 
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useRouterState } from '@tanstack/react-router'
 import {
   AgentFanoutCard,
   AttentionBar,
@@ -28,9 +42,12 @@ import {
   TokenUsageCard,
   ToolLatencyCard,
 } from '../components/panels'
+import { PanelHeaderMenu } from '../components/ui'
+import { useLayoutState } from '../lib/layout/useLayoutState'
 import {
   SCHEMA_VERSION,
   asComparePanels,
+  asHiddenPanels,
   asTimeToken,
   coerceSchemaVersion,
 } from '../lib/searchSchemas'
@@ -40,7 +57,7 @@ import {
 // `schemaVersion` is OPTIONAL on input (so existing `<Link to="/">` sites stay
 // untouched) but always populated on output by `validateSearch`. Unknown fields
 // drop silently (RESEARCH Pitfall 6) so a stale state_json blob from a saved
-// view doesn't crash the page on load.
+// view doesn't crash the page load.
 //
 // Phase 26 / TIME-01 (Plan 02). Append-only extension: ACCEPT `time_from?` +
 // `time_to?` Grafana-style tokens on `/`. Both default to `undefined` — the
@@ -53,11 +70,16 @@ import {
 // validated by `asComparePanels` — malformed blobs drop silently to undefined.
 // SCHEMA_VERSION stays at 1 (append-only + undefined-default invariant —
 // Pitfall 2 + 13).
+//
+// Phase 28 / LAYO-01 (Plan 03). Append-only extension: ACCEPT `hidden_panels?`
+// as a CSV list of panel ids via `asHiddenPanels`. Defaults to `undefined`
+// (Pitfall 2 — empty string would defeat DefaultViewLoader's bare-URL gate).
 export type IndexSearch = {
   schemaVersion?: typeof SCHEMA_VERSION
   time_from?: string | undefined
   time_to?: string | undefined
   compare_panels?: string | undefined
+  hidden_panels?: string | undefined
 }
 
 export function validateSearch(raw: Record<string, unknown>): IndexSearch {
@@ -66,10 +88,137 @@ export function validateSearch(raw: Record<string, unknown>): IndexSearch {
     time_from: asTimeToken(raw.time_from),
     time_to: asTimeToken(raw.time_to),
     compare_panels: asComparePanels(raw.compare_panels),
+    hidden_panels: asHiddenPanels(raw.hidden_panels),
   }
 }
 
+// Render-array pattern (consistent across all 5 in-scope routes — Plans 03 +
+// 04 reuse this shape verbatim). Each entry pairs a panel id from
+// PANEL_REGISTRY['/'] with an operator-visible label + a render thunk that
+// receives the headerMenu chrome to forward to the panel's PanelCard. The
+// route filters by !isHidden(panelId), then renders each group's panels in
+// the original render order.
+type PanelEntry = {
+  panelId: string
+  label: string
+  group: 'top' | 'main'
+  render: (props: { panelId: string; headerMenu: React.ReactNode }) => React.ReactNode
+}
+
+const PANELS: PanelEntry[] = [
+  {
+    panelId: 'system-pressure',
+    label: 'System pressure',
+    group: 'top',
+    render: (p) => <SystemHealthStrip {...p} />,
+  },
+  {
+    panelId: 'kpi-row',
+    label: 'KPIs',
+    group: 'top',
+    render: (p) => <KpiRow {...p} />,
+  },
+  {
+    panelId: 'attention-bar',
+    label: 'Attention',
+    group: 'top',
+    render: (p) => <AttentionBar {...p} />,
+  },
+  {
+    panelId: 'live-sessions',
+    label: 'Live sessions',
+    group: 'top',
+    render: (p) => <LiveSessionsCard {...p} />,
+  },
+  {
+    panelId: 'token-usage',
+    label: 'Token usage',
+    group: 'main',
+    render: (p) => <TokenUsageCard {...p} />,
+  },
+  {
+    panelId: 'cache-efficiency',
+    label: 'Cache efficiency',
+    group: 'main',
+    render: (p) => <CacheEfficiencyCard {...p} />,
+  },
+  {
+    panelId: 'session-outcomes',
+    label: 'Session outcomes',
+    group: 'main',
+    render: (p) => <SessionOutcomesCard {...p} />,
+  },
+  {
+    panelId: 'tool-latency',
+    label: 'Tool latency',
+    group: 'main',
+    render: (p) => <ToolLatencyCard {...p} />,
+  },
+  {
+    panelId: 'hook-activity',
+    label: 'Hook activity',
+    group: 'main',
+    render: (p) => <HookActivityCard {...p} />,
+  },
+  {
+    panelId: 'project-breakdown',
+    label: 'Project breakdown',
+    group: 'main',
+    render: (p) => <ProjectBreakdownCard {...p} />,
+  },
+  {
+    panelId: 'agent-fanout',
+    label: 'Agent fanout',
+    group: 'main',
+    render: (p) => <AgentFanoutCard {...p} />,
+  },
+  {
+    panelId: 'edit-acceptance',
+    label: 'Edit acceptance',
+    group: 'main',
+    render: (p) => <EditAcceptanceCard {...p} />,
+  },
+  {
+    panelId: 'productivity',
+    label: 'Productivity',
+    group: 'main',
+    render: (p) => <ProductivityCard {...p} />,
+  },
+  {
+    panelId: 'pressure-panel',
+    label: 'Pressure',
+    group: 'main',
+    render: (p) => <PressurePanel {...p} />,
+  },
+  {
+    panelId: 'mcp-panel',
+    label: 'MCP servers',
+    group: 'main',
+    render: (p) => <McpPanel {...p} />,
+  },
+]
+
 function CommandPage() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const { isHidden } = useLayoutState(pathname)
+
+  const renderPanel = (entry: PanelEntry) => {
+    if (isHidden(entry.panelId)) return null
+    return (
+      <span key={entry.panelId} style={{ display: 'contents' }}>
+        {entry.render({
+          panelId: entry.panelId,
+          headerMenu: (
+            <PanelHeaderMenu panelId={entry.panelId} label={entry.label} />
+          ),
+        })}
+      </span>
+    )
+  }
+
+  const topPanels = PANELS.filter((p) => p.group === 'top')
+  const mainPanels = PANELS.filter((p) => p.group === 'main')
+
   return (
     <section className="cmc-page cmc-page--bounded" aria-labelledby="cmd-heading">
       <header className="cmc-page__header">
@@ -86,23 +235,8 @@ function CommandPage() {
           Live view of every Claude Code agent session, token spend, and tool latency.
         </p>
       </header>
-      <SystemHealthStrip />
-      <KpiRow />
-      <AttentionBar />
-      <LiveSessionsCard />
-      <div className="cmc-card-grid">
-        <TokenUsageCard />
-        <CacheEfficiencyCard />
-        <SessionOutcomesCard />
-        <ToolLatencyCard />
-        <HookActivityCard />
-        <ProjectBreakdownCard />
-        <AgentFanoutCard />
-        <EditAcceptanceCard />
-        <ProductivityCard />
-        <PressurePanel />
-        <McpPanel />
-      </div>
+      {topPanels.map(renderPanel)}
+      <div className="cmc-card-grid">{mainPanels.map(renderPanel)}</div>
     </section>
   )
 }

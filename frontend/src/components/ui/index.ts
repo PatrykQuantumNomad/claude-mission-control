@@ -38,3 +38,16 @@ export { AlertDialog } from './AlertDialog'
 // Phase 19 Plan 04 — SKLP-09 period-over-period delta pill primitive.
 export { DeltaPill } from './DeltaPill'
 export type { DeltaPillProps } from './DeltaPill'
+// Phase 28 Plan 03 — LAYO-01 / LAYO-04 per-panel show/hide menu.
+export { PanelHeaderMenu } from './PanelHeaderMenu'
+// Phase 28 Plan 03 — shared forwarding-prop shape for panels that
+// participate in layout customization. Every in-scope panel component
+// (~36 across /, /activity, /cost, /skills, /alerts) accepts these two
+// optional props and forwards them verbatim to its internal PanelCard.
+// The route mounts the panel as:
+//   <FooBarCard panelId="foo-bar" headerMenu={<PanelHeaderMenu panelId="foo-bar" label="Foo bar" />} />
+// Render-time filtering is applied at the route via useLayoutState.isHidden.
+export type LayoutCustomizableProps = {
+  panelId?: string
+  headerMenu?: import('react').ReactNode
+}

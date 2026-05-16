@@ -15,7 +15,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { PanelCard, RangeToggle } from '../ui'
+import { PanelCard, RangeToggle, type LayoutCustomizableProps } from '../ui'
 import { useOutcomes } from '../../lib/queries'
 import type { OutcomesResponse, Range } from '../../lib/api'
 import { useRouteRange } from '../../lib/time/useRouteRange'
@@ -26,7 +26,7 @@ const RANGE_OPTIONS = [
   { value: '30d' as const, label: '30d' },
 ]
 
-export function SessionOutcomesCard() {
+export function SessionOutcomesCard({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   // Phase 26 TIME-02 bridge: URL → vocab; per-route default 'today' on /.
   const globalRange = useRouteRange('today')
   const [localRange, setLocalRange] = useState<Range | null>(null)
@@ -38,6 +38,8 @@ export function SessionOutcomesCard() {
       title="Session Outcomes"
       query={query}
       bounded
+      panelId={panelId}
+      headerMenu={headerMenu}
       empty={{
         dataNoun: 'session outcome data',
         when: (d) => d.items.length === 0,

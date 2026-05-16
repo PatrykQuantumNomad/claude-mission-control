@@ -58,7 +58,7 @@
 
 import { useState } from 'react'
 import { DataTable, PanelCard, TruncatedCell } from '../ui'
-import type { DataTableColumn, DataTableSort } from '../ui'
+import type { DataTableColumn, DataTableSort, LayoutCustomizableProps } from '../ui'
 import { useCostBreakdown } from '../../lib/queries'
 import {
   snapToCostRange,
@@ -131,7 +131,7 @@ const COLUMNS: DataTableColumn<CostBreakdownRow>[] = [
   },
 ]
 
-export function CostByProjectCard() {
+export function CostByProjectCard({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   // Phase 27 Plan 05 / SC#2: URL-driven range via useRouteRangeVocab.
   // Returns '7d' when the URL has no time picker (matches the v1.2
   // useState<CostRange>('7d') initial value); otherwise snaps the URL
@@ -157,6 +157,8 @@ export function CostByProjectCard() {
         description="Per-project cost grouped by project_key (12-char hex; never a filesystem path)."
         query={query}
         bounded
+        panelId={panelId}
+        headerMenu={headerMenu}
         empty={{
           dataNoun: 'project cost data',
           when: (d) => !d.rows || d.rows.length === 0,

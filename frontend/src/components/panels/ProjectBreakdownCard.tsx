@@ -9,7 +9,7 @@
 
 import { useState } from 'react'
 import { DataTable, PanelCard, RangeToggle } from '../ui'
-import type { DataTableColumn } from '../ui'
+import type { DataTableColumn, LayoutCustomizableProps } from '../ui'
 import { useByProject } from '../../lib/queries'
 import type { ProjectRollupResponse, ProjectRollupRow, RangeAll } from '../../lib/api'
 import { useRouteRange } from '../../lib/time/useRouteRange'
@@ -68,7 +68,7 @@ const COLUMNS: DataTableColumn<ProjectRollupRow>[] = [
   },
 ]
 
-export function ProjectBreakdownCard() {
+export function ProjectBreakdownCard({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   // Phase 26 TIME-02 bridge: URL → vocab; per-route default 'today' on /.
   // ProjectBreakdownCard's vocab is RangeAll (adds 'all'); the bridge returns
   // Range, which is a subtype of RangeAll — assignment is type-safe.
@@ -82,6 +82,8 @@ export function ProjectBreakdownCard() {
       title="Projects"
       query={query}
       bounded
+      panelId={panelId}
+      headerMenu={headerMenu}
       empty={{
         dataNoun: 'project session data',
         when: (d) => d.items.length === 0,

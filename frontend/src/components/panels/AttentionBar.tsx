@@ -21,7 +21,7 @@
 // implementation closes the implementation deferral by surfacing pending_decisions
 // + failed_tasks (now real-data-backed in routes/system.py SAPI-04).
 
-import { Badge, PanelCard } from '../ui'
+import { Badge, PanelCard, type LayoutCustomizableProps } from '../ui'
 import { useAttention } from '../../lib/queries'
 import type { AttentionItem, AttentionResponse } from '../../lib/api'
 
@@ -31,7 +31,7 @@ function severityVariant(s: AttentionItem['severity']): 'info' | 'warning' | 'da
   return 'info'
 }
 
-export function AttentionBar() {
+export function AttentionBar({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   const query = useAttention()
   return (
     <PanelCard<AttentionResponse>
@@ -40,6 +40,8 @@ export function AttentionBar() {
       query={query}
       hiddenWhenEmpty
       bounded
+      panelId={panelId}
+      headerMenu={headerMenu}
       empty={{
         dataNoun: 'attention items',
         when: (d) =>

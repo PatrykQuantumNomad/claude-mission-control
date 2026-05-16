@@ -12,7 +12,7 @@
 // (409 ended session / 400 invalid sid / 404 missing).
 
 import { useEffect, useState, FormEvent } from 'react'
-import { Button, PanelCard, RelativeTime, Sheet, Skeleton, StatePill } from '../ui'
+import { Button, PanelCard, RelativeTime, Sheet, Skeleton, StatePill, type LayoutCustomizableProps } from '../ui'
 import {
   useFollowUpMessage,
   useLiveSessions,
@@ -181,7 +181,7 @@ function SessionDrawerBody({
   )
 }
 
-export function LiveSessionsCard() {
+export function LiveSessionsCard({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   const [activeSid, setActiveSid] = useState<string | null>(null)
   const query = useLiveSessions()
   // Phase 23 Plan 02 (CMPR-07 D-07): mirror the local Sheet's open state
@@ -202,6 +202,8 @@ export function LiveSessionsCard() {
         title="Live Sessions"
         query={query}
         bounded
+        panelId={panelId}
+        headerMenu={headerMenu}
         empty={{
           dataNoun: 'live sessions',
           when: (d) => Array.isArray(d) && d.length === 0,

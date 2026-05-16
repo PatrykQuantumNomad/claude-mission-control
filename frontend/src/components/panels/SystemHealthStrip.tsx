@@ -13,7 +13,7 @@
 // Stats line: uptime (humanized seconds → "1h 23m"), memory_rss_mb (1 decimal),
 // last-otel-event-age (seconds), tzname (footnote in --cmc-text-subtle).
 
-import { PanelCard, StatePill } from '../ui'
+import { PanelCard, StatePill, type LayoutCustomizableProps } from '../ui'
 import { useSystemHealth } from '../../lib/queries'
 import type { DaemonAge, SystemHealthResponse } from '../../lib/api'
 
@@ -47,7 +47,7 @@ function serverState(status: SystemHealthResponse['status']): PillState {
   return status === 'ok' ? 'ok' : 'error'
 }
 
-export function SystemHealthStrip() {
+export function SystemHealthStrip({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   const query = useSystemHealth()
   return (
     <PanelCard<SystemHealthResponse>
@@ -56,6 +56,8 @@ export function SystemHealthStrip() {
       query={query}
       empty={{ dataNoun: 'health metrics', when: () => false }}
       bounded
+      panelId={panelId}
+      headerMenu={headerMenu}
     >
       {(data) => (
         <div className="cmc-system-health-strip">

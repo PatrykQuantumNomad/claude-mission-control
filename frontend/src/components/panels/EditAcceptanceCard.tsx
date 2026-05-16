@@ -8,7 +8,7 @@
 
 import { useState } from 'react'
 import { Badge, DataTable, PanelCard, RangeToggle } from '../ui'
-import type { DataTableColumn } from '../ui'
+import type { DataTableColumn, LayoutCustomizableProps } from '../ui'
 import { useEdits } from '../../lib/queries'
 import type { EditDecisionRow, EditDecisionsResponse, Range } from '../../lib/api'
 import { useRouteRange } from '../../lib/time/useRouteRange'
@@ -73,7 +73,7 @@ const COLUMNS: DataTableColumn<EditDecisionRow>[] = [
   },
 ]
 
-export function EditAcceptanceCard() {
+export function EditAcceptanceCard({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   // Phase 26 TIME-02 bridge: URL → vocab; per-route default 'today' on /.
   const globalRange = useRouteRange('today')
   const [localRange, setLocalRange] = useState<Range | null>(null)
@@ -85,6 +85,8 @@ export function EditAcceptanceCard() {
       title="Edit Acceptance"
       query={query}
       bounded
+      panelId={panelId}
+      headerMenu={headerMenu}
       empty={{
         dataNoun: 'edit decision data',
         // Fixed-row card always renders → never empty.

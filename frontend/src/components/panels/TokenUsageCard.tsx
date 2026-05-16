@@ -40,7 +40,7 @@ import {
   YAxis,
 } from 'recharts'
 import { useRouterState } from '@tanstack/react-router'
-import { PanelCard, RangeToggle } from '../ui'
+import { PanelCard, RangeToggle, type LayoutCustomizableProps } from '../ui'
 import { useTokens } from '../../lib/queries'
 import type { Range, TokenUsageResponse } from '../../lib/api'
 import { useRouteRange } from '../../lib/time/useRouteRange'
@@ -55,7 +55,7 @@ const RANGE_OPTIONS = [
   { value: '30d' as const, label: '30d' },
 ]
 
-export function TokenUsageCard() {
+export function TokenUsageCard({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   // Phase 26 TIME-02 bridge: URL time params (via TimePicker) drive the
   // effective range; per-route default is 'today' on /. Local RangeToggle
   // clicks override (localRange wins until reset — v1 limitation).
@@ -100,6 +100,8 @@ export function TokenUsageCard() {
       title="Token Usage"
       query={query}
       bounded
+      panelId={panelId}
+      headerMenu={headerMenu}
       empty={{
         dataNoun: 'token usage data',
         when: (d) => d.items.length === 0,

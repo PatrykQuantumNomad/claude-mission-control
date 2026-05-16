@@ -33,13 +33,39 @@ test.describe('Phase 28 — Layout Customization (LAYO-01..04)', () => {
   // 5 routes × 1 hide-and-persist journey each = 5 skipped tests.
   // ───────────────────────────────────────────────────────────────────
   test.describe('LAYO-01 hide-and-persist', () => {
-    test.skip('/: hide System Pressure persists across reload via ?hidden_panels', async ({ page }) => {
-      // TODO Wave 2 / Plan 28-03 — unskip and implement.
-      // Selectors: panel-header-menu-system-pressure, panel-hide-system-pressure.
-      // Expected URL after hide: ?hidden_panels=system-pressure
-      // Reload: panel still hidden, URL preserved.
+    test('/: hide System Pressure persists across reload via ?hidden_panels', async ({ page }) => {
+      // Plan 28-03 / LAYO-01: hide-and-persist on `/` with system-pressure.
+      // 1. Bare URL → panel visible (data-panel-id=system-pressure mounted).
+      // 2. Open PanelHeaderMenu via the Settings trigger → click "Hide".
+      // 3. Assert URL has ?hidden_panels=system-pressure AND DOM no longer
+      //    contains data-panel-id="system-pressure".
+      // 4. Reload → assert both invariants still hold (validateSearch
+      //    APPEND-ONLY pass-through).
       await page.goto('/')
-      expect(true).toBe(true)
+      await page.waitForLoadState('domcontentloaded')
+
+      // Pre-condition: the panel is mounted.
+      await expect(
+        page.locator('[data-panel-id="system-pressure"]'),
+      ).toBeVisible()
+
+      // Open the per-panel chrome menu + click Hide.
+      await page.getByTestId('panel-header-menu-system-pressure').click()
+      await page.getByTestId('panel-hide-system-pressure').click()
+
+      // URL gains the hidden_panels CSV (single entry today).
+      await expect(page).toHaveURL(/hidden_panels=system-pressure/)
+      await expect(
+        page.locator('[data-panel-id="system-pressure"]'),
+      ).toHaveCount(0)
+
+      // Reload — URL persists; render-time filter re-applies.
+      await page.reload()
+      await page.waitForLoadState('domcontentloaded')
+      await expect(page).toHaveURL(/hidden_panels=system-pressure/)
+      await expect(
+        page.locator('[data-panel-id="system-pressure"]'),
+      ).toHaveCount(0)
     })
 
     test.skip('/activity: hide Heatmap persists across reload via ?hidden_panels', async ({ page }) => {
@@ -48,10 +74,31 @@ test.describe('Phase 28 — Layout Customization (LAYO-01..04)', () => {
       expect(true).toBe(true)
     })
 
-    test.skip('/cost: hide CostByProjectCard persists across reload via ?hidden_panels', async ({ page }) => {
-      // TODO Wave 2 / Plan 28-03 — unskip and implement.
+    test('/cost: hide CostByProjectCard persists across reload via ?hidden_panels', async ({ page }) => {
+      // Plan 28-03 / LAYO-01: hide-and-persist on `/cost` with cost-by-project.
+      // Mirror of the `/` test above — same 4-step navigate-click-assert-reload
+      // pattern. /cost is the cleanest Plan-28 test fixture (2 panels only).
       await page.goto('/cost')
-      expect(true).toBe(true)
+      await page.waitForLoadState('domcontentloaded')
+
+      await expect(
+        page.locator('[data-panel-id="cost-by-project"]'),
+      ).toBeVisible()
+
+      await page.getByTestId('panel-header-menu-cost-by-project').click()
+      await page.getByTestId('panel-hide-cost-by-project').click()
+
+      await expect(page).toHaveURL(/hidden_panels=cost-by-project/)
+      await expect(
+        page.locator('[data-panel-id="cost-by-project"]'),
+      ).toHaveCount(0)
+
+      await page.reload()
+      await page.waitForLoadState('domcontentloaded')
+      await expect(page).toHaveURL(/hidden_panels=cost-by-project/)
+      await expect(
+        page.locator('[data-panel-id="cost-by-project"]'),
+      ).toHaveCount(0)
     })
 
     test.skip('/skills: hide TopSkillsCard persists across reload via ?hidden_panels', async ({ page }) => {

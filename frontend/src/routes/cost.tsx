@@ -13,15 +13,25 @@
 // /cost is a top-level page (sibling of /skills, /activity, /alerts) — NO
 // parent layout nesting. createFileRoute('/cost') auto-registers via
 // @tanstack/router-plugin/vite on `pnpm build`.
+//
+// Phase 28 Plan 03 (LAYO-01 + LAYO-04 per-panel half):
+//   - validateSearch APPEND-ONLY extended with `hidden_panels?: string` —
+//     Pitfall 2 lock: defaults to `undefined`, NEVER an empty string.
+//   - Each PanelCard mount carries `panelId={...}` from PANEL_REGISTRY['/cost']
+//     (2 entries) + `headerMenu={<PanelHeaderMenu ... />}`.
+//   - Render-time filtering via useLayoutState.isHidden.
 
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useRouterState } from '@tanstack/react-router'
 import {
   CostByProjectCard,
   CostForecastCard,
 } from '../components/panels'
+import { PanelHeaderMenu } from '../components/ui'
+import { useLayoutState } from '../lib/layout/useLayoutState'
 import {
   SCHEMA_VERSION,
   asComparePanels,
+  asHiddenPanels,
   asTimeToken,
   coerceSchemaVersion,
 } from '../lib/searchSchemas'
@@ -37,6 +47,9 @@ import {
 // per-panel default ('7d' for CostByProjectCard) is applied AT THE PANEL READ
 // SITE via `useRouteRangeVocab('7d', snapToCostRange)`, never in the validator
 // (defending DefaultViewLoader's bare-URL gate).
+//
+// Phase 28 / LAYO-01: APPEND `hidden_panels?` via `asHiddenPanels` — defaults
+// to `undefined` (Pitfall 2 lock preserved).
 export type CostSearch = {
   // OPTIONAL on input — existing `<Link to="/cost">` sites stay untouched;
   // the validator always populates the field on output.
@@ -44,6 +57,7 @@ export type CostSearch = {
   time_from?: string | undefined
   time_to?: string | undefined
   compare_panels?: string | undefined
+  hidden_panels?: string | undefined
 }
 
 export function validateSearch(raw: Record<string, unknown>): CostSearch {
@@ -52,10 +66,47 @@ export function validateSearch(raw: Record<string, unknown>): CostSearch {
     time_from: asTimeToken(raw.time_from),
     time_to: asTimeToken(raw.time_to),
     compare_panels: asComparePanels(raw.compare_panels),
+    hidden_panels: asHiddenPanels(raw.hidden_panels),
   }
 }
 
+type PanelEntry = {
+  panelId: string
+  label: string
+  render: (props: { panelId: string; headerMenu: React.ReactNode }) => React.ReactNode
+}
+
+const PANELS: PanelEntry[] = [
+  {
+    panelId: 'cost-forecast',
+    label: 'Cost forecast',
+    render: (p) => <CostForecastCard {...p} />,
+  },
+  {
+    panelId: 'cost-by-project',
+    label: 'Cost by project',
+    render: (p) => <CostByProjectCard {...p} />,
+  },
+]
+
 function CostPage() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const { isHidden } = useLayoutState(pathname)
+
+  const renderPanel = (entry: PanelEntry) => {
+    if (isHidden(entry.panelId)) return null
+    return (
+      <span key={entry.panelId} style={{ display: 'contents' }}>
+        {entry.render({
+          panelId: entry.panelId,
+          headerMenu: (
+            <PanelHeaderMenu panelId={entry.panelId} label={entry.label} />
+          ),
+        })}
+      </span>
+    )
+  }
+
   return (
     <section className="cmc-page cmc-page--bounded" aria-labelledby="cost-heading">
       <header className="cmc-page__header">
@@ -72,10 +123,7 @@ function CostPage() {
           Monthly forecast and per-project cost breakdown.
         </p>
       </header>
-      <div className="cmc-card-grid">
-        <CostForecastCard />
-        <CostByProjectCard />
-      </div>
+      <div className="cmc-card-grid">{PANELS.map(renderPanel)}</div>
     </section>
   )
 }

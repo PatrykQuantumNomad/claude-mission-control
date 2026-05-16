@@ -15,7 +15,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { Badge, KpiTile, PanelCard, RangeToggle } from '../ui'
+import { Badge, KpiTile, PanelCard, RangeToggle, type LayoutCustomizableProps } from '../ui'
 import { useCache } from '../../lib/queries'
 import type { CacheResponse, Range } from '../../lib/api'
 import { useRouteRange } from '../../lib/time/useRouteRange'
@@ -26,7 +26,7 @@ const RANGE_OPTIONS = [
   { value: '30d' as const, label: '30d' },
 ]
 
-export function CacheEfficiencyCard() {
+export function CacheEfficiencyCard({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   // Phase 26 TIME-02 bridge: URL → vocab; per-route default 'today' on /.
   const globalRange = useRouteRange('today')
   const [localRange, setLocalRange] = useState<Range | null>(null)
@@ -38,6 +38,8 @@ export function CacheEfficiencyCard() {
       title="Cache Efficiency"
       query={query}
       bounded
+      panelId={panelId}
+      headerMenu={headerMenu}
       empty={{
         dataNoun: 'cache hit rate data',
         when: (d) => d.trend.length === 0,

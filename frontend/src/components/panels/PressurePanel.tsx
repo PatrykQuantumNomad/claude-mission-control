@@ -11,6 +11,7 @@ import {
   PanelCard,
   RelativeTime,
   StatList,
+  type LayoutCustomizableProps,
 } from '../ui'
 import { usePressure } from '../../lib/queries'
 import type { PressureResponse } from '../../lib/api'
@@ -22,7 +23,7 @@ function shortSid(sid: string | null): string {
   return sid.length > 8 ? sid.slice(0, 8) : sid
 }
 
-export function PressurePanel() {
+export function PressurePanel({ panelId, headerMenu }: LayoutCustomizableProps = {}) {
   const query = usePressure()
   return (
     <PanelCard<PressureResponse>
@@ -30,6 +31,8 @@ export function PressurePanel() {
       title="Pressure"
       query={query}
       bounded
+      panelId={panelId}
+      headerMenu={headerMenu}
       empty={{
         dataNoun: 'system pressure data',
         when: () => false,
