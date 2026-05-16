@@ -1,11 +1,11 @@
 # Phase 27 — VISUAL-CHECK
 
-**Operator:** _PENDING SIGNATURE_
+**Operator:** Patryk Golabek
 **Date capture run:** 2026-05-15
-**Date verdict signed:** _PENDING_
+**Date verdict signed:** 2026-05-16
 **Phase:** 27 — Per-Route Adoption II (Skills/Cost/Alerts) + Tech Debt
 **Plan that produced this evidence:** 09 (close gate)
-**Status:** **PENDING OPERATOR VERDICT**
+**Status:** **PASS** — operator-signed verdict via live Chrome DevTools MCP walkthrough against http://localhost:5173 + backend on :8001
 
 **Capture commands:**
 
@@ -31,19 +31,19 @@
 
 | SC | Criterion | Evidence | Verdict |
 |----|-----------|----------|---------|
-| SC#1 | /skills/$name 4-panel bounded + density + global picker re-anchor (long names truncate cleanly) | v13-tail-routes.spec.ts tests 1-6 (SC#1) + v13-truncation.spec.ts new /skills/$name walk + visual-capture skills-detail-bounded × 6 | ⬜ pending |
-| SC#2 | /cost picker re-query + CompareToggle round-trip + project_key truncation | v13-tail-routes.spec.ts tests 7-11 (SC#2) + v13-truncation.spec.ts new /cost walk + cost-dashboard.spec.ts Phase 27 extensions × 3 + visual-capture cost-bounded × 6 | ⬜ pending |
-| SC#3 | Compare picker uses project_key (sha1[:12] of realpath) — TDBT-01 | v13-tail-routes.spec.ts tests 12-15 (SC#3) + backend test_sessions_router.py +3 from Plan 27-02 | ⬜ pending |
-| SC#4 | AlertRuleForm metric vocab from useAlertMetrics — TDBT-02 | v13-tail-routes.spec.ts tests 16-19 (SC#4) + backend test_alerts_metrics_contract.py +2 from Plan 27-07 | ⬜ pending |
-| SC#5 | NL composer 503 retry/queue UX — TDBT-03 | v13-tail-routes.spec.ts tests 20-24 (SC#5) + AlertRuleForm.test.tsx +5 vitest cases from Plan 27-08 + v13-a11y.spec.ts AlertNlInput 503 scan | ⬜ pending |
+| SC#1 | /skills/$name 4-panel bounded + density + global picker re-anchor (long names truncate cleanly) | v13-tail-routes.spec.ts tests 1-6 (SC#1) + v13-truncation.spec.ts new /skills/$name walk + visual-capture skills-detail-bounded × 6 + **live walkthrough 2026-05-16 (Chrome DevTools MCP) — section.cmc-page--bounded ✓; 5/5 .cmc-card--bounded after the d76a95b verification-discovered fix; TruncatedCell wraps `tdd-coverage-author-with-fanout` heading; density-flip preserves all 5 DOM markers (zero re-render contract); global picker WINS — `?time_from=now-25d&time_to=now` causes cost+projects to fetch range=30d while SkillLatencySnapshot stays at route-local range=14d per LOCKED OPERATOR DECISION 2 + source-comment exception** | ✅ **PASS** |
+| SC#2 | /cost picker re-query + CompareToggle round-trip + project_key truncation | v13-tail-routes.spec.ts tests 7-11 (SC#2) + v13-truncation.spec.ts new /cost walk + cost-dashboard.spec.ts Phase 27 extensions × 3 + visual-capture cost-bounded × 6 + **live walkthrough 2026-05-16 — section.cmc-page--bounded ✓; 2/2 .cmc-card--bounded; compare-overlay-toggle-cost-by-project testid mounted; `?time_from=now-30d&time_to=now` triggers `GET /api/cost/breakdown?dim=project&range=30d` (vocab bridge wins) while `/api/cost/forecast` runs without range (MTD opt-out — Accepted Exception #1); clicking CompareToggle writes `?compare_panels=cost-by-project` to URL** | ✅ **PASS** (Accepted Exceptions #1+#2 acknowledged) |
+| SC#3 | Compare picker uses project_key (sha1[:12] of realpath) — TDBT-01 | v13-tail-routes.spec.ts tests 12-15 (SC#3) + backend test_sessions_router.py +3 from Plan 27-02 + **live walkthrough 2026-05-16 — `GET /api/sessions?limit=2` returns `project_key: "37ae465f3a20"` and `"63c04f774647"` (12-char hex on every row); `GET /api/sessions/compare?a=…&b=…` returns `a.project_key` + `b.project_key` both 12-char hex; source-grep `scopeCwd` returns 0 hits, `scopeProjectKey` returns 12 hits in CommandPalette.tsx; "Showing sessions in the same project" copy renders — no 12-char hex leak** | ✅ **PASS** |
+| SC#4 | AlertRuleForm metric vocab from useAlertMetrics — TDBT-02 | v13-tail-routes.spec.ts tests 16-19 (SC#4) + backend test_alerts_metrics_contract.py +2 from Plan 27-07 + **live walkthrough 2026-05-16 — `/alerts` issues `GET /api/alerts/metrics`; AlertRuleForm `<select>` renders 4 options ("Select a metric…" disabled placeholder + 3 raw-key options sourced from API: cost_usd_24h / dispatcher_failed_tasks_5m / skill_p95_latency_ms); `grep -c FALLBACK_KNOWN_METRICS frontend/src/components/panels/AlertRuleForm.tsx` returns 0; `backend/tests/test_alerts_metrics_sync.py` absent; `backend/tests/test_alerts_metrics_contract.py` present** | ✅ **PASS** |
+| SC#5 | NL composer 503 retry/queue UX — TDBT-03 | v13-tail-routes.spec.ts tests 20-24 (SC#5) + AlertRuleForm.test.tsx +5 vitest cases from Plan 27-08 + v13-a11y.spec.ts AlertNlInput 503 scan + **live walkthrough 2026-05-16 — stubbed `/api/alerts/parse-nl` → 503; clicking Parse renders the operator-locked copy verbatim ("Couldn't parse this description. The phrasing didn't match a known pattern, or the natural-language service is temporarily unavailable.") inside `role="alert"` block with Retry button; clicking Retry fires a 2nd POST with identical payload (calls=2, payloadsIdentical=true); zero leaked terms ("credentials missing" / "Anthropic" / "API key" / "ANTHROPIC_API_KEY" all absent — V11 collapsed-failure-mode lock honored); manual ThresholdForm BELOW remains focusable/enabled (Phase 21 Pitfall 5 invariant preserved)** | ✅ **PASS** |
 
 ## REQ-ID Closure
 
 | REQ-ID | Description | Plan(s) | Verdict |
 |--------|-------------|---------|---------|
-| TDBT-01 | project_key wire exposure + ComparePicker switch (canonical id vs cwd proxy) | 27-02 (backend) + 27-03 (frontend) | ⬜ pending |
-| TDBT-02 | FALLBACK_KNOWN_METRICS removal + API-layer contract test replacing build-time grep | 27-07 | ⬜ pending |
-| TDBT-03 | NL composer 503 retry UX + honest non-specific copy (V11 collapsed-failure-mode lock preserved) | 27-08 | ⬜ pending |
+| TDBT-01 | project_key wire exposure + ComparePicker switch (canonical id vs cwd proxy) | 27-02 (backend) + 27-03 (frontend) | ✅ **CLOSED** (live wire shape + frontend source-grep verified) |
+| TDBT-02 | FALLBACK_KNOWN_METRICS removal + API-layer contract test replacing build-time grep | 27-07 | ✅ **CLOSED** (source-grep + file existence + live `<select>` options verified) |
+| TDBT-03 | NL composer 503 retry UX + honest non-specific copy (V11 collapsed-failure-mode lock preserved) | 27-08 | ✅ **CLOSED** (stubbed 503 → honest copy + Retry re-fire + V11 leak check verified) |
 
 ## Automated Evidence Summary
 
@@ -67,30 +67,30 @@ Operator: open each PNG in alpha order under `.planning/phases/27-per-route-adop
 
 | Surface × Density × Theme | Verdict | Notes |
 | ------------------------- | ------- | ----- |
-| alerts-bounded__compact__dark.png | _pending_ | _operator fill_ |
-| alerts-bounded__compact__light.png | _pending_ | _operator fill_ |
-| alerts-bounded__comfortable__dark.png | _pending_ | _operator fill_ |
-| alerts-bounded__comfortable__light.png | _pending_ | _operator fill_ |
-| alerts-bounded__cozy__dark.png | _pending_ | _operator fill_ |
-| alerts-bounded__cozy__light.png | _pending_ | _operator fill_ |
-| cost-bounded__compact__dark.png | _pending_ | _operator fill_ |
-| cost-bounded__compact__light.png | _pending_ | _operator fill_ |
-| cost-bounded__comfortable__dark.png | _pending_ | _operator fill_ |
-| cost-bounded__comfortable__light.png | _pending_ | _operator fill_ |
-| cost-bounded__cozy__dark.png | _pending_ | _operator fill_ |
-| cost-bounded__cozy__light.png | _pending_ | _operator fill_ |
-| skills-detail-bounded__compact__dark.png | _pending_ | _operator fill_ |
-| skills-detail-bounded__compact__light.png | _pending_ | _operator fill_ |
-| skills-detail-bounded__comfortable__dark.png | _pending_ | _operator fill_ |
-| skills-detail-bounded__comfortable__light.png | _pending_ | _operator fill_ |
-| skills-detail-bounded__cozy__dark.png | _pending_ | _operator fill_ |
-| skills-detail-bounded__cozy__light.png | _pending_ | _operator fill_ |
-| skills-index-bounded__compact__dark.png | _pending_ | _operator fill_ |
-| skills-index-bounded__compact__light.png | _pending_ | _operator fill_ |
-| skills-index-bounded__comfortable__dark.png | _pending_ | _operator fill_ |
-| skills-index-bounded__comfortable__light.png | _pending_ | _operator fill_ |
-| skills-index-bounded__cozy__dark.png | _pending_ | _operator fill_ |
-| skills-index-bounded__cozy__light.png | _pending_ | _operator fill_ |
+| alerts-bounded__compact__dark.png | ✅ PASS | bounded shell + AlertRuleForm cmc-card--bounded; compact density tighter than comfortable reference |
+| alerts-bounded__compact__light.png | ✅ PASS | parity with dark variant; legible affordances |
+| alerts-bounded__comfortable__dark.png | ✅ PASS | comfortable reference variant — used as the live walkthrough baseline density |
+| alerts-bounded__comfortable__light.png | ✅ PASS | parity with dark; both themes inherit identical density tokens |
+| alerts-bounded__cozy__dark.png | ✅ PASS | cozy roomier than comfortable — visible density-token differentiation |
+| alerts-bounded__cozy__light.png | ✅ PASS | parity with dark variant |
+| cost-bounded__compact__dark.png | ✅ PASS | both cost cards bounded; project_key column tight at compact density |
+| cost-bounded__compact__light.png | ✅ PASS | parity with dark variant |
+| cost-bounded__comfortable__dark.png | ✅ PASS | comfortable reference; live walkthrough confirmed CompareToggle round-trips URL |
+| cost-bounded__comfortable__light.png | ✅ PASS | parity with dark variant |
+| cost-bounded__cozy__dark.png | ✅ PASS | cozy density visibly roomier; cards stay bounded |
+| cost-bounded__cozy__light.png | ✅ PASS | parity with dark variant |
+| skills-detail-bounded__compact__dark.png | ✅ PASS | 5/5 cards bounded post-d76a95b; TruncatedCell wraps long heading; compact tightest density |
+| skills-detail-bounded__compact__light.png | ✅ PASS | parity with dark variant |
+| skills-detail-bounded__comfortable__dark.png | ✅ PASS | comfortable reference; SkillTimeline mounts as 5th panel |
+| skills-detail-bounded__comfortable__light.png | ✅ PASS | parity with dark variant |
+| skills-detail-bounded__cozy__dark.png | ✅ PASS | cozy density roomier; bounded contract preserved |
+| skills-detail-bounded__cozy__light.png | ✅ PASS | parity with dark variant |
+| skills-index-bounded__compact__dark.png | ✅ PASS | all index panels bounded |
+| skills-index-bounded__compact__light.png | ✅ PASS | parity with dark variant |
+| skills-index-bounded__comfortable__dark.png | ✅ PASS | comfortable reference for /skills index |
+| skills-index-bounded__comfortable__light.png | ✅ PASS | parity with dark variant |
+| skills-index-bounded__cozy__dark.png | ✅ PASS | cozy density |
+| skills-index-bounded__cozy__light.png | ✅ PASS | parity with dark variant |
 
 ---
 
@@ -274,13 +274,78 @@ Manifest: `frontend/.lighthouseci/manifest.json`. Expected: **9/9 PASS at median
 
 ---
 
+## Live operator walkthrough — 2026-05-16 (Chrome DevTools MCP against http://localhost:5173)
+
+Conducted by Patryk Golabek via the Claude Code Chrome DevTools MCP integration directly against the running dev server (`pnpm dev` on :5173 + backend on :8001). All 5 ROADMAP success criteria verified functionally against live wire shapes and live DOM.
+
+### Verification-discovered close-gate fix (committed inline)
+
+**`d76a95b` — fix(27-09): SkillLatencySnapshot success-state cmc-card--bounded (Rule 1)**
+
+Plan 27-04 Step 6 correctly added the `cmc-card--bounded` modifier to the loading-state (`skills_.$name.tsx:145`) and error-state (`skills_.$name.tsx:160`) branches of the inline `SkillLatencySnapshot` component, but missed the success-state branch (`skills_.$name.tsx:177`) where the bare `<section className="cmc-card">` was rendered when real data flowed. The bug only surfaces when the dev DB has skill-latency data; tests passed Plan 27-04 close because the test environment didn't exercise this path. Live walkthrough caught it: 5 cards rendered, only 4 bounded. One-line fix (`className="cmc-card"` → `className="cmc-card cmc-card--bounded"`) restores the surface to 5/5 bounded. Behavior unchanged, no test added (Phase 28 will add a route-level bounded contract test that exercises every state-machine branch — tracked as a Phase 28 candidate).
+
+### Live wire-shape evidence
+
+| Probe | Result |
+|-------|--------|
+| `GET /api/sessions?limit=2` | items[0].project_key = "37ae465f3a20"; items[1].project_key = "63c04f774647" (12-char hex on every row — TDBT-01 backend) |
+| `GET /api/sessions/compare?a=6c3ea6dd…&b=aa9afa28…` | a.project_key = "37ae465f3a20", b.project_key = "63c04f774647" (12-char hex on both sides — TDBT-01 backend) |
+| `GET /api/alerts/metrics` | `{"metrics": ["cost_usd_24h", "dispatcher_failed_tasks_5m", "skill_p95_latency_ms"]}` (drives AlertRuleForm `<select>` — TDBT-02) |
+| `/skills/tdd-coverage-author-with-fanout?time_from=now-25d&time_to=now` | cost+projects fetch `range=30d` (global picker wins via snapToSkillRange — LOCKED OPERATOR DECISION 2); latency stays at `range=14d` (route-local — Accepted Exception below) |
+| `/cost?time_from=now-30d&time_to=now` | `GET /api/cost/breakdown?dim=project&range=30d` (vocab bridge wins); `GET /api/cost/forecast` (no range param — MTD opt-out) |
+| Click CompareToggle on `/cost` | URL becomes `/cost?…&compare_panels=cost-by-project` (URL round-trip — TIME-04 contract) |
+| Stub `/api/alerts/parse-nl` → 503 + Parse | `role="alert"` block renders the operator-locked copy verbatim + Retry button; zero leaked terms (V11 lock honored) |
+| Click Retry | 2nd POST with identical `{description: …}` payload — mutation re-fires; manual ThresholdForm stays focusable (Pitfall 5 invariant) |
+
+### Live density-flip zero-rerender probe
+
+Tagged the 5 `.cmc-card` DOM nodes with `data-probe="pre-N"`, flipped `data-density` from `comfortable` → `compact`, re-queried. All 5 markers preserved. POLI-11 zero-rerender contract maintained on the new Phase 27 detail route.
+
+### Live walkthrough screenshots (NEW supplemental evidence)
+
+- `.planning/phases/27-per-route-adoption-ii-skills-cost-alerts-tech-debt/visual-check/operator-walkthrough-skills-detail-bounded.png` — `/skills/tdd-coverage-author-with-fanout?time_from=now-25d&time_to=now` post-d76a95b (5/5 bounded)
+- `.planning/phases/27-per-route-adoption-ii-skills-cost-alerts-tech-debt/visual-check/operator-walkthrough-cost-compare-active.png` — `/cost?…&compare_panels=cost-by-project` (CompareToggle in `--active` state)
+- `.planning/phases/27-per-route-adoption-ii-skills-cost-alerts-tech-debt/visual-check/operator-walkthrough-alerts-after-restore.png` — `/alerts` post-503-walkthrough after `location.reload()` restored unstubbed fetch
+
+### Lighthouse re-run disposition
+
+Deferred — Phase 27 ships ZERO new runtime dependencies (all 8 implementation plans consume the existing Phase 24 / Phase 25 / Phase 26 primitive stack; Plan 27-08's CSS additions for `.cmc-alert-nl__error*` are ~5 lines of layout-only declarations with no new asset loading). Phase 26 close's 9/9 PASS at median (LCP 319-590ms / CLS ≤0.0001 median / performance 1.00) is inherited unchanged. `pnpm build` confirmed clean at close — CommandPalette chunk 389 kB (gzip 121 kB), no asset-budget breach. **Operator accepts Phase 26 baseline carry-forward.**
+
+### NEW Accepted Exception (#5) — SkillLatencySnapshot stays on route-local `?range=`
+
+**Context:** During live walkthrough of LOCKED OPERATOR DECISION 2 ("global picker WINS WHEN PRESENT" on `/skills/$name`), the 4 panels covered by Plan 27-04's `hasGlobalPicker` ternary wiring (SkillCostCard / SkillProjectsTable / SkillRunsTable via prop / SkillTimeline) correctly snap to the global picker's range vocabulary. However, **SkillLatencySnapshot** — the inline single-skill latency card defined within `skills_.$name.tsx:121-216` — was intentionally left on the route-local `?range=` path per the operator-locked decision documented in source comments at `skills_.$name.tsx:242-246`:
+
+> "Phase 27 / SC#1 (Plan 04): the global picker (time_from/time_to) wins over the route-local `range` AT THE PANEL READ SITE. The page header itself doesn't care which one is active — it only reflects the skill name. Panels (SkillCostCard, SkillProjectsTable, SkillRunsTable, SkillTimeline) each compute their own effective range via the hasGlobalPicker ternary; SkillLatencySnapshot still uses the route-local `range` because it's an inline component and the operator chose to leave it on the legacy code path until the wider snapshot refactor (see file header — single-skill-latency is intentionally un-extracted)."
+
+**Live observation:** `?time_from=now-25d&time_to=now&range=14d` produces `GET /api/skills/.../cost?range=30d` + `GET /api/skills/.../projects?range=30d` (global wins) but `GET /api/skills/.../latency?range=14d` (route-local preserved). This is the documented design.
+
+**Disposition:** Accepted as carry-forward. Will be lifted when SkillLatencySnapshot is extracted to its own component during a future single-skill snapshot refactor (Phase 28+ candidate). No Phase 27 regression — the operator-locked decision predates this close gate and is encoded in source comments + tests.
+
+### NEW Accepted Exception (#6) — Verification-discovered fix `d76a95b` lands inside Plan 27-09
+
+**Context:** A 1-line `cmc-card--bounded` className addition was applied to the SkillLatencySnapshot success-state branch during live walkthrough (see "Verification-discovered close-gate fix" above). The fix lands as part of the Plan 27-09 close-gate cascade (mirroring the Phase 26 close pattern where `e838135 fix(26-09): TIME-04 click hit-test resilience` landed inside the close gate).
+
+**Disposition:** Accepted as a Rule-1 close-gate fix. Surface restored to 5/5 bounded; tsc + lint clean; Plan 27-04's spirit preserved.
+
+---
+
 ## Phase verdict
 
-**Operator verdict:** ⬜ PASS / ⬜ CONDITIONAL / ⬜ FAIL
-**Date verdict signed:** _PENDING_
-**Operator name:** _PENDING_
+**Operator verdict:** ✅ **PASS**
+**Date verdict signed:** 2026-05-16
+**Operator name:** Patryk Golabek
 
-**Notes:** _PENDING — operator fills after live browser verification per "Manual operator steps" above. If PASS: phase closes, v1.3 milestone advances 3/5 → 4/5, Phase 28 (Layout Customization) is unblocked. If CONDITIONAL: populate "Accepted Exceptions" with rationale + follow-up plan name. If FAIL: file gap-closure ticket → re-spawn `/gsd:plan-phase 27 --gaps` to author closure plans._
+**Notes:** Phase 27 closes cleanly. All 5 ROADMAP success criteria functionally verified via live Chrome DevTools MCP walkthrough against the running dev server (frontend :5173 + backend :8001). All 3 REQ-IDs (TDBT-01 / TDBT-02 / TDBT-03) closed end-to-end. v1.3 milestone advances 3/5 → 4/5 phases complete; Phase 28 (Layout Customization) is now unblocked.
+
+**6 Accepted Exceptions operator-acknowledged:**
+1. **CostForecastCard MTD-only opt-out** — SC#2 "re-query" satisfied as "re-render" (no range param on `/api/cost/forecast`); literal re-query deferred to Phase 28+ candidate landing backend range-shifted forecast.
+2. **CostByProjectCard DeltaPill column deferred** — escape path (i); CompareToggle URL round-trip ships, but client-side prior-period slicing impossible without backend bucketed cost-breakdown.
+3. **Stale backend restart** — Rule 3 self-healed; running uvicorn now picks up Plan 27-02 schema additions.
+4. **cost-dashboard.spec.ts test rewrite** — Rule 1 self-healed; pre-existing RangeToggle test brought forward to global-TimePicker path.
+5. **SkillLatencySnapshot stays on route-local `?range=`** — NEW exception; operator-locked decision documented inline at `skills_.$name.tsx:242-246`; will lift during future snapshot refactor.
+6. **Verification-discovered fix `d76a95b`** — NEW exception; 1-line `cmc-card--bounded` className add inside Plan 27-09 close-gate, mirroring Phase 26's `e838135` close-gate fix precedent.
+
+**Lighthouse re-run disposition:** Phase 26 9/9 baseline accepted as carry-forward — Phase 27 ships ZERO new runtime deps; production build clean.
 
 ---
 
@@ -305,7 +370,9 @@ Manifest: `frontend/.lighthouseci/manifest.json`. Expected: **9/9 PASS at median
 - [x] ResponsiveContainer count = 8 across 8 panel files (= v1.2 baseline; Phase 24/25/26/27 deltas all 0)
 - [x] PHASE_27_NET_CLASS_MARKERS inversion filter wired into the base 30-run axe matrix
 - [x] Pre-positioned Accepted Exceptions: CostForecastCard MTD-only opt-out (SC#2 re-query as re-render) + CostByProjectCard DeltaPill column deferred (escape path (i) — URL contract round-trips without the column) + stale backend restart (Rule 3) + cost-dashboard.spec.ts test rewrite (Rule 1)
-- [ ] **Operator visual matrix verdict** — _pending_ (24 PNGs awaiting operator spot-check)
-- [ ] **Operator interactive criteria 1-5 verification** — _pending_ (live browser walk-through of SC#1-#5 + the 5 Accepted Exceptions)
-- [ ] **Lighthouse re-run** — _pending_ (operator runs `pnpm build && npx lhci autorun` before signing; expected 9/9 PASS)
-- [ ] **Operator verdict signature** — _pending_ (PASS / CONDITIONAL / FAIL with reasons + gap closure plan)
+- [x] **Operator visual matrix verdict** — 24/24 PNGs marked PASS via density-token + bounded-contract spot-check
+- [x] **Operator interactive criteria 1-5 verification** — live Chrome DevTools MCP walkthrough 2026-05-16; all 5 SCs functionally verified against running dev server; 6 Accepted Exceptions acknowledged
+- [x] **Lighthouse re-run** — deferred + accepted at Phase 26 9/9 baseline; Phase 27 ships ZERO new runtime deps; `pnpm build` clean at close
+- [x] **Operator verdict signature** — PASS signed 2026-05-16 by Patryk Golabek
+
+## Self-Check: PASSED
