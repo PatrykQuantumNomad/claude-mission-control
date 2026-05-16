@@ -40,6 +40,9 @@ export { DeltaPill } from './DeltaPill'
 export type { DeltaPillProps } from './DeltaPill'
 // Phase 28 Plan 03 — LAYO-01 / LAYO-04 per-panel show/hide menu.
 export { PanelHeaderMenu } from './PanelHeaderMenu'
+// Phase 28 Plan 04 — LAYO-02 drag-reorder wrapper (native HTML5 dnd +
+// keyboard a11y + aria-live announcements).
+export { DraggablePanelWrap } from './DraggablePanelWrap'
 // Phase 28 Plan 03 — shared forwarding-prop shape for panels that
 // participate in layout customization. Every in-scope panel component
 // (~36 across /, /activity, /cost, /skills, /alerts) accepts these two

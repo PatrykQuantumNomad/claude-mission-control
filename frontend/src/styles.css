@@ -2645,3 +2645,38 @@ body {
   outline: none;
 }
 .cmc-dropdown-menu__item[data-highlighted] { background: var(--cmc-surface-2, rgba(255,255,255,0.04)); }
+
+/* ─────────────────────────────────────────────────────────── */
+/* DraggablePanelWrap grip — Phase 28 Plan 28-04 (LAYO-02).     */
+/* Sibling of the PanelHeaderMenu trigger inside the PanelCard  */
+/* header chrome. Native HTML5 dnd (mouse) + Space-to-grab      */
+/* keyboard fallback. The sr-only aria-live region rides on the */
+/* existing .cmc-sr-only recipe defined above.                  */
+/* No `transform:` rule here — defense in depth against Phase   */
+/* 24 Pitfall 2 (transform-bearing ancestor would break the     */
+/* future Portal-mounted dropdown positioning if the grip ever  */
+/* becomes a Portal trigger).                                   */
+/* Paint-perf invariant (Pitfall 12): will-change on the grip   */
+/* so the browser composites the drag handle without forcing a  */
+/* re-layout of the containing PanelCard's contain: layout box. */
+/* ─────────────────────────────────────────────────────────── */
+.cmc-panel-grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  padding: var(--space-2xs);
+  color: var(--cmc-text-subtle);
+  cursor: grab;
+  border-radius: var(--radius-sm);
+  will-change: transform;
+}
+.cmc-panel-grip:hover { color: var(--cmc-text); background: var(--cmc-surface-2); }
+.cmc-panel-grip:focus-visible { outline: 2px solid var(--cmc-accent-blue); outline-offset: 2px; }
+.cmc-panel-grip[aria-pressed='true'] {
+  cursor: grabbing;
+  background: var(--cmc-surface-2);
+  color: var(--cmc-accent-blue);
+}
+.cmc-panel--dragging { opacity: 0.4; }
