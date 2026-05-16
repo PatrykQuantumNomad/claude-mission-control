@@ -164,7 +164,14 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
   3. User reorders panels within a column via 1D drag on `/cost` (no cross-column movement), the new order persists into the active saved view, and the reset-to-default affordance in the panel DropdownMenu clears layout overrides cleanly
   4. `react-resizable-panels@4.11.0` is the only new runtime dependency added in Phase 28 — no `react-grid-layout`, no `dnd-kit`, no `@shadcn/ui`, no Tailwind; React DevTools profiler shows zero chart re-mounts during a layout drag (data memoized; `ResponsiveContainer` count unchanged); axe-core remains clean; visual checkpoint at `.planning/phases/28/VISUAL-CHECK.md` documents the closed milestone
   5. Backend pytest + frontend vitest + Playwright e2e all green at phase close vs every prior v1.3 phase baseline; URL contract test (`tests/test_url_contract.py`) confirms every preserved URL pattern still resolves; v1.3 milestone close gate met
-**Plans**: TBD
+**Plans**: 6 plans
+Plans:
+- [ ] 28-01-PLAN.md — Wave 0: Test scaffolding + docs/url-contract.md + docs/testid-registry.md extension (gates all downstream waves)
+- [ ] 28-02-PLAN.md — Wave 1: Foundation primitives — asHiddenPanels/asPanelOrder/asSplitSizes validators + panelRegistry + useLayoutState hook + PanelCard.panelId prop + SavedViewMenu Reset Layout (LAYO-04 escape hatch)
+- [ ] 28-03-PLAN.md — Wave 2: LAYO-01 + per-panel LAYO-04 — PanelHeaderMenu component + APPEND-ONLY hidden_panels + render-time filter on /, /activity, /cost, /skills, /alerts
+- [ ] 28-04-PLAN.md — Wave 3: LAYO-02 — DraggablePanelWrap (native HTML5 dnd + keyboard a11y + aria-live) + panel_order render-order wiring on the same 5 routes
+- [ ] 28-05-PLAN.md — Wave 4: LAYO-03 — install react-resizable-panels@4.11.0 (blocking-human legitimacy gate) + ResizablePanelGroup v4 wrapper + SessionCompareView split-pane wiring
+- [ ] 28-06-PLAN.md — Wave 5: v1.3 milestone close gate — 18 NEW visual capture PNGs + axe extensions + 28-VISUAL-CHECK.md operator-signed verdict (POLI-09)
 **UI hint**: yes
 
 ## Progress
