@@ -166,7 +166,7 @@ Full details: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
   5. Backend pytest + frontend vitest + Playwright e2e all green at phase close vs every prior v1.3 phase baseline; URL contract test (`tests/test_url_contract.py`) confirms every preserved URL pattern still resolves; v1.3 milestone close gate met
 **Plans**: 6 plans
 Plans:
-- [ ] 28-01-PLAN.md — Wave 0: Test scaffolding + docs/url-contract.md + docs/testid-registry.md extension (gates all downstream waves)
+- [x] 28-01-PLAN.md — Wave 0: Test scaffolding + docs/url-contract.md + docs/testid-registry.md extension (gates all downstream waves) ✅ 2026-05-16 — 3 atomic commits (7ab32a7 test author 6 vitest skeletons + Playwright spec skeleton with 16 test.skip placeholders across LAYO-01..04 + saved-view round-trip + ResponsiveContainer perf gate — 52 it.todo placeholders enumerate every Wave 1-3 assertion downstream plans must implement; 8442e16 docs extend url-contract.md Phase 28 effects section + Locked invariants subsection — 3 new APPEND-ONLY search params hidden_panels/panel_order on 5 routes + split_sizes on /sessions/compare with Pitfall 2 default-undefined contract + Pitfall 9 panel-id append-only invariant + Pitfall 11 reset semantics + Pitfall 12 /skills/$name out-of-scope rationale; 26e19d3 docs register Phase 28 testid families — 5 dynamic (panel-header-menu-{panelId}, panel-hide-{panelId}, panel-drag-grip-{panelId}, panel-reset-layout-{route} mounted in BOTH PanelHeaderMenu AND SavedViewMenu chrome per RESEARCH §7 A2, resize-handle-{groupId}) + 1 exact-match (panel-grid-{columnId})). All Phase 27 close-gate baselines preserved: backend pytest tests/test_url_contract.py 2/2 PASS; frontend pnpm test --run 662 passed + 52 new todo (107 files passed + 5 skipped); Playwright tests/e2e/v13-layout.spec.ts lists 16 tests (exceeds plan ≥15 threshold); pnpm exec eslint clean across src/**/*.{ts,tsx}. Zero deviations from plan. Wave 1 (Plan 28-02 foundation primitives) ready to spawn.
 - [ ] 28-02-PLAN.md — Wave 1: Foundation primitives — asHiddenPanels/asPanelOrder/asSplitSizes validators + panelRegistry + useLayoutState hook + PanelCard.panelId prop + SavedViewMenu Reset Layout (LAYO-04 escape hatch)
 - [ ] 28-03-PLAN.md — Wave 2: LAYO-01 + per-panel LAYO-04 — PanelHeaderMenu component + APPEND-ONLY hidden_panels + render-time filter on /, /activity, /cost, /skills, /alerts
 - [ ] 28-04-PLAN.md — Wave 3: LAYO-02 — DraggablePanelWrap (native HTML5 dnd + keyboard a11y + aria-live) + panel_order render-order wiring on the same 5 routes
@@ -207,7 +207,7 @@ Plans:
 | 25. Saved Views (Backend + Frontend) | v1.3 | 11/11 | Complete | 2026-05-12 |
 | 26. Per-Route Adoption I + Time + Cmd+K | v1.3 | 9/9 | Complete | 2026-05-13 |
 | 27. Per-Route Adoption II + Tech Debt | v1.3 | 9/9 | Complete | 2026-05-16 |
-| 28. Layout Customization | v1.3 | 0/0 | Not started | — |
+| 28. Layout Customization | v1.3 | 1/6 | In progress | — |
 
 **v1.0 milestone shipped: 47/47 plans, 11/11 phases verified (9 base + 2 audit gap-closure).**
 **v1.1 milestone shipped: 28/28 plans, 6/6 phases verified, 41/41 requirements satisfied.**
