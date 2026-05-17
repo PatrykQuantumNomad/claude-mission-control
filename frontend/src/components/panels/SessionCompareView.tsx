@@ -42,6 +42,7 @@ import {
 } from 'recharts'
 import { Link } from '@tanstack/react-router'
 import type { ReactElement, ReactNode } from 'react'
+import { Panel } from 'react-resizable-panels'
 import {
   Card,
   CardContent,
@@ -55,6 +56,7 @@ import {
   StatePill,
   TruncatedCell,
 } from '../ui'
+import { ResizablePanelGroup } from '../ui/ResizablePanelGroup'
 import type { DataTableColumn } from '../ui'
 import { useSessionCompare } from '../../lib/queries'
 import type {
@@ -630,6 +632,45 @@ function SessionIdRow({
   )
 }
 
+// Per-side column — bundles a SessionIdRow, SideKpiColumn, and SideBarChart
+// into a single vertically-stacked container that fills its Panel. The chart
+// stays mounted across resize: DraggablePanelWrap precedent (Phase 24/26
+// lock) — onLayoutChanged fires on release only, so ResponsiveContainer's
+// internal ResizeObserver re-measures, but the chart's <svg> DOM identity
+// is preserved (verified in Playwright Test 4).
+function CompareSide({
+  label,
+  side,
+}: {
+  label: string
+  side: SessionCompareSide
+}) {
+  return (
+    <div
+      className="cmc-compare__side"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--space-md)',
+        height: '100%',
+        minWidth: 0,
+        overflow: 'auto',
+        padding: 'var(--space-xs)',
+      }}
+    >
+      <section aria-label={`Side ${label} session ID`}>
+        <SessionIdRow label={label} sessionId={side.session_id} cwd={side.cwd} />
+      </section>
+      <section aria-label={`Side ${label} KPIs`}>
+        <SideKpiColumn label={label} side={side} />
+      </section>
+      <section aria-label={`Side ${label} token breakdown`}>
+        <SideBarChart label={label} side={side} />
+      </section>
+    </div>
+  )
+}
+
 function CompareBody({ data }: { data: SessionCompareResponse }) {
   return (
     <div
@@ -637,29 +678,29 @@ function CompareBody({ data }: { data: SessionCompareResponse }) {
         display: 'flex',
         flexDirection: 'column',
         gap: 'var(--space-md)',
+        // Pitfall 13: bound the inner flex ladder so ResizablePanelGroup's
+        // min-height: 0 propagates from the .cmc-card--bounded ancestor.
+        minHeight: 0,
       }}
     >
-      <section
-        aria-label="Compared session IDs"
-        style={{ display: 'flex', gap: 'var(--space-md)', flexWrap: 'wrap' }}
-      >
-        <SessionIdRow label="A" sessionId={data.a.session_id} cwd={data.a.cwd} />
-        <SessionIdRow label="B" sessionId={data.b.session_id} cwd={data.b.cwd} />
-      </section>
-      <section
-        aria-label="Side-by-side KPIs"
-        style={{ display: 'flex', gap: 'var(--space-md)' }}
-      >
-        <SideKpiColumn label="A" side={data.a} />
-        <SideKpiColumn label="B" side={data.b} />
-      </section>
-      <section
-        aria-label="Side-by-side token breakdown"
-        style={{ display: 'flex', gap: 'var(--space-md)' }}
-      >
-        <SideBarChart label="A" side={data.a} />
-        <SideBarChart label="B" side={data.b} />
-      </section>
+      {/* Resizable two-up region — Side A | Separator | Side B.
+       *  The split percentage round-trips via URL ?split_sizes=compare:a,b
+       *  through ResizablePanelGroup. minSize={20} keeps each side ≥20%
+       *  so a runaway drag cannot visually collapse a panel (RESEARCH.md §5). */}
+      <div style={{ minHeight: 360, display: 'flex', flexDirection: 'column' }}>
+        <ResizablePanelGroup
+          groupId="compare"
+          panelIds={['side-a', 'side-b']}
+          defaultSizes={[50, 50]}
+        >
+          <Panel id="side-a" defaultSize={50} minSize={20}>
+            <CompareSide label="A" side={data.a} />
+          </Panel>
+          <Panel id="side-b" defaultSize={50} minSize={20}>
+            <CompareSide label="B" side={data.b} />
+          </Panel>
+        </ResizablePanelGroup>
+      </div>
       <SkillDiffRow diff={data.skill_diff} />
       <SkillLatencySection data={data} />
       <section aria-label="Tool counts diff">

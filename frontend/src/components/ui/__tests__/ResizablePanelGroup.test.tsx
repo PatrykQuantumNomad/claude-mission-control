@@ -36,6 +36,12 @@ import { describe, it, expect, vi } from 'vitest'
 // imperatively (simulating a release-end pointerup from the real library).
 const lastGroupProps: { props?: Record<string, unknown> } = {}
 
+// eslint-disable cmc/testid-registry-only — `rrp-*` testids are MOCK-INTERNAL
+// fixtures for happy-dom-only assertion paths. They never reach the real DOM
+// in production or in Playwright (those run against the real react-resizable-
+// panels). Adding them to docs/testid-registry.md would muddy the registry
+// with vitest-only artefacts.
+/* eslint-disable cmc/testid-registry-only */
 vi.mock('react-resizable-panels', () => ({
   Group: (props: Record<string, unknown>) => {
     lastGroupProps.props = props
@@ -63,6 +69,7 @@ vi.mock('react-resizable-panels', () => ({
     <div data-testid="rrp-separator" {...props} />
   ),
 }))
+/* eslint-enable cmc/testid-registry-only */
 
 import {
   createRouter,

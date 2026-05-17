@@ -26,6 +26,7 @@ import { SessionCompareView } from '../components/panels/SessionCompareView'
 import {
   SCHEMA_VERSION,
   asComparePanels,
+  asSplitSizes,
   asTimeToken,
   coerceSchemaVersion,
 } from '../lib/searchSchemas'
@@ -46,6 +47,12 @@ import {
 // Phase 26 / TIME-04 (Plan 07). Append-only extension: ACCEPT `compare_panels?`
 // as a CSV list of panel ids — same shape + validator as `/` and `/activity`.
 // Existing UUID coercion of a/b is unchanged. SCHEMA_VERSION stays at 1.
+//
+// Phase 28 / LAYO-03 (Plan 28-05). Append-only extension: ACCEPT `split_sizes?`
+// as a CSV of `<groupId>:<int1>,<int2>` groups. Default `undefined` — the
+// per-group fallback is applied AT THE WRAPPER READ SITE (ResizablePanelGroup
+// uses its `defaultSizes` prop), NOT in the validator. Defaulting here would
+// defeat DefaultViewLoader's bare-URL gate (Pitfall 2).
 export type CompareSearch = {
   // OPTIONAL on input — existing `<Link to="/sessions/compare" search={{ a, b }}>`
   // and `navigate({ to: '/sessions/compare', search: { a, b } })` call sites
@@ -56,6 +63,7 @@ export type CompareSearch = {
   time_from?: string | undefined
   time_to?: string | undefined
   compare_panels?: string | undefined
+  split_sizes?: string | undefined
 }
 
 const UUID_RE =
@@ -73,6 +81,7 @@ export function validateSearch(raw: Record<string, unknown>): CompareSearch {
     time_from: asTimeToken(raw.time_from),
     time_to: asTimeToken(raw.time_to),
     compare_panels: asComparePanels(raw.compare_panels),
+    split_sizes: asSplitSizes(raw.split_sizes),
   }
 }
 
