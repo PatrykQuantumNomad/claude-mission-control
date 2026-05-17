@@ -923,3 +923,162 @@ test.describe('Phase 28 axe a11y — ResizablePanelGroup Separator (LAYO-03)', (
     ).toEqual([])
   })
 })
+
+// ───────────────────────────────────────────────────────────────────────
+// Phase 28 Plan 06 axe a11y — close-gate layout-customized URL variants.
+//
+// Plan 28-04 shipped 5 default-state drag-grip scans (one per in-scope
+// route, bare URL). Plan 28-06 extends with the LAYO-01 + LAYO-02 +
+// LAYO-03 COMBINED-URL surface — proves customized layouts don't
+// introduce Phase-28-attributable axe regressions, and that the
+// DraggablePanelWrap drag grip's aria-label / aria-pressed / aria-live
+// chrome is verified at the close gate.
+//
+// Surface coverage (7 new scans):
+//   - 5 route scans on /?hidden_panels=…&panel_order=main:… (one per
+//     in-scope route, route-appropriate first registered main-column
+//     panel hidden + main column reorder applied) — the layout-customized
+//     close-gate variant.
+//   - 1 split-pane scan on /sessions/compare?…&split_sizes=compare:70,30
+//     (LAYO-03 dragged off 50/50) — env-skips when DB lacks ≥2 sessions
+//     (mirrors the LAYO-03 default-state scan above + Plan 27-09 precedent).
+//   - 1 drag-grip aria attribute test — keyboard-focusable cmc-panel-grip
+//     emits aria-label "Reorder …" + aria-pressed flips false→true on
+//     Space + role="status" aria-live region present.
+//
+// Together with Plan 28-04's 5 default-state scans + Plan 28-05's 1
+// /sessions/compare default-state scan = 13 Phase-28-attributable axe
+// scans at close gate.
+// ───────────────────────────────────────────────────────────────────────
+
+// Per-route hidden + reorder URL params for the layout-customized scans.
+// Each route hides its first registered main-column panel and reorders
+// the remaining main-column panels by rotating one position. The panel
+// IDs are pinned to `frontend/src/lib/layout/panelRegistry.ts` — keeping
+// them in lockstep is enforced by the panelRegistry.test.ts shape lock.
+const LAYOUT_CUSTOMIZED_URL_BY_ROUTE: Record<string, string> = {
+  '/':
+    '/?hidden_panels=token-usage&panel_order=main:cache-efficiency,session-outcomes,model-mix',
+  '/activity':
+    '/activity?hidden_panels=otel-panel&panel_order=main:unified-failures,top-skills',
+  '/cost':
+    '/cost?hidden_panels=cost-forecast&panel_order=main:cost-by-project,cost-forecast',
+  '/skills':
+    '/skills?hidden_panels=task-board&panel_order=main:schedules,skills-registry,mcp-servers',
+  '/alerts':
+    '/alerts?hidden_panels=alert-rules-list&panel_order=main:alert-rule-form,alert-rules-list',
+}
+
+test.describe('Phase 28 axe a11y — close-gate layout-customized URL variants (LAYO-01 + LAYO-02)', () => {
+  for (const route of ['/', '/activity', '/cost', '/skills', '/alerts'] as const) {
+    test(`${route}: layout-customized chrome has no Phase-28-attributable blocking violations`, async ({
+      page,
+    }) => {
+      await page.goto(LAYOUT_CUSTOMIZED_URL_BY_ROUTE[route])
+      await page.waitForLoadState('domcontentloaded')
+      await page.waitForTimeout(1500)
+      const results = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+        .analyze()
+      const blocking = results.violations.filter(
+        (v) =>
+          (v.impact === 'serious' || v.impact === 'critical') &&
+          !isPreExistingViolation(v),
+      )
+      expect(
+        blocking,
+        JSON.stringify(
+          blocking.map((v) => ({ id: v.id, help: v.help })),
+          null,
+          2,
+        ),
+      ).toEqual([])
+    })
+  }
+})
+
+test.describe('Phase 28 axe a11y — close-gate split-pane resized /sessions/compare (LAYO-03)', () => {
+  test('/sessions/compare?split_sizes=compare:70,30: resized chrome has no Phase-28-attributable blocking violations', async ({
+    page,
+    request,
+  }) => {
+    const res = await request.get(`${BACKEND}/api/sessions?range=30d&limit=2`)
+    if (!res.ok()) {
+      test.skip(true, 'Phase 28 close-gate axe: backend not reachable')
+      return
+    }
+    const body = (await res.json()) as {
+      items?: Array<{ session_id: string }>
+    }
+    const ids = (body.items ?? []).map((s) => s.session_id)
+    test.skip(
+      ids.length < 2,
+      'Phase 28 close-gate axe: requires ≥2 sessions (range=30d). Run `cmc sync`.',
+    )
+    if (ids.length < 2) return
+
+    await page.goto(
+      `/sessions/compare?a=${ids[0]}&b=${ids[1]}&split_sizes=compare:70,30`,
+    )
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(1500)
+    await expect(
+      page.locator('[data-testid="resize-handle-compare"]').first(),
+    ).toBeVisible()
+
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze()
+    const blocking = results.violations.filter(
+      (v) =>
+        (v.impact === 'serious' || v.impact === 'critical') &&
+        !isPreExistingViolation(v),
+    )
+    expect(
+      blocking,
+      JSON.stringify(
+        blocking.map((v) => ({ id: v.id, help: v.help })),
+        null,
+        2,
+      ),
+    ).toEqual([])
+  })
+})
+
+test.describe('Phase 28 axe a11y — close-gate drag-grip aria attribute contract (LAYO-02)', () => {
+  test('/cost drag grip emits aria-label + aria-pressed false→true on Space + role="status" aria-live region present', async ({
+    page,
+  }) => {
+    await page.goto('/cost')
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(1500)
+
+    const grip = page.locator('.cmc-panel-grip').first()
+    await expect(grip).toBeVisible()
+
+    // aria-label is "Reorder <panel label>" per DraggablePanelWrap.tsx.
+    const ariaLabel = await grip.getAttribute('aria-label')
+    expect(ariaLabel).toMatch(/^Reorder /)
+
+    // aria-pressed starts false (not in grab mode).
+    expect(await grip.getAttribute('aria-pressed')).toBe('false')
+
+    // Focus + Space toggles grab mode → aria-pressed becomes true.
+    await grip.focus()
+    await page.keyboard.press('Space')
+    // Poll briefly — DraggablePanelWrap setState commits on the keydown
+    // handler synchronously but React renders one tick later.
+    await expect(grip).toHaveAttribute('aria-pressed', 'true')
+
+    // The aria-live region is mounted alongside DraggablePanelWrap with
+    // role="status" + aria-live="polite". At least one such region should
+    // be present anywhere on the page (registered per-grip in the wrap).
+    await expect(
+      page.locator('[role="status"][aria-live="polite"]').first(),
+    ).toBeVisible()
+
+    // Restore default (Esc cancels grab mode).
+    await page.keyboard.press('Escape')
+    await expect(grip).toHaveAttribute('aria-pressed', 'false')
+  })
+})
