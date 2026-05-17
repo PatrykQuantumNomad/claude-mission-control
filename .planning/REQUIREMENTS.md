@@ -232,13 +232,13 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 - Unmapped: 0
 - Duplicates (mapped to >1 phase): 0
 
-**Progress (updated 2026-05-16 — Phase 27 close):**
+**Progress (updated 2026-05-17 — Phase 28 close + v1.3 milestone SHIPPED):**
 - ✅ Phase 24 closed (operator verdict PASS, 2026-05-12): 18/18 requirements complete — SHEL-01..04, DENS-01..03, CONT-01..05, POLI-09..14
 - ✅ Phase 25 closed (operator verdict PASS, 2026-05-12): 11/11 requirements complete — VIEW-01..09, CMDK-01, SHEL-06
 - ✅ Phase 26 closed (operator verdict PASS, 2026-05-13): 9/9 requirements complete — SHEL-05, TIME-01..05, CMDK-02..04
 - ✅ Phase 27 closed (operator verdict PASS via live Chrome DevTools MCP walkthrough, 2026-05-16): 3/3 requirements complete — TDBT-01, TDBT-02, TDBT-03
-- ⏳ Phase 28 in progress: 4/4 requirements satisfied (LAYO-01 ✅ Plan 03, LAYO-02 ✅ Plan 04, LAYO-03 ✅ Plan 05, LAYO-04 ✅ Plans 02 + 03); Plan 28-06 (close gate) remaining
-- Net v1.3 progress: 43/45 (96%)
+- ✅ Phase 28 closed (operator verdict PASS via live Chrome DevTools MCP walkthrough, 2026-05-17): 4/4 requirements complete — LAYO-01 (Plan 28-03), LAYO-02 (Plan 28-04), LAYO-03 (Plan 28-05), LAYO-04 (Plans 28-02 + 28-03)
+- **Net v1.3 progress: 45/45 (100%) — v1.3 Surface Redesign milestone SHIPPED 2026-05-17**
 
 **Per-phase rollup:**
 
@@ -256,4 +256,4 @@ Each requirement maps to exactly one phase. Mapping authored 2026-05-10 by `gsd-
 
 *Requirements defined: 2026-05-10*
 *Traceability authored: 2026-05-10 (45/45 mapped, 0 orphans, 0 duplicates)*
-*Last updated: 2026-05-16 after Phase 27 close — TDBT-01 + TDBT-02 + TDBT-03 marked Complete via Plan 27-09 close-gate verification (operator verdict PASS signed by Patryk Golabek via live Chrome DevTools MCP walkthrough against http://localhost:5173 + backend on :8001); Phase 27 3/3 requirements satisfied; v1.3 net progress 38/45 → 41/45 (84% → 91%)*
+*Last updated: 2026-05-17 after Phase 28 close — LAYO-01..04 all marked Complete via Phase 28 Plans 02-05; Plan 28-06 (close gate) operator verdict PASS signed by Patryk Golabek via live Chrome DevTools MCP walkthrough against http://localhost:5173 + backend on :8001; Phase 28 4/4 requirements satisfied; v1.3 Surface Redesign milestone SHIPPED 2026-05-17 — 5/5 phases verified, 45/45 active requirements satisfied (96% → 100%); single new runtime dep this milestone react-resizable-panels@4.11.0 at exact pin (Plan 28-05); APPEND-ONLY URL contract preserved across all v1.3 phases per Pitfall 13 lock.*
