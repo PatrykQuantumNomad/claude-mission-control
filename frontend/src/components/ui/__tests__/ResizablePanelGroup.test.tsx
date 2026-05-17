@@ -65,9 +65,14 @@ vi.mock('react-resizable-panels', () => ({
   Panel: (props: { id?: string; children?: React.ReactNode }) => (
     <div data-testid={`rrp-panel-${props.id ?? ''}`}>{props.children}</div>
   ),
-  Separator: (props: Record<string, unknown>) => (
-    <div data-testid="rrp-separator" {...props} />
-  ),
+  // The real Separator emits `data-testid={id}` from its `id` prop (library
+  // overrides any caller-supplied data-testid via attribute spread order —
+  // verified in dist/react-resizable-panels.js line 2179). Mirror that
+  // behavior so the wrapper's id-prop strategy is testable here too.
+  Separator: (props: Record<string, unknown>) => {
+    const { id, ...rest } = props as { id?: string }
+    return <div {...rest} id={id} data-testid={id ?? 'rrp-separator'} />
+  },
 }))
 /* eslint-enable cmc/testid-registry-only */
 

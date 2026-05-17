@@ -862,3 +862,64 @@ test.describe('Phase 28 axe a11y — DraggablePanelWrap drag grip + aria-live', 
     })
   }
 })
+
+// ───────────────────────────────────────────────────────────────────────
+// Phase 28 axe a11y — ResizablePanelGroup Separator surface (LAYO-03).
+//
+// Single scan on /sessions/compare with a non-default split (?split_sizes=
+// compare:70,30) so the wrapper mounts. The Separator from
+// react-resizable-panels has built-in role="separator" + aria-orientation
+// + aria-valuemin/max/now so axe should be happy out of the box. This scan
+// is the regression net that proves the wrapper introduces no NEW
+// blocking violations attributable to Phase 28 Plan 28-05.
+//
+// Skips when the dev DB has fewer than 2 sessions (mirror of LAYO-03
+// Playwright pattern — Plan 27-09 env-skip precedent).
+// ───────────────────────────────────────────────────────────────────────
+test.describe('Phase 28 axe a11y — ResizablePanelGroup Separator (LAYO-03)', () => {
+  test('/sessions/compare: split-pane surface has no Phase-28-attributable blocking violations', async ({
+    page,
+    request,
+  }) => {
+    const res = await request.get(`${BACKEND}/api/sessions?range=30d&limit=2`)
+    if (!res.ok()) {
+      test.skip(true, 'Phase 28 axe: backend not reachable')
+      return
+    }
+    const body = (await res.json()) as {
+      items?: Array<{ session_id: string }>
+    }
+    const ids = (body.items ?? []).map((s) => s.session_id)
+    test.skip(
+      ids.length < 2,
+      'Phase 28 axe: requires ≥2 sessions (range=30d). Run `cmc sync`.',
+    )
+    if (ids.length < 2) return
+
+    await page.goto(
+      `/sessions/compare?a=${ids[0]}&b=${ids[1]}&split_sizes=compare:70,30`,
+    )
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(1500)
+    await expect(
+      page.locator('[data-testid="resize-handle-compare"]').first(),
+    ).toBeVisible()
+
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze()
+    const blocking = results.violations.filter(
+      (v) =>
+        (v.impact === 'serious' || v.impact === 'critical') &&
+        !isPreExistingViolation(v),
+    )
+    expect(
+      blocking,
+      JSON.stringify(
+        blocking.map((v) => ({ id: v.id, help: v.help })),
+        null,
+        2,
+      ),
+    ).toEqual([])
+  })
+})

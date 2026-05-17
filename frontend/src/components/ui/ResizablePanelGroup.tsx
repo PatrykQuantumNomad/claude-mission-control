@@ -163,10 +163,23 @@ export function ResizablePanelGroup({
   for (let i = 0; i < panels.length; i++) {
     interleaved.push(<Fragment key={`panel-${i}`}>{panels[i]}</Fragment>)
     if (i < panels.length - 1) {
+      // v4 Separator emits `data-testid={id}` and `id={id}` from its `id` prop
+      // (the library's spread order overrides any caller-supplied data-testid
+      // — verified in dist/react-resizable-panels.js line 2179). To get the
+      // `resize-handle-${groupId}` testid registered in docs/testid-registry.md,
+      // we MUST pass it via the `id` prop. For groups with more than two
+      // panels this would collide (multiple separators with the same id /
+      // testid); for LAYO-03 the only group is `compare` (2 panels = 1
+      // separator) so the single id is unique. A future group with N>2 panels
+      // would need to switch to `${groupId}-${i}` and update the testid pattern.
+      const separatorId =
+        panels.length === 2
+          ? `resize-handle-${groupId}`
+          : `resize-handle-${groupId}-${i}`
       interleaved.push(
         <Separator
           key={`sep-${groupId}-${i}`}
-          data-testid={`resize-handle-${groupId}`}
+          id={separatorId}
           className="cmc-resizable-separator"
         />,
       )

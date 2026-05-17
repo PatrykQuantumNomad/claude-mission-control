@@ -26,6 +26,43 @@
 // at commit time so the verify command can count `.skip` entries.
 
 import { test, expect } from '@playwright/test'
+import type { Page, APIRequestContext } from '@playwright/test'
+
+const BACKEND_API = 'http://127.0.0.1:8765'
+
+/**
+ * Fetch two session ids from the backend for LAYO-03 / perf-probe tests on
+ * `/sessions/compare`. Mirrors the pattern shipped in
+ * `frontend/tests/e2e/sessions-compare.spec.ts` (range=30d so we look as far
+ * back as possible — LAYO-03 tests don't need the SessionsTable 7d window
+ * since they navigate to /sessions/compare directly). Returns null when the
+ * dev DB has fewer than 2 sessions — caller skips with Plan 27-09 pattern.
+ */
+async function getCompareSessionIds(
+  request: APIRequestContext,
+): Promise<{ a: string; b: string } | null> {
+  const res = await request.get(`${BACKEND_API}/api/sessions?range=30d&limit=5`)
+  if (!res.ok()) return null
+  const body = (await res.json()) as {
+    items?: Array<{ session_id: string }>
+  }
+  const ids = (body.items ?? []).map((s) => s.session_id)
+  if (ids.length < 2) return null
+  return { a: ids[0], b: ids[1] }
+}
+
+/** Pointer-drag the resize handle by `dx` pixels (positive = rightward). */
+async function dragSeparator(page: Page, dx: number): Promise<void> {
+  const handle = page.locator('[data-testid="resize-handle-compare"]').first()
+  const box = await handle.boundingBox()
+  if (!box) throw new Error('resize-handle-compare has no bounding box')
+  const startX = box.x + box.width / 2
+  const startY = box.y + box.height / 2
+  await page.mouse.move(startX, startY)
+  await page.mouse.down()
+  await page.mouse.move(startX + dx, startY, { steps: 10 })
+  await page.mouse.up()
+}
 
 test.describe('Phase 28 — Layout Customization (LAYO-01..04)', () => {
   // ───────────────────────────────────────────────────────────────────
@@ -311,29 +348,116 @@ test.describe('Phase 28 — Layout Customization (LAYO-01..04)', () => {
   // 3 skipped tests: resize persists, refresh preserves, double-click resets.
   // ───────────────────────────────────────────────────────────────────
   test.describe('LAYO-03 split-pane', () => {
-    test.skip('/sessions/compare: pointer drag on resize-handle writes ?split_sizes', async ({ page }) => {
-      // TODO Wave 3 / Plan 28-05 — unskip and implement.
-      // Selector: resize-handle-compare.
-      // Expected URL after pointerup: ?split_sizes=compare:60,40 (or similar).
-      // CRITICAL Pitfall 1: write fires on onLayoutChanged (pointerup) NOT
-      // onLayoutChange (pointermove). Test asserts URL is stable during drag
-      // and updates exactly once at pointerup.
-      await page.goto('/sessions/compare?a=...&b=...')
-      expect(true).toBe(true)
+    test('/sessions/compare: pointer drag on resize-handle writes ?split_sizes', async ({
+      page,
+      request,
+    }) => {
+      // Plan 28-05 / LAYO-03 SC#1: drag → URL gains split_sizes=compare:a,b on
+      // release. CRITICAL Pitfall 6: writes fire on onLayoutChanged (release-
+      // only), NOT onLayoutChange (per-pointer-tick). The wrapper subscribes
+      // only to onLayoutChanged so URL updates exactly once at pointerup.
+      const ids = await getCompareSessionIds(request)
+      test.skip(
+        ids === null,
+        'LAYO-03: requires ≥2 sessions in DB (range=30d). Run `cmc sync` to ingest local sessions.',
+      )
+      if (!ids) return
+
+      await page.goto(`/sessions/compare?a=${ids.a}&b=${ids.b}`)
+      const handle = page.locator('[data-testid="resize-handle-compare"]').first()
+      await expect(handle).toBeVisible({ timeout: 10_000 })
+
+      await dragSeparator(page, 200)
+
+      // URL search params are URL-encoded — `:` becomes `%3A`, `,` becomes
+      // `%2C`. The regex covers both encoded and unencoded forms because
+      // the Playwright URL-set may surface either depending on history API
+      // mutation timing.
+      await expect(page).toHaveURL(
+        /split_sizes=compare(?::|%3A)\d+(?:,|%2C)\d+/,
+        { timeout: 5_000 },
+      )
+      const url = new URL(page.url())
+      // URL.searchParams.get() returns the DECODED value — `compare:71,29`.
+      const sizes = url.searchParams.get('split_sizes')
+      expect(sizes).toMatch(/^compare:\d+,\d+$/)
+      const [, pair] = sizes!.split(':')
+      const [left] = pair.split(',').map(Number)
+      // Rightward drag → left pane grew. Use a permissive threshold (>55)
+      // because the actual delta depends on container width and library
+      // clamping, but the direction MUST be preserved.
+      expect(left).toBeGreaterThan(55)
     })
 
-    test.skip('/sessions/compare: refresh after resize preserves split percentages', async ({ page }) => {
-      // TODO Wave 3 / Plan 28-05 — unskip and implement.
-      await page.goto('/sessions/compare?a=...&b=...&split_sizes=compare:60,40')
-      expect(true).toBe(true)
+    test('/sessions/compare: refresh after resize preserves split percentages', async ({
+      page,
+      request,
+    }) => {
+      // Plan 28-05 / LAYO-03 SC#2: deep-link with ?split_sizes=compare:70,30
+      // restores 70/30 layout (URL → defaultLayout → Group).
+      const ids = await getCompareSessionIds(request)
+      test.skip(
+        ids === null,
+        'LAYO-03: requires ≥2 sessions in DB (range=30d). Run `cmc sync` to ingest local sessions.',
+      )
+      if (!ids) return
+
+      await page.goto(
+        `/sessions/compare?a=${ids.a}&b=${ids.b}&split_sizes=compare:70,30`,
+      )
+      // Wait for the panel children (mounted by react-resizable-panels with
+      // id={id-prop} which the library also emits as data-testid).
+      const sideA = page.locator('#side-a').first()
+      const sideB = page.locator('#side-b').first()
+      await expect(sideA).toBeVisible({ timeout: 10_000 })
+      await expect(sideB).toBeVisible({ timeout: 10_000 })
+
+      const boxA = await sideA.boundingBox()
+      const boxB = await sideB.boundingBox()
+      if (!boxA || !boxB) throw new Error('side panels have no bounding boxes')
+      const ratio = boxA.width / (boxA.width + boxB.width)
+      // 70/30 with ±5% tolerance — library clamping + flex-basis rounding
+      // can drift a few percent on narrow viewports.
+      expect(ratio).toBeGreaterThan(0.65)
+      expect(ratio).toBeLessThan(0.75)
     })
 
-    test.skip('/sessions/compare: double-click on resize-handle resets to 50/50 (no split_sizes in URL)', async ({ page }) => {
-      // TODO Wave 3 / Plan 28-05 — unskip and implement.
-      // Selector: resize-handle-compare.
-      // Expected URL after double-click: no split_sizes param at all.
-      await page.goto('/sessions/compare?a=...&b=...&split_sizes=compare:60,40')
-      expect(true).toBe(true)
+    test('/sessions/compare: double-click on resize-handle resets to 50/50 (no split_sizes in URL)', async ({
+      page,
+      request,
+    }) => {
+      // Plan 28-05 / LAYO-03 SC#3: double-click prune. The library's
+      // built-in dblclick handler resets adjacent Panels to their defaultSize
+      // and fires onLayoutChanged with the default-matching sizes. The
+      // wrapper detects the match and calls setSplit(groupId, null) which
+      // removes the URL param entirely (NOT stored as compare:50,50 —
+      // Pitfall 2 bare-URL gate).
+      const ids = await getCompareSessionIds(request)
+      test.skip(
+        ids === null,
+        'LAYO-03: requires ≥2 sessions in DB (range=30d). Run `cmc sync` to ingest local sessions.',
+      )
+      if (!ids) return
+
+      await page.goto(
+        `/sessions/compare?a=${ids.a}&b=${ids.b}&split_sizes=compare:70,30`,
+      )
+      const handle = page.locator('[data-testid="resize-handle-compare"]').first()
+      await expect(handle).toBeVisible({ timeout: 10_000 })
+      // URL params are URL-encoded by the router on initial commit — accept
+      // either encoded (%3A / %2C) or unencoded (: / ,) for the regex.
+      await expect(page).toHaveURL(
+        /split_sizes=compare(?::|%3A)70(?:,|%2C)30/,
+      )
+
+      await handle.dblclick()
+
+      await page.waitForFunction(
+        () => !window.location.search.includes('split_sizes'),
+        undefined,
+        { timeout: 5_000 },
+      )
+      expect(page.url()).not.toContain('split_sizes')
     })
   })
 
@@ -511,13 +635,54 @@ test.describe('Phase 28 — Layout Customization (LAYO-01..04)', () => {
   // Resize MUST NOT remount the <svg> nodes (chart instance identity).
   // ───────────────────────────────────────────────────────────────────
   test.describe('Perf — ResponsiveContainer DOM identity', () => {
-    test.skip('/sessions/compare: chart <svg> element identity is preserved across split-pane drag', async ({ page }) => {
-      // TODO Wave 3 / Plan 28-05 — unskip and implement.
-      // Sequence: capture an evaluate handle to a chart <svg>, drag the
-      // resize-handle, then assert the same handle is still attached
-      // (handle.evaluate(node => node.isConnected) === true).
-      await page.goto('/sessions/compare?a=...&b=...')
-      expect(true).toBe(true)
+    test('/sessions/compare: chart <svg> element identity is preserved across split-pane drag', async ({
+      page,
+      request,
+    }) => {
+      // Plan 28-05 / Pitfall 6 perf probe (RESEARCH.md §6) — tag a chart
+      // <svg> with a unique data attribute, drag the separator multiple
+      // times, and assert the SAME element still bears the marker. Proves
+      // that onLayoutChanged-driven URL writes don't trigger a parent
+      // re-render that re-mounts the ResponsiveContainer subtree.
+      const ids = await getCompareSessionIds(request)
+      test.skip(
+        ids === null,
+        'Perf probe: requires ≥2 sessions in DB (range=30d). Run `cmc sync` to ingest local sessions.',
+      )
+      if (!ids) return
+
+      await page.goto(`/sessions/compare?a=${ids.a}&b=${ids.b}`)
+      const handle = page.locator('[data-testid="resize-handle-compare"]').first()
+      await expect(handle).toBeVisible({ timeout: 10_000 })
+
+      // Pick the first <svg> inside side-a — that's the SideBarChart's
+      // ResponsiveContainer-rendered recharts root. The Panel emits id={id}
+      // (id-selector matches) — `data-panel` is a boolean marker, not
+      // value-bearing (verified in dist/react-resizable-panels.js line 2000).
+      const svg = page.locator('#side-a svg').first()
+      await expect(svg).toBeVisible({ timeout: 10_000 })
+
+      const marker = await svg.evaluate((el) => {
+        el.setAttribute('data-test-marker', 'before')
+        return el.getAttribute('data-test-marker')
+      })
+      expect(marker).toBe('before')
+
+      // Drag the separator three times — varying direction & magnitude.
+      for (const dx of [100, -50, 30]) {
+        await dragSeparator(page, dx)
+      }
+
+      // Re-locate the same <svg> by its persisted marker. If the chart
+      // re-mounted, the marker would be lost (new <svg> = no attribute).
+      const stillMarked = page
+        .locator('#side-a svg[data-test-marker="before"]')
+        .first()
+      await expect(stillMarked).toBeAttached()
+      const after = await stillMarked.evaluate((el) =>
+        el.getAttribute('data-test-marker'),
+      )
+      expect(after).toBe('before')
     })
   })
 })

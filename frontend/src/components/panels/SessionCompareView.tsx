@@ -693,10 +693,18 @@ function CompareBody({ data }: { data: SessionCompareResponse }) {
           panelIds={['side-a', 'side-b']}
           defaultSizes={[50, 50]}
         >
-          <Panel id="side-a" defaultSize={50} minSize={20}>
+          {/* CRITICAL — pass defaultSize as the string "50%" (NOT the number 50).
+           *  Per react-resizable-panels@4 docs (Panel.resize), numeric values
+           *  are treated as PIXELS. The library's Separator dblclick handler
+           *  calls panel.resize(defaultSize) — passing `50` would resize the
+           *  panel to 50px (collapsed-looking), not 50% of the group. The
+           *  string `"50%"` makes the reset semantics correct: dblclick →
+           *  50%/50% → onLayoutChanged emits values matching the wrapper's
+           *  defaultSizes prop → prune fires → URL drops split_sizes. */}
+          <Panel id="side-a" defaultSize="50%" minSize="20%">
             <CompareSide label="A" side={data.a} />
           </Panel>
-          <Panel id="side-b" defaultSize={50} minSize={20}>
+          <Panel id="side-b" defaultSize="50%" minSize="20%">
             <CompareSide label="B" side={data.b} />
           </Panel>
         </ResizablePanelGroup>
