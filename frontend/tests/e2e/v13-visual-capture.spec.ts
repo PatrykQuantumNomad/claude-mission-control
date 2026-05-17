@@ -654,3 +654,137 @@ test.describe('Phase 27 Plan 09 — tail-route bounded chrome visual capture', (
     }
   }
 })
+
+// ────────────────────────────────────────────────────────────────────────
+// Phase 28 Plan 06 extension: 3 NEW layout-customization surfaces × 3
+// densities × 2 themes = 18 NEW PNGs (Pitfall 10 cap — Phase 27 close
+// shipped 120 cumulative PNGs; adding more than 18 would breach the
+// 138-total close-gate budget for v1.3 milestone).
+//
+// Surfaces (3):
+//   1. layout-default — `/` bare URL (no layout overrides) — establishes
+//      the LAYO-01..02 zero-customization baseline so the operator can
+//      diff it against the customized variant below.
+//   2. layout-customized — `/?hidden_panels=token-usage&panel_order=main:
+//      cache-efficiency,session-outcomes,model-mix,active-sessions,recent-
+//      sessions,session-finalization,dispatcher-pressure,system-pressure,
+//      latency-overhead,tool-success,token-spend,daily-throughput,latency-
+//      percentiles,active-skills` — LAYO-01 hide writes URL + LAYO-02
+//      reorder writes URL in concert; visually proves both customizations
+//      compose on the same render.
+//   3. compare-resized — `/sessions/compare?a=<a>&b=<b>&split_sizes=
+//      compare:70,30` — LAYO-03 split-pane dragged off 50/50; requires
+//      ≥2 sessions in the dev DB. Env-skips otherwise (mirror Plan 27-09
+//      env-skip precedent).
+// Output dir: `.planning/phases/28-layout-customization/visual-check/`
+// ────────────────────────────────────────────────────────────────────────
+
+const PHASE_28_DIR = path.resolve(
+  __dirname,
+  '../../../.planning/phases/28-layout-customization/visual-check',
+)
+
+test.beforeAll(() => {
+  fs.mkdirSync(PHASE_28_DIR, { recursive: true })
+})
+
+// Hidden + reordered URL parameters for the layout-customized surface.
+// `hidden_panels` hides token-usage on /; `panel_order` reorders main
+// column to bring cache-efficiency + session-outcomes to the front. Both
+// params are read by useLayoutState.isHidden + .orderedPanels(MAIN_COLUMN).
+const LAYOUT_CUSTOMIZED_URL =
+  '/?hidden_panels=token-usage&panel_order=main:cache-efficiency,session-outcomes,model-mix,active-sessions,recent-sessions,session-finalization,dispatcher-pressure,system-pressure,latency-overhead,tool-success,token-spend,daily-throughput,latency-percentiles,active-skills'
+
+test.describe('Phase 28 Plan 06 — layout customization visual capture', () => {
+  for (const density of DENSITIES) {
+    for (const theme of THEMES) {
+      // Surface 1: layout-default — / bare URL (no layout overrides).
+      test(`layout-default d=${density} t=${theme}`, async ({ page }) => {
+        await page.addInitScript(
+          ([d, t]) => {
+            window.localStorage.setItem('cmc.density', d as string)
+            window.localStorage.setItem('cmc.theme', t as string)
+          },
+          [density, theme],
+        )
+        await page.goto('/')
+        await page.waitForLoadState('domcontentloaded')
+        await page.waitForTimeout(1500)
+        await page.screenshot({
+          path: path.join(
+            PHASE_28_DIR,
+            `layout-default__${density}__${theme}.png`,
+          ),
+          fullPage: true,
+        })
+      })
+
+      // Surface 2: layout-customized — hidden_panels + panel_order on /
+      // (LAYO-01 + LAYO-02 composed in concert).
+      test(`layout-customized d=${density} t=${theme}`, async ({ page }) => {
+        await page.addInitScript(
+          ([d, t]) => {
+            window.localStorage.setItem('cmc.density', d as string)
+            window.localStorage.setItem('cmc.theme', t as string)
+          },
+          [density, theme],
+        )
+        await page.goto(LAYOUT_CUSTOMIZED_URL)
+        await page.waitForLoadState('domcontentloaded')
+        await page.waitForTimeout(1500)
+        await page.screenshot({
+          path: path.join(
+            PHASE_28_DIR,
+            `layout-customized__${density}__${theme}.png`,
+          ),
+          fullPage: true,
+        })
+      })
+
+      // Surface 3: compare-resized — /sessions/compare with split_sizes=
+      // compare:70,30 (LAYO-03 dragged off 50/50). Env-skips when the dev
+      // DB lacks ≥2 sessions (mirror v13-a11y.spec.ts Phase 28 LAYO-03
+      // scan precedent + Plan 27-09 env-skip pattern).
+      test(`compare-resized d=${density} t=${theme}`, async ({
+        page,
+        request,
+      }) => {
+        await page.addInitScript(
+          ([d, t]) => {
+            window.localStorage.setItem('cmc.density', d as string)
+            window.localStorage.setItem('cmc.theme', t as string)
+          },
+          [density, theme],
+        )
+        const res = await request.get(
+          `${BACKEND}/api/sessions?range=30d&limit=2`,
+        )
+        if (!res.ok()) {
+          test.skip(true, 'Phase 28 visual: backend not reachable')
+          return
+        }
+        const body = (await res.json()) as {
+          items?: Array<{ session_id: string }>
+        }
+        const ids = (body.items ?? []).map((s) => s.session_id)
+        test.skip(
+          ids.length < 2,
+          'Phase 28 visual: compare-resized requires ≥2 sessions (range=30d). Run `cmc sync`.',
+        )
+        if (ids.length < 2) return
+        await page.goto(
+          `/sessions/compare?a=${ids[0]}&b=${ids[1]}&split_sizes=compare:70,30`,
+        )
+        await page.waitForLoadState('domcontentloaded')
+        await page.waitForTimeout(1500)
+        await page.screenshot({
+          path: path.join(
+            PHASE_28_DIR,
+            `compare-resized__${density}__${theme}.png`,
+          ),
+          fullPage: true,
+        })
+      })
+    }
+  }
+})
